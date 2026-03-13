@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&family=Manrope:wght@400;500;600;700;800&display=swap"
         rel="stylesheet"
     >
     <link rel="stylesheet" href="style.css">
@@ -23,7 +23,9 @@
                 <a class="brand" href="#top">F. Sidi Amar</a>
                 <div class="nav-links">
                     <a href="#creation">Creation</a>
+                    <a href="#cv-intelligent">CV intelligent</a>
                     <a href="#possibilites">Possibilites</a>
+                    <a href="#assistant-ia">Assistant IA</a>
                 </div>
             </nav>
 
@@ -41,6 +43,7 @@
                 </p>
                 <div class="hero-actions hero-reveal hero-reveal-delay-6">
                     <a class="button button-primary" href="#contact">Discuter d'un projet</a>
+                    <a class="button button-secondary" href="#cv-intelligent">Ouvrir le CV intelligent</a>
                 </div>
             </div>
         </header>
@@ -64,18 +67,143 @@
 
             <section class="section section-cards" id="services">
                 <div class="cards-grid">
-                    <article class="content-card">
+                    <article class="content-card card">
                         <h3>Sites web</h3>
                         <p>Creation de sites modernes, clairs et adaptes a chaque activite.</p>
                     </article>
-                    <article class="content-card">
+                    <article class="content-card card">
                         <h3>Plateformes digitales</h3>
                         <p>Conception d'interfaces et d'outils pour structurer un projet ou un service.</p>
                     </article>
-                    <article class="content-card">
+                    <article class="content-card card">
                         <h3>Solutions personnalisees</h3>
                         <p>Creations digitales sur mesure selon les besoins et l'identite du projet.</p>
                     </article>
+                </div>
+            </section>
+
+            <section class="section section-cv" id="cv-intelligent">
+                <div class="section-heading">
+                    <p class="section-kicker">CV intelligent</p>
+                    <h2>Generer un CV moderne, organise et personnalisable</h2>
+                </div>
+                <div class="cv-layout">
+                    <form class="cv-form" id="cv-form">
+                        <div class="form-split">
+                            <label class="field">
+                                <span>Nom</span>
+                                <input type="text" name="fullName" placeholder="Votre nom complet" value="Fatima Sidi Amar">
+                            </label>
+                            <label class="field">
+                                <span>Profil</span>
+                                <input
+                                    type="text"
+                                    name="headline"
+                                    placeholder="Intitule ou profil"
+                                    value="Developpeuse web front-end"
+                                >
+                            </label>
+                        </div>
+
+                        <label class="field field-message">
+                            <span>Resume</span>
+                            <textarea
+                                name="summary"
+                                rows="4"
+                                placeholder="Resume du profil"
+                            >Je conçois des interfaces web modernes, claires et orientees experience utilisateur.</textarea>
+                        </label>
+
+                        <label class="field field-message">
+                            <span>Experiences</span>
+                            <textarea
+                                name="experience"
+                                rows="5"
+                                placeholder="Une experience par ligne"
+                            >Conception de sites vitrines modernes
+Structuration de pages et parcours utilisateurs
+Creation d'interfaces web lisibles et professionnelles</textarea>
+                        </label>
+
+                        <div class="form-split">
+                            <label class="field field-message">
+                                <span>Competences</span>
+                                <textarea
+                                    name="skills"
+                                    rows="5"
+                                    placeholder="Une competence par ligne"
+                                >HTML
+CSS
+JavaScript
+React
+UI / UX
+Figma</textarea>
+                            </label>
+                            <label class="field field-message">
+                                <span>Formations</span>
+                                <textarea
+                                    name="education"
+                                    rows="5"
+                                    placeholder="Une formation par ligne"
+                                >Formation developpement web
+Apprentissage design d'interface
+Pratique de la conception front-end</textarea>
+                            </label>
+                        </div>
+
+                        <div class="form-split">
+                            <label class="field">
+                                <span>Police</span>
+                                <select name="fontTheme">
+                                    <option value="manrope">Manrope</option>
+                                    <option value="serif">Libre Baskerville</option>
+                                    <option value="mono">IBM Plex Sans</option>
+                                </select>
+                            </label>
+                            <label class="field">
+                                <span>Style</span>
+                                <select name="layoutTheme">
+                                    <option value="executive">Executive</option>
+                                    <option value="creative">Creative</option>
+                                    <option value="compact">Compact</option>
+                                </select>
+                            </label>
+                        </div>
+
+                        <div class="cv-actions">
+                            <button class="button button-secondary" type="button" id="cv-autofill">Auto-organiser</button>
+                            <button class="button button-primary" type="button" id="cv-print">Exporter PDF</button>
+                        </div>
+                    </form>
+
+                    <aside class="cv-preview-shell">
+                        <div class="cv-preview-toolbar">
+                            <span>Apercu en temps reel</span>
+                            <span class="preview-status" id="cv-status">CV synchronise</span>
+                        </div>
+                        <article class="cv-preview theme-executive font-manrope" id="cv-preview">
+                            <header class="cv-header">
+                                <p class="cv-label">CV intelligent</p>
+                                <h3 id="preview-name">Fatima Sidi Amar</h3>
+                                <p id="preview-headline">Developpeuse web front-end</p>
+                                <p id="preview-summary">Je conçois des interfaces web modernes, claires et orientees experience utilisateur.</p>
+                            </header>
+                            <div class="cv-body">
+                                <section>
+                                    <h4>Experiences</h4>
+                                    <ul id="preview-experience"></ul>
+                                </section>
+                                <section>
+                                    <h4>Competences</h4>
+                                    <ul id="preview-skills"></ul>
+                                </section>
+                                <section>
+                                    <h4>Formations</h4>
+                                    <ul id="preview-education"></ul>
+                                </section>
+                            </div>
+                        </article>
+                    </aside>
                 </div>
             </section>
 
@@ -85,22 +213,44 @@
                     <h2>Des solutions ouvertes a plusieurs types de projets</h2>
                 </div>
                 <div class="demo-grid">
-                    <article class="demo-card">
+                    <article class="demo-card card interactive-card" data-target="#creation">
                         <span class="demo-label">Interfaces modernes</span>
                         <p>Des interfaces visuelles claires, professionnelles et contemporaines.</p>
+                        <button class="inline-link" type="button">Voir la creation digitale</button>
                     </article>
-                    <article class="demo-card">
-                        <span class="demo-label">Plateformes interactives</span>
-                        <p>Des espaces web dynamiques pour structurer et presenter des services ou contenus.</p>
+                    <article class="demo-card card interactive-card" data-target="#cv-intelligent">
+                        <span class="demo-label">CV intelligent</span>
+                        <p>Un outil de creation de CV avec apercu en temps reel, styles et export PDF.</p>
+                        <button class="inline-link" type="button">Explorer le module CV</button>
                     </article>
-                    <article class="demo-card">
-                        <span class="demo-label">Outils intelligents</span>
-                        <p>Des outils utiles pour fluidifier les usages et enrichir les parcours.</p>
-                    </article>
-                    <article class="demo-card">
+                    <article class="demo-card card interactive-card" data-target="#assistant-ia">
                         <span class="demo-label">Automatisation</span>
-                        <p>Automatisation et integration digitale pour aller plus loin dans les solutions proposees.</p>
+                        <p>Des logiques d'organisation, de remplissage et de structuration pour gagner du temps.</p>
+                        <button class="inline-link" type="button">Parler a l'assistant IA</button>
                     </article>
+                    <article class="demo-card card interactive-card" data-target="#assistant-ia">
+                        <span class="demo-label">Data & IA</span>
+                        <p>Un assistant interactif pour orienter les visiteurs et presenter des solutions digitales.</p>
+                        <button class="inline-link" type="button">Voir les automatisations</button>
+                    </article>
+                </div>
+            </section>
+
+            <section class="section section-assistant" id="assistant-ia">
+                <div class="section-heading">
+                    <p class="section-kicker">Assistant IA</p>
+                    <h2>Un assistant interactif pour orienter les visiteurs</h2>
+                </div>
+                <div class="assistant-panel">
+                    <p>
+                        Bonjour, comment puis-je vous aider aujourd'hui ? L'assistant peut orienter vers la creation
+                        d'un CV, suggérer des ameliorations ou presenter les possibilites de plateforme digitale.
+                    </p>
+                    <div class="assistant-suggestions">
+                        <button class="suggestion-chip" type="button" data-prompt="Aide-moi a creer un CV">Creer un CV</button>
+                        <button class="suggestion-chip" type="button" data-prompt="Quels services proposes-tu ?">Services digitaux</button>
+                        <button class="suggestion-chip" type="button" data-prompt="Comment automatiser un parcours ?">Automatisation</button>
+                    </div>
                 </div>
             </section>
 
@@ -150,6 +300,33 @@
             <p>Creation digitale &amp; interfaces web</p>
         </footer>
     </div>
+
+    <button class="assistant-toggle" id="assistant-toggle" type="button" aria-expanded="false">
+        Assistant IA
+    </button>
+    <section class="assistant-chat" id="assistant-chat" aria-label="Assistant IA">
+        <div class="assistant-chat-header">
+            <div>
+                <strong>Assistant IA</strong>
+                <p>Bonjour, comment puis-je vous aider aujourd'hui ?</p>
+            </div>
+            <button class="assistant-close" id="assistant-close" type="button" aria-label="Fermer">×</button>
+        </div>
+        <div class="assistant-messages" id="assistant-messages">
+            <article class="assistant-bubble assistant-bubble-bot">
+                Bonjour, comment puis-je vous aider aujourd'hui ?
+            </article>
+        </div>
+        <div class="assistant-quick-actions">
+            <button class="suggestion-chip" type="button" data-prompt="Je veux creer un CV">CV</button>
+            <button class="suggestion-chip" type="button" data-prompt="Je cherche une plateforme digitale">Plateforme</button>
+            <button class="suggestion-chip" type="button" data-prompt="Je veux une solution IA">IA</button>
+        </div>
+        <form class="assistant-input-row" id="assistant-form">
+            <input id="assistant-input" type="text" placeholder="Ecrivez votre besoin...">
+            <button class="button button-primary" type="submit">Envoyer</button>
+        </form>
+    </section>
 
     <script src="script.js"></script>
 </body>
