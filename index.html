@@ -22,10 +22,11 @@
             <nav class="topbar" aria-label="Navigation principale">
                 <a class="brand" href="#top">F. Sidi Amar</a>
                 <div class="nav-links">
+                    <a href="#top">Accueil</a>
                     <a href="#creation">Creation</a>
                     <a href="#cv-intelligent">CV intelligent</a>
                     <a href="#possibilites">Possibilites</a>
-                    <a href="#assistant-ia">Assistant IA</a>
+                    <a href="#contact">Contact</a>
                 </div>
             </nav>
 
@@ -49,7 +50,7 @@
         </header>
 
         <main>
-            <section class="section section-profile" id="creation">
+            <section class="section section-profile reveal-section" id="creation">
                 <div class="section-heading">
                     <p class="section-kicker">Creation digitale</p>
                     <h2>Des solutions web modernes, claires et pensees sur mesure</h2>
@@ -65,7 +66,7 @@
                 </div>
             </section>
 
-            <section class="section section-cards" id="services">
+            <section class="section section-cards reveal-section" id="services">
                 <div class="cards-grid">
                     <article class="content-card card">
                         <h3>Sites web</h3>
@@ -82,7 +83,7 @@
                 </div>
             </section>
 
-            <section class="section section-cv" id="cv-intelligent">
+            <section class="section section-cv reveal-section" id="cv-intelligent">
                 <div class="section-heading">
                     <p class="section-kicker">CV intelligent</p>
                     <h2>Generer un CV moderne, organise et personnalisable</h2>
@@ -153,6 +154,26 @@ Pratique de la conception front-end</textarea>
 
                         <div class="form-split">
                             <label class="field">
+                                <span>Type de CV</span>
+                                <select name="cvMode">
+                                    <option value="classic">CV classique</option>
+                                    <option value="design">CV design</option>
+                                    <option value="ats">CV ATS</option>
+                                    <option value="web">CV web interactif</option>
+                                </select>
+                            </label>
+                            <label class="field">
+                                <span>Poste vise</span>
+                                <select name="jobTarget">
+                                    <option value="developpeur web">Developpeur web</option>
+                                    <option value="marketing">Marketing</option>
+                                    <option value="relation client">Relation client</option>
+                                </select>
+                            </label>
+                        </div>
+
+                        <div class="form-split">
+                            <label class="field">
                                 <span>Police</span>
                                 <select name="fontTheme">
                                     <option value="manrope">Manrope</option>
@@ -170,9 +191,58 @@ Pratique de la conception front-end</textarea>
                             </label>
                         </div>
 
+                        <div class="cv-toolbar">
+                            <label class="field">
+                                <span>Taille</span>
+                                <select name="fontSize">
+                                    <option value="normal">Normale</option>
+                                    <option value="large">Grande</option>
+                                    <option value="compact">Compacte</option>
+                                </select>
+                            </label>
+                            <label class="field">
+                                <span>Palette</span>
+                                <select name="colorTheme">
+                                    <option value="indigo">Indigo moderne</option>
+                                    <option value="emerald">Emerald minimal</option>
+                                    <option value="rose">Rose editorial</option>
+                                    <option value="graphite">Graphite premium</option>
+                                </select>
+                            </label>
+                            <label class="field">
+                                <span>Conception</span>
+                                <select name="designMood">
+                                    <option value="clean">Clean</option>
+                                    <option value="editorial">Editorial</option>
+                                    <option value="startup">Startup</option>
+                                    <option value="luxury">Luxury</option>
+                                </select>
+                            </label>
+                            <label class="tool-toggle">
+                                <input type="checkbox" name="isBold">
+                                <span>Gras</span>
+                            </label>
+                            <label class="tool-toggle">
+                                <input type="checkbox" name="isItalic">
+                                <span>Italique</span>
+                            </label>
+                            <label class="tool-toggle">
+                                <input type="checkbox" name="isUnderline">
+                                <span>Souligne</span>
+                            </label>
+                        </div>
+
+                        <label class="field">
+                            <span>Importer mon ancien CV</span>
+                            <input type="file" id="cv-import" accept=".txt,.md,.text">
+                        </label>
+
                         <div class="cv-actions">
                             <button class="button button-secondary" type="button" id="cv-autofill">Auto-organiser</button>
+                            <button class="button button-secondary" type="button" id="cv-improve">Ameliorer mon CV</button>
                             <button class="button button-primary" type="button" id="cv-print">Exporter PDF</button>
+                            <button class="button button-secondary" type="button" id="cv-export-word">Exporter Word</button>
+                            <button class="button button-secondary" type="button" id="cv-export-web">Version web</button>
                         </div>
                     </form>
 
@@ -180,6 +250,20 @@ Pratique de la conception front-end</textarea>
                         <div class="cv-preview-toolbar">
                             <span>Apercu en temps reel</span>
                             <span class="preview-status" id="cv-status">CV synchronise</span>
+                        </div>
+                        <div class="cv-analysis-panel">
+                            <div class="ats-score">
+                                <span>Score ATS</span>
+                                <strong id="ats-score-value">82%</strong>
+                            </div>
+                            <div class="analysis-block">
+                                <h4>Analyse de votre CV</h4>
+                                <ul id="cv-analysis-list"></ul>
+                            </div>
+                            <div class="analysis-block">
+                                <h4>Suggestions</h4>
+                                <ul id="cv-suggestions-list"></ul>
+                            </div>
                         </div>
                         <article class="cv-preview theme-executive font-manrope" id="cv-preview">
                             <header class="cv-header">
@@ -207,7 +291,7 @@ Pratique de la conception front-end</textarea>
                 </div>
             </section>
 
-            <section class="section" id="possibilites">
+            <section class="section reveal-section" id="possibilites">
                 <div class="section-heading">
                     <p class="section-kicker">Possibilites</p>
                     <h2>Des solutions ouvertes a plusieurs types de projets</h2>
@@ -236,7 +320,7 @@ Pratique de la conception front-end</textarea>
                 </div>
             </section>
 
-            <section class="section section-assistant" id="assistant-ia">
+            <section class="section section-assistant reveal-section" id="assistant-ia">
                 <div class="section-heading">
                     <p class="section-kicker">Assistant IA</p>
                     <h2>Un assistant interactif pour orienter les visiteurs</h2>
@@ -254,7 +338,7 @@ Pratique de la conception front-end</textarea>
                 </div>
             </section>
 
-            <section class="section section-contact" id="contact">
+            <section class="section section-contact reveal-section" id="contact">
                 <div class="section-heading">
                     <h2>Discuter d'un projet</h2>
                 </div>

@@ -2,10 +2,18 @@ const navLinks = document.querySelectorAll('.nav-links a');
 const sections = [...document.querySelectorAll('main section[id]')];
 const contactForm = document.querySelector('#contact-form');
 const cards = document.querySelectorAll('.card');
+const revealSections = document.querySelectorAll('.reveal-section');
 const cvForm = document.querySelector('#cv-form');
 const cvPrintButton = document.querySelector('#cv-print');
 const cvAutofillButton = document.querySelector('#cv-autofill');
+const cvImproveButton = document.querySelector('#cv-improve');
+const cvImportInput = document.querySelector('#cv-import');
+const cvExportWordButton = document.querySelector('#cv-export-word');
+const cvExportWebButton = document.querySelector('#cv-export-web');
 const cvStatus = document.querySelector('#cv-status');
+const atsScoreValue = document.querySelector('#ats-score-value');
+const cvAnalysisList = document.querySelector('#cv-analysis-list');
+const cvSuggestionsList = document.querySelector('#cv-suggestions-list');
 const interactiveCards = document.querySelectorAll('.interactive-card');
 const assistantToggle = document.querySelector('#assistant-toggle');
 const assistantClose = document.querySelector('#assistant-close');
@@ -53,6 +61,23 @@ const splitLines = (value) =>
 const toTitleCase = (value) =>
     value.replace(/\w\S*/g, (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
 
+const downloadFile = (filename, content, type) => {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+};
+
+const cvModeThemeMap = {
+    classic: 'executive',
+    design: 'creative',
+    ats: 'ats',
+    web: 'web',
+};
+
 const fillList = (target, items) => {
     if (!target) {
         return;
@@ -83,15 +108,130 @@ const updateCvPreview = () => {
     fillList(previewNodes.skills, splitLines(values.skills || ''));
     fillList(previewNodes.education, splitLines(values.education || ''));
 
-    previewNodes.preview.classList.remove('theme-executive', 'theme-creative', 'theme-compact');
-    previewNodes.preview.classList.add(`theme-${values.layoutTheme || 'executive'}`);
+    previewNodes.preview.classList.remove('theme-executive', 'theme-creative', 'theme-compact', 'theme-ats', 'theme-web');
+    previewNodes.preview.classList.add(`theme-${cvModeThemeMap[values.cvMode] || 'executive'}`);
 
     previewNodes.preview.classList.remove('font-manrope', 'font-serif', 'font-mono');
     previewNodes.preview.classList.add(`font-${values.fontTheme || 'manrope'}`);
 
+    previewNodes.preview.classList.remove(
+        'size-normal',
+        'size-large',
+        'size-compact',
+        'is-bold',
+        'is-italic',
+        'is-underline',
+        'palette-indigo',
+        'palette-emerald',
+        'palette-rose',
+        'palette-graphite',
+        'mood-clean',
+        'mood-editorial',
+        'mood-startup',
+        'mood-luxury'
+    );
+    previewNodes.preview.classList.add(`size-${values.fontSize || 'normal'}`);
+    previewNodes.preview.classList.add(`palette-${values.colorTheme || 'indigo'}`);
+    previewNodes.preview.classList.add(`mood-${values.designMood || 'clean'}`);
+
+    if (values.isBold) {
+        previewNodes.preview.classList.add('is-bold');
+    }
+
+    if (values.isItalic) {
+        previewNodes.preview.classList.add('is-italic');
+    }
+
+    if (values.isUnderline) {
+        previewNodes.preview.classList.add('is-underline');
+    }
+
     if (cvStatus) {
         cvStatus.textContent = 'CV synchronise';
     }
+
+    analyzeCv(values);
+};
+
+const analyzeCv = (values) => {
+    const summary = (values.summary || '').trim();
+    const experiences = splitLines(values.experience || '');
+    const skills = splitLines(values.skills || '');
+    const education = splitLines(values.education || '');
+    const jobTarget = (values.jobTarget || '').toLowerCase();
+
+    let score = 58;
+    const analysis = [];
+    const suggestions = [];
+
+    if (summary.length > 70) {
+        score += 10;
+        analysis.push('Bonne structure de profil');
+    } else {
+        suggestions.push('Clarifier l objectif professionnel avec un resume plus precis');
+    }
+
+    if (skills.length >= 4) {
+        score += 10;
+        analysis.push('Competences visibles');
+    } else {
+        suggestions.push('Ajouter davantage de competences cles');
+    }
+
+    if (experiences.length >= 3) {
+        score += 8;
+        analysis.push('Experiences bien identifiees');
+    } else {
+        suggestions.push('Developper les experiences avec plus de contexte');
+    }
+
+    if (education.length > 0) {
+        score += 5;
+        analysis.push('Formation renseignee');
+    } else {
+        suggestions.push('Ajouter une section formation ou certification');
+    }
+
+    const measurable = /%|\d|ans|clients|projets|utilisateurs/i.test(values.experience || '');
+
+    if (measurable) {
+        score += 7;
+        analysis.push('Des resultats mesurables sont presents');
+    } else {
+        suggestions.push('Ajouter des resultats mesurables dans les experiences');
+    }
+
+    const keywords = ['javascript', 'react', 'interface', 'ux', 'front-end', 'web', jobTarget];
+    const content = `${values.headline || ''} ${values.summary || ''} ${values.skills || ''}`.toLowerCase();
+    const matchedKeywords = keywords.filter(Boolean).filter((keyword) => content.includes(keyword));
+
+    if (matchedKeywords.length >= 3) {
+        score += 10;
+        analysis.push('Bon alignement de mots cles pour les recruteurs');
+    } else {
+        suggestions.push('Ajouter des mots cles alignes avec le poste vise');
+    }
+
+    if ((values.cvMode || '') === 'ats') {
+        score += 8;
+        analysis.push('Format ATS active pour une lecture recruteur optimisee');
+    } else {
+        suggestions.push('Essayer le mode CV ATS pour un format plus compatible');
+    }
+
+    score = Math.max(40, Math.min(98, score));
+
+    if (atsScoreValue) {
+        atsScoreValue.textContent = `${score}%`;
+    }
+
+    fillList(cvAnalysisList, analysis.length ? analysis.map((item) => `✔ ${item}`) : ['✔ Bonne base generale']);
+    fillList(
+        cvSuggestionsList,
+        suggestions.length
+            ? suggestions.map((item) => `- ${item}`)
+            : ['- Le CV est deja bien structure, vous pouvez maintenant l adapter au poste vise']
+    );
 };
 
 const autoOrganizeCv = () => {
@@ -117,6 +257,108 @@ const autoOrganizeCv = () => {
     if (cvStatus) {
         cvStatus.textContent = 'Sections auto-organisees';
     }
+};
+
+const improveCv = () => {
+    if (!cvForm) {
+        return;
+    }
+
+    const summaryField = cvForm.elements.summary;
+    const headlineField = cvForm.elements.headline;
+    const targetField = cvForm.elements.jobTarget;
+    const experienceField = cvForm.elements.experience;
+
+    if (headlineField?.value && targetField?.value) {
+        headlineField.value = `${toTitleCase(headlineField.value.trim())} | ${toTitleCase(targetField.value)}`;
+    }
+
+    if (summaryField?.value) {
+        summaryField.value = `Profil ${targetField?.value || 'professionnel'} oriente resultats. ${summaryField.value.trim()} Je cree des interfaces claires, performantes et adaptees aux attentes des recruteurs et utilisateurs.`;
+    }
+
+    if (experienceField?.value) {
+        experienceField.value = splitLines(experienceField.value)
+            .map((line) => `${toTitleCase(line)} avec une approche structuree et orientee impact`)
+            .join('\n');
+    }
+
+    updateCvPreview();
+
+    if (cvStatus) {
+        cvStatus.textContent = 'CV ameliore pour recruteurs';
+    }
+};
+
+const parseImportedCv = (text) => {
+    if (!cvForm || !text) {
+        return;
+    }
+
+    const lines = splitLines(text);
+    const blocks = text.split(/\n\s*\n/).map((block) => block.trim()).filter(Boolean);
+    const [firstLine = '', secondLine = ''] = lines;
+
+    if (firstLine) {
+        cvForm.elements.fullName.value = firstLine;
+    }
+
+    if (secondLine) {
+        cvForm.elements.headline.value = secondLine;
+    }
+
+    if (blocks[1]) {
+        cvForm.elements.summary.value = blocks[1].replace(/\n/g, ' ');
+    }
+
+    const skillLines = lines.filter((line) => /html|css|javascript|react|ux|figma|git|web/i.test(line));
+    if (skillLines.length) {
+        cvForm.elements.skills.value = skillLines.join('\n');
+    }
+
+    const experienceLines = lines.filter((line) => /experience|mission|projet|developp|interface|site/i.test(line));
+    if (experienceLines.length) {
+        cvForm.elements.experience.value = experienceLines.join('\n');
+    }
+
+    const educationLines = lines.filter((line) => /formation|ecole|certif|diplome|apprentissage/i.test(line));
+    if (educationLines.length) {
+        cvForm.elements.education.value = educationLines.join('\n');
+    }
+
+    updateCvPreview();
+
+    if (cvStatus) {
+        cvStatus.textContent = 'CV importe et analyse';
+    }
+};
+
+const exportWord = () => {
+    const content = previewNodes.preview?.innerText || '';
+    downloadFile('cv-intelligent.doc', content, 'application/msword');
+};
+
+const exportWebVersion = () => {
+    const html = `
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CV Web</title>
+  <style>
+    body { font-family: Manrope, sans-serif; margin: 40px; color: #171923; }
+    .cv { max-width: 860px; margin: 0 auto; }
+    h1 { margin-bottom: 8px; }
+    h2 { margin-top: 28px; font-size: 14px; text-transform: uppercase; letter-spacing: .08em; color: #2f3f7f; }
+    ul { line-height: 1.7; }
+  </style>
+</head>
+<body>
+  <article class="cv">${previewNodes.preview?.innerHTML || ''}</article>
+</body>
+</html>`;
+    downloadFile('cv-web.html', html, 'text/html');
 };
 
 const openAssistant = (prompt = '') => {
@@ -232,6 +474,22 @@ if (cards.length > 0) {
     cards.forEach((card) => observer.observe(card));
 }
 
+if (revealSections.length > 0) {
+    const sectionObserver = new IntersectionObserver(
+        (entries) => {
+            entries.forEach((entry) => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('is-visible');
+                    sectionObserver.unobserve(entry.target);
+                }
+            });
+        },
+        { threshold: 0.14 }
+    );
+
+    revealSections.forEach((section) => sectionObserver.observe(section));
+}
+
 if (cvForm) {
     cvForm.addEventListener('input', updateCvPreview);
     cvForm.addEventListener('change', updateCvPreview);
@@ -241,11 +499,36 @@ if (cvAutofillButton) {
     cvAutofillButton.addEventListener('click', autoOrganizeCv);
 }
 
+if (cvImproveButton) {
+    cvImproveButton.addEventListener('click', improveCv);
+}
+
 if (cvPrintButton) {
     cvPrintButton.addEventListener('click', () => {
         document.body.classList.add('print-cv');
         window.print();
         window.setTimeout(() => document.body.classList.remove('print-cv'), 300);
+    });
+}
+
+if (cvExportWordButton) {
+    cvExportWordButton.addEventListener('click', exportWord);
+}
+
+if (cvExportWebButton) {
+    cvExportWebButton.addEventListener('click', exportWebVersion);
+}
+
+if (cvImportInput) {
+    cvImportInput.addEventListener('change', async (event) => {
+        const file = event.target.files?.[0];
+
+        if (!file) {
+            return;
+        }
+
+        const text = await file.text();
+        parseImportedCv(text);
     });
 }
 
