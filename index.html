@@ -11,7 +11,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&family=Manrope:wght@400;500;600;700;800&display=swap"
+        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Lato:wght@400;700&family=Libre+Baskerville:wght@400;700&family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&family=Roboto:wght@400;500;700&display=swap"
         rel="stylesheet"
     >
     <link rel="stylesheet" href="style.css">
@@ -228,17 +228,22 @@ Pratique de la conception front-end</textarea>
                             <label class="field">
                                 <span>Police</span>
                                 <select name="fontTheme">
+                                    <option value="inter">Inter</option>
                                     <option value="manrope">Manrope</option>
+                                    <option value="roboto">Roboto</option>
+                                    <option value="lato">Lato</option>
                                     <option value="serif">Libre Baskerville</option>
+                                    <option value="playfair">Playfair Display</option>
                                     <option value="mono">IBM Plex Sans</option>
                                 </select>
                             </label>
                             <label class="field">
-                                <span>Style</span>
+                                <span>Template</span>
                                 <select name="layoutTheme">
+                                    <option value="classic">Classique</option>
+                                    <option value="modern">Moderne</option>
                                     <option value="executive">Executive</option>
-                                    <option value="creative">Creative</option>
-                                    <option value="compact">Compact</option>
+                                    <option value="minimal">Minimal</option>
                                 </select>
                             </label>
                         </div>
@@ -270,17 +275,37 @@ Pratique de la conception front-end</textarea>
                                     <option value="luxury">Luxury</option>
                                 </select>
                             </label>
+                            <label class="field">
+                                <span>Alignement</span>
+                                <select name="textAlign">
+                                    <option value="left">Gauche</option>
+                                    <option value="center">Centre</option>
+                                    <option value="right">Droite</option>
+                                </select>
+                            </label>
+                            <label class="field">
+                                <span>Espacement</span>
+                                <select name="lineSpacing">
+                                    <option value="normal">Normal</option>
+                                    <option value="airy">Aere</option>
+                                    <option value="tight">Serre</option>
+                                </select>
+                            </label>
+                            <label class="field field-color">
+                                <span>Couleur</span>
+                                <input type="color" name="accentColor" value="#2f3f7f">
+                            </label>
                             <label class="tool-toggle">
                                 <input type="checkbox" name="isBold">
-                                <span>Gras</span>
+                                <span>B</span>
                             </label>
                             <label class="tool-toggle">
                                 <input type="checkbox" name="isItalic">
-                                <span>Italique</span>
+                                <span>I</span>
                             </label>
                             <label class="tool-toggle">
                                 <input type="checkbox" name="isUnderline">
-                                <span>Souligne</span>
+                                <span>U</span>
                             </label>
                         </div>
 
@@ -296,6 +321,7 @@ Pratique de la conception front-end</textarea>
                         <div class="cv-actions">
                             <button class="button button-secondary" type="button" id="cv-autofill">Auto-organiser</button>
                             <button class="button button-secondary" type="button" id="cv-improve">Ameliorer mon CV</button>
+                            <button class="button button-secondary" type="button" id="cv-ai-improve">Assistant IA</button>
                             <button class="button button-primary" type="button" id="cv-print">Exporter PDF</button>
                             <button class="button button-secondary" type="button" id="cv-export-word">Exporter Word</button>
                             <button class="button button-secondary" type="button" id="cv-export-web">Version web</button>
@@ -305,8 +331,23 @@ Pratique de la conception front-end</textarea>
 
                     <aside class="cv-preview-shell">
                         <div class="cv-preview-toolbar">
-                            <span>Apercu en temps reel</span>
-                            <span class="preview-status" id="cv-status">CV synchronise</span>
+                            <div class="preview-toolbar-group">
+                                <span>Apercu en temps reel</span>
+                                <span class="preview-status" id="cv-status">CV synchronise</span>
+                            </div>
+                            <div class="preview-toolbar-group">
+                                <label class="preview-zoom-control">
+                                    <span>Zoom</span>
+                                    <select id="cv-zoom" name="zoomLevel">
+                                        <option value="0.5">50%</option>
+                                        <option value="0.75" selected>75%</option>
+                                        <option value="1">100%</option>
+                                    </select>
+                                </label>
+                                <button class="preview-nav" type="button" id="cv-prev-page" aria-label="Page precedente">‹</button>
+                                <span class="preview-page-indicator" id="cv-page-indicator">Page 1 / 1</span>
+                                <button class="preview-nav" type="button" id="cv-next-page" aria-label="Page suivante">›</button>
+                            </div>
                         </div>
                         <div class="cv-analysis-panel">
                             <div class="ats-score">
@@ -322,28 +363,32 @@ Pratique de la conception front-end</textarea>
                                 <ul id="cv-suggestions-list"></ul>
                             </div>
                         </div>
-                        <article class="cv-preview theme-executive font-manrope" id="cv-preview">
-                            <header class="cv-header">
-                                <p class="cv-label">CV intelligent</p>
-                                <h3 id="preview-name">Fatima Sidi Amar</h3>
-                                <p id="preview-headline">Developpeuse web front-end</p>
-                                <p id="preview-summary">Je conçois des interfaces web modernes, claires et orientees experience utilisateur.</p>
-                            </header>
-                            <div class="cv-body">
-                                <section>
-                                    <h4>Experiences</h4>
-                                    <ul id="preview-experience"></ul>
-                                </section>
-                                <section>
-                                    <h4>Competences</h4>
-                                    <ul id="preview-skills"></ul>
-                                </section>
-                                <section>
-                                    <h4>Formations</h4>
-                                    <ul id="preview-education"></ul>
-                                </section>
+                        <div class="cv-preview-viewport" id="cv-preview-viewport">
+                            <div class="cv-preview-stage" id="cv-preview-stage">
+                                <article class="cv-preview theme-executive font-manrope template-classic" id="cv-preview">
+                                    <header class="cv-header">
+                                        <p class="cv-label">CV intelligent</p>
+                                        <h3 id="preview-name">Fatima Sidi Amar</h3>
+                                        <p id="preview-headline">Developpeuse web front-end</p>
+                                        <p id="preview-summary">Je conçois des interfaces web modernes, claires et orientees experience utilisateur.</p>
+                                    </header>
+                                    <div class="cv-body">
+                                        <section>
+                                            <h4>Experiences</h4>
+                                            <ul id="preview-experience"></ul>
+                                        </section>
+                                        <section>
+                                            <h4>Competences</h4>
+                                            <ul id="preview-skills"></ul>
+                                        </section>
+                                        <section>
+                                            <h4>Formations</h4>
+                                            <ul id="preview-education"></ul>
+                                        </section>
+                                    </div>
+                                </article>
                             </div>
-                        </article>
+                        </div>
                     </aside>
                 </div>
             </section>

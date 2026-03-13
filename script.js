@@ -11,10 +11,17 @@ const cvImportInput = document.querySelector('#cv-import');
 const cvExportWordButton = document.querySelector('#cv-export-word');
 const cvExportWebButton = document.querySelector('#cv-export-web');
 const cvEmailButton = document.querySelector('#cv-email');
+const cvAiImproveButton = document.querySelector('#cv-ai-improve');
 const cvStatus = document.querySelector('#cv-status');
 const atsScoreValue = document.querySelector('#ats-score-value');
 const cvAnalysisList = document.querySelector('#cv-analysis-list');
 const cvSuggestionsList = document.querySelector('#cv-suggestions-list');
+const cvZoomSelect = document.querySelector('#cv-zoom');
+const cvPreviewViewport = document.querySelector('#cv-preview-viewport');
+const cvPreviewStage = document.querySelector('#cv-preview-stage');
+const cvPrevPageButton = document.querySelector('#cv-prev-page');
+const cvNextPageButton = document.querySelector('#cv-next-page');
+const cvPageIndicator = document.querySelector('#cv-page-indicator');
 const interactiveCards = document.querySelectorAll('.interactive-card');
 const assistantToggle = document.querySelector('#assistant-toggle');
 const assistantClose = document.querySelector('#assistant-close');
@@ -28,6 +35,7 @@ const PDFJS_MODULE_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/legacy
 const PDFJS_WORKER_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/legacy/build/pdf.worker.min.mjs';
 
 let pdfjsLoader;
+let currentPreviewPage = 1;
 
 const previewNodes = {
     fullName: document.querySelector('#preview-name'),
@@ -37,6 +45,13 @@ const previewNodes = {
     skills: document.querySelector('#preview-skills'),
     education: document.querySelector('#preview-education'),
     preview: document.querySelector('#cv-preview'),
+};
+
+const templateThemeMap = {
+    classic: 'template-classic',
+    modern: 'template-modern',
+    executive: 'template-executive',
+    minimal: 'template-minimal',
 };
 
 const assistantAnswers = [
@@ -199,6 +214,57 @@ const updateCvPageMode = () => {
         Math.ceil(((values.summary || '').trim().length || 0) / 110);
 
     previewNodes.preview.classList.toggle('is-two-page', totalLines > 20);
+    updatePreviewViewport();
+};
+
+const getZoomLevel = () => Number(cvZoomSelect?.value || 0.75);
+
+const getPreviewPageCount = () => (previewNodes.preview?.classList.contains('is-two-page') ? 2 : 1);
+
+const updatePreviewPagination = () => {
+    const totalPages = getPreviewPageCount();
+    currentPreviewPage = Math.min(Math.max(currentPreviewPage, 1), totalPages);
+
+    if (cvPageIndicator) {
+        cvPageIndicator.textContent = `Page ${currentPreviewPage} / ${totalPages}`;
+    }
+
+    if (cvPrevPageButton) {
+        cvPrevPageButton.disabled = currentPreviewPage <= 1;
+    }
+
+    if (cvNextPageButton) {
+        cvNextPageButton.disabled = currentPreviewPage >= totalPages;
+    }
+};
+
+const updatePreviewViewport = () => {
+    if (!previewNodes.preview || !cvPreviewStage) {
+        return;
+    }
+
+    const zoom = getZoomLevel();
+    const previewHeight = previewNodes.preview.scrollHeight;
+    const pageGap = getPreviewPageCount() > 1 ? 18 * 3.78 : 0;
+
+    previewNodes.preview.style.transform = `scale(${zoom})`;
+    cvPreviewStage.style.height = `${previewHeight * zoom + pageGap + 24}px`;
+    updatePreviewPagination();
+};
+
+const scrollToPreviewPage = (page) => {
+    if (!cvPreviewViewport || !previewNodes.preview) {
+        return;
+    }
+
+    const totalPages = getPreviewPageCount();
+    currentPreviewPage = Math.min(Math.max(page, 1), totalPages);
+    const zoom = getZoomLevel();
+    const pageHeight = previewNodes.preview.scrollHeight * zoom;
+    const targetTop = currentPreviewPage === 1 ? 0 : pageHeight * 0.88;
+
+    cvPreviewViewport.scrollTo({ top: targetTop, behavior: 'smooth' });
+    updatePreviewPagination();
 };
 
 const cvModeThemeMap = {
@@ -242,6 +308,7 @@ const updateCvPreview = () => {
     previewNodes.preview.classList.add(`theme-${cvModeThemeMap[values.cvMode] || 'executive'}`);
 
     previewNodes.preview.classList.remove('font-manrope', 'font-serif', 'font-mono');
+    previewNodes.preview.classList.remove('font-inter', 'font-roboto', 'font-lato', 'font-playfair');
     previewNodes.preview.classList.add(`font-${values.fontTheme || 'manrope'}`);
 
     previewNodes.preview.classList.remove(
@@ -258,11 +325,29 @@ const updateCvPreview = () => {
         'mood-clean',
         'mood-editorial',
         'mood-startup',
-        'mood-luxury'
+        'mood-luxury',
+        'align-left',
+        'align-center',
+        'align-right',
+        'spacing-normal',
+        'spacing-airy',
+        'spacing-tight',
+        'template-classic',
+        'template-modern',
+        'template-executive',
+        'template-minimal'
     );
     previewNodes.preview.classList.add(`size-${values.fontSize || 'normal'}`);
     previewNodes.preview.classList.add(`palette-${values.colorTheme || 'indigo'}`);
     previewNodes.preview.classList.add(`mood-${values.designMood || 'clean'}`);
+    previewNodes.preview.classList.add(`align-${values.textAlign || 'left'}`);
+    previewNodes.preview.classList.add(`spacing-${values.lineSpacing || 'normal'}`);
+    previewNodes.preview.classList.add(templateThemeMap[values.layoutTheme] || 'template-classic');
+
+    if (values.accentColor) {
+        previewNodes.preview.style.setProperty('--cv-accent', values.accentColor);
+        previewNodes.preview.style.setProperty('--cv-soft', `${values.accentColor}14`);
+    }
 
     if (values.isBold) {
         previewNodes.preview.classList.add('is-bold');
@@ -669,6 +754,15 @@ if (cvImproveButton) {
     cvImproveButton.addEventListener('click', improveCv);
 }
 
+if (cvAiImproveButton) {
+    cvAiImproveButton.addEventListener('click', () => {
+        improveCv();
+        openAssistant('Ameliore mon CV');
+        appendAssistantMessage('Ameliore mon CV', 'user');
+        appendAssistantMessage("J'ai reformule le profil, clarifie le titre et renforce la structure pour une lecture recruteur plus nette.", 'bot');
+    });
+}
+
 if (cvPrintButton) {
     cvPrintButton.addEventListener('click', () => {
         document.body.classList.add('print-cv');
@@ -690,6 +784,38 @@ if (cvEmailButton) {
         const subject = encodeURIComponent('CV intelligent - candidature');
         const body = encodeURIComponent(previewNodes.preview?.innerText || '');
         window.location.href = `mailto:purvelours@proton.me?subject=${subject}&body=${body}`;
+    });
+}
+
+if (cvZoomSelect) {
+    cvZoomSelect.addEventListener('change', () => {
+        updatePreviewViewport();
+        scrollToPreviewPage(currentPreviewPage);
+    });
+}
+
+if (cvPrevPageButton) {
+    cvPrevPageButton.addEventListener('click', () => {
+        scrollToPreviewPage(currentPreviewPage - 1);
+    });
+}
+
+if (cvNextPageButton) {
+    cvNextPageButton.addEventListener('click', () => {
+        scrollToPreviewPage(currentPreviewPage + 1);
+    });
+}
+
+if (cvPreviewViewport) {
+    cvPreviewViewport.addEventListener('scroll', () => {
+        if (!previewNodes.preview) {
+            return;
+        }
+
+        const zoom = getZoomLevel();
+        const switchPoint = (previewNodes.preview.scrollHeight * zoom) * 0.55;
+        currentPreviewPage = cvPreviewViewport.scrollTop >= switchPoint ? 2 : 1;
+        updatePreviewPagination();
     });
 }
 
