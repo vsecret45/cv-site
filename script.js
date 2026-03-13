@@ -52,6 +52,7 @@ const assistantInput = document.querySelector('#assistant-input');
 const assistantMessages = document.querySelector('#assistant-messages');
 const suggestionChips = document.querySelectorAll('.suggestion-chip');
 const expandableCards = document.querySelectorAll('[data-expandable]');
+const presetChips = document.querySelectorAll('.preset-chip');
 const PDFJS_MODULE_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/legacy/build/pdf.min.mjs';
 const PDFJS_WORKER_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/legacy/build/pdf.worker.min.mjs';
 
@@ -80,6 +81,59 @@ const offerKeywordMap = {
     ux: ['ux', 'ui', 'experience utilisateur', 'interface', 'figma'],
     api: ['api', 'integration', 'donnees', 'base de donnees'],
     client: ['relation client', 'accompagnement', 'service client', 'conseil'],
+};
+
+const applyCvPreset = (preset) => {
+    if (!cvForm) {
+        return;
+    }
+
+    const form = cvForm.elements;
+
+    if (preset === 'frontend') {
+        form.headline.value = 'Developpeuse web front-end';
+        form.summary.value = "Je conçois des interfaces web modernes, claires et orientées expérience utilisateur.";
+        form.skills.value = ['HTML', 'CSS', 'JavaScript', 'React', 'UI / UX', 'Figma', 'Responsive Design', 'Git'].join('\n');
+        form.jobTarget.value = 'developpeur web';
+        form.fontTheme.value = 'inter';
+        form.layoutTheme.value = 'modern';
+        form.colorTheme.value = 'indigo';
+        form.designMood.value = 'startup';
+    }
+
+    if (preset === 'client') {
+        form.headline.value = 'Conseillere relation client';
+        form.summary.value = "Professionnelle de la relation client, de l'accompagnement et de l'organisation, avec une approche claire et orientée solutions.";
+        form.skills.value = ['Relation client', 'Accompagnement', 'Analyse des besoins', 'Organisation', 'Gestion', 'Communication'].join('\n');
+        form.jobTarget.value = 'relation client';
+        form.fontTheme.value = 'lato';
+        form.layoutTheme.value = 'classic';
+        form.colorTheme.value = 'graphite';
+        form.designMood.value = 'clean';
+    }
+
+    if (preset === 'luxury') {
+        form.fontTheme.value = 'playfair';
+        form.layoutTheme.value = 'executive';
+        form.colorTheme.value = 'graphite';
+        form.designMood.value = 'luxury';
+        form.textAlign.value = 'left';
+        form.lineSpacing.value = 'airy';
+        form.accentColor.value = '#9a7b43';
+    }
+
+    if (preset === 'ats') {
+        form.cvMode.value = 'ats';
+        form.layoutTheme.value = 'minimal';
+        form.fontTheme.value = 'roboto';
+        form.colorTheme.value = 'graphite';
+        form.designMood.value = 'clean';
+        form.textAlign.value = 'left';
+        form.lineSpacing.value = 'normal';
+    }
+
+    updateCvPreview();
+    setCvStatus('Preset applique');
 };
 
 const assistantAnswers = [
@@ -904,6 +958,12 @@ if (cvForm) {
     cvForm.addEventListener('input', updateCvPreview);
     cvForm.addEventListener('change', updateCvPreview);
 }
+
+presetChips.forEach((chip) => {
+    chip.addEventListener('click', () => {
+        applyCvPreset(chip.dataset.preset || '');
+    });
+});
 
 if (cvAutofillButton) {
     cvAutofillButton.addEventListener('click', autoOrganizeCv);
