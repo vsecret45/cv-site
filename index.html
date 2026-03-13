@@ -239,6 +239,15 @@ Apprentissage design d'interface
 Pratique de la conception front-end</textarea>
                             </label>
                         </div>
+                        <label class="field field-message">
+                            <span>Langues</span>
+                            <textarea
+                                name="languages"
+                                rows="3"
+                                placeholder="Une langue par ligne"
+                            >Francais
+Anglais professionnel</textarea>
+                        </label>
 
                         <div class="form-split">
                             <label class="field">
@@ -283,6 +292,11 @@ Pratique de la conception front-end</textarea>
                                 </select>
                             </label>
                         </div>
+                        <div class="design-panel">
+                            <div class="section-heading section-heading-compact">
+                                <p class="section-kicker">Conception</p>
+                                <h3>Themes, couleurs et mise en page</h3>
+                            </div>
                         <div class="template-presets" aria-label="Mises en forme pretes a l emploi">
                             <button class="template-chip" type="button" data-template-preset="classic">
                                 <strong>Simple</strong>
@@ -300,6 +314,7 @@ Pratique de la conception front-end</textarea>
                                 <strong>Luxe</strong>
                                 <span>Cadre premium, tons elegants</span>
                             </button>
+                        </div>
                         </div>
 
                         <div class="cv-toolbar">
@@ -408,6 +423,7 @@ Pratique de la conception front-end</textarea>
                             <div class="preview-toolbar-group">
                                 <span>Apercu en temps reel</span>
                                 <span class="preview-status" id="cv-status">CV synchronise</span>
+                                <span class="preview-overflow-indicator" id="cv-overflow-indicator">1 page</span>
                             </div>
                             <div class="preview-toolbar-group">
                                 <div class="preview-mode-tabs" role="tablist" aria-label="Type de document">
@@ -467,25 +483,30 @@ Pratique de la conception front-end</textarea>
                         <div class="cv-preview-viewport" id="cv-preview-viewport">
                             <div class="cv-preview-stage" id="cv-preview-stage">
                                 <article class="cv-preview theme-executive font-manrope template-classic" id="cv-preview" data-preview-doc="cv">
+                                    <div class="cv-page-guide" aria-hidden="true"></div>
                                     <header class="cv-header">
                                         <p class="cv-label">CV intelligent</p>
-                                        <h3 id="preview-name" data-edit-target="fullName">Fatima Sidi Amar</h3>
-                                        <p class="cv-meta" id="preview-meta" data-edit-target="location">Rueil-Malmaison (92500) | 07.77.46.48.37 | purvelours@proton.me | Permis B</p>
-                                        <p id="preview-headline" data-edit-target="headline">Developpeuse web front-end</p>
-                                        <p id="preview-summary" data-edit-target="summary">Je conçois des interfaces web modernes, claires et orientees experience utilisateur.</p>
+                                        <h3 id="preview-name" data-edit-target="fullName" contenteditable="true" spellcheck="false">Fatima Sidi Amar</h3>
+                                        <p class="cv-meta" id="preview-meta" data-edit-target="location" contenteditable="true" spellcheck="false">Rueil-Malmaison (92500) | 07.77.46.48.37 | purvelours@proton.me | Permis B</p>
+                                        <p id="preview-headline" data-edit-target="headline" contenteditable="true" spellcheck="false">Developpeuse web front-end</p>
+                                        <p id="preview-summary" data-edit-target="summary" contenteditable="true" spellcheck="true">Je conçois des interfaces web modernes, claires et orientees experience utilisateur.</p>
                                     </header>
                                     <div class="cv-body">
                                         <section>
                                             <h4>Competences cles</h4>
-                                            <ul id="preview-skills" data-edit-target="skills"></ul>
+                                            <ul id="preview-skills" data-edit-target="skills" contenteditable="true" spellcheck="true"></ul>
                                         </section>
                                         <section>
                                             <h4>Experiences professionnelles</h4>
-                                            <ul id="preview-experience" data-edit-target="experience"></ul>
+                                            <ul id="preview-experience" data-edit-target="experience" contenteditable="true" spellcheck="true"></ul>
                                         </section>
                                         <section>
                                             <h4>Formations & certifications</h4>
-                                            <ul id="preview-education" data-edit-target="education"></ul>
+                                            <ul id="preview-education" data-edit-target="education" contenteditable="true" spellcheck="true"></ul>
+                                        </section>
+                                        <section>
+                                            <h4>Langues</h4>
+                                            <ul id="preview-languages" data-edit-target="languages" contenteditable="true" spellcheck="true"></ul>
                                         </section>
                                     </div>
                                 </article>
@@ -507,7 +528,7 @@ Pratique de la conception front-end</textarea>
                                 </article>
                             </div>
                         </div>
-                        <div class="cover-letter-panel">
+                        <div class="cover-letter-panel" id="cover-letter-panel" data-builder-panel="letter">
                             <div class="section-heading section-heading-compact">
                                 <p class="section-kicker">Lettre de motivation</p>
                                 <h3>Generer une lettre de motivation</h3>

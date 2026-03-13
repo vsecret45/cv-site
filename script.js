@@ -34,6 +34,7 @@ const cvPrevPageButton = document.querySelector('#cv-prev-page');
 const cvNextPageButton = document.querySelector('#cv-next-page');
 const cvPageIndicator = document.querySelector('#cv-page-indicator');
 const previewModeTabs = document.querySelectorAll('[data-preview-mode]');
+const cvOverflowIndicator = document.querySelector('#cv-overflow-indicator');
 const letterCompanyField = document.querySelector('#letter-company');
 const letterRoleField = document.querySelector('#letter-role');
 const letterStyleField = document.querySelector('#letter-style');
@@ -48,6 +49,7 @@ const letterPageTitle = document.querySelector('#letter-page-title');
 const letterPageMeta = document.querySelector('#letter-page-meta');
 const letterSubjectPage = document.querySelector('#letter-subject-page');
 const letterBodyPage = document.querySelector('#letter-body-page');
+const coverLetterPanel = document.querySelector('#cover-letter-panel');
 const interactiveCards = document.querySelectorAll('.interactive-card');
 const assistantToggle = document.querySelector('#assistant-toggle');
 const assistantClose = document.querySelector('#assistant-close');
@@ -74,6 +76,7 @@ const previewNodes = {
     experience: document.querySelector('#preview-experience'),
     skills: document.querySelector('#preview-skills'),
     education: document.querySelector('#preview-education'),
+    languages: document.querySelector('#preview-languages'),
     preview: document.querySelector('#cv-preview'),
 };
 
@@ -390,9 +393,15 @@ const updateCvPageMode = () => {
         splitLines(values.experience || '').length +
         splitLines(values.skills || '').length +
         splitLines(values.education || '').length +
+        splitLines(values.languages || '').length +
         Math.ceil(((values.summary || '').trim().length || 0) / 110);
 
-    previewNodes.preview.classList.toggle('is-two-page', totalLines > 20);
+    const isOverflow = totalLines > 22;
+    previewNodes.preview.classList.toggle('is-two-page', isOverflow);
+    if (cvOverflowIndicator) {
+        cvOverflowIndicator.textContent = isOverflow ? 'Depassement A4' : '1 page';
+        cvOverflowIndicator.classList.toggle('is-overflow', isOverflow);
+    }
     updatePreviewViewport();
 };
 
@@ -416,6 +425,10 @@ const setPreviewMode = (mode) => {
         const showLetter = currentPreviewMode === 'letter';
         letterPagePreview.classList.toggle('is-hidden-preview', !showLetter);
         letterPagePreview.setAttribute('aria-hidden', String(!showLetter));
+    }
+
+    if (coverLetterPanel) {
+        coverLetterPanel.classList.toggle('is-hidden-panel', currentPreviewMode !== 'letter');
     }
 
     previewModeTabs.forEach((tab) => {
@@ -556,6 +569,7 @@ const updateCvPreview = () => {
     fillList(previewNodes.experience, splitLines(values.experience || ''));
     fillList(previewNodes.skills, splitLines(values.skills || ''));
     fillList(previewNodes.education, splitLines(values.education || ''));
+    fillList(previewNodes.languages, splitLines(values.languages || ''));
 
     previewNodes.preview.classList.remove('theme-executive', 'theme-creative', 'theme-compact', 'theme-ats', 'theme-web');
     previewNodes.preview.classList.add(`theme-${cvModeThemeMap[values.cvMode] || 'executive'}`);
@@ -1176,14 +1190,20 @@ const parseImportedCv = (text) => {
         cvForm.elements.education.value = educationItems.slice(0, 8).join('\n');
     }
 
+    const languageLines = cleanLines.filter((line) => /\b(francais|anglais|espagnol|arabe|italien|allemand)\b/i.test(line));
+    if (languageLines.length && cvForm.elements.languages) {
+        cvForm.elements.languages.value = dedupeImportedItems(languageLines).slice(0, 6).join('\n');
+    }
+
     updateCvPreview();
 
     setCvStatus('CV importe et analyse');
 };
 
 const exportWord = () => {
-    const content = previewNodes.preview?.innerText || '';
-    downloadFile('cv-intelligent.doc', content, 'application/msword');
+    const activePreview = currentPreviewMode === 'letter' ? letterPagePreview : previewNodes.preview;
+    const content = activePreview?.innerText || '';
+    downloadFile(currentPreviewMode === 'letter' ? 'lettre-motivation.doc' : 'cv-intelligent.doc', content, 'application/msword');
 };
 
 const exportPdf = async () => {
@@ -1395,6 +1415,10 @@ if (cvForm) {
 
 document.querySelectorAll('[data-edit-target]').forEach((node) => {
     node.addEventListener('click', () => {
+        if (node.isContentEditable) {
+            return;
+        }
+
         if (!cvForm) {
             return;
         }
@@ -1415,6 +1439,62 @@ document.querySelectorAll('[data-edit-target]').forEach((node) => {
         field.scrollIntoView({ behavior: 'smooth', block: 'center' });
         window.setTimeout(() => field.focus(), 180);
         setCvStatus('Cliquez dans le champ pour modifier ce bloc');
+    });
+});
+
+const syncPreviewEditableNode = (node) => {
+    if (!cvForm) {
+        return;
+    }
+
+    const target = node.getAttribute('data-edit-target');
+    const field = target ? cvForm.elements[target] : null;
+
+    if (!field) {
+        return;
+    }
+
+    if (target === 'fullName' || target === 'headline') {
+        field.value = node.textContent.trim();
+    } else if (target === 'summary') {
+        field.value = node.textContent.trim();
+    } else if (target === 'location') {
+        const parts = node.textContent
+            .split('|')
+            .map((item) => item.trim())
+            .filter(Boolean);
+        if (cvForm.elements.location) {
+            cvForm.elements.location.value = parts[0] || '';
+        }
+        if (cvForm.elements.phone) {
+            cvForm.elements.phone.value = parts[1] || '';
+        }
+        if (cvForm.elements.email) {
+            cvForm.elements.email.value = parts[2] || '';
+        }
+        if (cvForm.elements.permit) {
+            cvForm.elements.permit.value = parts[3] || '';
+        }
+    } else {
+        const items = splitLines(node.innerText || '');
+        field.value = items.join('\n');
+    }
+
+    updateCvPreview();
+    setCvStatus('Modification appliquee');
+};
+
+document.querySelectorAll('[contenteditable="true"]').forEach((node) => {
+    node.addEventListener('focus', () => {
+        setCvStatus('Edition directe active');
+    });
+    node.addEventListener('blur', () => {
+        syncPreviewEditableNode(node);
+    });
+    node.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            node.blur();
+        }
     });
 });
 

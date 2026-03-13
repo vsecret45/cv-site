@@ -521,6 +521,15 @@ img {
     gap: 0.8rem;
 }
 
+.design-panel {
+    display: grid;
+    gap: 0.9rem;
+    padding: 1rem 1.05rem;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background: linear-gradient(180deg, rgba(252, 253, 255, 0.98), rgba(244, 247, 255, 0.92));
+}
+
 .template-chip {
     display: grid;
     gap: 0.28rem;
@@ -757,6 +766,19 @@ img {
     font-weight: 700;
 }
 
+.preview-overflow-indicator {
+    padding: 0.45rem 0.75rem;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.06);
+    color: var(--text-soft);
+    font-weight: 700;
+}
+
+.preview-overflow-indicator.is-overflow {
+    background: rgba(190, 24, 93, 0.12);
+    color: #be185d;
+}
+
 .cv-preview {
     --cv-accent: #2f3f7f;
     --cv-soft: rgba(47, 63, 127, 0.08);
@@ -771,6 +793,14 @@ img {
     font-size: 0.97rem;
     transform-origin: top center;
     position: relative;
+}
+
+.cv-page-guide {
+    position: absolute;
+    inset: 14mm 12mm;
+    border: 1px dashed rgba(47, 63, 127, 0.14);
+    border-radius: 8px;
+    pointer-events: none;
 }
 
 .cv-preview-viewport {
@@ -820,6 +850,10 @@ img {
     border-radius: var(--radius-xl);
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 249, 255, 0.9));
     box-shadow: var(--shadow);
+}
+
+.cover-letter-panel.is-hidden-panel {
+    display: none;
 }
 
 .section-heading-compact {
@@ -1082,9 +1116,11 @@ img {
 #preview-summary,
 #preview-skills,
 #preview-experience,
-#preview-education {
+#preview-education,
+#preview-languages {
     cursor: text;
     transition: color 0.2s ease;
+    outline: none;
 }
 
 #preview-name:hover,
@@ -1093,8 +1129,22 @@ img {
 #preview-summary:hover,
 #preview-skills:hover,
 #preview-experience:hover,
-#preview-education:hover {
+#preview-education:hover,
+#preview-languages:hover {
     color: var(--cv-accent);
+}
+
+#preview-name:focus,
+#preview-meta:focus,
+#preview-headline:focus,
+#preview-summary:focus,
+#preview-skills:focus,
+#preview-experience:focus,
+#preview-education:focus,
+#preview-languages:focus {
+    color: var(--text);
+    box-shadow: 0 0 0 2px rgba(47, 63, 127, 0.14);
+    border-radius: 8px;
 }
 
 .cv-body {
