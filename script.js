@@ -76,6 +76,7 @@ let isAutoFittingCv = false;
 const previewNodes = {
     fullName: document.querySelector('#preview-name'),
     meta: document.querySelector('#preview-meta'),
+    permit: document.querySelector('#preview-permit'),
     headline: document.querySelector('#preview-headline'),
     summary: document.querySelector('#preview-summary'),
     experience: document.querySelector('#preview-experience'),
@@ -684,7 +685,11 @@ const updateCvPreview = () => {
 
     previewNodes.fullName.textContent = values.fullName || 'Votre nom';
     if (previewNodes.meta) {
-        previewNodes.meta.textContent = [values.location, values.phone, values.email, values.permit].filter(Boolean).join(' | ');
+        previewNodes.meta.textContent = [values.location, values.phone, values.email].filter(Boolean).join(' | ');
+    }
+    if (previewNodes.permit) {
+        previewNodes.permit.textContent = values.permit || '';
+        previewNodes.permit.hidden = !values.permit;
     }
     previewNodes.headline.textContent = values.headline || 'Intitule du profil';
     previewNodes.summary.textContent = values.summary || '';
@@ -1780,6 +1785,8 @@ const syncPreviewEditableNode = (node) => {
     if (target === 'fullName' || target === 'headline') {
         field.value = node.textContent.trim();
     } else if (target === 'summary') {
+        field.value = node.textContent.trim();
+    } else if (target === 'permit') {
         field.value = node.textContent.trim();
     } else if (target === 'location') {
         const parts = node.textContent

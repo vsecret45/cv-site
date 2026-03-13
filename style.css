@@ -1048,7 +1048,8 @@ img {
 }
 
 .cv-preview.template-classic {
-    border-top: 4px solid var(--cv-accent);
+    border-top: 0;
+    box-shadow: 0 16px 30px rgba(31, 38, 72, 0.08);
 }
 
 .cv-preview.template-modern {
@@ -1068,11 +1069,69 @@ img {
 
 .cv-preview.template-classic .cv-header {
     text-align: center;
+    justify-items: center;
+    gap: 0.5rem;
+    border-bottom: 0;
 }
 
 .cv-preview.template-classic .cv-meta,
-.cv-preview.template-classic #preview-headline {
+.cv-preview.template-classic #preview-headline,
+.cv-preview.template-classic #preview-permit {
     justify-self: center;
+}
+
+.cv-preview.template-classic .cv-label {
+    justify-self: start;
+}
+
+.cv-preview.template-classic #preview-name {
+    display: inline-block;
+    min-width: min(100%, 74%);
+    padding: 0.35rem 1rem;
+    background: rgba(148, 163, 184, 0.16);
+    font-style: italic;
+    text-transform: uppercase;
+}
+
+.cv-preview.template-classic #preview-headline,
+.cv-preview.template-classic #preview-meta,
+.cv-preview.template-classic #preview-permit {
+    display: inline-block;
+    min-width: min(100%, 74%);
+    padding: 0.26rem 0.85rem;
+    background: rgba(148, 163, 184, 0.12);
+}
+
+.cv-preview.template-classic #preview-headline {
+    text-decoration: underline;
+    text-underline-offset: 0.12em;
+    font-style: italic;
+}
+
+.cv-preview.template-classic #preview-summary {
+    margin-top: 0.35rem;
+    padding: 0 1rem 0.8rem;
+    border-bottom: 2px solid rgba(19, 22, 32, 0.8);
+    color: var(--text);
+    font-weight: 700;
+}
+
+.cv-preview.template-classic .cv-body {
+    gap: 1.05rem;
+}
+
+.cv-preview.template-classic .cv-body h4 {
+    display: block;
+    text-align: center;
+    padding: 0.28rem 0.8rem;
+    background: rgba(148, 163, 184, 0.14);
+    color: var(--text);
+    text-decoration: underline;
+    text-underline-offset: 0.1em;
+}
+
+.cv-preview.template-classic .cv-body section {
+    gap: 0.55rem;
 }
 
 .cv-preview.template-modern .cv-body {
@@ -1175,6 +1234,7 @@ img {
 
 #preview-name,
 #preview-meta,
+#preview-permit,
 #preview-headline,
 #preview-summary,
 #preview-skills,
@@ -1188,6 +1248,7 @@ img {
 
 #preview-name:hover,
 #preview-meta:hover,
+#preview-permit:hover,
 #preview-headline:hover,
 #preview-summary:hover,
 #preview-skills:hover,
@@ -1199,6 +1260,7 @@ img {
 
 #preview-name:focus,
 #preview-meta:focus,
+#preview-permit:focus,
 #preview-headline:focus,
 #preview-summary:focus,
 #preview-skills:focus,
