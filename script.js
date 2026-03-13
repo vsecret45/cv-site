@@ -833,15 +833,154 @@ const improveCv = () => {
     setCvStatus('CV ameliore pour recruteurs');
 };
 
+const normalizeForMatch = (value) =>
+    value
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+
+const cleanImportedSectionLine = (line) =>
+    line
+        .replace(/^[•\-\u2022]+\s*/g, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+
+const looksLikeSectionHeading = (line) => {
+    const normalized = normalizeForMatch(line);
+
+    if (!normalized || normalized.length > 40) {
+        return false;
+    }
+
+    return (
+        normalized.includes('competences') ||
+        normalized.includes('experience') ||
+        normalized.includes('formations') ||
+        normalized.includes('certifications') ||
+        normalized.includes('profil') ||
+        normalized.includes('resume') ||
+        normalized.includes('objectif')
+    );
+};
+
+const getSectionKey = (line) => {
+    const normalized = normalizeForMatch(line);
+
+    if (normalized.includes('competences')) {
+        return 'skills';
+    }
+
+    if (normalized.includes('experience')) {
+        return 'experience';
+    }
+
+    if (normalized.includes('formations') || normalized.includes('certifications')) {
+        return 'education';
+    }
+
+    if (normalized.includes('profil') || normalized.includes('resume') || normalized.includes('objectif')) {
+        return 'summary';
+    }
+
+    return null;
+};
+
+const preprocessImportedCvText = (text) =>
+    normalizeImportedText(text)
+        .replace(
+            /\b(COMP[ÉE]TENCES(?:\s+CL[EÉ]S)?|EXP[ÉE]RIENCES(?:\s+PROFESSIONNELLES)?|FORMATIONS(?:\s*&\s*CERTIFICATIONS)?|CERTIFICATIONS|PROFIL|R[ÉE]SUM[ÉE]|OBJECTIF)\b/gi,
+            '\n$1\n'
+        )
+        .replace(/\s+([•\-])\s+/g, '\n$1 ')
+        .replace(/\s{2,}/g, ' ')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+
+const extractSectionContent = (text, patterns, stopPatterns) => {
+    for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (!match?.[1]) {
+            continue;
+        }
+
+        let content = match[1].trim();
+        if (!content) {
+            continue;
+        }
+
+        for (const stopPattern of stopPatterns) {
+            const stopMatch = content.search(stopPattern);
+            if (stopMatch !== -1) {
+                content = content.slice(0, stopMatch).trim();
+            }
+        }
+
+        if (content) {
+            return content;
+        }
+    }
+
+    return '';
+};
+
+const splitImportedItems = (text) =>
+    text
+        .split(/\n+/)
+        .flatMap((line) => line.split(/\s+•\s+/))
+        .map(cleanImportedSectionLine)
+        .filter(Boolean);
+
+const dedupeImportedItems = (items) => {
+    const seen = new Set();
+
+    return items.filter((item) => {
+        const key = normalizeForMatch(item);
+        if (!key || seen.has(key)) {
+            return false;
+        }
+        seen.add(key);
+        return true;
+    });
+};
+
+const getSummaryFallback = (lines, headline) => {
+    const headlineKey = normalizeForMatch(headline || '');
+
+    return (
+        lines.find((line) => {
+            const normalized = normalizeForMatch(line);
+            return (
+                line.length > 70 &&
+                line.length < 420 &&
+                !looksLikeSectionHeading(line) &&
+                !normalized.includes('@') &&
+                !normalized.includes('permis') &&
+                !normalized.includes('formation') &&
+                !normalized.includes('certification') &&
+                normalized !== headlineKey
+            );
+        }) || ''
+    );
+};
+
 const parseImportedCv = (text) => {
     if (!cvForm || !text) {
         return;
     }
 
-    const normalizedText = normalizeImportedText(text);
+    const normalizedText = preprocessImportedCvText(text);
     const lines = splitLines(normalizedText);
-    const blocks = normalizedText.split(/\n\s*\n/).map((block) => block.trim()).filter(Boolean);
     const cleanLines = lines.filter((line) => !/^%PDF-|^\/(Title|Parent|Dest|Next|Prev)\b/i.test(line));
+    const joinedText = cleanLines.join('\n');
+    const sectionStops = [
+        /\nCOMP[ÉE]TENCES(?:\s+CL[EÉ]S)?\b/i,
+        /\nEXP[ÉE]RIENCES(?:\s+PROFESSIONNELLES)?\b/i,
+        /\nFORMATIONS(?:\s*&\s*CERTIFICATIONS)?\b/i,
+        /\nCERTIFICATIONS\b/i,
+        /\nPROFIL\b/i,
+        /\nR[ÉE]SUM[ÉE]\b/i,
+        /\nOBJECTIF\b/i,
+    ];
 
     const nameLine =
         cleanLines.find((line) => /^[A-ZÀ-ÖØ-Ý' -]{6,}$/.test(line) && line.length < 40) ||
@@ -879,41 +1018,92 @@ const parseImportedCv = (text) => {
     }
 
     const headlineLine =
-        cleanLines.find((line) => /developp|front|emploi|marketing|relation client|designer|ux|ui/i.test(line) && line.length < 120) ||
-        '';
+        cleanLines.find((line) =>
+            /developp|front|emploi|marketing|relation client|designer|ux|ui|conseill|responsable|charg[eé]e/i.test(line) &&
+            line.length < 120 &&
+            !/@|\d{2}\.\d{2}\.\d{2}/.test(line)
+        ) || '';
 
     if (headlineLine) {
         cvForm.elements.headline.value = headlineLine;
     }
 
-    const summaryBlock =
-        blocks.find((block) => /objectif|profil|resume|accompagnement|experience|emploi|interface|utilisateur/i.test(block) && block.length < 600) ||
-        blocks.find((block) => block.length > 80 && block.length < 600) ||
-        '';
+    const summarySection = extractSectionContent(
+        joinedText,
+        [
+            /\b(?:PROFIL|R[ÉE]SUM[ÉE]|OBJECTIF)\b([\s\S]+)$/i,
+        ],
+        sectionStops
+    );
+    const skillsSection = extractSectionContent(
+        joinedText,
+        [
+            /\bCOMP[ÉE]TENCES(?:\s+CL[EÉ]S)?\b([\s\S]+)$/i,
+        ],
+        sectionStops
+    );
+    const experienceSection = extractSectionContent(
+        joinedText,
+        [
+            /\bEXP[ÉE]RIENCES(?:\s+PROFESSIONNELLES)?\b([\s\S]+)$/i,
+        ],
+        sectionStops
+    );
+    const educationSection = extractSectionContent(
+        joinedText,
+        [
+            /\bFORMATIONS(?:\s*&\s*CERTIFICATIONS)?\b([\s\S]+)$/i,
+            /\bCERTIFICATIONS\b([\s\S]+)$/i,
+        ],
+        sectionStops
+    );
 
-    if (summaryBlock) {
-        cvForm.elements.summary.value = summaryBlock.replace(/\n/g, ' ').trim();
+    const fallbackSections = { summary: [], skills: [], experience: [], education: [] };
+    let currentSection = null;
+
+    cleanLines.forEach((line) => {
+        const nextSection = getSectionKey(line);
+        if (nextSection) {
+            currentSection = nextSection;
+            return;
+        }
+
+        if (currentSection) {
+            fallbackSections[currentSection].push(line);
+        }
+    });
+
+    const summaryValue = (summarySection || getSummaryFallback(cleanLines, headlineLine)).replace(/\n+/g, ' ').trim();
+    const skillsItems = dedupeImportedItems(
+        splitImportedItems(skillsSection || fallbackSections.skills.join('\n')).filter(
+            (line) => !/\b(experience|formation|certification|responsable|conseill|chargee?)\b/i.test(line)
+        )
+    );
+    const experienceItems = dedupeImportedItems(
+        splitImportedItems(experienceSection || fallbackSections.experience.join('\n')).filter(
+            (line) => !/\b(competence|formation|certification)\b/i.test(line)
+        )
+    );
+    const educationItems = dedupeImportedItems(
+        splitImportedItems(educationSection || fallbackSections.education.join('\n')).filter(
+            (line) => !/\b(competence|experience)\b/i.test(line)
+        )
+    );
+
+    if (summaryValue) {
+        cvForm.elements.summary.value = summaryValue;
     }
 
-    const skillLines = cleanLines.filter((line) =>
-        /html|css|javascript|react|ux|figma|git|web|communication|analyse|organisation|client/i.test(line)
-    );
-    if (skillLines.length) {
-        cvForm.elements.skills.value = skillLines.slice(0, 12).join('\n');
+    if (skillsItems.length) {
+        cvForm.elements.skills.value = skillsItems.slice(0, 12).join('\n');
     }
 
-    const experienceLines = cleanLines.filter((line) =>
-        /experience|mission|projet|developp|interface|site|conseil|accompagnement|relation client|gestion/i.test(line)
-    );
-    if (experienceLines.length) {
-        cvForm.elements.experience.value = experienceLines.slice(0, 10).join('\n');
+    if (experienceItems.length) {
+        cvForm.elements.experience.value = experienceItems.slice(0, 8).join('\n');
     }
 
-    const educationLines = cleanLines.filter((line) =>
-        /formation|ecole|certif|diplome|apprentissage|qualification|certification/i.test(line)
-    );
-    if (educationLines.length) {
-        cvForm.elements.education.value = educationLines.slice(0, 10).join('\n');
+    if (educationItems.length) {
+        cvForm.elements.education.value = educationItems.slice(0, 8).join('\n');
     }
 
     updateCvPreview();
@@ -1129,6 +1319,31 @@ if (cvForm) {
     cvForm.addEventListener('input', updateCvPreview);
     cvForm.addEventListener('change', updateCvPreview);
 }
+
+document.querySelectorAll('[data-edit-target]').forEach((node) => {
+    node.addEventListener('click', () => {
+        if (!cvForm) {
+            return;
+        }
+
+        const fieldName = node.getAttribute('data-edit-target');
+        const field = fieldName ? cvForm.elements[fieldName] : null;
+
+        if (!field) {
+            return;
+        }
+
+        if (cvLayout?.classList.contains('is-preview-focus')) {
+            cvLayout.classList.remove('is-preview-focus');
+            cvLayoutToggle?.setAttribute('aria-expanded', 'true');
+            cvLayoutToggle?.setAttribute('aria-label', 'Rabattre les reglages');
+        }
+
+        field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        window.setTimeout(() => field.focus(), 180);
+        setCvStatus('Cliquez dans le champ pour modifier ce bloc');
+    });
+});
 
 presetChips.forEach((chip) => {
     chip.addEventListener('click', () => {

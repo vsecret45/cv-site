@@ -406,6 +406,10 @@ Pratique de la conception front-end</textarea>
                             </div>
                         </div>
                         <div class="cv-analysis-panel">
+                            <div class="analysis-block analysis-block-header">
+                                <h4>Analyse & optimisation</h4>
+                                <p class="field-hint">Cette zone sert a analyser et adapter le CV. Elle ne fait pas partie de la mise en page du document.</p>
+                            </div>
                             <div class="ats-score">
                                 <span>Score ATS</span>
                                 <strong id="ats-score-value">82%</strong>
@@ -443,23 +447,23 @@ Pratique de la conception front-end</textarea>
                                 <article class="cv-preview theme-executive font-manrope template-classic" id="cv-preview">
                                     <header class="cv-header">
                                         <p class="cv-label">CV intelligent</p>
-                                        <h3 id="preview-name">Fatima Sidi Amar</h3>
-                                        <p class="cv-meta" id="preview-meta">Rueil-Malmaison (92500) | 07.77.46.48.37 | purvelours@proton.me | Permis B</p>
-                                        <p id="preview-headline">Developpeuse web front-end</p>
-                                        <p id="preview-summary">Je conçois des interfaces web modernes, claires et orientees experience utilisateur.</p>
+                                        <h3 id="preview-name" data-edit-target="fullName">Fatima Sidi Amar</h3>
+                                        <p class="cv-meta" id="preview-meta" data-edit-target="location">Rueil-Malmaison (92500) | 07.77.46.48.37 | purvelours@proton.me | Permis B</p>
+                                        <p id="preview-headline" data-edit-target="headline">Developpeuse web front-end</p>
+                                        <p id="preview-summary" data-edit-target="summary">Je conçois des interfaces web modernes, claires et orientees experience utilisateur.</p>
                                     </header>
                                     <div class="cv-body">
                                         <section>
                                             <h4>Competences cles</h4>
-                                            <ul id="preview-skills"></ul>
+                                            <ul id="preview-skills" data-edit-target="skills"></ul>
                                         </section>
                                         <section>
                                             <h4>Experiences professionnelles</h4>
-                                            <ul id="preview-experience"></ul>
+                                            <ul id="preview-experience" data-edit-target="experience"></ul>
                                         </section>
                                         <section>
                                             <h4>Formations & certifications</h4>
-                                            <ul id="preview-education"></ul>
+                                            <ul id="preview-education" data-edit-target="education"></ul>
                                         </section>
                                     </div>
                                 </article>
@@ -483,7 +487,7 @@ Pratique de la conception front-end</textarea>
                         </div>
                         <div class="cover-letter-panel">
                             <div class="section-heading section-heading-compact">
-                                <p class="section-kicker">Lettre IA</p>
+                                <p class="section-kicker">Lettre de motivation</p>
                                 <h3>Generer une lettre de motivation</h3>
                             </div>
                             <div class="form-split">

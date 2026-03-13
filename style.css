@@ -619,6 +619,11 @@ img {
     gap: 0.55rem;
 }
 
+.analysis-block-header {
+    padding-bottom: 0.2rem;
+    border-bottom: 1px dashed var(--line);
+}
+
 .analysis-block h4 {
     margin: 0;
     font-size: 0.88rem;
@@ -969,6 +974,27 @@ img {
 .cv-meta {
     font-size: 0.88rem;
     line-height: 1.6;
+}
+
+#preview-name,
+#preview-meta,
+#preview-headline,
+#preview-summary,
+#preview-skills,
+#preview-experience,
+#preview-education {
+    cursor: text;
+    transition: color 0.2s ease;
+}
+
+#preview-name:hover,
+#preview-meta:hover,
+#preview-headline:hover,
+#preview-summary:hover,
+#preview-skills:hover,
+#preview-experience:hover,
+#preview-education:hover {
+    color: var(--cv-accent);
 }
 
 .cv-body {
