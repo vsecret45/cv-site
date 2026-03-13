@@ -35,6 +35,10 @@ const cvNextPageButton = document.querySelector('#cv-next-page');
 const cvPageIndicator = document.querySelector('#cv-page-indicator');
 const previewModeTabs = document.querySelectorAll('[data-preview-mode]');
 const cvOverflowIndicator = document.querySelector('#cv-overflow-indicator');
+const previewHeadlineScale = document.querySelector('#preview-headline-scale');
+const previewLineSpacing = document.querySelector('#preview-line-spacing');
+const previewLayoutTheme = document.querySelector('#preview-layout-theme');
+const previewFitInlineButton = document.querySelector('#preview-fit-inline');
 const letterCompanyField = document.querySelector('#letter-company');
 const letterRoleField = document.querySelector('#letter-role');
 const letterStyleField = document.querySelector('#letter-style');
@@ -67,6 +71,7 @@ const PDFJS_WORKER_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/legacy
 let pdfjsLoader;
 let currentPreviewPage = 1;
 let currentPreviewMode = 'cv';
+let isAutoFittingCv = false;
 
 const previewNodes = {
     fullName: document.querySelector('#preview-name'),
@@ -382,6 +387,65 @@ const looksLikeBrokenPdfText = (text) => {
     return weirdRatio > 0.02 || slashCommands >= 2 || markerHits >= 2;
 };
 
+const applyCompactCvLayout = (autoTriggered = false) => {
+    if (!cvForm) {
+        return;
+    }
+
+    const summaryField = cvForm.elements.summary;
+    const experienceField = cvForm.elements.experience;
+    const skillsField = cvForm.elements.skills;
+    const educationField = cvForm.elements.education;
+    const languagesField = cvForm.elements.languages;
+    const fontSizeField = cvForm.elements.fontSize;
+    const lineSpacingField = cvForm.elements.lineSpacing;
+    const layoutThemeField = cvForm.elements.layoutTheme;
+    const headlineField = cvForm.elements.headline;
+
+    if (fontSizeField) {
+        fontSizeField.value = 'compact';
+    }
+
+    if (lineSpacingField) {
+        lineSpacingField.value = 'tight';
+    }
+
+    if (layoutThemeField && layoutThemeField.value === 'executive') {
+        layoutThemeField.value = 'classic';
+    }
+
+    if (headlineField?.value.length > 64) {
+        headlineField.value = headlineField.value.slice(0, 61).trim();
+    }
+
+    if (summaryField?.value.length > 240) {
+        summaryField.value = `${summaryField.value.slice(0, 237).trim()}...`;
+    }
+
+    if (experienceField) {
+        experienceField.value = splitLines(experienceField.value)
+            .slice(0, 5)
+            .map((line) => line.split(' • ').slice(0, 4).join(' • '))
+            .join('\n');
+    }
+
+    if (skillsField) {
+        skillsField.value = splitLines(skillsField.value).slice(0, 6).join('\n');
+    }
+
+    if (educationField) {
+        educationField.value = splitLines(educationField.value).slice(0, 4).join('\n');
+    }
+
+    if (languagesField) {
+        languagesField.value = splitLines(languagesField.value).slice(0, 3).join('\n');
+    }
+
+    if (autoTriggered) {
+        setCvStatus('CV compacte automatiquement pour tenir sur 1 page');
+    }
+};
+
 const updateCvPageMode = () => {
     if (!cvForm || !previewNodes.preview) {
         return;
@@ -397,6 +461,15 @@ const updateCvPageMode = () => {
         Math.ceil(((values.summary || '').trim().length || 0) / 110);
 
     const isOverflow = totalLines > 22;
+
+    if (isOverflow && currentPreviewMode === 'cv' && !isAutoFittingCv) {
+        isAutoFittingCv = true;
+        applyCompactCvLayout(true);
+        updateCvPreview();
+        isAutoFittingCv = false;
+        return;
+    }
+
     previewNodes.preview.classList.toggle('is-two-page', isOverflow);
     if (cvOverflowIndicator) {
         cvOverflowIndicator.textContent = isOverflow ? 'Depassement A4' : '1 page';
@@ -479,38 +552,7 @@ const fitCvToSinglePage = () => {
     if (!cvForm || !previewNodes.preview) {
         return;
     }
-
-    const summaryField = cvForm.elements.summary;
-    const experienceField = cvForm.elements.experience;
-    const skillsField = cvForm.elements.skills;
-    const educationField = cvForm.elements.education;
-    const fontSizeField = cvForm.elements.fontSize;
-    const lineSpacingField = cvForm.elements.lineSpacing;
-
-    if (fontSizeField) {
-        fontSizeField.value = 'compact';
-    }
-
-    if (lineSpacingField) {
-        lineSpacingField.value = 'tight';
-    }
-
-    if (summaryField?.value.length > 260) {
-        summaryField.value = `${summaryField.value.slice(0, 257).trim()}...`;
-    }
-
-    if (experienceField) {
-        experienceField.value = splitLines(experienceField.value).slice(0, 6).join('\n');
-    }
-
-    if (skillsField) {
-        skillsField.value = splitLines(skillsField.value).slice(0, 8).join('\n');
-    }
-
-    if (educationField) {
-        educationField.value = splitLines(educationField.value).slice(0, 4).join('\n');
-    }
-
+    applyCompactCvLayout(false);
     updateCvPreview();
     setCvStatus('CV ajuste pour tenir sur 1 page');
 };
@@ -664,6 +706,9 @@ const updateCvPreview = () => {
         'size-normal',
         'size-large',
         'size-compact',
+        'headline-normal',
+        'headline-compact',
+        'headline-large',
         'is-bold',
         'is-italic',
         'is-underline',
@@ -687,6 +732,7 @@ const updateCvPreview = () => {
         'template-minimal'
     );
     previewNodes.preview.classList.add(`size-${values.fontSize || 'normal'}`);
+    previewNodes.preview.classList.add(`headline-${values.headlineScale || 'normal'}`);
     previewNodes.preview.classList.add(`palette-${values.colorTheme || 'indigo'}`);
     previewNodes.preview.classList.add(`mood-${values.designMood || 'clean'}`);
     previewNodes.preview.classList.add(`align-${values.textAlign || 'left'}`);
@@ -722,6 +768,16 @@ const updateCvPreview = () => {
         const showLetter = currentPreviewMode === 'letter';
         letterPagePreview.classList.toggle('is-hidden-preview', !showLetter);
         letterPagePreview.setAttribute('aria-hidden', String(!showLetter));
+    }
+
+    if (previewHeadlineScale) {
+        previewHeadlineScale.value = values.headlineScale || 'normal';
+    }
+    if (previewLineSpacing) {
+        previewLineSpacing.value = values.lineSpacing || 'normal';
+    }
+    if (previewLayoutTheme) {
+        previewLayoutTheme.value = values.layoutTheme || 'classic';
     }
 };
 
@@ -1637,6 +1693,34 @@ if (revealSections.length > 0) {
 if (cvForm) {
     cvForm.addEventListener('input', updateCvPreview);
     cvForm.addEventListener('change', updateCvPreview);
+}
+
+if (previewHeadlineScale && cvForm) {
+    previewHeadlineScale.addEventListener('change', () => {
+        cvForm.elements.headlineScale.value = previewHeadlineScale.value;
+        updateCvPreview();
+        setCvStatus('Taille du titre ajustee');
+    });
+}
+
+if (previewLineSpacing && cvForm) {
+    previewLineSpacing.addEventListener('change', () => {
+        cvForm.elements.lineSpacing.value = previewLineSpacing.value;
+        updateCvPreview();
+        setCvStatus('Interligne mis a jour');
+    });
+}
+
+if (previewLayoutTheme && cvForm) {
+    previewLayoutTheme.addEventListener('change', () => {
+        cvForm.elements.layoutTheme.value = previewLayoutTheme.value;
+        updateCvPreview();
+        setCvStatus('Theme applique');
+    });
+}
+
+if (previewFitInlineButton) {
+    previewFitInlineButton.addEventListener('click', fitCvToSinglePage);
 }
 
 document.querySelectorAll('[data-edit-target]').forEach((node) => {

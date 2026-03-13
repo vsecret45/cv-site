@@ -706,6 +706,48 @@ img {
     flex-wrap: wrap;
 }
 
+.preview-toolbar-group-tools {
+    padding: 0.3rem 0;
+}
+
+.preview-quick-control {
+    display: grid;
+    gap: 0.35rem;
+    min-width: 118px;
+    color: var(--text-soft);
+    font-size: 0.84rem;
+    font-weight: 700;
+}
+
+.preview-quick-control select {
+    min-height: 42px;
+    padding: 0.68rem 0.9rem;
+    border-radius: 15px;
+    border: 1px solid var(--line);
+    background: #ffffff;
+    color: var(--text);
+    font: inherit;
+}
+
+.preview-fit-button {
+    min-height: 42px;
+    padding: 0.78rem 1rem;
+    border-radius: 999px;
+    border: 1px solid rgba(47, 63, 127, 0.16);
+    background: rgba(47, 63, 127, 0.08);
+    color: #2f3f7f;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.preview-fit-button:hover,
+.preview-fit-button:focus-visible {
+    background: rgba(47, 63, 127, 0.12);
+    box-shadow: 0 10px 20px rgba(47, 63, 127, 0.12);
+    transform: translateY(-1px);
+}
+
 .preview-mode-tabs {
     display: inline-flex;
     padding: 0.2rem;
@@ -1110,6 +1152,15 @@ img {
     font-size: 1.02rem;
     font-weight: 700;
     color: var(--cv-accent);
+}
+
+.cv-preview.headline-compact #preview-headline {
+    font-size: 0.94rem;
+}
+
+.cv-preview.headline-large #preview-headline {
+    font-size: 1.2rem;
+    line-height: 1.2;
 }
 
 .cv-header p {

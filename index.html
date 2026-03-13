@@ -381,6 +381,7 @@ Anglais professionnel</textarea>
                             Outils essentiels pour cadrer rapidement un CV propre, lisible et personnalisable sans
                             complexite inutile.
                         </p>
+                        <input type="hidden" name="headlineScale" value="normal">
 
                         <label class="field">
                             <span>Importer mon ancien CV</span>
@@ -461,6 +462,34 @@ Anglais professionnel</textarea>
                                 <span>Apercu en temps reel</span>
                                 <span class="preview-status" id="cv-status">CV synchronise</span>
                                 <span class="preview-overflow-indicator" id="cv-overflow-indicator">1 page</span>
+                            </div>
+                            <div class="preview-toolbar-group preview-toolbar-group-tools">
+                                <label class="preview-quick-control">
+                                    <span>Titre</span>
+                                    <select id="preview-headline-scale">
+                                        <option value="normal" selected>Normal</option>
+                                        <option value="compact">Compact</option>
+                                        <option value="large">Impact</option>
+                                    </select>
+                                </label>
+                                <label class="preview-quick-control">
+                                    <span>Interligne</span>
+                                    <select id="preview-line-spacing">
+                                        <option value="normal" selected>Normal</option>
+                                        <option value="tight">Serre</option>
+                                        <option value="airy">Aere</option>
+                                    </select>
+                                </label>
+                                <label class="preview-quick-control">
+                                    <span>Theme</span>
+                                    <select id="preview-layout-theme">
+                                        <option value="classic">Classique</option>
+                                        <option value="modern">Moderne</option>
+                                        <option value="executive">Executive</option>
+                                        <option value="minimal">Minimal</option>
+                                    </select>
+                                </label>
+                                <button class="preview-fit-button" type="button" id="preview-fit-inline">1 page auto</button>
                             </div>
                             <div class="preview-toolbar-group">
                                 <div class="preview-mode-tabs" role="tablist" aria-label="Type de document">
