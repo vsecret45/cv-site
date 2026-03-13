@@ -67,6 +67,15 @@ const splitLines = (value) =>
 const toTitleCase = (value) =>
     value.replace(/\w\S*/g, (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
 
+const normalizeImportedText = (text) =>
+    text
+        .replace(/\r/g, '\n')
+        .replace(/[ \t]+/g, ' ')
+        .replace(/\u00a0/g, ' ')
+        .replace(/[|]/g, '\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+
 const downloadFile = (filename, content, type) => {
     const blob = new Blob([content], { type });
     const url = URL.createObjectURL(blob);
@@ -411,35 +420,56 @@ const parseImportedCv = (text) => {
         return;
     }
 
-    const lines = splitLines(text);
-    const blocks = text.split(/\n\s*\n/).map((block) => block.trim()).filter(Boolean);
-    const [firstLine = '', secondLine = ''] = lines;
+    const normalizedText = normalizeImportedText(text);
+    const lines = splitLines(normalizedText);
+    const blocks = normalizedText.split(/\n\s*\n/).map((block) => block.trim()).filter(Boolean);
+    const cleanLines = lines.filter((line) => !/^%PDF-|^\/(Title|Parent|Dest|Next|Prev)\b/i.test(line));
 
-    if (firstLine) {
-        cvForm.elements.fullName.value = firstLine;
+    const nameLine =
+        cleanLines.find((line) => /^[A-ZÀ-ÖØ-Ý' -]{6,}$/.test(line) && line.length < 40) ||
+        cleanLines.find((line) => /^[A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÖØ-öø-ÿ' -]+$/.test(line) && line.length < 40) ||
+        '';
+
+    if (nameLine) {
+        cvForm.elements.fullName.value = toTitleCase(nameLine.toLowerCase());
     }
 
-    if (secondLine) {
-        cvForm.elements.headline.value = secondLine;
+    const headlineLine =
+        cleanLines.find((line) => /developp|front|emploi|marketing|relation client|designer|ux|ui/i.test(line) && line.length < 120) ||
+        '';
+
+    if (headlineLine) {
+        cvForm.elements.headline.value = headlineLine;
     }
 
-    if (blocks[1]) {
-        cvForm.elements.summary.value = blocks[1].replace(/\n/g, ' ');
+    const summaryBlock =
+        blocks.find((block) => /objectif|profil|resume|accompagnement|experience|emploi|interface|utilisateur/i.test(block) && block.length < 600) ||
+        blocks.find((block) => block.length > 80 && block.length < 600) ||
+        '';
+
+    if (summaryBlock) {
+        cvForm.elements.summary.value = summaryBlock.replace(/\n/g, ' ').trim();
     }
 
-    const skillLines = lines.filter((line) => /html|css|javascript|react|ux|figma|git|web/i.test(line));
+    const skillLines = cleanLines.filter((line) =>
+        /html|css|javascript|react|ux|figma|git|web|communication|analyse|organisation|client/i.test(line)
+    );
     if (skillLines.length) {
-        cvForm.elements.skills.value = skillLines.join('\n');
+        cvForm.elements.skills.value = skillLines.slice(0, 12).join('\n');
     }
 
-    const experienceLines = lines.filter((line) => /experience|mission|projet|developp|interface|site/i.test(line));
+    const experienceLines = cleanLines.filter((line) =>
+        /experience|mission|projet|developp|interface|site|conseil|accompagnement|relation client|gestion/i.test(line)
+    );
     if (experienceLines.length) {
-        cvForm.elements.experience.value = experienceLines.join('\n');
+        cvForm.elements.experience.value = experienceLines.slice(0, 10).join('\n');
     }
 
-    const educationLines = lines.filter((line) => /formation|ecole|certif|diplome|apprentissage/i.test(line));
+    const educationLines = cleanLines.filter((line) =>
+        /formation|ecole|certif|diplome|apprentissage|qualification|certification/i.test(line)
+    );
     if (educationLines.length) {
-        cvForm.elements.education.value = educationLines.join('\n');
+        cvForm.elements.education.value = educationLines.slice(0, 10).join('\n');
     }
 
     updateCvPreview();

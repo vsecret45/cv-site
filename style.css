@@ -561,14 +561,15 @@ img {
     background: #ffffff;
     border: 1px solid rgba(19, 22, 32, 0.08);
     box-shadow: 0 18px 34px rgba(31, 38, 72, 0.08);
+    font-size: 0.97rem;
 }
 
 .cv-preview.size-large {
-    font-size: 1.06rem;
+    font-size: 1rem;
 }
 
 .cv-preview.size-compact {
-    font-size: 0.92rem;
+    font-size: 0.88rem;
 }
 
 .cv-preview.palette-indigo {
@@ -665,12 +666,14 @@ img {
 }
 
 .cv-header h3 {
-    font-size: clamp(1.8rem, 3vw, 2.4rem);
-    line-height: 1.05;
+    font-size: clamp(1.45rem, 2.2vw, 2rem);
+    line-height: 1.08;
+    overflow-wrap: anywhere;
 }
 
 .cv-header p {
     color: var(--text-soft);
+    overflow-wrap: anywhere;
 }
 
 .cv-body {
