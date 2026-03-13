@@ -153,6 +153,8 @@ img {
     font-size: clamp(2.5rem, 7vw, 4.8rem);
     line-height: 0.98;
     letter-spacing: -0.05em;
+    opacity: 0;
+    transform: translateY(20px);
 }
 
 .hero-role {
@@ -435,8 +437,8 @@ body.is-ready .hero-reveal {
     animation: heroFadeUp 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
 }
 
-body.is-ready .hero-title .title-line {
-    animation: heroTitleReveal 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+body.is-ready .hero h1 {
+    animation: fadeUp 1s ease forwards;
 }
 
 body.is-ready .skill-reveal {
@@ -499,11 +501,6 @@ body.is-ready .skill-delay-8 {
     animation-delay: 1.26s;
 }
 
-body.is-preload .hero-title .title-line {
-    transform: translateY(110%);
-    opacity: 0;
-}
-
 @keyframes heroFadeUp {
     from {
         opacity: 0;
@@ -518,12 +515,7 @@ body.is-preload .hero-title .title-line {
     }
 }
 
-@keyframes heroTitleReveal {
-    from {
-        opacity: 0;
-        transform: translateY(110%);
-    }
-
+@keyframes fadeUp {
     to {
         opacity: 1;
         transform: translateY(0);
@@ -549,7 +541,7 @@ body.is-preload .hero-title .title-line {
 
     .hero-reveal,
     .skill-reveal,
-    body.is-preload .hero-title .title-line {
+    .hero h1 {
         opacity: 1;
         transform: none;
         filter: none;
