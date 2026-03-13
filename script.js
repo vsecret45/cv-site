@@ -1,6 +1,11 @@
 const navLinks = document.querySelectorAll('.nav-links a');
 const sections = [...document.querySelectorAll('main section[id]')];
 
+window.addEventListener('load', () => {
+    document.body.classList.remove('is-preload');
+    document.body.classList.add('is-ready');
+});
+
 if (navLinks.length > 0 && sections.length > 0) {
     const setActiveLink = () => {
         const offset = window.scrollY + window.innerHeight * 0.25;
