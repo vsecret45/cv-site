@@ -21,6 +21,9 @@ const cvAnalyzeButton = document.querySelector('#cv-analyze');
 const cvMatchJobButton = document.querySelector('#cv-match-job');
 const jobOfferField = document.querySelector('#job-offer');
 const cvZoomSelect = document.querySelector('#cv-zoom');
+const cvLayout = document.querySelector('#cv-layout');
+const cvEditorPanel = document.querySelector('#cv-editor-panel');
+const cvLayoutToggle = document.querySelector('#cv-layout-toggle');
 const cvPreviewViewport = document.querySelector('#cv-preview-viewport');
 const cvPreviewStage = document.querySelector('#cv-preview-stage');
 const cvPrevPageButton = document.querySelector('#cv-prev-page');
@@ -35,6 +38,11 @@ const letterExportWordButton = document.querySelector('#letter-export-word');
 const letterEmailButton = document.querySelector('#letter-email');
 const letterSubject = document.querySelector('#letter-subject');
 const letterBody = document.querySelector('#letter-body');
+const letterPagePreview = document.querySelector('#letter-page-preview');
+const letterPageTitle = document.querySelector('#letter-page-title');
+const letterPageMeta = document.querySelector('#letter-page-meta');
+const letterSubjectPage = document.querySelector('#letter-subject-page');
+const letterBodyPage = document.querySelector('#letter-body-page');
 const interactiveCards = document.querySelectorAll('.interactive-card');
 const assistantToggle = document.querySelector('#assistant-toggle');
 const assistantClose = document.querySelector('#assistant-close');
@@ -239,7 +247,7 @@ const updateCvPageMode = () => {
 
 const getZoomLevel = () => Number(cvZoomSelect?.value || 0.75);
 
-const getPreviewPageCount = () => (previewNodes.preview?.classList.contains('is-two-page') ? 2 : 1);
+const getPreviewPageCount = () => cvPreviewStage?.querySelectorAll('.cv-preview').length || 1;
 
 const updatePreviewPagination = () => {
     const totalPages = getPreviewPageCount();
@@ -264,24 +272,27 @@ const updatePreviewViewport = () => {
     }
 
     const zoom = getZoomLevel();
-    const previewHeight = previewNodes.preview.scrollHeight;
-    const pageGap = getPreviewPageCount() > 1 ? 18 * 3.78 : 0;
+    const stagePages = [...cvPreviewStage.querySelectorAll('.cv-preview')];
+    const pageGap = stagePages.length > 1 ? (stagePages.length - 1) * 18 * 3.78 : 0;
+    const totalHeight = stagePages.reduce((sum, page) => {
+        page.style.transform = `scale(${zoom})`;
+        return sum + page.scrollHeight * zoom;
+    }, 0);
 
-    previewNodes.preview.style.transform = `scale(${zoom})`;
-    cvPreviewStage.style.height = `${previewHeight * zoom + pageGap + 24}px`;
+    cvPreviewStage.style.height = `${totalHeight + pageGap + 24}px`;
     updatePreviewPagination();
 };
 
 const scrollToPreviewPage = (page) => {
-    if (!cvPreviewViewport || !previewNodes.preview) {
+    if (!cvPreviewViewport || !cvPreviewStage) {
         return;
     }
 
-    const totalPages = getPreviewPageCount();
+    const pages = [...cvPreviewStage.querySelectorAll('.cv-preview')];
+    const totalPages = pages.length || 1;
     currentPreviewPage = Math.min(Math.max(page, 1), totalPages);
-    const zoom = getZoomLevel();
-    const pageHeight = previewNodes.preview.scrollHeight * zoom;
-    const targetTop = currentPreviewPage === 1 ? 0 : pageHeight * 0.88;
+    const targetPage = pages[currentPreviewPage - 1];
+    const targetTop = targetPage ? targetPage.offsetTop - 8 : 0;
 
     cvPreviewViewport.scrollTo({ top: targetTop, behavior: 'smooth' });
     updatePreviewPagination();
@@ -385,6 +396,12 @@ const updateCvPreview = () => {
     updateCvPageMode();
 
     analyzeCv(values);
+
+    if (letterPagePreview) {
+        letterPagePreview.className = previewNodes.preview.className.replace(/\bis-two-page\b/g, '').trim();
+        letterPagePreview.classList.add('cv-letter-page');
+        letterPagePreview.style.cssText = previewNodes.preview.style.cssText;
+    }
 };
 
 const getJobOfferAnalysis = (values) => {
@@ -592,6 +609,24 @@ const generateCoverLetter = () => {
     if (letterBody) {
         letterBody.textContent = body;
     }
+
+    if (letterPageTitle) {
+        letterPageTitle.textContent = cvForm?.elements.fullName?.value || 'Votre nom';
+    }
+
+    if (letterPageMeta) {
+        letterPageMeta.textContent = `${role} - ${company}`;
+    }
+
+    if (letterSubjectPage) {
+        letterSubjectPage.textContent = `Objet : Candidature - ${role}`;
+    }
+
+    if (letterBodyPage) {
+        letterBodyPage.textContent = body;
+    }
+
+    updatePreviewViewport();
 };
 
 const autoOrganizeCv = () => {
@@ -947,6 +982,18 @@ if (cvZoomSelect) {
     });
 }
 
+if (cvLayoutToggle && cvLayout && cvEditorPanel) {
+    cvLayoutToggle.addEventListener('click', () => {
+        const isPreviewFocus = cvLayout.classList.toggle('is-preview-focus');
+        cvLayoutToggle.setAttribute('aria-expanded', String(!isPreviewFocus));
+        cvLayoutToggle.setAttribute('aria-label', isPreviewFocus ? 'Reouvrir les reglages' : 'Rabattre les reglages');
+        window.setTimeout(() => {
+            updatePreviewViewport();
+            scrollToPreviewPage(currentPreviewPage);
+        }, 180);
+    });
+}
+
 if (cvPrevPageButton) {
     cvPrevPageButton.addEventListener('click', () => {
         scrollToPreviewPage(currentPreviewPage - 1);
@@ -961,13 +1008,23 @@ if (cvNextPageButton) {
 
 if (cvPreviewViewport) {
     cvPreviewViewport.addEventListener('scroll', () => {
-        if (!previewNodes.preview) {
+        if (!cvPreviewStage) {
             return;
         }
 
-        const zoom = getZoomLevel();
-        const switchPoint = (previewNodes.preview.scrollHeight * zoom) * 0.55;
-        currentPreviewPage = cvPreviewViewport.scrollTop >= switchPoint ? 2 : 1;
+        const pages = [...cvPreviewStage.querySelectorAll('.cv-preview')];
+        let nearestPage = 1;
+        let nearestDistance = Number.POSITIVE_INFINITY;
+
+        pages.forEach((page, index) => {
+            const distance = Math.abs(page.offsetTop - cvPreviewViewport.scrollTop);
+            if (distance < nearestDistance) {
+                nearestDistance = distance;
+                nearestPage = index + 1;
+            }
+        });
+
+        currentPreviewPage = nearestPage;
         updatePreviewPagination();
     });
 }

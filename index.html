@@ -140,7 +140,8 @@
                     <p class="section-kicker">CV intelligent</p>
                     <h2>Generer un CV moderne, organise et personnalisable</h2>
                 </div>
-                <div class="cv-layout">
+                <div class="cv-layout" id="cv-layout">
+                    <div class="cv-editor-panel" id="cv-editor-panel">
                     <form class="cv-form" id="cv-form">
                         <div class="form-split">
                             <label class="field">
@@ -328,6 +329,18 @@ Pratique de la conception front-end</textarea>
                             <button class="button button-secondary" type="button" id="cv-email">Envoyer par mail</button>
                         </div>
                     </form>
+                    </div>
+
+                    <button
+                        class="cv-focus-toggle"
+                        id="cv-layout-toggle"
+                        type="button"
+                        aria-expanded="true"
+                        aria-controls="cv-editor-panel"
+                        aria-label="Rabattre les reglages"
+                    >
+                        <span class="cv-focus-toggle-arrow">‹</span>
+                    </button>
 
                     <aside class="cv-preview-shell">
                         <div class="cv-preview-toolbar">
@@ -404,6 +417,22 @@ Pratique de la conception front-end</textarea>
                                             <h4>Formations</h4>
                                             <ul id="preview-education"></ul>
                                         </section>
+                                    </div>
+                                </article>
+                                <article class="cv-preview cv-letter-page theme-executive font-manrope template-classic" id="letter-page-preview">
+                                    <header class="cv-header cv-header-letter">
+                                        <p class="cv-label">Lettre de motivation</p>
+                                        <h3 id="letter-page-title">Fatima Sidi Amar</h3>
+                                        <p id="letter-page-meta">Candidature professionnelle personnalisee</p>
+                                    </header>
+                                    <div class="letter-page-body">
+                                        <p class="letter-subject" id="letter-subject-page">Objet : Candidature</p>
+                                        <div class="letter-body" id="letter-body-page">
+                                            Madame, Monsieur,
+
+                                            Je souhaite vous proposer ma candidature pour un poste en lien avec la creation
+                                            digitale, les interfaces web et l'experience utilisateur.
+                                        </div>
                                     </div>
                                 </article>
                             </div>
