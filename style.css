@@ -508,6 +508,19 @@ img {
     background: rgba(255, 255, 255, 0.78);
 }
 
+.job-match {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.job-match strong {
+    font-size: 1.15rem;
+    color: #2f3f7f;
+}
+
 .ats-score {
     display: flex;
     align-items: center;
@@ -633,6 +646,48 @@ img {
     justify-items: center;
     gap: 18mm;
     min-height: 100%;
+}
+
+.cover-letter-panel {
+    display: grid;
+    gap: 1rem;
+    padding: clamp(1.5rem, 3vw, 2rem);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-xl);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 249, 255, 0.9));
+    box-shadow: var(--shadow);
+}
+
+.section-heading-compact {
+    margin-bottom: 0;
+}
+
+.section-heading-compact h3 {
+    margin: 0;
+    font-size: 1.5rem;
+    line-height: 1.15;
+    letter-spacing: -0.03em;
+}
+
+.letter-preview {
+    display: grid;
+    gap: 1rem;
+    padding: 1.4rem;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: #ffffff;
+    color: var(--text);
+    white-space: pre-line;
+}
+
+.letter-subject {
+    font-weight: 700;
+    color: #2f3f7f;
+}
+
+.letter-body {
+    color: var(--text-soft);
+    line-height: 1.8;
 }
 
 .cv-preview.size-large {

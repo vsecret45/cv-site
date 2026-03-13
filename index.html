@@ -355,12 +355,31 @@ Pratique de la conception front-end</textarea>
                                 <strong id="ats-score-value">82%</strong>
                             </div>
                             <div class="analysis-block">
+                                <h4>Compatibilite offre</h4>
+                                <div class="job-match">
+                                    <strong id="job-match-value">--</strong>
+                                    <button class="button button-secondary" type="button" id="cv-analyze">Analyser mon CV</button>
+                                </div>
+                            </div>
+                            <div class="analysis-block">
                                 <h4>Analyse de votre CV</h4>
                                 <ul id="cv-analysis-list"></ul>
                             </div>
                             <div class="analysis-block">
                                 <h4>Suggestions</h4>
                                 <ul id="cv-suggestions-list"></ul>
+                            </div>
+                            <label class="field field-message">
+                                <span>Offre d'emploi</span>
+                                <textarea
+                                    id="job-offer"
+                                    name="jobOffer"
+                                    rows="5"
+                                    placeholder="Coller l'offre d'emploi ici pour adapter le CV."
+                                ></textarea>
+                            </label>
+                            <div class="cv-actions">
+                                <button class="button button-secondary" type="button" id="cv-match-job">Adapter mon CV a une offre</button>
                             </div>
                         </div>
                         <div class="cv-preview-viewport" id="cv-preview-viewport">
@@ -388,6 +407,48 @@ Pratique de la conception front-end</textarea>
                                     </div>
                                 </article>
                             </div>
+                        </div>
+                        <div class="cover-letter-panel">
+                            <div class="section-heading section-heading-compact">
+                                <p class="section-kicker">Lettre IA</p>
+                                <h3>Generer une lettre de motivation</h3>
+                            </div>
+                            <div class="form-split">
+                                <label class="field">
+                                    <span>Entreprise</span>
+                                    <input type="text" id="letter-company" name="letterCompany" placeholder="Nom de l'entreprise">
+                                </label>
+                                <label class="field">
+                                    <span>Poste vise</span>
+                                    <input type="text" id="letter-role" name="letterRole" placeholder="Ex. Developpeur web front-end">
+                                </label>
+                            </div>
+                            <label class="field">
+                                <span>Style de lettre</span>
+                                <select id="letter-style" name="letterStyle">
+                                    <option value="classic">Classique</option>
+                                    <option value="short">Courte</option>
+                                    <option value="modern">Moderne</option>
+                                </select>
+                            </label>
+                            <label class="field">
+                                <span>Motivation principale</span>
+                                <input type="text" id="letter-motivation" name="letterMotivation" placeholder="Pourquoi ce poste vous interesse">
+                            </label>
+                            <div class="cv-actions">
+                                <button class="button button-secondary" type="button" id="letter-generate">Generer ma lettre</button>
+                                <button class="button button-secondary" type="button" id="letter-export-word">Exporter Word</button>
+                                <button class="button button-primary" type="button" id="letter-email">Envoyer par mail</button>
+                            </div>
+                            <article class="letter-preview" id="letter-preview">
+                                <p class="letter-subject" id="letter-subject">Objet : Candidature</p>
+                                <div class="letter-body" id="letter-body">
+                                    Madame, Monsieur,
+
+                                    Je souhaite vous proposer ma candidature pour un poste en lien avec la creation
+                                    digitale, les interfaces web et l'experience utilisateur.
+                                </div>
+                            </article>
                         </div>
                     </aside>
                 </div>

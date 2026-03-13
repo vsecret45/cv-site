@@ -14,14 +14,27 @@ const cvEmailButton = document.querySelector('#cv-email');
 const cvAiImproveButton = document.querySelector('#cv-ai-improve');
 const cvStatus = document.querySelector('#cv-status');
 const atsScoreValue = document.querySelector('#ats-score-value');
+const jobMatchValue = document.querySelector('#job-match-value');
 const cvAnalysisList = document.querySelector('#cv-analysis-list');
 const cvSuggestionsList = document.querySelector('#cv-suggestions-list');
+const cvAnalyzeButton = document.querySelector('#cv-analyze');
+const cvMatchJobButton = document.querySelector('#cv-match-job');
+const jobOfferField = document.querySelector('#job-offer');
 const cvZoomSelect = document.querySelector('#cv-zoom');
 const cvPreviewViewport = document.querySelector('#cv-preview-viewport');
 const cvPreviewStage = document.querySelector('#cv-preview-stage');
 const cvPrevPageButton = document.querySelector('#cv-prev-page');
 const cvNextPageButton = document.querySelector('#cv-next-page');
 const cvPageIndicator = document.querySelector('#cv-page-indicator');
+const letterCompanyField = document.querySelector('#letter-company');
+const letterRoleField = document.querySelector('#letter-role');
+const letterStyleField = document.querySelector('#letter-style');
+const letterMotivationField = document.querySelector('#letter-motivation');
+const letterGenerateButton = document.querySelector('#letter-generate');
+const letterExportWordButton = document.querySelector('#letter-export-word');
+const letterEmailButton = document.querySelector('#letter-email');
+const letterSubject = document.querySelector('#letter-subject');
+const letterBody = document.querySelector('#letter-body');
 const interactiveCards = document.querySelectorAll('.interactive-card');
 const assistantToggle = document.querySelector('#assistant-toggle');
 const assistantClose = document.querySelector('#assistant-close');
@@ -52,6 +65,13 @@ const templateThemeMap = {
     modern: 'template-modern',
     executive: 'template-executive',
     minimal: 'template-minimal',
+};
+
+const offerKeywordMap = {
+    react: ['react', 'javascript', 'frontend', 'front-end', 'component'],
+    ux: ['ux', 'ui', 'experience utilisateur', 'interface', 'figma'],
+    api: ['api', 'integration', 'donnees', 'base de donnees'],
+    client: ['relation client', 'accompagnement', 'service client', 'conseil'],
 };
 
 const assistantAnswers = [
@@ -367,6 +387,32 @@ const updateCvPreview = () => {
     analyzeCv(values);
 };
 
+const getJobOfferAnalysis = (values) => {
+    const offer = (jobOfferField?.value || '').toLowerCase().trim();
+
+    if (!offer) {
+        return { score: null, matched: [], missing: [] };
+    }
+
+    const content = `${values.headline || ''} ${values.summary || ''} ${values.skills || ''} ${values.experience || ''}`.toLowerCase();
+    const dynamicKeywords = Object.entries(offerKeywordMap)
+        .filter(([key]) => offer.includes(key))
+        .flatMap(([, keywords]) => keywords);
+
+    const offerWords = offer
+        .split(/[^a-zA-ZÀ-ÿ0-9+#.-]+/)
+        .map((word) => word.trim())
+        .filter((word) => word.length > 3);
+
+    const offerKeywords = [...new Set([...dynamicKeywords, ...offerWords.slice(0, 18)])];
+    const matched = offerKeywords.filter((keyword) => content.includes(keyword.toLowerCase()));
+    const missing = offerKeywords.filter((keyword) => !content.includes(keyword.toLowerCase()));
+    const ratio = offerKeywords.length ? matched.length / offerKeywords.length : 0;
+    const score = Math.max(40, Math.min(98, Math.round(ratio * 100)));
+
+    return { score, matched, missing };
+};
+
 const analyzeCv = (values) => {
     const summary = (values.summary || '').trim();
     const experiences = splitLines(values.experience || '');
@@ -455,6 +501,23 @@ const analyzeCv = (values) => {
         suggestions.push('Essayer le mode CV ATS pour un format plus compatible');
     }
 
+    const jobOfferAnalysis = getJobOfferAnalysis(values);
+
+    if (jobOfferAnalysis.score !== null) {
+        analysis.push(`Compatibilite avec l offre : ${jobOfferAnalysis.score}%`);
+        if (jobOfferAnalysis.matched.length) {
+            analysis.push(`Mots cles offre detectes : ${jobOfferAnalysis.matched.slice(0, 5).join(', ')}`);
+        }
+        if (jobOfferAnalysis.missing.length) {
+            suggestions.push(`Ajouter pour cette annonce : ${jobOfferAnalysis.missing.slice(0, 4).join(', ')}`);
+        }
+        if (jobMatchValue) {
+            jobMatchValue.textContent = `${jobOfferAnalysis.score}%`;
+        }
+    } else if (jobMatchValue) {
+        jobMatchValue.textContent = '--';
+    }
+
     score = Math.max(40, Math.min(98, score));
 
     if (atsScoreValue) {
@@ -468,6 +531,67 @@ const analyzeCv = (values) => {
             ? suggestions.map((item) => `- ${item}`)
             : ['- Le CV est deja bien structure, vous pouvez maintenant l adapter au poste vise']
     );
+};
+
+const adaptCvToJobOffer = () => {
+    if (!cvForm || !jobOfferField?.value.trim()) {
+        setCvStatus('Ajoutez une offre d emploi pour adapter le CV');
+        return;
+    }
+
+    const offer = jobOfferField.value.trim();
+    const offerLower = offer.toLowerCase();
+    const headlineField = cvForm.elements.headline;
+    const summaryField = cvForm.elements.summary;
+    const skillsField = cvForm.elements.skills;
+
+    const injectedKeywords = Object.entries(offerKeywordMap)
+        .filter(([key]) => offerLower.includes(key))
+        .flatMap(([, keywords]) => keywords)
+        .slice(0, 4);
+
+    if (headlineField?.value && injectedKeywords.length) {
+        headlineField.value = `${headlineField.value.split('|')[0].trim()} - ${injectedKeywords.slice(0, 2).join(' / ')}`;
+    }
+
+    if (summaryField?.value) {
+        summaryField.value = `${summaryField.value.trim()} Profil ajuste selon l annonce pour mettre en avant les competences les plus pertinentes.`;
+    }
+
+    if (skillsField && injectedKeywords.length) {
+        const existing = splitLines(skillsField.value);
+        skillsField.value = [...new Set([...injectedKeywords.map(toTitleCase), ...existing])].slice(0, 12).join('\n');
+    }
+
+    updateCvPreview();
+    setCvStatus('CV adapte a l offre');
+};
+
+const generateCoverLetter = () => {
+    const company = (letterCompanyField?.value || 'votre entreprise').trim();
+    const role = (letterRoleField?.value || cvForm?.elements.headline?.value || 'poste vise').trim();
+    const motivation = (letterMotivationField?.value || 'mettre mes competences au service de votre equipe').trim();
+    const style = letterStyleField?.value || 'classic';
+    const profile = (cvForm?.elements.summary?.value || '').trim();
+    const skills = splitLines(cvForm?.elements.skills?.value || '').slice(0, 4).join(', ');
+
+    let body = `Madame, Monsieur,\n\nJe vous adresse ma candidature pour le poste de ${role} au sein de ${company}. ${profile || 'Mon parcours m a permis de developper une approche claire, structuree et orientee resultat.'}\n\n`;
+
+    if (style === 'short') {
+        body += `Mes competences en ${skills || 'creation digitale et structuration de projets'} me permettent de contribuer rapidement a vos besoins. Ma motivation principale est de ${motivation}.\n\nJe reste disponible pour echanger.\n\nCordialement,`;
+    } else if (style === 'modern') {
+        body += `J aime concevoir des solutions utiles, lisibles et adaptees aux attentes terrain. Mes competences en ${skills || 'interfaces, organisation et experience utilisateur'} peuvent renforcer vos projets. Je souhaite aujourd hui ${motivation}.\n\nJe serais ravie d apporter cette energie et cette rigueur a ${company}.\n\nBien cordialement,`;
+    } else {
+        body += `Au fil de mes experiences, j ai developpe des competences en ${skills || 'creation digitale, organisation et accompagnement'}. Elles me permettent d aborder les projets avec rigueur, sens du detail et capacite d adaptation. Je souhaite aujourd hui ${motivation}.\n\nJe serais ravie de pouvoir mettre ces competences au service de ${company}.\n\nCordialement,`;
+    }
+
+    if (letterSubject) {
+        letterSubject.textContent = `Objet : Candidature - ${role}`;
+    }
+
+    if (letterBody) {
+        letterBody.textContent = body;
+    }
 };
 
 const autoOrganizeCv = () => {
@@ -763,6 +887,17 @@ if (cvAiImproveButton) {
     });
 }
 
+if (cvAnalyzeButton) {
+    cvAnalyzeButton.addEventListener('click', () => {
+        updateCvPreview();
+        setCvStatus('Analyse ATS actualisee');
+    });
+}
+
+if (cvMatchJobButton) {
+    cvMatchJobButton.addEventListener('click', adaptCvToJobOffer);
+}
+
 if (cvPrintButton) {
     cvPrintButton.addEventListener('click', () => {
         document.body.classList.add('print-cv');
@@ -783,6 +918,24 @@ if (cvEmailButton) {
     cvEmailButton.addEventListener('click', () => {
         const subject = encodeURIComponent('CV intelligent - candidature');
         const body = encodeURIComponent(previewNodes.preview?.innerText || '');
+        window.location.href = `mailto:purvelours@proton.me?subject=${subject}&body=${body}`;
+    });
+}
+
+if (letterGenerateButton) {
+    letterGenerateButton.addEventListener('click', generateCoverLetter);
+}
+
+if (letterExportWordButton) {
+    letterExportWordButton.addEventListener('click', () => {
+        downloadFile('lettre-motivation.doc', `${letterSubject?.textContent || ''}\n\n${letterBody?.textContent || ''}`, 'application/msword');
+    });
+}
+
+if (letterEmailButton) {
+    letterEmailButton.addEventListener('click', () => {
+        const subject = encodeURIComponent(letterSubject?.textContent || 'Candidature');
+        const body = encodeURIComponent(letterBody?.textContent || '');
         window.location.href = `mailto:purvelours@proton.me?subject=${subject}&body=${body}`;
     });
 }
