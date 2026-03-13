@@ -645,7 +645,8 @@ const updateCvPreview = () => {
         previewNodes.meta.textContent = [values.location, values.phone, values.email, values.permit].filter(Boolean).join(' | ');
     }
     previewNodes.headline.textContent = values.headline || 'Intitule du profil';
-    previewNodes.summary.textContent = values.summary || 'Resume du profil';
+    previewNodes.summary.textContent = values.summary || '';
+    previewNodes.summary.hidden = !values.summary;
 
     renderExperienceList(previewNodes.experience, splitLines(values.experience || ''));
     fillList(previewNodes.skills, splitLines(values.skills || ''));
@@ -1056,6 +1057,7 @@ const preprocessImportedCvText = (text) =>
             /\b(COMP[ÉE]TENCES(?:\s+CL[EÉ]S)?|EXP[ÉE]RIENCES(?:\s+PROFESSIONNELLES)?|FORMATIONS(?:\s*&\s*CERTIFICATIONS)?|CERTIFICATIONS|PROFIL|R[ÉE]SUM[ÉE]|OBJECTIF)\b/gi,
             '\n$1\n'
         )
+        .replace(/((?:janv(?:ier)?|f[ée]vr(?:ier)?|mars|avr(?:il)?|mai|juin|juil(?:let)?|ao[uû]t|sept(?:embre)?|oct(?:obre)?|nov(?:embre)?|d[ée]c(?:embre)?|\d{4})\s*[–-]\s*(?:janv(?:ier)?|f[ée]vr(?:ier)?|mars|avr(?:il)?|mai|juin|juil(?:let)?|ao[uû]t|sept(?:embre)?|oct(?:obre)?|nov(?:embre)?|d[ée]c(?:embre)?|\d{4}|aujourd'hui|present|pr[ée]sent))/gi, '\n$1\n')
         .replace(/\s+([•\-])\s+/g, '\n$1 ')
         .replace(/\s{2,}/g, ' ')
         .replace(/\n{3,}/g, '\n\n')
@@ -1154,6 +1156,16 @@ const extractHeadlineAndSummary = ({ cleanLines, joinedText, nameLine, locationL
     };
 };
 
+const extractPermitValue = (text) => {
+    const match = text.match(/\bPermis\s+[A-Z](?:\s*(?:et|\/|-)\s*[A-Z])*(?:\s*[-–]\s*FIMO[^\n|,]*)?/i);
+    return match ? match[0].trim() : '';
+};
+
+const extractLocationValue = (text) => {
+    const match = text.match(/[A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÖØ-öø-ÿ' -]+(?:\s*\(\d{5}\))?/);
+    return match ? match[0].trim() : '';
+};
+
 const normalizeStructuredItems = (items, type) => {
     const stopTokens = {
         skills: /\b(exp[ée]riences?|formations?|certifications?)\b/i,
@@ -1179,14 +1191,22 @@ const parseImportedCv = (text) => {
     const cleanLines = lines.filter((line) => !/^%PDF-|^\/(Title|Parent|Dest|Next|Prev)\b/i.test(line));
     const joinedText = cleanLines.join('\n');
     const sectionStops = [
-        /\nCOMP[ÉE]TENCES(?:\s+CL[EÉ]S)?\b/i,
-        /\nEXP[ÉE]RIENCES(?:\s+PROFESSIONNELLES)?\b/i,
-        /\nFORMATIONS(?:\s*&\s*CERTIFICATIONS)?\b/i,
-        /\nCERTIFICATIONS\b/i,
-        /\nPROFIL\b/i,
-        /\nR[ÉE]SUM[ÉE]\b/i,
-        /\nOBJECTIF\b/i,
+        /\bCOMP[ÉE]TENCES(?:\s+CL[EÉ]S)?\b/i,
+        /\bEXP[ÉE]RIENCES(?:\s+PROFESSIONNELLES)?\b/i,
+        /\bFORMATIONS(?:\s*&\s*CERTIFICATIONS)?\b/i,
+        /\bCERTIFICATIONS\b/i,
+        /\bPROFIL\b/i,
+        /\bR[ÉE]SUM[ÉE]\b/i,
+        /\bOBJECTIF\b/i,
     ];
+
+    cvForm.elements.summary.value = '';
+    cvForm.elements.skills.value = '';
+    cvForm.elements.experience.value = '';
+    cvForm.elements.education.value = '';
+    if (cvForm.elements.languages) {
+        cvForm.elements.languages.value = '';
+    }
 
     const nameLine =
         cleanLines.find((line) => /^[A-ZÀ-ÖØ-Ý' -]{6,}$/.test(line) && line.length < 40) ||
@@ -1213,19 +1233,20 @@ const parseImportedCv = (text) => {
         }
     }
 
-    const permitLine = cleanLines.find((line) => /permis/i.test(line));
-    if (permitLine) {
-        cvForm.elements.permit.value = permitLine;
+    const permitLine = cleanLines.find((line) => /permis/i.test(line)) || '';
+    const permitValue = extractPermitValue(joinedText || permitLine);
+    if (permitValue) {
+        cvForm.elements.permit.value = permitValue;
     }
 
     const locationLine = cleanLines.find((line) => /\(\d{5}\)|france|malmaison|paris|nanterre|roissy/i.test(line));
     if (locationLine) {
-        cvForm.elements.location.value = locationLine;
+        cvForm.elements.location.value = extractLocationValue(locationLine) || locationLine;
     }
 
     const headlineLine =
         cleanLines.find((line) =>
-            /developp|front|emploi|marketing|relation client|designer|ux|ui|conseill|responsable|charg[eé]e/i.test(line) &&
+            /developp|front|emploi|marketing|relation client|designer|ux|ui|conseill|responsable|charg[eé]e|conductr|machiniste|receveur|transport/i.test(line) &&
             line.length < 120 &&
             !/@|\d{2}\.\d{2}\.\d{2}/.test(line)
         ) || '';
