@@ -515,6 +515,41 @@ img {
     align-items: end;
 }
 
+.template-presets {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 0.8rem;
+}
+
+.template-chip {
+    display: grid;
+    gap: 0.28rem;
+    padding: 0.95rem 1rem;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.9);
+    text-align: left;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.template-chip strong {
+    font-size: 0.96rem;
+}
+
+.template-chip span {
+    color: var(--text-soft);
+    font-size: 0.84rem;
+    line-height: 1.4;
+}
+
+.template-chip:hover,
+.template-chip:focus-visible {
+    transform: translateY(-1px);
+    border-color: rgba(47, 63, 127, 0.24);
+    box-shadow: 0 14px 24px rgba(47, 63, 127, 0.08);
+}
+
 .tool-toggle {
     display: inline-flex;
     align-items: center;
@@ -657,6 +692,31 @@ img {
     flex-wrap: wrap;
 }
 
+.preview-mode-tabs {
+    display: inline-flex;
+    padding: 0.2rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.85);
+}
+
+.preview-mode-tab {
+    min-height: 2.2rem;
+    padding: 0.45rem 0.9rem;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-soft);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.preview-mode-tab.is-active {
+    background: #2f3f7f;
+    color: #ffffff;
+}
+
 .preview-zoom-control {
     display: inline-flex;
     align-items: center;
@@ -729,6 +789,10 @@ img {
     justify-items: center;
     gap: 18mm;
     min-height: 100%;
+}
+
+.is-hidden-preview {
+    display: none !important;
 }
 
 .cv-layout.is-preview-focus {
@@ -919,6 +983,42 @@ img {
 .cv-preview.template-minimal {
     border-color: rgba(19, 22, 32, 0.06);
     box-shadow: 0 10px 22px rgba(31, 38, 72, 0.05);
+}
+
+.cv-preview.template-classic .cv-header {
+    text-align: center;
+}
+
+.cv-preview.template-classic .cv-meta,
+.cv-preview.template-classic #preview-headline {
+    justify-self: center;
+}
+
+.cv-preview.template-modern .cv-body {
+    gap: 1.2rem;
+}
+
+.cv-preview.template-modern .cv-body section {
+    padding-left: 1rem;
+    border-left: 3px solid var(--cv-soft);
+}
+
+.cv-preview.template-executive .cv-body h4 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 0.45rem;
+    border-bottom: 1px solid rgba(19, 22, 32, 0.12);
+}
+
+.cv-preview.template-minimal .cv-header {
+    gap: 0.45rem;
+    padding-bottom: 1.1rem;
+}
+
+.cv-preview.template-minimal .cv-body h4 {
+    font-size: 0.8rem;
+    color: var(--text);
 }
 
 .cv-preview.template-executive.mood-luxury,

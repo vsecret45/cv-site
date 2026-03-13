@@ -283,6 +283,24 @@ Pratique de la conception front-end</textarea>
                                 </select>
                             </label>
                         </div>
+                        <div class="template-presets" aria-label="Mises en forme pretes a l emploi">
+                            <button class="template-chip" type="button" data-template-preset="classic">
+                                <strong>Simple</strong>
+                                <span>Sobre, lisible, une page</span>
+                            </button>
+                            <button class="template-chip" type="button" data-template-preset="professional">
+                                <strong>Professionnel</strong>
+                                <span>Dates claires, structure nette</span>
+                            </button>
+                            <button class="template-chip" type="button" data-template-preset="design">
+                                <strong>Design</strong>
+                                <span>Accent visuel, sections plus edito</span>
+                            </button>
+                            <button class="template-chip" type="button" data-template-preset="luxury">
+                                <strong>Luxe</strong>
+                                <span>Cadre premium, tons elegants</span>
+                            </button>
+                        </div>
 
                         <div class="cv-toolbar">
                             <label class="field">
@@ -392,6 +410,10 @@ Pratique de la conception front-end</textarea>
                                 <span class="preview-status" id="cv-status">CV synchronise</span>
                             </div>
                             <div class="preview-toolbar-group">
+                                <div class="preview-mode-tabs" role="tablist" aria-label="Type de document">
+                                    <button class="preview-mode-tab is-active" type="button" id="preview-mode-cv" data-preview-mode="cv" aria-selected="true">CV</button>
+                                    <button class="preview-mode-tab" type="button" id="preview-mode-letter" data-preview-mode="letter" aria-selected="false">Lettre</button>
+                                </div>
                                 <label class="preview-zoom-control">
                                     <span>Zoom</span>
                                     <select id="cv-zoom" name="zoomLevel">
@@ -444,7 +466,7 @@ Pratique de la conception front-end</textarea>
                         </div>
                         <div class="cv-preview-viewport" id="cv-preview-viewport">
                             <div class="cv-preview-stage" id="cv-preview-stage">
-                                <article class="cv-preview theme-executive font-manrope template-classic" id="cv-preview">
+                                <article class="cv-preview theme-executive font-manrope template-classic" id="cv-preview" data-preview-doc="cv">
                                     <header class="cv-header">
                                         <p class="cv-label">CV intelligent</p>
                                         <h3 id="preview-name" data-edit-target="fullName">Fatima Sidi Amar</h3>
@@ -467,7 +489,7 @@ Pratique de la conception front-end</textarea>
                                         </section>
                                     </div>
                                 </article>
-                                <article class="cv-preview cv-letter-page theme-executive font-manrope template-classic" id="letter-page-preview">
+                                <article class="cv-preview cv-letter-page theme-executive font-manrope template-classic is-hidden-preview" id="letter-page-preview" data-preview-doc="letter" aria-hidden="true">
                                     <header class="cv-header cv-header-letter">
                                         <p class="cv-label">Lettre de motivation</p>
                                         <h3 id="letter-page-title">Fatima Sidi Amar</h3>
