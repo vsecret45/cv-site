@@ -288,8 +288,8 @@ Pratique de la conception front-end</textarea>
                             <span>Importer mon ancien CV</span>
                             <input type="file" id="cv-import" accept=".txt,.md,.text,.pdf,.doc,.docx">
                             <small class="field-hint">
-                                Import texte direct pour `.txt` et `.md`. Les fichiers PDF ou Word doivent d'abord
-                                etre convertis pour un remplissage propre.
+                                Import direct pour `.txt`, `.md`, `.pdf` et `.docx`. Le format `.doc` ancien reste a
+                                convertir en `.docx`.
                             </small>
                         </label>
 
@@ -501,6 +501,7 @@ Pratique de la conception front-end</textarea>
         </form>
     </section>
 
+    <script src="https://cdn.jsdelivr.net/npm/mammoth@1.11.0/mammoth.browser.min.js" defer></script>
     <script src="script.js"></script>
 </body>
 </html>

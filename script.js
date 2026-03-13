@@ -23,6 +23,10 @@ const assistantInput = document.querySelector('#assistant-input');
 const assistantMessages = document.querySelector('#assistant-messages');
 const suggestionChips = document.querySelectorAll('.suggestion-chip');
 const expandableCards = document.querySelectorAll('[data-expandable]');
+const PDFJS_MODULE_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/legacy/build/pdf.min.mjs';
+const PDFJS_WORKER_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/legacy/build/pdf.worker.min.mjs';
+
+let pdfjsLoader;
 
 const previewNodes = {
     fullName: document.querySelector('#preview-name'),
@@ -90,6 +94,71 @@ const isBinaryDocument = (file) => {
         mime.includes('msword') ||
         mime.includes('wordprocessingml')
     );
+};
+
+const isLegacyWordDocument = (file) => {
+    const filename = (file?.name || '').toLowerCase();
+    const mime = (file?.type || '').toLowerCase();
+
+    return filename.endsWith('.doc') || mime.includes('msword');
+};
+
+const isDocxDocument = (file) => {
+    const filename = (file?.name || '').toLowerCase();
+    const mime = (file?.type || '').toLowerCase();
+
+    return filename.endsWith('.docx') || mime.includes('wordprocessingml');
+};
+
+const isPdfDocument = (file) => {
+    const filename = (file?.name || '').toLowerCase();
+    const mime = (file?.type || '').toLowerCase();
+
+    return filename.endsWith('.pdf') || mime.includes('pdf');
+};
+
+const loadPdfJs = async () => {
+    if (!pdfjsLoader) {
+        pdfjsLoader = import(PDFJS_MODULE_URL).then((module) => {
+            module.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_URL;
+            return module;
+        });
+    }
+
+    return pdfjsLoader;
+};
+
+const extractTextFromPdf = async (file) => {
+    const pdfjs = await loadPdfJs();
+    const buffer = await file.arrayBuffer();
+    const pdf = await pdfjs.getDocument({ data: new Uint8Array(buffer) }).promise;
+    const pageTexts = [];
+
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+        const page = await pdf.getPage(pageNumber);
+        const textContent = await page.getTextContent();
+        const line = textContent.items
+            .map((item) => ('str' in item ? item.str : ''))
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        if (line) {
+            pageTexts.push(line);
+        }
+    }
+
+    return pageTexts.join('\n\n');
+};
+
+const extractTextFromDocx = async (file) => {
+    if (!window.mammoth) {
+        throw new Error('Mammoth indisponible');
+    }
+
+    const buffer = await file.arrayBuffer();
+    const result = await window.mammoth.extractRawText({ arrayBuffer: buffer });
+    return result.value || '';
 };
 
 const cvModeThemeMap = {
@@ -540,14 +609,41 @@ if (cvImportInput) {
             return;
         }
 
-        if (isBinaryDocument(file)) {
-            setCvStatus('PDF ou Word detecte : conversion necessaire avant import automatique');
-            event.target.value = '';
-            return;
-        }
+        try {
+            setCvStatus('Import en cours...');
 
-        const text = await file.text();
-        parseImportedCv(text);
+            if (isLegacyWordDocument(file)) {
+                setCvStatus('Le format .doc ancien doit etre converti en .docx avant import');
+                event.target.value = '';
+                return;
+            }
+
+            let text = '';
+
+            if (isPdfDocument(file)) {
+                text = await extractTextFromPdf(file);
+            } else if (isDocxDocument(file)) {
+                text = await extractTextFromDocx(file);
+            } else if (isBinaryDocument(file)) {
+                setCvStatus('Format non pris en charge pour l import automatique');
+                event.target.value = '';
+                return;
+            } else {
+                text = await file.text();
+            }
+
+            if (!text.trim()) {
+                setCvStatus('Aucun texte exploitable detecte dans ce document');
+                event.target.value = '';
+                return;
+            }
+
+            parseImportedCv(text);
+        } catch (error) {
+            console.error(error);
+            setCvStatus('Import impossible pour ce document');
+            event.target.value = '';
+        }
     });
 }
 
