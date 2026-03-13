@@ -359,13 +359,16 @@ Pratique de la conception front-end</textarea>
                         </label>
 
                         <div class="cv-actions">
+                            <button class="button button-secondary" type="button" id="cv-save">Sauvegarder</button>
                             <button class="button button-secondary" type="button" id="cv-fit-page">Ajuster a 1 page</button>
                             <button class="button button-secondary" type="button" id="cv-autofill">Auto-organiser</button>
                             <button class="button button-secondary" type="button" id="cv-improve">Ameliorer mon CV</button>
                             <button class="button button-secondary" type="button" id="cv-ai-improve">Assistant IA</button>
-                            <button class="button button-primary" type="button" id="cv-print">Exporter PDF</button>
+                            <button class="button button-primary" type="button" id="cv-export-pdf">Exporter PDF</button>
+                            <button class="button button-secondary" type="button" id="cv-print">Imprimer</button>
                             <button class="button button-secondary" type="button" id="cv-export-word">Exporter Word</button>
                             <button class="button button-secondary" type="button" id="cv-export-web">Version web</button>
+                            <button class="button button-secondary" type="button" id="cv-share">Partager lien</button>
                             <button class="button button-secondary" type="button" id="cv-email">Envoyer par mail</button>
                         </div>
                     </form>
@@ -679,6 +682,7 @@ Pratique de la conception front-end</textarea>
     </section>
 
     <script src="https://cdn.jsdelivr.net/npm/mammoth@1.11.0/mammoth.browser.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js" defer></script>
     <script src="script.js"></script>
 </body>
 </html>

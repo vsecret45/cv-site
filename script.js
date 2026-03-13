@@ -5,12 +5,15 @@ const cards = document.querySelectorAll('.card');
 const revealSections = document.querySelectorAll('.reveal-section');
 const cvForm = document.querySelector('#cv-form');
 const cvPrintButton = document.querySelector('#cv-print');
+const cvExportPdfButton = document.querySelector('#cv-export-pdf');
 const cvAutofillButton = document.querySelector('#cv-autofill');
 const cvImproveButton = document.querySelector('#cv-improve');
+const cvSaveButton = document.querySelector('#cv-save');
 const cvFitPageButton = document.querySelector('#cv-fit-page');
 const cvImportInput = document.querySelector('#cv-import');
 const cvExportWordButton = document.querySelector('#cv-export-word');
 const cvExportWebButton = document.querySelector('#cv-export-web');
+const cvShareButton = document.querySelector('#cv-share');
 const cvEmailButton = document.querySelector('#cv-email');
 const cvAiImproveButton = document.querySelector('#cv-ai-improve');
 const cvStatus = document.querySelector('#cv-status');
@@ -193,9 +196,51 @@ const downloadFile = (filename, content, type) => {
     URL.revokeObjectURL(url);
 };
 
+const getCvDraftStorageKey = () => 'cv-site-builder-draft-v1';
+
 const setCvStatus = (message) => {
     if (cvStatus) {
         cvStatus.textContent = message;
+    }
+};
+
+const saveCvDraft = () => {
+    if (!cvForm) {
+        return;
+    }
+
+    const formData = new FormData(cvForm);
+    const values = Object.fromEntries(formData.entries());
+    window.localStorage.setItem(getCvDraftStorageKey(), JSON.stringify(values));
+    setCvStatus('CV sauvegarde localement');
+};
+
+const loadCvDraft = () => {
+    if (!cvForm) {
+        return;
+    }
+
+    const raw = window.localStorage.getItem(getCvDraftStorageKey());
+    if (!raw) {
+        return;
+    }
+
+    try {
+        const values = JSON.parse(raw);
+        Object.entries(values).forEach(([key, value]) => {
+            const field = cvForm.elements[key];
+            if (!field) {
+                return;
+            }
+
+            if (field.type === 'checkbox') {
+                field.checked = Boolean(value);
+            } else {
+                field.value = value;
+            }
+        });
+    } catch (error) {
+        console.error(error);
     }
 };
 
@@ -881,6 +926,52 @@ const exportWord = () => {
     downloadFile('cv-intelligent.doc', content, 'application/msword');
 };
 
+const exportPdf = async () => {
+    if (!previewNodes.preview || !window.html2pdf) {
+        setCvStatus('Export PDF indisponible pour le moment');
+        return;
+    }
+
+    setCvStatus('Generation du PDF...');
+
+    const clone = previewNodes.preview.cloneNode(true);
+    clone.style.transform = 'none';
+    clone.style.width = '210mm';
+    clone.style.minHeight = '297mm';
+    clone.style.margin = '0';
+    clone.style.boxShadow = 'none';
+    clone.style.borderRadius = '0';
+
+    const wrapper = document.createElement('div');
+    wrapper.style.position = 'fixed';
+    wrapper.style.left = '-99999px';
+    wrapper.style.top = '0';
+    wrapper.style.background = '#ffffff';
+    wrapper.appendChild(clone);
+    document.body.appendChild(wrapper);
+
+    try {
+        await window.html2pdf()
+            .set({
+                margin: 0,
+                filename: 'cv-intelligent.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, backgroundColor: '#ffffff' },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                pagebreak: { mode: ['css', 'legacy'] },
+            })
+            .from(clone)
+            .save();
+
+        setCvStatus('PDF telecharge');
+    } catch (error) {
+        console.error(error);
+        setCvStatus('Echec de generation du PDF');
+    } finally {
+        wrapper.remove();
+    }
+};
+
 const exportWebVersion = () => {
     const html = `
 <!DOCTYPE html>
@@ -952,6 +1043,7 @@ const getAssistantReply = (message) => {
 window.addEventListener('load', () => {
     document.body.classList.remove('is-preload');
     document.body.classList.add('is-ready');
+    loadCvDraft();
     updateCvPreview();
 });
 
@@ -1048,6 +1140,10 @@ if (cvAutofillButton) {
     cvAutofillButton.addEventListener('click', autoOrganizeCv);
 }
 
+if (cvSaveButton) {
+    cvSaveButton.addEventListener('click', saveCvDraft);
+}
+
 if (cvImproveButton) {
     cvImproveButton.addEventListener('click', improveCv);
 }
@@ -1084,12 +1180,30 @@ if (cvPrintButton) {
     });
 }
 
+if (cvExportPdfButton) {
+    cvExportPdfButton.addEventListener('click', exportPdf);
+}
+
 if (cvExportWordButton) {
     cvExportWordButton.addEventListener('click', exportWord);
 }
 
 if (cvExportWebButton) {
     cvExportWebButton.addEventListener('click', exportWebVersion);
+}
+
+if (cvShareButton) {
+    cvShareButton.addEventListener('click', async () => {
+        const shareUrl = `${window.location.origin}${window.location.pathname}#cv-intelligent`;
+
+        try {
+            await navigator.clipboard.writeText(shareUrl);
+            setCvStatus('Lien copie');
+        } catch (error) {
+            console.error(error);
+            setCvStatus('Impossible de copier le lien');
+        }
+    });
 }
 
 if (cvEmailButton) {
