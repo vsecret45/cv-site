@@ -1221,8 +1221,20 @@ const extractPermitValue = (text) => {
 };
 
 const extractLocationValue = (text) => {
-    const match = text.match(/[A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÖØ-öø-ÿ' -]+(?:\s*\(\d{5}\))?/);
-    return match ? match[0].trim() : '';
+    const cityWithPostalMatch = text.match(
+        /\b(?:Rueil(?:-|\s)Malmaison|Nanterre|Roissy|Paris|Montigny(?:-|\s)le(?:-|\s)Bretonneux|Boulogne(?:-|\s)Billancourt|La\s*Defense)(?:\s*\(\d{5}\))?/i
+    );
+    if (cityWithPostalMatch) {
+        return cityWithPostalMatch[0].trim();
+    }
+
+    const postalMatch = text.match(/[A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÖØ-öø-ÿ' -]+(?:\s*\(\d{5}\))/);
+    if (postalMatch) {
+        return postalMatch[0].trim();
+    }
+
+    const genericCityMatch = text.match(/\b[A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÖØ-öø-ÿ' -]{2,40}\b/);
+    return genericCityMatch ? genericCityMatch[0].trim() : '';
 };
 
 const normalizeStructuredItems = (items, type) => {
@@ -1378,7 +1390,8 @@ const parseImportedCv = (text) => {
 
     const locationLine = cleanLines.find((line) => /\(\d{5}\)|france|malmaison|paris|nanterre|roissy/i.test(line));
     if (locationLine) {
-        cvForm.elements.location.value = extractLocationValue(locationLine) || locationLine;
+        const extractedLocation = extractLocationValue(locationLine) || locationLine;
+        cvForm.elements.location.value = extractedLocation.replace(cvForm.elements.fullName.value || '', '').trim();
     }
 
     const headlineLine =
