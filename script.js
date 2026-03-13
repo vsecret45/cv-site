@@ -7,6 +7,7 @@ const cvForm = document.querySelector('#cv-form');
 const cvPrintButton = document.querySelector('#cv-print');
 const cvAutofillButton = document.querySelector('#cv-autofill');
 const cvImproveButton = document.querySelector('#cv-improve');
+const cvFitPageButton = document.querySelector('#cv-fit-page');
 const cvImportInput = document.querySelector('#cv-import');
 const cvExportWordButton = document.querySelector('#cv-export-word');
 const cvExportWebButton = document.querySelector('#cv-export-web');
@@ -61,6 +62,7 @@ let currentPreviewPage = 1;
 
 const previewNodes = {
     fullName: document.querySelector('#preview-name'),
+    meta: document.querySelector('#preview-meta'),
     headline: document.querySelector('#preview-headline'),
     summary: document.querySelector('#preview-summary'),
     experience: document.querySelector('#preview-experience'),
@@ -95,6 +97,10 @@ const applyCvPreset = (preset) => {
         form.summary.value = "Je conçois des interfaces web modernes, claires et orientées expérience utilisateur.";
         form.skills.value = ['HTML', 'CSS', 'JavaScript', 'React', 'UI / UX', 'Figma', 'Responsive Design', 'Git'].join('\n');
         form.jobTarget.value = 'developpeur web';
+        form.location.value = 'Rueil-Malmaison (92500)';
+        form.phone.value = '07.77.46.48.37';
+        form.email.value = 'purvelours@proton.me';
+        form.permit.value = 'Permis B';
         form.fontTheme.value = 'inter';
         form.layoutTheme.value = 'modern';
         form.colorTheme.value = 'indigo';
@@ -106,6 +112,10 @@ const applyCvPreset = (preset) => {
         form.summary.value = "Professionnelle de la relation client, de l'accompagnement et de l'organisation, avec une approche claire et orientée solutions.";
         form.skills.value = ['Relation client', 'Accompagnement', 'Analyse des besoins', 'Organisation', 'Gestion', 'Communication'].join('\n');
         form.jobTarget.value = 'relation client';
+        form.location.value = 'Rueil-Malmaison (92500)';
+        form.phone.value = '07.77.46.48.37';
+        form.email.value = 'purvelours@proton.me';
+        form.permit.value = 'Permis B et D';
         form.fontTheme.value = 'lato';
         form.layoutTheme.value = 'classic';
         form.colorTheme.value = 'graphite';
@@ -337,6 +347,46 @@ const updatePreviewViewport = () => {
     updatePreviewPagination();
 };
 
+const fitCvToSinglePage = () => {
+    if (!cvForm || !previewNodes.preview) {
+        return;
+    }
+
+    const summaryField = cvForm.elements.summary;
+    const experienceField = cvForm.elements.experience;
+    const skillsField = cvForm.elements.skills;
+    const educationField = cvForm.elements.education;
+    const fontSizeField = cvForm.elements.fontSize;
+    const lineSpacingField = cvForm.elements.lineSpacing;
+
+    if (fontSizeField) {
+        fontSizeField.value = 'compact';
+    }
+
+    if (lineSpacingField) {
+        lineSpacingField.value = 'tight';
+    }
+
+    if (summaryField?.value.length > 260) {
+        summaryField.value = `${summaryField.value.slice(0, 257).trim()}...`;
+    }
+
+    if (experienceField) {
+        experienceField.value = splitLines(experienceField.value).slice(0, 6).join('\n');
+    }
+
+    if (skillsField) {
+        skillsField.value = splitLines(skillsField.value).slice(0, 8).join('\n');
+    }
+
+    if (educationField) {
+        educationField.value = splitLines(educationField.value).slice(0, 4).join('\n');
+    }
+
+    updateCvPreview();
+    setCvStatus('CV ajuste pour tenir sur 1 page');
+};
+
 const scrollToPreviewPage = (page) => {
     if (!cvPreviewViewport || !cvPreviewStage) {
         return;
@@ -382,6 +432,9 @@ const updateCvPreview = () => {
     const values = Object.fromEntries(formData.entries());
 
     previewNodes.fullName.textContent = values.fullName || 'Votre nom';
+    if (previewNodes.meta) {
+        previewNodes.meta.textContent = [values.location, values.phone, values.email, values.permit].filter(Boolean).join(' | ');
+    }
     previewNodes.headline.textContent = values.headline || 'Intitule du profil';
     previewNodes.summary.textContent = values.summary || 'Resume du profil';
 
@@ -754,6 +807,32 @@ const parseImportedCv = (text) => {
         cvForm.elements.fullName.value = toTitleCase(nameLine.toLowerCase());
     }
 
+    const emailLine = cleanLines.find((line) => /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i.test(line));
+    if (emailLine) {
+        const match = emailLine.match(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i);
+        if (match) {
+            cvForm.elements.email.value = match[0];
+        }
+    }
+
+    const phoneLine = cleanLines.find((line) => /(\+33|0)[\s.\-]?\d([\s.\-]?\d{2}){4}/.test(line));
+    if (phoneLine) {
+        const match = phoneLine.match(/(\+33|0)[\s.\-]?\d([\s.\-]?\d{2}){4}/);
+        if (match) {
+            cvForm.elements.phone.value = match[0];
+        }
+    }
+
+    const permitLine = cleanLines.find((line) => /permis/i.test(line));
+    if (permitLine) {
+        cvForm.elements.permit.value = permitLine;
+    }
+
+    const locationLine = cleanLines.find((line) => /\(\d{5}\)|france|malmaison|paris|nanterre|roissy/i.test(line));
+    if (locationLine) {
+        cvForm.elements.location.value = locationLine;
+    }
+
     const headlineLine =
         cleanLines.find((line) => /developp|front|emploi|marketing|relation client|designer|ux|ui/i.test(line) && line.length < 120) ||
         '';
@@ -971,6 +1050,10 @@ if (cvAutofillButton) {
 
 if (cvImproveButton) {
     cvImproveButton.addEventListener('click', improveCv);
+}
+
+if (cvFitPageButton) {
+    cvFitPageButton.addEventListener('click', fitCvToSinglePage);
 }
 
 if (cvAiImproveButton) {

@@ -172,12 +172,34 @@
                             </label>
                         </div>
 
+                        <div class="form-split">
+                            <label class="field">
+                                <span>Ville / code postal</span>
+                                <input type="text" name="location" placeholder="Ex. Rueil-Malmaison (92500)" value="Rueil-Malmaison (92500)">
+                            </label>
+                            <label class="field">
+                                <span>Telephone</span>
+                                <input type="text" name="phone" placeholder="Votre numero" value="07.77.46.48.37">
+                            </label>
+                        </div>
+
+                        <div class="form-split">
+                            <label class="field">
+                                <span>Email</span>
+                                <input type="email" name="email" placeholder="Votre email" value="purvelours@proton.me">
+                            </label>
+                            <label class="field">
+                                <span>Permis</span>
+                                <input type="text" name="permit" placeholder="Ex. Permis B" value="Permis B">
+                            </label>
+                        </div>
+
                         <label class="field field-message">
-                            <span>Resume</span>
+                            <span>Profil / accroche</span>
                             <textarea
                                 name="summary"
                                 rows="4"
-                                placeholder="Resume du profil"
+                                placeholder="Accroche du profil"
                             >Je conçois des interfaces web modernes, claires et orientees experience utilisateur.</textarea>
                         </label>
 
@@ -337,6 +359,7 @@ Pratique de la conception front-end</textarea>
                         </label>
 
                         <div class="cv-actions">
+                            <button class="button button-secondary" type="button" id="cv-fit-page">Ajuster a 1 page</button>
                             <button class="button button-secondary" type="button" id="cv-autofill">Auto-organiser</button>
                             <button class="button button-secondary" type="button" id="cv-improve">Ameliorer mon CV</button>
                             <button class="button button-secondary" type="button" id="cv-ai-improve">Assistant IA</button>
@@ -418,20 +441,21 @@ Pratique de la conception front-end</textarea>
                                     <header class="cv-header">
                                         <p class="cv-label">CV intelligent</p>
                                         <h3 id="preview-name">Fatima Sidi Amar</h3>
+                                        <p class="cv-meta" id="preview-meta">Rueil-Malmaison (92500) | 07.77.46.48.37 | purvelours@proton.me | Permis B</p>
                                         <p id="preview-headline">Developpeuse web front-end</p>
                                         <p id="preview-summary">Je conçois des interfaces web modernes, claires et orientees experience utilisateur.</p>
                                     </header>
                                     <div class="cv-body">
                                         <section>
-                                            <h4>Experiences</h4>
-                                            <ul id="preview-experience"></ul>
-                                        </section>
-                                        <section>
-                                            <h4>Competences</h4>
+                                            <h4>Competences cles</h4>
                                             <ul id="preview-skills"></ul>
                                         </section>
                                         <section>
-                                            <h4>Formations</h4>
+                                            <h4>Experiences professionnelles</h4>
+                                            <ul id="preview-experience"></ul>
+                                        </section>
+                                        <section>
+                                            <h4>Formations & certifications</h4>
                                             <ul id="preview-education"></ul>
                                         </section>
                                     </div>
@@ -440,7 +464,7 @@ Pratique de la conception front-end</textarea>
                                     <header class="cv-header cv-header-letter">
                                         <p class="cv-label">Lettre de motivation</p>
                                         <h3 id="letter-page-title">Fatima Sidi Amar</h3>
-                                        <p id="letter-page-meta">Candidature professionnelle personnalisee</p>
+                                        <p class="cv-meta" id="letter-page-meta">Candidature professionnelle personnalisee</p>
                                     </header>
                                     <div class="letter-page-body">
                                         <p class="letter-subject" id="letter-subject-page">Objet : Candidature</p>
