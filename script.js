@@ -719,6 +719,9 @@ const updateCvPreview = () => {
         letterPagePreview.className = previewNodes.preview.className.replace(/\bis-two-page\b/g, '').trim();
         letterPagePreview.classList.add('cv-letter-page');
         letterPagePreview.style.cssText = previewNodes.preview.style.cssText;
+        const showLetter = currentPreviewMode === 'letter';
+        letterPagePreview.classList.toggle('is-hidden-preview', !showLetter);
+        letterPagePreview.setAttribute('aria-hidden', String(!showLetter));
     }
 };
 
@@ -1181,6 +1184,82 @@ const normalizeStructuredItems = (items, type) => {
     );
 };
 
+const isLikelyExperienceHeader = (line) => {
+    const compact = line.replace(/\s{2,}/g, ' ').trim();
+
+    return (
+        experienceDateRegex.test(compact) ||
+        /\b(?:ratp|cama[ïi]eu|american express|air france|ceidf|sncf|keolis|transdev)\b/i.test(compact) ||
+        /[–-].*,\s*(?:janv|f[ée]vr|mars|avr|mai|juin|juil|ao[uû]t|sept|oct|nov|d[ée]c|\d{4})/i.test(compact)
+    );
+};
+
+const normalizeSkillItems = (items) =>
+    dedupeImportedItems(
+        items
+            .map((item) => item.replace(/^[-•]\s*/, '').replace(/\s{2,}/g, ' ').trim())
+            .filter(
+                (item) =>
+                    item &&
+                    item.length < 140 &&
+                    !looksLikeSectionHeading(item) &&
+                    !isLikelyExperienceHeader(item) &&
+                    !/\b(?:formations?|certifications?|ratp|cama[ïi]eu|american express|air france|roissy|nanterre)\b/i.test(item)
+            )
+    );
+
+const normalizeEducationItems = (items) =>
+    dedupeImportedItems(
+        items
+            .map((item) => item.replace(/^[-•]\s*/, '').replace(/\s{2,}/g, ' ').trim())
+            .filter(
+                (item) =>
+                    item &&
+                    item.length < 180 &&
+                    !looksLikeSectionHeading(item) &&
+                    !isLikelyExperienceHeader(item) &&
+                    !/\b(?:responsable|conseill[eè]re|machiniste|receveur|service premium|gestion d[’']equipe)\b/i.test(item)
+            )
+    );
+
+const groupImportedExperiences = (items) => {
+    const groups = [];
+    let current = '';
+
+    items.forEach((rawItem) => {
+        const item = rawItem.replace(/^[-•]\s*/, '').replace(/\s{2,}/g, ' ').trim();
+
+        if (!item || looksLikeSectionHeading(item) || /\b(?:comp[ée]tences?|formations?|certifications?)\b/i.test(item)) {
+            return;
+        }
+
+        if (isLikelyExperienceHeader(item)) {
+            if (current) {
+                groups.push(current.trim());
+            }
+            current = item;
+            return;
+        }
+
+        if (!current) {
+            current = item;
+            return;
+        }
+
+        current += ` • ${item}`;
+    });
+
+    if (current) {
+        groups.push(current.trim());
+    }
+
+    return dedupeImportedItems(
+        groups
+            .map((item) => item.replace(/\s*•\s*•\s*/g, ' • ').trim())
+            .filter((item) => item.length < 420)
+    );
+};
+
 const parseImportedCv = (text) => {
     if (!cvForm || !text) {
         return;
@@ -1204,6 +1283,8 @@ const parseImportedCv = (text) => {
     cvForm.elements.skills.value = '';
     cvForm.elements.experience.value = '';
     cvForm.elements.education.value = '';
+    cvForm.elements.headline.value = '';
+    cvForm.elements.permit.value = '';
     if (cvForm.elements.languages) {
         cvForm.elements.languages.value = '';
     }
@@ -1234,7 +1315,7 @@ const parseImportedCv = (text) => {
     }
 
     const permitLine = cleanLines.find((line) => /permis/i.test(line)) || '';
-    const permitValue = extractPermitValue(joinedText || permitLine);
+    const permitValue = extractPermitValue(permitLine || joinedText);
     if (permitValue) {
         cvForm.elements.permit.value = permitValue;
     }
@@ -1312,13 +1393,11 @@ const parseImportedCv = (text) => {
     });
 
     const summaryValue = (summarySection || extractedProfile.summary || getSummaryFallback(cleanLines, headlineLine)).replace(/\n+/g, ' ').trim();
-    const skillsItems = normalizeStructuredItems(splitImportedItems(skillsSection || fallbackSections.skills.join('\n')), 'skills');
-    const experienceItems = normalizeStructuredItems(splitImportedItems(experienceSection || fallbackSections.experience.join('\n')), 'experience');
-    const educationItems = normalizeStructuredItems(splitImportedItems(educationSection || fallbackSections.education.join('\n')), 'education');
+    const skillsItems = normalizeSkillItems(splitImportedItems(skillsSection || fallbackSections.skills.join('\n')));
+    const experienceItems = groupImportedExperiences(splitImportedItems(experienceSection || fallbackSections.experience.join('\n')));
+    const educationItems = normalizeEducationItems(splitImportedItems(educationSection || fallbackSections.education.join('\n')));
 
-    if (extractedProfile.headline) {
-        cvForm.elements.headline.value = extractedProfile.headline;
-    }
+    cvForm.elements.headline.value = extractedProfile.headline || headlineLine || cvForm.elements.headline.value;
 
     if (summaryValue) {
         cvForm.elements.summary.value = summaryValue;
@@ -1342,6 +1421,7 @@ const parseImportedCv = (text) => {
     }
 
     updateCvPreview();
+    setPreviewMode('cv');
 
     setCvStatus('CV importe et analyse');
 };
