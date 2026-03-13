@@ -10,6 +10,7 @@ const cvImproveButton = document.querySelector('#cv-improve');
 const cvImportInput = document.querySelector('#cv-import');
 const cvExportWordButton = document.querySelector('#cv-export-word');
 const cvExportWebButton = document.querySelector('#cv-export-web');
+const cvEmailButton = document.querySelector('#cv-email');
 const cvStatus = document.querySelector('#cv-status');
 const atsScoreValue = document.querySelector('#ats-score-value');
 const cvAnalysisList = document.querySelector('#cv-analysis-list');
@@ -161,6 +162,36 @@ const extractTextFromDocx = async (file) => {
     return result.value || '';
 };
 
+const looksLikeBrokenPdfText = (text) => {
+    if (!text) {
+        return true;
+    }
+
+    const compact = text.replace(/\s+/g, ' ').trim();
+    const weirdChars = (compact.match(/[�□■]/g) || []).length;
+    const slashCommands = (compact.match(/\/(Title|Parent|Dest|Next|Prev|Font|Type)\b/g) || []).length;
+    const markerHits = ['%PDF-', '/Parent', '/Dest', '/Next', 'stream', 'endobj'].filter((marker) => compact.includes(marker)).length;
+    const weirdRatio = weirdChars / Math.max(compact.length, 1);
+
+    return weirdRatio > 0.02 || slashCommands >= 2 || markerHits >= 2;
+};
+
+const updateCvPageMode = () => {
+    if (!cvForm || !previewNodes.preview) {
+        return;
+    }
+
+    const formData = new FormData(cvForm);
+    const values = Object.fromEntries(formData.entries());
+    const totalLines =
+        splitLines(values.experience || '').length +
+        splitLines(values.skills || '').length +
+        splitLines(values.education || '').length +
+        Math.ceil(((values.summary || '').trim().length || 0) / 110);
+
+    previewNodes.preview.classList.toggle('is-two-page', totalLines > 20);
+};
+
 const cvModeThemeMap = {
     classic: 'executive',
     design: 'creative',
@@ -237,6 +268,7 @@ const updateCvPreview = () => {
     }
 
     setCvStatus('CV synchronise');
+    updateCvPageMode();
 
     analyzeCv(values);
 };
@@ -601,6 +633,14 @@ if (cvExportWebButton) {
     cvExportWebButton.addEventListener('click', exportWebVersion);
 }
 
+if (cvEmailButton) {
+    cvEmailButton.addEventListener('click', () => {
+        const subject = encodeURIComponent('CV intelligent - candidature');
+        const body = encodeURIComponent(previewNodes.preview?.innerText || '');
+        window.location.href = `mailto:purvelours@proton.me?subject=${subject}&body=${body}`;
+    });
+}
+
 if (cvImportInput) {
     cvImportInput.addEventListener('change', async (event) => {
         const file = event.target.files?.[0];
@@ -634,6 +674,12 @@ if (cvImportInput) {
 
             if (!text.trim()) {
                 setCvStatus('Aucun texte exploitable detecte dans ce document');
+                event.target.value = '';
+                return;
+            }
+
+            if (isPdfDocument(file) && looksLikeBrokenPdfText(text)) {
+                setCvStatus('PDF detecte mais texte inexploitable : utilisez plutot la version Word ou le PDF converti');
                 event.target.value = '';
                 return;
             }
