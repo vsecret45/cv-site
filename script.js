@@ -288,6 +288,8 @@ const analyzeCv = (values) => {
     const skills = splitLines(values.skills || '');
     const education = splitLines(values.education || '');
     const jobTarget = (values.jobTarget || '').toLowerCase();
+    const headline = (values.headline || '').toLowerCase();
+    const baseContent = `${values.headline || ''} ${values.summary || ''} ${values.skills || ''} ${values.experience || ''}`.toLowerCase();
 
     let score = 58;
     const analysis = [];
@@ -330,15 +332,35 @@ const analyzeCv = (values) => {
         suggestions.push('Ajouter des resultats mesurables dans les experiences');
     }
 
-    const keywords = ['javascript', 'react', 'interface', 'ux', 'front-end', 'web', jobTarget];
-    const content = `${values.headline || ''} ${values.summary || ''} ${values.skills || ''}`.toLowerCase();
-    const matchedKeywords = keywords.filter(Boolean).filter((keyword) => content.includes(keyword));
+    const jobTargetKeywordsMap = {
+        'developpeur web': ['developpeur web', 'frontend', 'front-end', 'javascript', 'react', 'html', 'css', 'web'],
+        marketing: ['marketing', 'communication', 'campagne', 'contenu', 'strategie', 'digital'],
+        'relation client': ['relation client', 'accompagnement', 'conseil', 'service client', 'ecoute', 'gestion'],
+    };
+
+    const targetKeywords = jobTargetKeywordsMap[jobTarget] || [jobTarget];
+    const generalKeywords = ['interface', 'utilisateur', 'projet', 'organisation', 'analyse', 'digital'];
+    const atsKeywords = [...new Set([...targetKeywords, ...generalKeywords].filter(Boolean))];
+    const matchedKeywords = atsKeywords.filter((keyword) => baseContent.includes(keyword));
+    const missingKeywords = atsKeywords.filter((keyword) => !baseContent.includes(keyword));
+    const titleMatchesTarget = targetKeywords.some((keyword) => headline.includes(keyword));
+
+    if (titleMatchesTarget) {
+        score += 8;
+        analysis.push(`Titre metier coherent avec le poste vise : ${values.headline || values.jobTarget}`);
+    } else {
+        suggestions.push(`Ajouter le metier vise dans le titre du CV : ${values.jobTarget}`);
+    }
 
     if (matchedKeywords.length >= 3) {
         score += 10;
-        analysis.push('Bon alignement de mots cles pour les recruteurs');
+        analysis.push(`Mots cles ATS detectes : ${matchedKeywords.slice(0, 5).join(', ')}`);
     } else {
-        suggestions.push('Ajouter des mots cles alignes avec le poste vise');
+        suggestions.push('Ajouter plus de mots cles alignes avec le poste vise');
+    }
+
+    if (missingKeywords.length > 0) {
+        suggestions.push(`Mots cles a envisager : ${missingKeywords.slice(0, 4).join(', ')}`);
     }
 
     if ((values.cvMode || '') === 'ats') {
