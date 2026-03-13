@@ -543,10 +543,91 @@ const fillList = (target, items) => {
     }
 
     target.innerHTML = '';
+    target.classList.remove('cv-experience-list');
 
     items.forEach((item) => {
         const li = document.createElement('li');
         li.textContent = item;
+        target.appendChild(li);
+    });
+};
+
+const monthNamesPattern =
+    '(?:janv(?:ier)?|f[ée]vr(?:ier)?|mars|avr(?:il)?|mai|juin|juil(?:let)?|ao[uû]t|sept(?:embre)?|oct(?:obre)?|nov(?:embre)?|d[ée]c(?:embre)?)';
+
+const experienceDateRegex = new RegExp(
+    `((?:${monthNamesPattern})\\.?\\s*\\d{4}|\\d{4})\\s*[–-]\\s*((?:${monthNamesPattern})\\.?\\s*\\d{4}|\\d{4}|aujourd'hui|present|pr[ée]sent)`,
+    'i'
+);
+
+const parseExperienceEntry = (line) => {
+    const cleanLine = line.replace(/\s{2,}/g, ' ').trim();
+    const dateMatch = cleanLine.match(experienceDateRegex);
+    const date = dateMatch ? `${dateMatch[1]} - ${dateMatch[2]}` : '';
+    const withoutDate = dateMatch ? cleanLine.replace(dateMatch[0], '').replace(/\s+,/g, ',').trim() : cleanLine;
+    const bulletParts = withoutDate
+        .split(/\s+•\s+/)
+        .map((part) => part.trim())
+        .filter(Boolean);
+    const header = bulletParts.shift() || cleanLine;
+    const headerParts = header.split(/\s+[–-]\s+/).map((part) => part.trim()).filter(Boolean);
+
+    return {
+        title: headerParts[0] || header,
+        meta: headerParts.slice(1).join(' - '),
+        date,
+        bullets: bulletParts.length ? bulletParts : [],
+    };
+};
+
+const renderExperienceList = (target, items) => {
+    if (!target) {
+        return;
+    }
+
+    target.innerHTML = '';
+    target.classList.add('cv-experience-list');
+
+    items.forEach((item) => {
+        const entry = parseExperienceEntry(item);
+        const li = document.createElement('li');
+        li.className = 'cv-experience-item';
+
+        const head = document.createElement('div');
+        head.className = 'cv-experience-head';
+
+        const title = document.createElement('div');
+        title.className = 'cv-experience-title';
+        title.textContent = entry.title;
+        head.appendChild(title);
+
+        if (entry.date) {
+            const date = document.createElement('div');
+            date.className = 'cv-experience-date';
+            date.textContent = entry.date;
+            head.appendChild(date);
+        }
+
+        li.appendChild(head);
+
+        if (entry.meta) {
+            const meta = document.createElement('div');
+            meta.className = 'cv-experience-meta';
+            meta.textContent = entry.meta;
+            li.appendChild(meta);
+        }
+
+        if (entry.bullets.length) {
+            const bulletList = document.createElement('ul');
+            bulletList.className = 'cv-experience-bullets';
+            entry.bullets.forEach((bullet) => {
+                const bulletItem = document.createElement('li');
+                bulletItem.textContent = bullet;
+                bulletList.appendChild(bulletItem);
+            });
+            li.appendChild(bulletList);
+        }
+
         target.appendChild(li);
     });
 };
@@ -566,7 +647,7 @@ const updateCvPreview = () => {
     previewNodes.headline.textContent = values.headline || 'Intitule du profil';
     previewNodes.summary.textContent = values.summary || 'Resume du profil';
 
-    fillList(previewNodes.experience, splitLines(values.experience || ''));
+    renderExperienceList(previewNodes.experience, splitLines(values.experience || ''));
     fillList(previewNodes.skills, splitLines(values.skills || ''));
     fillList(previewNodes.education, splitLines(values.education || ''));
     fillList(previewNodes.languages, splitLines(values.languages || ''));
@@ -1082,8 +1163,9 @@ const normalizeStructuredItems = (items, type) => {
 
     return dedupeImportedItems(
         items
+            .flatMap((item) => item.split(/\s+(?=[A-ZÀ-ÖØ-Ý][^•\n]{6,80}(?:\s+[–-]\s+|,\s*)(?:[^•\n]{2,60})(?:janv|f[ée]vr|mars|avr|mai|juin|juil|ao[uû]t|sept|oct|nov|d[ée]c|\d{4}))/i))
             .map((item) => item.replace(/\s*•\s*/g, ' ').replace(/\s{2,}/g, ' ').trim())
-            .filter((item) => item && !stopTokens[type]?.test(item))
+            .filter((item) => item && item.length < 260 && !stopTokens[type]?.test(item))
     );
 };
 
