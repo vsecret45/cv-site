@@ -1047,6 +1047,46 @@ const getSummaryFallback = (lines, headline) => {
     );
 };
 
+const stripContactFragments = (text, parts = []) => {
+    let output = text;
+    parts.filter(Boolean).forEach((part) => {
+        output = output.replace(part, ' ');
+    });
+
+    return output.replace(/\s{2,}/g, ' ').trim();
+};
+
+const extractHeadlineAndSummary = ({ cleanLines, joinedText, nameLine, locationLine, phoneLine, emailLine, permitLine, headlineLine }) => {
+    const preSkills = joinedText.split(/\bCOMP[ÉE]TENCES(?:\s+CL[EÉ]S)?\b/i)[0] || joinedText;
+    const compact = stripContactFragments(preSkills, [nameLine, locationLine, phoneLine, emailLine, permitLine])
+        .replace(/\s*\|\s*/g, ' ')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+
+    const splitMatch = compact.match(/^(.*?)(?=\b(rigoureuse|rigoureux|autonome|attachee|attach[eé]|motivee|motiv[eé]e|professionnelle|professionnel|titulaire|exp[ée]rience|habitu[ée]e|je)\b)([\s\S]*)/i);
+    const extractedHeadline = splitMatch?.[1]?.trim() || headlineLine || '';
+    const extractedSummary = splitMatch ? compact.slice(extractedHeadline.length).trim() : getSummaryFallback(cleanLines, extractedHeadline || headlineLine);
+
+    return {
+        headline: extractedHeadline.replace(/\s{2,}/g, ' ').trim(),
+        summary: extractedSummary.replace(/\s{2,}/g, ' ').trim(),
+    };
+};
+
+const normalizeStructuredItems = (items, type) => {
+    const stopTokens = {
+        skills: /\b(exp[ée]riences?|formations?|certifications?)\b/i,
+        experience: /\b(comp[ée]tences?|formations?|certifications?)\b/i,
+        education: /\b(comp[ée]tences?|exp[ée]riences?)\b/i,
+    };
+
+    return dedupeImportedItems(
+        items
+            .map((item) => item.replace(/\s*•\s*/g, ' ').replace(/\s{2,}/g, ' ').trim())
+            .filter((item) => item && !stopTokens[type]?.test(item))
+    );
+};
+
 const parseImportedCv = (text) => {
     if (!cvForm || !text) {
         return;
@@ -1157,22 +1197,25 @@ const parseImportedCv = (text) => {
         }
     });
 
-    const summaryValue = (summarySection || getSummaryFallback(cleanLines, headlineLine)).replace(/\n+/g, ' ').trim();
-    const skillsItems = dedupeImportedItems(
-        splitImportedItems(skillsSection || fallbackSections.skills.join('\n')).filter(
-            (line) => !/\b(experience|formation|certification|responsable|conseill|chargee?)\b/i.test(line)
-        )
-    );
-    const experienceItems = dedupeImportedItems(
-        splitImportedItems(experienceSection || fallbackSections.experience.join('\n')).filter(
-            (line) => !/\b(competence|formation|certification)\b/i.test(line)
-        )
-    );
-    const educationItems = dedupeImportedItems(
-        splitImportedItems(educationSection || fallbackSections.education.join('\n')).filter(
-            (line) => !/\b(competence|experience)\b/i.test(line)
-        )
-    );
+    const extractedProfile = extractHeadlineAndSummary({
+        cleanLines,
+        joinedText,
+        nameLine,
+        locationLine,
+        phoneLine,
+        emailLine: cvForm.elements.email.value,
+        permitLine,
+        headlineLine,
+    });
+
+    const summaryValue = (summarySection || extractedProfile.summary || getSummaryFallback(cleanLines, headlineLine)).replace(/\n+/g, ' ').trim();
+    const skillsItems = normalizeStructuredItems(splitImportedItems(skillsSection || fallbackSections.skills.join('\n')), 'skills');
+    const experienceItems = normalizeStructuredItems(splitImportedItems(experienceSection || fallbackSections.experience.join('\n')), 'experience');
+    const educationItems = normalizeStructuredItems(splitImportedItems(educationSection || fallbackSections.education.join('\n')), 'education');
+
+    if (extractedProfile.headline) {
+        cvForm.elements.headline.value = extractedProfile.headline;
+    }
 
     if (summaryValue) {
         cvForm.elements.summary.value = summaryValue;

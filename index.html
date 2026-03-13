@@ -404,6 +404,43 @@ Anglais professionnel</textarea>
                             <button class="button button-secondary" type="button" id="cv-share">Partager lien</button>
                             <button class="button button-secondary" type="button" id="cv-email">Envoyer par mail</button>
                         </div>
+                        <div class="cv-analysis-panel cv-ai-panel">
+                            <div class="analysis-block analysis-block-header">
+                                <h4>Assistant IA CV</h4>
+                                <p class="field-hint">Analyse ATS, suggestions et adaptation a une offre. Cette zone n'entre jamais dans la page du CV.</p>
+                            </div>
+                            <div class="ats-score">
+                                <span>Score ATS</span>
+                                <strong id="ats-score-value">82%</strong>
+                            </div>
+                            <div class="analysis-block">
+                                <h4>Compatibilite offre</h4>
+                                <div class="job-match">
+                                    <strong id="job-match-value">--</strong>
+                                    <button class="button button-secondary" type="button" id="cv-analyze">Analyser mon CV</button>
+                                </div>
+                            </div>
+                            <div class="analysis-block">
+                                <h4>Analyse de votre CV</h4>
+                                <ul id="cv-analysis-list"></ul>
+                            </div>
+                            <div class="analysis-block">
+                                <h4>Suggestions</h4>
+                                <ul id="cv-suggestions-list"></ul>
+                            </div>
+                            <label class="field field-message">
+                                <span>Offre d'emploi</span>
+                                <textarea
+                                    id="job-offer"
+                                    name="jobOffer"
+                                    rows="5"
+                                    placeholder="Coller l'offre d'emploi ici pour adapter le CV."
+                                ></textarea>
+                            </label>
+                            <div class="cv-actions">
+                                <button class="button button-secondary" type="button" id="cv-match-job">Adapter mon CV a une offre</button>
+                            </div>
+                        </div>
                     </form>
                     </div>
 
@@ -443,43 +480,6 @@ Anglais professionnel</textarea>
                                 <button class="preview-nav" type="button" id="cv-next-page" aria-label="Page suivante">›</button>
                             </div>
                         </div>
-                        <div class="cv-analysis-panel">
-                            <div class="analysis-block analysis-block-header">
-                                <h4>Analyse & optimisation</h4>
-                                <p class="field-hint">Cette zone sert a analyser et adapter le CV. Elle ne fait pas partie de la mise en page du document.</p>
-                            </div>
-                            <div class="ats-score">
-                                <span>Score ATS</span>
-                                <strong id="ats-score-value">82%</strong>
-                            </div>
-                            <div class="analysis-block">
-                                <h4>Compatibilite offre</h4>
-                                <div class="job-match">
-                                    <strong id="job-match-value">--</strong>
-                                    <button class="button button-secondary" type="button" id="cv-analyze">Analyser mon CV</button>
-                                </div>
-                            </div>
-                            <div class="analysis-block">
-                                <h4>Analyse de votre CV</h4>
-                                <ul id="cv-analysis-list"></ul>
-                            </div>
-                            <div class="analysis-block">
-                                <h4>Suggestions</h4>
-                                <ul id="cv-suggestions-list"></ul>
-                            </div>
-                            <label class="field field-message">
-                                <span>Offre d'emploi</span>
-                                <textarea
-                                    id="job-offer"
-                                    name="jobOffer"
-                                    rows="5"
-                                    placeholder="Coller l'offre d'emploi ici pour adapter le CV."
-                                ></textarea>
-                            </label>
-                            <div class="cv-actions">
-                                <button class="button button-secondary" type="button" id="cv-match-job">Adapter mon CV a une offre</button>
-                            </div>
-                        </div>
                         <div class="cv-preview-viewport" id="cv-preview-viewport">
                             <div class="cv-preview-stage" id="cv-preview-stage">
                                 <article class="cv-preview theme-executive font-manrope template-classic" id="cv-preview" data-preview-doc="cv">
@@ -487,8 +487,8 @@ Anglais professionnel</textarea>
                                     <header class="cv-header">
                                         <p class="cv-label">CV intelligent</p>
                                         <h3 id="preview-name" data-edit-target="fullName" contenteditable="true" spellcheck="false">Fatima Sidi Amar</h3>
-                                        <p class="cv-meta" id="preview-meta" data-edit-target="location" contenteditable="true" spellcheck="false">Rueil-Malmaison (92500) | 07.77.46.48.37 | purvelours@proton.me | Permis B</p>
                                         <p id="preview-headline" data-edit-target="headline" contenteditable="true" spellcheck="false">Developpeuse web front-end</p>
+                                        <p class="cv-meta" id="preview-meta" data-edit-target="location" contenteditable="true" spellcheck="false">Rueil-Malmaison (92500) | 07.77.46.48.37 | purvelours@proton.me | Permis B</p>
                                         <p id="preview-summary" data-edit-target="summary" contenteditable="true" spellcheck="true">Je conçois des interfaces web modernes, claires et orientees experience utilisateur.</p>
                                     </header>
                                     <div class="cv-body">
