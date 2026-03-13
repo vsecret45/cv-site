@@ -885,6 +885,13 @@ img {
     color: var(--text);
 }
 
+.field-hint {
+    margin: -0.1rem 0 0;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: var(--text-soft);
+}
+
 .field input,
 .field textarea {
     width: 100%;

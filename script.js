@@ -72,6 +72,26 @@ const downloadFile = (filename, content, type) => {
     URL.revokeObjectURL(url);
 };
 
+const setCvStatus = (message) => {
+    if (cvStatus) {
+        cvStatus.textContent = message;
+    }
+};
+
+const isBinaryDocument = (file) => {
+    const filename = (file?.name || '').toLowerCase();
+    const mime = (file?.type || '').toLowerCase();
+
+    return (
+        filename.endsWith('.pdf') ||
+        filename.endsWith('.doc') ||
+        filename.endsWith('.docx') ||
+        mime.includes('pdf') ||
+        mime.includes('msword') ||
+        mime.includes('wordprocessingml')
+    );
+};
+
 const cvModeThemeMap = {
     classic: 'executive',
     design: 'creative',
@@ -147,9 +167,7 @@ const updateCvPreview = () => {
         previewNodes.preview.classList.add('is-underline');
     }
 
-    if (cvStatus) {
-        cvStatus.textContent = 'CV synchronise';
-    }
+    setCvStatus('CV synchronise');
 
     analyzeCv(values);
 };
@@ -255,9 +273,7 @@ const autoOrganizeCv = () => {
 
     updateCvPreview();
 
-    if (cvStatus) {
-        cvStatus.textContent = 'Sections auto-organisees';
-    }
+    setCvStatus('Sections auto-organisees');
 };
 
 const improveCv = () => {
@@ -286,9 +302,7 @@ const improveCv = () => {
 
     updateCvPreview();
 
-    if (cvStatus) {
-        cvStatus.textContent = 'CV ameliore pour recruteurs';
-    }
+    setCvStatus('CV ameliore pour recruteurs');
 };
 
 const parseImportedCv = (text) => {
@@ -329,9 +343,7 @@ const parseImportedCv = (text) => {
 
     updateCvPreview();
 
-    if (cvStatus) {
-        cvStatus.textContent = 'CV importe et analyse';
-    }
+    setCvStatus('CV importe et analyse');
 };
 
 const exportWord = () => {
@@ -525,6 +537,12 @@ if (cvImportInput) {
         const file = event.target.files?.[0];
 
         if (!file) {
+            return;
+        }
+
+        if (isBinaryDocument(file)) {
+            setCvStatus('PDF ou Word detecte : conversion necessaire avant import automatique');
+            event.target.value = '';
             return;
         }
 
