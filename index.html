@@ -20,12 +20,11 @@
     <div class="page-shell">
         <header class="hero" id="top">
             <nav class="topbar" aria-label="Navigation principale">
-                <a class="brand" href="#top">Fatima Sidi Amar</a>
+                <a class="brand" href="#top">F. Sidi Amar</a>
                 <div class="nav-links">
                     <a href="#vision">Vision</a>
                     <a href="#creation">Creation</a>
                     <a href="#possibilites">Possibilites</a>
-                    <a href="#contact">Contact</a>
                 </div>
             </nav>
 
@@ -126,14 +125,41 @@
 
             <section class="section section-contact" id="contact">
                 <div class="section-heading">
-                    <p class="section-kicker">Contact</p>
-                    <h2>Une idee, un projet ou un concept digital ?</h2>
+                    <h2>Discuter d'un projet</h2>
                 </div>
-                <div class="contact-panel">
-                    <p>
-                        Je peux vous accompagner dans sa conception et sa realisation.
-                    </p>
-                    <a class="button button-primary contact-button" href="mailto:fatima.sidiamar@gmail.com">Entrer en contact</a>
+                <div class="contact-layout">
+                    <div class="contact-panel contact-panel-info">
+                        <p>
+                            Une idee, un projet ou une interaction web a imaginer ? Je peux vous accompagner dans sa
+                            conception et sa realisation.
+                        </p>
+                        <p>Toutes les idees sont les bienvenues.</p>
+                        <div class="contact-details">
+                            <a class="contact-link" href="mailto:purvelours@proton.me">purvelours@proton.me</a>
+                            <a class="contact-link" href="tel:0777464837">07 77 46 48 37</a>
+                        </div>
+                    </div>
+
+                    <form class="contact-form" id="contact-form">
+                        <label class="field">
+                            <span>Nom</span>
+                            <input type="text" name="name" placeholder="Votre nom" required>
+                        </label>
+                        <label class="field">
+                            <span>Email</span>
+                            <input type="email" name="email" placeholder="votre@email.com">
+                        </label>
+                        <label class="field field-message">
+                            <span>Message</span>
+                            <textarea
+                                name="message"
+                                rows="6"
+                                placeholder="Expliquez votre projet, vos idees ou vos besoins."
+                                required
+                            ></textarea>
+                        </label>
+                        <button class="button button-primary contact-button" type="submit">Envoyer par mail</button>
+                    </form>
                 </div>
             </section>
         </main>
