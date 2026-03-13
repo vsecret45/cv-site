@@ -22,6 +22,7 @@ const assistantForm = document.querySelector('#assistant-form');
 const assistantInput = document.querySelector('#assistant-input');
 const assistantMessages = document.querySelector('#assistant-messages');
 const suggestionChips = document.querySelectorAll('.suggestion-chip');
+const expandableCards = document.querySelectorAll('[data-expandable]');
 
 const previewNodes = {
     fullName: document.querySelector('#preview-name'),
@@ -532,19 +533,32 @@ if (cvImportInput) {
     });
 }
 
-interactiveCards.forEach((card) => {
-    card.addEventListener('click', () => {
-        const target = card.dataset.target;
-        const section = target ? document.querySelector(target) : null;
+expandableCards.forEach((card) => {
+    const trigger = card.querySelector('.expand-trigger');
 
-        if (section) {
-            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+    if (!trigger) {
+        return;
+    }
 
-        if (target === '#assistant-ia') {
-            openAssistant();
-        }
+    const toggleCard = () => {
+        const isOpen = card.classList.toggle('is-open');
+        trigger.setAttribute('aria-expanded', String(isOpen));
+    };
+
+    trigger.addEventListener('click', (event) => {
+        event.stopPropagation();
+        toggleCard();
     });
+
+    if (card.classList.contains('interactive-card')) {
+        card.addEventListener('click', (event) => {
+            if (event.target.closest('.expand-trigger') || event.target.closest('a')) {
+                return;
+            }
+
+            toggleCard();
+        });
+    }
 });
 
 if (assistantToggle) {

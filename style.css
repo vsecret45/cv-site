@@ -193,7 +193,7 @@ img {
     display: flex;
     flex-wrap: wrap;
     gap: 0.9rem;
-    margin-top: 2rem;
+    margin-top: 3.1rem;
 }
 
 .button {
@@ -384,6 +384,35 @@ img {
     font: inherit;
     font-weight: 700;
     cursor: pointer;
+}
+
+.expandable-card {
+    overflow: hidden;
+}
+
+.expand-trigger {
+    margin-top: 0.65rem;
+}
+
+.expandable-content {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.35s ease, margin-top 0.35s ease;
+    margin-top: 0;
+}
+
+.expandable-inner {
+    overflow: hidden;
+}
+
+.expandable-inner p,
+.expandable-inner a {
+    color: var(--text-soft);
+}
+
+.expandable-card.is-open .expandable-content {
+    grid-template-rows: 1fr;
+    margin-top: 0.95rem;
 }
 
 .cv-layout {
@@ -1014,7 +1043,6 @@ body.is-ready .skill-delay-8 {
     .reveal-section {
         opacity: 1;
         transform: none;
-        filter: none;
         animation: none;
     }
 }

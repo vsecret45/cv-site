@@ -32,7 +32,7 @@
 
             <div class="hero-content">
                 <p class="eyebrow hero-reveal hero-reveal-delay-1">Creation digitale</p>
-                <h1 class="hero-title hero-reveal hero-reveal-delay-2">
+                <h1 class="hero-title hero-reveal-delay-2">
                     <span class="title-line">Fatima Sidi Amar</span>
                 </h1>
                 <p class="hero-role hero-reveal hero-reveal-delay-3">Creation de sites web et de plateformes digitales modernes</p>
@@ -55,7 +55,7 @@
                     <p class="section-kicker">Creation digitale</p>
                     <h2>Des solutions web modernes, claires et pensees sur mesure</h2>
                 </div>
-                <div class="profile-panel">
+                <div class="profile-panel expandable-card is-open" data-expandable>
                     <p>
                         Je concois des sites web et des plateformes digitales modernes, penses pour etre clairs,
                         efficaces et adaptes a chaque projet.
@@ -63,22 +63,74 @@
                     <p>
                         Chaque creation est realisee sur mesure, en fonction des besoins et de l'identite du projet.
                     </p>
+                    <button class="inline-link expand-trigger" type="button" aria-expanded="true">
+                        Voir le detail
+                    </button>
+                    <div class="expandable-content">
+                        <div class="expandable-inner">
+                            <p>
+                                Je concois des solutions web modernes, elegantes et adaptees a chaque projet. Cela
+                                inclut la creation de sites, plateformes digitales, interfaces et outils intelligents.
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </section>
 
             <section class="section section-cards reveal-section" id="services">
                 <div class="cards-grid">
-                    <article class="content-card card">
+                    <article class="content-card card interactive-card expandable-card" data-expandable>
                         <h3>Sites web</h3>
                         <p>Creation de sites modernes, clairs et adaptes a chaque activite.</p>
+                        <button class="inline-link expand-trigger" type="button" aria-expanded="false">Ouvrir</button>
+                        <div class="expandable-content">
+                            <div class="expandable-inner">
+                                <p>
+                                    Creation de sites web modernes, clairs et professionnels, adaptes aux besoins et
+                                    a l'identite du projet.
+                                </p>
+                            </div>
+                        </div>
                     </article>
-                    <article class="content-card card">
+                    <article class="content-card card interactive-card expandable-card" data-expandable>
                         <h3>Plateformes digitales</h3>
                         <p>Conception d'interfaces et d'outils pour structurer un projet ou un service.</p>
+                        <button class="inline-link expand-trigger" type="button" aria-expanded="false">Ouvrir</button>
+                        <div class="expandable-content">
+                            <div class="expandable-inner">
+                                <p>
+                                    Conception de plateformes interactives avec organisation des contenus, logique
+                                    utilisateur et outils digitaux personnalises.
+                                </p>
+                            </div>
+                        </div>
                     </article>
-                    <article class="content-card card">
+                    <article class="content-card card interactive-card expandable-card" data-expandable>
                         <h3>Solutions personnalisees</h3>
                         <p>Creations digitales sur mesure selon les besoins et l'identite du projet.</p>
+                        <button class="inline-link expand-trigger" type="button" aria-expanded="false">Ouvrir</button>
+                        <div class="expandable-content">
+                            <div class="expandable-inner">
+                                <p>
+                                    Chaque projet est concu sur mesure. L'objectif est de creer une solution digitale
+                                    unique et adaptee.
+                                </p>
+                            </div>
+                        </div>
+                    </article>
+                    <article class="content-card card interactive-card expandable-card" data-expandable>
+                        <h3>CV intelligent</h3>
+                        <p>Creation de documents, automatisation, export et optimisation professionnelle.</p>
+                        <button class="inline-link expand-trigger" type="button" aria-expanded="false">Ouvrir</button>
+                        <div class="expandable-content">
+                            <div class="expandable-inner">
+                                <p>
+                                    Conception d'outils intelligents pour creer automatiquement des CV et lettres de
+                                    motivation, avec mise en page moderne, personnalisation, export PDF/Word et logique
+                                    d'optimisation ATS.
+                                </p>
+                            </div>
+                        </div>
                     </article>
                 </div>
             </section>
@@ -297,25 +349,58 @@ Pratique de la conception front-end</textarea>
                     <h2>Des solutions ouvertes a plusieurs types de projets</h2>
                 </div>
                 <div class="demo-grid">
-                    <article class="demo-card card interactive-card" data-target="#creation">
-                        <span class="demo-label">Interfaces modernes</span>
+                    <article class="demo-card card interactive-card expandable-card" data-expandable>
+                        <span class="demo-label">Interfaces</span>
                         <p>Des interfaces visuelles claires, professionnelles et contemporaines.</p>
-                        <button class="inline-link" type="button">Voir la creation digitale</button>
+                        <button class="inline-link expand-trigger" type="button" aria-expanded="false">Ouvrir</button>
+                        <div class="expandable-content">
+                            <div class="expandable-inner">
+                                <p>
+                                    Creation d'interfaces modernes et elegantes avec une attention particuliere a
+                                    l'experience utilisateur et a la clarte visuelle.
+                                </p>
+                            </div>
+                        </div>
                     </article>
-                    <article class="demo-card card interactive-card" data-target="#cv-intelligent">
+                    <article class="demo-card card interactive-card expandable-card" data-expandable>
                         <span class="demo-label">CV intelligent</span>
                         <p>Un outil de creation de CV avec apercu en temps reel, styles et export PDF.</p>
-                        <button class="inline-link" type="button">Explorer le module CV</button>
+                        <button class="inline-link expand-trigger" type="button" aria-expanded="false">Ouvrir</button>
+                        <div class="expandable-content">
+                            <div class="expandable-inner">
+                                <p>
+                                    Outil intelligent permettant de creer automatiquement des CV personnalises, lettres
+                                    de motivation, mise en page moderne, export PDF, export Word, optimisation ATS et
+                                    automatisation de contenu.
+                                </p>
+                            </div>
+                        </div>
                     </article>
-                    <article class="demo-card card interactive-card" data-target="#assistant-ia">
+                    <article class="demo-card card interactive-card expandable-card" data-expandable>
                         <span class="demo-label">Automatisation</span>
                         <p>Des logiques d'organisation, de remplissage et de structuration pour gagner du temps.</p>
-                        <button class="inline-link" type="button">Parler a l'assistant IA</button>
+                        <button class="inline-link expand-trigger" type="button" aria-expanded="false">Ouvrir</button>
+                        <div class="expandable-content">
+                            <div class="expandable-inner">
+                                <p>
+                                    Organisation automatique des sections, ajustement de la mise en page, optimisation
+                                    ATS et generation de contenu plus rapide.
+                                </p>
+                            </div>
+                        </div>
                     </article>
-                    <article class="demo-card card interactive-card" data-target="#assistant-ia">
+                    <article class="demo-card card interactive-card expandable-card" data-expandable>
                         <span class="demo-label">Data & IA</span>
                         <p>Un assistant interactif pour orienter les visiteurs et presenter des solutions digitales.</p>
-                        <button class="inline-link" type="button">Voir les automatisations</button>
+                        <button class="inline-link expand-trigger" type="button" aria-expanded="false">Ouvrir</button>
+                        <div class="expandable-content">
+                            <div class="expandable-inner">
+                                <p>
+                                    Assistant interactif, logique d'analyse et orientation de l'utilisateur vers les
+                                    bons outils de creation digitale et de documents.
+                                </p>
+                            </div>
+                        </div>
                     </article>
                 </div>
             </section>
