@@ -169,6 +169,14 @@ img {
     color: var(--text-soft);
 }
 
+.hero-note {
+    margin-top: 1rem;
+    color: #2f3f7f;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
 .hero-actions {
     display: flex;
     flex-wrap: wrap;
@@ -453,6 +461,10 @@ body.is-ready .hero-reveal-delay-4 {
 
 body.is-ready .hero-reveal-delay-5 {
     animation-delay: 0.66s;
+}
+
+body.is-ready .hero-reveal-delay-6 {
+    animation-delay: 0.8s;
 }
 
 body.is-ready .skill-delay-1 {
