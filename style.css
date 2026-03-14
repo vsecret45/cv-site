@@ -240,6 +240,11 @@ img {
     transform: translateY(0);
 }
 
+#cv-intelligent.reveal-section {
+    opacity: 1;
+    transform: none;
+}
+
 .section-heading {
     max-width: 44rem;
     margin-bottom: var(--space-lg);

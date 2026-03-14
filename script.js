@@ -748,6 +748,11 @@ const scrollToPreviewPage = (page) => {
 
 const refreshCvModule = () => {
     try {
+        const cvSection = document.querySelector('#cv-intelligent');
+
+        if (cvSection) {
+            cvSection.classList.add('is-visible');
+        }
         if (cvLayout) {
             cvLayout.classList.remove('is-preview-focus');
             cvLayout.style.display = 'grid';
