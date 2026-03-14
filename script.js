@@ -90,6 +90,7 @@ const previewNodes = {
 };
 
 const templateThemeMap = {
+    wordpro: 'template-wordpro',
     classic: 'template-classic',
     modern: 'template-modern',
     executive: 'template-executive',
@@ -116,10 +117,10 @@ const templatePresets = {
         accentColor: '#334155',
     },
     professional: {
-        layoutTheme: 'executive',
-        fontTheme: 'inter',
+        layoutTheme: 'wordpro',
+        fontTheme: 'lato',
         colorTheme: 'indigo',
-        designMood: 'editorial',
+        designMood: 'clean',
         lineSpacing: 'normal',
         textAlign: 'left',
         accentColor: '#2f3f7f',
@@ -168,7 +169,7 @@ const applyCvPreset = (preset) => {
         form.email.value = 'purvelours@proton.me';
         form.permit.value = 'Permis B';
         form.fontTheme.value = 'inter';
-        form.layoutTheme.value = 'modern';
+        form.layoutTheme.value = 'wordpro';
         form.colorTheme.value = 'indigo';
         form.designMood.value = 'startup';
     }
@@ -183,7 +184,7 @@ const applyCvPreset = (preset) => {
         form.email.value = 'purvelours@proton.me';
         form.permit.value = 'Permis B et D';
         form.fontTheme.value = 'lato';
-        form.layoutTheme.value = 'classic';
+        form.layoutTheme.value = 'wordpro';
         form.colorTheme.value = 'graphite';
         form.designMood.value = 'clean';
     }
@@ -801,6 +802,7 @@ const updateCvPreview = () => {
         'spacing-airy',
         'spacing-tight',
         'template-classic',
+        'template-wordpro',
         'template-modern',
         'template-executive',
         'template-minimal'
@@ -1656,8 +1658,51 @@ const exportWord = () => {
     const activePreview = currentPreviewMode === 'letter' ? letterPagePreview : previewNodes.preview;
     const clone = activePreview?.cloneNode(true);
     clone?.querySelectorAll('.cv-section-actions').forEach((node) => node.remove());
-    const content = clone?.innerText || activePreview?.innerText || '';
-    downloadFile(currentPreviewMode === 'letter' ? 'lettre-motivation.doc' : 'cv-intelligent.doc', content, 'application/msword');
+    const accent = currentPreviewMode === 'letter'
+        ? (letterPagePreview?.style.getPropertyValue('--cv-accent') || '#2f3f7f')
+        : (previewNodes.preview?.style.getPropertyValue('--cv-accent') || '#2f3f7f');
+    const html = `
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>${currentPreviewMode === 'letter' ? 'Lettre de motivation' : 'CV'}</title>
+  <style>
+    @page { size: A4; margin: 16mm; }
+    body { margin: 0; font-family: Calibri, Arial, sans-serif; color: #1f2937; }
+    .doc { width: 100%; }
+    .cv-header { text-align: center; padding-bottom: 10mm; }
+    .cv-label { display: none; }
+    #preview-name, h3 { margin: 0 0 4mm; font-size: 22pt; font-weight: 700; text-transform: uppercase; }
+    #preview-headline { margin: 0 0 4mm; font-size: 13pt; font-weight: 700; color: ${accent}; }
+    .cv-meta { margin: 0 0 2mm; font-size: 10.5pt; }
+    .cv-body { display: block; }
+    .cv-body section { margin: 0 0 6mm; page-break-inside: avoid; }
+    .cv-body h4 { margin: 0 0 3mm; padding: 2mm 3mm; text-align: center; font-size: 11pt; text-transform: uppercase; background: #eef2f8; border-left: 4px solid ${accent}; }
+    .cv-body p { margin: 0; font-size: 10.5pt; line-height: 1.45; }
+    .cv-body ul { margin: 0; padding-left: 5mm; }
+    .cv-body li { margin: 0 0 2mm; font-size: 10.5pt; line-height: 1.4; }
+    .cv-experience-list { list-style: none; padding-left: 0; }
+    .cv-experience-item { margin: 0 0 4mm; }
+    .cv-experience-head { display: flex; justify-content: space-between; gap: 4mm; font-weight: 700; }
+    .cv-experience-meta { margin-top: 1mm; color: #4b5563; font-style: italic; }
+    .cv-experience-bullets { margin-top: 2mm; padding-left: 5mm; list-style: disc; }
+    .cv-page-guide { display: none; }
+    .cv-section-actions { display: none !important; }
+    .is-hidden-preview { display: none !important; }
+    .letter-page-body { font-size: 10.5pt; line-height: 1.55; }
+    .letter-subject { font-weight: 700; margin-bottom: 4mm; }
+  </style>
+</head>
+<body>
+  <article class="doc">${clone?.innerHTML || activePreview?.innerHTML || ''}</article>
+</body>
+</html>`;
+    downloadFile(
+        currentPreviewMode === 'letter' ? 'lettre-motivation.doc' : 'cv-intelligent.doc',
+        html,
+        'application/msword'
+    );
 };
 
 const exportPdf = async () => {
