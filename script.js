@@ -159,31 +159,117 @@ const applyCvPreset = (preset) => {
 
     const form = cvForm.elements;
 
-    if (preset === 'frontend') {
-        form.headline.value = 'Developpeuse web front-end';
-        form.summary.value = "Je conçois des interfaces web modernes, claires et orientées expérience utilisateur.";
-        form.skills.value = ['HTML', 'CSS', 'JavaScript', 'React', 'UI / UX', 'Figma', 'Responsive Design', 'Git'].join('\n');
-        form.jobTarget.value = 'developpeur web';
-        form.location.value = 'Rueil-Malmaison (92500)';
-        form.phone.value = '07.77.46.48.37';
-        form.email.value = 'purvelours@proton.me';
-        form.permit.value = 'Permis B';
-        form.fontTheme.value = 'inter';
-        form.layoutTheme.value = 'wordpro';
-        form.colorTheme.value = 'indigo';
-        form.designMood.value = 'startup';
-    }
-
     if (preset === 'client') {
-        form.headline.value = 'Conseillere relation client';
-        form.summary.value = "Professionnelle de la relation client, de l'accompagnement et de l'organisation, avec une approche claire et orientée solutions.";
-        form.skills.value = ['Relation client', 'Accompagnement', 'Analyse des besoins', 'Organisation', 'Gestion', 'Communication'].join('\n');
+        form.headline.value = 'Conseillere clientele / Gestion administrative';
+        form.summary.value = "Professionnelle organisee et rigoureuse avec une experience dans la relation client, la gestion administrative et le suivi de dossiers. Capacite a gerer les demandes clients, a travailler en equipe et a assurer un service de qualite.";
+        form.skills.value = [
+            'Relation client',
+            'Gestion administrative',
+            'Organisation et gestion des dossiers',
+            'Communication professionnelle',
+            'Travail en equipe',
+            'Maitrise des outils bureautiques',
+        ].join('\n');
+        form.experience.value = [
+            'Entreprise / Organisation - Poste occupe • Ville | Dates • Accueil et accompagnement des clients • Gestion et suivi des dossiers administratifs • Traitement des demandes et resolution des problemes',
+            'Entreprise / Organisation - Poste occupe • Ville | Dates • Gestion des appels et des courriers • Organisation et classement des documents • Suivi administratif',
+        ].join('\n');
+        form.education.value = [
+            'Diplome ou formation - Etablissement - Annee',
+        ].join('\n');
+        form.languages.value = ['Francais : courant', 'Arabe : bilingue'].join('\n');
+        form.activities.value = ['Lecture', 'Developpement personnel', 'Voyages'].join('\n');
         form.jobTarget.value = 'relation client';
         form.location.value = 'Rueil-Malmaison (92500)';
         form.phone.value = '07.77.46.48.37';
-        form.email.value = 'purvelours@proton.me';
+        form.email.value = 'sharian@live.fr';
+        form.permit.value = 'Permis B';
+        form.fontTheme.value = 'lato';
+        form.layoutTheme.value = 'wordpro';
+        form.colorTheme.value = 'graphite';
+        form.designMood.value = 'clean';
+    }
+
+    if (preset === 'banking') {
+        form.headline.value = 'Conseillere clientele bancaire / Gestion de comptes';
+        form.summary.value = "Professionnelle organisee avec experience en relation client et gestion administrative. Capacite a accompagner les clients, analyser leurs besoins et proposer des solutions adaptees.";
+        form.skills.value = [
+            'Relation et conseil client',
+            'Gestion de comptes',
+            'Analyse de dossiers',
+            'Suivi administratif',
+            'Communication professionnelle',
+            'Outils bureautiques',
+        ].join('\n');
+        form.experience.value = [
+            'Entreprise - Poste | Ville | Dates • Accueil et accompagnement des clients • Gestion des operations et suivi des dossiers • Conseil sur les produits et services',
+            'Entreprise - Poste | Ville | Dates • Gestion administrative • Suivi des documents et dossiers clients',
+        ].join('\n');
+        form.education.value = ['Diplome - Etablissement - Annee'].join('\n');
+        form.languages.value = ['Francais - Courant', 'Arabe - Bilingue'].join('\n');
+        form.activities.value = ['Lecture', 'Developpement personnel', 'Voyages'].join('\n');
+        form.jobTarget.value = 'relation client';
+        form.location.value = 'Rueil-Malmaison (92500)';
+        form.phone.value = '07.77.46.48.37';
+        form.email.value = 'sharian@live.fr';
+        form.permit.value = 'Permis B';
+        form.fontTheme.value = 'lato';
+        form.layoutTheme.value = 'wordpro';
+        form.colorTheme.value = 'indigo';
+        form.designMood.value = 'clean';
+    }
+
+    if (preset === 'transport') {
+        form.headline.value = 'Agent de transport / Conductrice de metro (formation)';
+        form.summary.value = "Professionnelle rigoureuse et organisee, motivee par les metiers du transport public. Sens aigu des responsabilites, respect strict des procedures de securite et capacite a gerer des situations sous pression.";
+        form.skills.value = [
+            'Respect des procedures de securite',
+            'Sens des responsabilites et vigilance',
+            'Gestion du stress et des situations imprevues',
+            'Ponctualite et rigueur professionnelle',
+            'Relation avec le public et communication',
+            'Travail en equipe',
+        ].join('\n');
+        form.experience.value = [
+            'Relation client / Gestion administrative - Divers postes • France | Dates • Accueil et orientation du public • Gestion des demandes et resolution de situations clients • Travail en coordination avec differentes equipes',
+        ].join('\n');
+        form.education.value = ['Formation ou diplome - Etablissement - Annee'].join('\n');
+        form.languages.value = ['Francais : courant', 'Arabe : bilingue'].join('\n');
+        form.activities.value = ['Lecture', 'Developpement personnel', 'Activites culturelles'].join('\n');
+        form.jobTarget.value = 'relation client';
+        form.location.value = 'Rueil-Malmaison (92500)';
+        form.phone.value = '07.77.46.48.37';
+        form.email.value = 'sharian@live.fr';
         form.permit.value = 'Permis B et D';
         form.fontTheme.value = 'lato';
+        form.layoutTheme.value = 'wordpro';
+        form.colorTheme.value = 'graphite';
+        form.designMood.value = 'clean';
+    }
+
+    if (preset === 'admin') {
+        form.headline.value = 'Assistante administrative / Gestion de dossiers';
+        form.summary.value = "Professionnelle organisee avec une experience en gestion administrative, classement de documents et suivi des dossiers. Capacite a travailler avec rigueur et a assurer un suivi fiable des demandes.";
+        form.skills.value = [
+            'Gestion administrative',
+            'Organisation des dossiers',
+            'Redaction de documents',
+            'Suivi des demandes',
+            'Pack Office',
+            'Communication professionnelle',
+        ].join('\n');
+        form.experience.value = [
+            'Entreprise - Poste | Ville | Dates • Gestion des appels et courriers • Organisation et classement des dossiers • Suivi administratif',
+        ].join('\n');
+        form.education.value = ['Diplome - Etablissement - Annee'].join('\n');
+        form.languages.value = ['Francais - Courant', 'Arabe - Bilingue'].join('\n');
+        form.activities.value = ['Lecture', 'Developpement personnel', 'Voyages'].join('\n');
+        form.jobTarget.value = 'relation client';
+        form.location.value = 'Rueil-Malmaison (92500)';
+        form.phone.value = '07.77.46.48.37';
+        form.email.value = 'sharian@live.fr';
+        form.permit.value = 'Permis B';
+        form.fontTheme.value = 'inter';
         form.layoutTheme.value = 'wordpro';
         form.colorTheme.value = 'graphite';
         form.designMood.value = 'clean';
@@ -201,7 +287,7 @@ const applyCvPreset = (preset) => {
 
     if (preset === 'ats') {
         form.cvMode.value = 'ats';
-        form.layoutTheme.value = 'minimal';
+        form.layoutTheme.value = 'wordpro';
         form.fontTheme.value = 'roboto';
         form.colorTheme.value = 'graphite';
         form.designMood.value = 'clean';
