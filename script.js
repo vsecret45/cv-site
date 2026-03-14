@@ -29,6 +29,7 @@ const cvZoomSelect = document.querySelector('#cv-zoom');
 const cvLayout = document.querySelector('#cv-layout');
 const cvEditorPanel = document.querySelector('#cv-editor-panel');
 const cvLayoutToggle = document.querySelector('#cv-layout-toggle');
+const cvPreviewShell = document.querySelector('.cv-preview-shell');
 const cvPreviewViewport = document.querySelector('#cv-preview-viewport');
 const cvPreviewStage = document.querySelector('#cv-preview-stage');
 const cvPrevPageButton = document.querySelector('#cv-prev-page');
@@ -749,10 +750,21 @@ const refreshCvModule = () => {
     try {
         if (cvLayout) {
             cvLayout.classList.remove('is-preview-focus');
+            cvLayout.style.removeProperty('display');
         }
         if (cvLayoutToggle) {
             cvLayoutToggle.setAttribute('aria-expanded', 'true');
             cvLayoutToggle.setAttribute('aria-label', 'Rabattre les reglages');
+        }
+        if (cvEditorPanel) {
+            cvEditorPanel.style.removeProperty('display');
+            cvEditorPanel.style.removeProperty('opacity');
+            cvEditorPanel.style.removeProperty('pointer-events');
+        }
+        if (cvPreviewShell) {
+            cvPreviewShell.style.removeProperty('display');
+            cvPreviewShell.style.removeProperty('opacity');
+            cvPreviewShell.style.removeProperty('pointer-events');
         }
         if (previewNodes.preview) {
             previewNodes.preview.classList.remove('is-hidden-preview');
@@ -1890,66 +1902,166 @@ const exportWord = () => {
 };
 
 const exportPdf = async () => {
-    const activePreview = currentPreviewMode === 'letter' ? letterPagePreview : previewNodes.preview;
+    const JsPdf = window.jspdf?.jsPDF;
 
-    if (!activePreview || !window.html2pdf) {
+    if (!JsPdf) {
         setCvStatus('Export PDF indisponible pour le moment');
         return;
     }
 
     setCvStatus('Generation du PDF...');
 
-    const clone = activePreview.cloneNode(true);
-    clone.querySelectorAll('.cv-section-actions, .cv-page-guide').forEach((node) => node.remove());
-    clone.querySelectorAll('[contenteditable="true"]').forEach((node) => node.removeAttribute('contenteditable'));
-    clone.style.transform = 'none';
-    clone.style.width = '210mm';
-    clone.style.minHeight = '297mm';
-    clone.style.margin = '0';
-    clone.style.boxShadow = 'none';
-    clone.style.borderRadius = '0';
-    clone.style.opacity = '1';
-    clone.style.visibility = 'visible';
-
-    const wrapper = document.createElement('div');
-    wrapper.style.position = 'fixed';
-    wrapper.style.top = '0';
-    wrapper.style.left = '0';
-    wrapper.style.width = '210mm';
-    wrapper.style.minHeight = '297mm';
-    wrapper.style.pointerEvents = 'none';
-    wrapper.style.background = '#ffffff';
-    wrapper.style.transform = 'translateX(-250vw)';
-    wrapper.style.zIndex = '9999';
-    wrapper.style.overflow = 'visible';
-    wrapper.appendChild(clone);
-    document.body.appendChild(wrapper);
-
     try {
-        await new Promise((resolve) => {
-            window.requestAnimationFrame(() => {
-                window.requestAnimationFrame(resolve);
+        const doc = new JsPdf({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+        const pageHeight = 297;
+        const pageWidth = 210;
+        const marginX = 18;
+        const contentWidth = pageWidth - marginX * 2;
+        const bottomLimit = pageHeight - 18;
+        let y = 18;
+
+        const addPageIfNeeded = (neededHeight = 8) => {
+            if (y + neededHeight <= bottomLimit) {
+                return;
+            }
+            doc.addPage();
+            y = 18;
+        };
+
+        const writeWrappedText = (text, options = {}) => {
+            if (!text) {
+                return;
+            }
+
+            const {
+                x = marginX,
+                size = 11,
+                weight = 'normal',
+                color = '#171923',
+                align = 'left',
+                spacing = 5.2,
+            } = options;
+
+            doc.setFont('helvetica', weight);
+            doc.setFontSize(size);
+            doc.setTextColor(color);
+            const lines = doc.splitTextToSize(String(text), contentWidth);
+            addPageIfNeeded(lines.length * spacing + 2);
+            doc.text(lines, x, y, { align, maxWidth: contentWidth });
+            y += lines.length * spacing;
+        };
+
+        const writeSectionTitle = (title) => {
+            addPageIfNeeded(12);
+            y += 1;
+            doc.setFillColor(244, 247, 252);
+            doc.rect(marginX, y - 5, contentWidth, 8, 'F');
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            doc.setTextColor('#243b7a');
+            doc.text(String(title).toUpperCase(), pageWidth / 2, y, { align: 'center' });
+            y += 8.5;
+        };
+
+        const writeBulletList = (items, compact = false) => {
+            const cleaned = items.map((item) => String(item).trim()).filter(Boolean);
+            if (!cleaned.length) {
+                return;
+            }
+
+            if (compact) {
+                writeWrappedText(`• ${cleaned.join(' • ')}`, { size: 10.5, spacing: 4.8 });
+                y += 1;
+                return;
+            }
+
+            cleaned.forEach((item) => {
+                writeWrappedText(`• ${item}`, { size: 10.5, spacing: 4.8 });
+                y += 0.2;
             });
-        });
+            y += 0.8;
+        };
 
-        await window.html2pdf()
-            .set({
-                margin: 0,
-                filename: currentPreviewMode === 'letter' ? 'lettre-motivation.pdf' : 'cv-intelligent.pdf',
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, backgroundColor: '#ffffff' },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                pagebreak: { mode: ['css', 'legacy'] },
-            })
-            .from(clone)
-            .save();
+        if (currentPreviewMode === 'letter') {
+            const fullName = cvForm?.elements.fullName?.value?.trim() || 'Votre nom';
+            const headline = cvForm?.elements.headline?.value?.trim() || 'Titre du metier';
+            const subject = letterSubject?.textContent?.trim() || 'Objet : Candidature';
+            const body = letterBody?.textContent?.trim() || '';
 
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(20);
+            doc.setTextColor('#171923');
+            doc.text(fullName, pageWidth / 2, y, { align: 'center' });
+            y += 8;
+            writeWrappedText(headline, { size: 12, weight: 'bold', color: '#8b6b2f', align: 'center', spacing: 5 });
+            y += 6;
+            writeWrappedText(subject, { size: 11.5, weight: 'bold', color: '#243b7a', spacing: 5.2 });
+            y += 2;
+            writeWrappedText(body, { size: 11, spacing: 5.6 });
+            doc.save('lettre-motivation.pdf');
+            setCvStatus('PDF telecharge');
+            return;
+        }
+
+        const fullName = cvForm?.elements.fullName?.value?.trim() || 'Votre nom';
+        const location = cvForm?.elements.location?.value?.trim() || '';
+        const phone = cvForm?.elements.phone?.value?.trim() || '';
+        const email = cvForm?.elements.email?.value?.trim() || '';
+        const headline = cvForm?.elements.headline?.value?.trim() || '';
+        const summary = cvForm?.elements.summary?.value?.trim() || '';
+        const skills = splitLines(cvForm?.elements.skills?.value || '');
+        const experiences = splitLines(cvForm?.elements.experience?.value || '');
+        const education = splitLines(cvForm?.elements.education?.value || '');
+        const activities = splitLines(cvForm?.elements.activities?.value || '');
+        const languages = splitLines(cvForm?.elements.languages?.value || '');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(20);
+        doc.setTextColor('#171923');
+        doc.text(fullName, pageWidth / 2, y, { align: 'center' });
+        y += 8;
+
+        const metaLine = [location, phone, email].filter(Boolean).join(' | ');
+        if (metaLine) {
+            writeWrappedText(metaLine, { size: 10.5, color: '#465063', align: 'center', spacing: 4.8 });
+            y += 1.5;
+        }
+
+        if (headline) {
+            writeWrappedText(headline, { size: 12.5, weight: 'bold', color: '#8b6b2f', align: 'center', spacing: 5 });
+            y += 3;
+        }
+
+        if (summary) {
+            writeSectionTitle('Profil');
+            writeWrappedText(summary, { size: 11, spacing: 5.2 });
+            y += 1;
+        }
+
+        writeSectionTitle('Competences');
+        writeBulletList(skills, true);
+
+        writeSectionTitle('Experiences professionnelles');
+        writeBulletList(experiences);
+
+        writeSectionTitle('Formations');
+        writeBulletList(education);
+
+        if (activities.length) {
+            writeSectionTitle('Activites');
+            writeBulletList(activities, true);
+        }
+
+        if (languages.length) {
+            writeSectionTitle('Langues');
+            writeBulletList(languages, true);
+        }
+
+        doc.save('cv-intelligent.pdf');
         setCvStatus('PDF telecharge');
     } catch (error) {
         console.error(error);
         setCvStatus('Echec de generation du PDF');
-    } finally {
-        wrapper.remove();
     }
 };
 
@@ -2356,6 +2468,12 @@ if (cvMatchJobButton) {
 
 if (cvPrintButton) {
     cvPrintButton.addEventListener('click', () => {
+        fitCvToSinglePage();
+        setPreviewMode('cv');
+        currentPreviewPage = 1;
+        if (cvPreviewViewport) {
+            cvPreviewViewport.scrollTop = 0;
+        }
         document.body.classList.add('print-cv');
         window.print();
         window.setTimeout(() => document.body.classList.remove('print-cv'), 300);
