@@ -531,6 +531,7 @@ const setPreviewMode = (mode) => {
 
     currentPreviewPage = 1;
     updatePreviewViewport();
+    scrollToPreviewPage(1);
 };
 
 const updatePreviewPagination = () => {
@@ -1228,6 +1229,54 @@ const extractSectionContent = (text, patterns, stopPatterns) => {
     return '';
 };
 
+const trimImportedSection = (content, sectionKey) => {
+    if (!content) {
+        return '';
+    }
+
+    const foreignHeadingsBySection = {
+        summary: [
+            /\bCOMP[ÉE]TENCES(?:\s+CL[EÉ]S)?\b/i,
+            /\bEXP[ÉE]RIENCES(?:\s+PROFESSIONNELLES)?\b/i,
+            /\bFORMATIONS(?:\s*&\s*CERTIFICATIONS)?\b/i,
+            /\bACTIVIT[ÉE]S?(?:\s*&\s*INT[ÉE]R[ÊE]TS)?\b/i,
+            /\bLANGUES?\b/i,
+        ],
+        skills: [
+            /\bEXP[ÉE]RIENCES(?:\s+PROFESSIONNELLES)?\b/i,
+            /\bFORMATIONS(?:\s*&\s*CERTIFICATIONS)?\b/i,
+            /\bACTIVIT[ÉE]S?(?:\s*&\s*INT[ÉE]R[ÊE]TS)?\b/i,
+            /\bLANGUES?\b/i,
+        ],
+        experience: [
+            /\bFORMATIONS(?:\s*&\s*CERTIFICATIONS)?\b/i,
+            /\bACTIVIT[ÉE]S?(?:\s*&\s*INT[ÉE]R[ÊE]TS)?\b/i,
+            /\bLANGUES?\b/i,
+        ],
+        education: [
+            /\bACTIVIT[ÉE]S?(?:\s*&\s*INT[ÉE]R[ÊE]TS)?\b/i,
+            /\bLANGUES?\b/i,
+        ],
+    };
+
+    let output = content.trim();
+    const foreignPatterns = foreignHeadingsBySection[sectionKey] || [];
+    let earliestIndex = -1;
+
+    foreignPatterns.forEach((pattern) => {
+        const matchIndex = output.search(pattern);
+        if (matchIndex !== -1 && (earliestIndex === -1 || matchIndex < earliestIndex)) {
+            earliestIndex = matchIndex;
+        }
+    });
+
+    if (earliestIndex !== -1) {
+        output = output.slice(0, earliestIndex).trim();
+    }
+
+    return output.replace(/\s{2,}/g, ' ').trim();
+};
+
 const splitImportedItems = (text) =>
     text
         .split(/\n+/)
@@ -1473,7 +1522,12 @@ const parseImportedCv = (text) => {
     const locationLine = cleanLines.find((line) => /\(\d{5}\)|france|malmaison|paris|nanterre|roissy/i.test(line));
     if (locationLine) {
         const extractedLocation = extractLocationValue(locationLine) || locationLine;
-        cvForm.elements.location.value = extractedLocation.replace(cvForm.elements.fullName.value || '', '').trim();
+        cvForm.elements.location.value = extractedLocation
+            .replace(new RegExp((cvForm.elements.fullName.value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'), '')
+            .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i, '')
+            .replace(/(\+33|0)[\s.\-]?\d([\s.\-]?\d{2}){4}/, '')
+            .replace(/\s{2,}/g, ' ')
+            .trim();
     }
 
     const headlineLine =
@@ -1487,35 +1541,35 @@ const parseImportedCv = (text) => {
         cvForm.elements.headline.value = headlineLine;
     }
 
-    const summarySection = extractSectionContent(
+    const summarySection = trimImportedSection(extractSectionContent(
         joinedText,
         [
             /\b(?:PROFIL|R[ÉE]SUM[ÉE]|OBJECTIF)\b([\s\S]+)$/i,
         ],
         sectionStops
-    );
-    const skillsSection = extractSectionContent(
+    ), 'summary');
+    const skillsSection = trimImportedSection(extractSectionContent(
         joinedText,
         [
             /\bCOMP[ÉE]TENCES(?:\s+CL[EÉ]S)?\b([\s\S]+)$/i,
         ],
         sectionStops
-    );
-    const experienceSection = extractSectionContent(
+    ), 'skills');
+    const experienceSection = trimImportedSection(extractSectionContent(
         joinedText,
         [
             /\bEXP[ÉE]RIENCES(?:\s+PROFESSIONNELLES)?\b([\s\S]+)$/i,
         ],
         sectionStops
-    );
-    const educationSection = extractSectionContent(
+    ), 'experience');
+    const educationSection = trimImportedSection(extractSectionContent(
         joinedText,
         [
             /\bFORMATIONS(?:\s*&\s*CERTIFICATIONS)?\b([\s\S]+)$/i,
             /\bCERTIFICATIONS\b([\s\S]+)$/i,
         ],
         sectionStops
-    );
+    ), 'education');
 
     const fallbackSections = { summary: [], skills: [], experience: [], education: [] };
     let currentSection = null;
@@ -1580,6 +1634,8 @@ const parseImportedCv = (text) => {
 
     updateCvPreview();
     setPreviewMode('cv');
+    currentPreviewPage = 1;
+    scrollToPreviewPage(1);
 
     setCvStatus('CV importe et analyse');
 };
