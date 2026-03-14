@@ -216,11 +216,11 @@ Creation d'interfaces web lisibles et professionnelles</textarea>
 
                         <div class="form-split">
                             <label class="field field-message">
-                                <span>Competences</span>
+                                <span>Profil / points forts</span>
                                 <textarea
                                     name="skills"
                                     rows="5"
-                                    placeholder="Une competence par ligne"
+                                    placeholder="Un point fort par ligne"
                                 >HTML
 CSS
 JavaScript
@@ -247,6 +247,16 @@ Pratique de la conception front-end</textarea>
                                 placeholder="Une langue par ligne"
                             >Francais
 Anglais professionnel</textarea>
+                        </label>
+                        <label class="field field-message">
+                            <span>Activites / centres d'interet</span>
+                            <textarea
+                                name="activities"
+                                rows="3"
+                                placeholder="Une activite par ligne"
+                            >Technologie et innovation
+Apprentissage continu
+Sport / activites personnelles</textarea>
                         </label>
 
                         <div class="form-split">
@@ -519,11 +529,11 @@ Anglais professionnel</textarea>
                                         <p id="preview-headline" data-edit-target="headline" contenteditable="true" spellcheck="false">Developpeuse web front-end</p>
                                         <p class="cv-meta" id="preview-meta" data-edit-target="location" contenteditable="true" spellcheck="false">Rueil-Malmaison (92500) | 07.77.46.48.37 | purvelours@proton.me</p>
                                         <p class="cv-permit" id="preview-permit" data-edit-target="permit" contenteditable="true" spellcheck="false">Permis B</p>
-                                        <p id="preview-summary" data-edit-target="summary" contenteditable="true" spellcheck="true">Je conçois des interfaces web modernes, claires et orientees experience utilisateur.</p>
                                     </header>
                                     <div class="cv-body">
                                         <section>
-                                            <h4>Competences cles</h4>
+                                            <h4>Profil</h4>
+                                            <p id="preview-summary" data-edit-target="summary" contenteditable="true" spellcheck="true">Je conçois des interfaces web modernes, claires et orientees experience utilisateur.</p>
                                             <ul id="preview-skills" data-edit-target="skills"></ul>
                                         </section>
                                         <section>
@@ -537,6 +547,10 @@ Anglais professionnel</textarea>
                                         <section>
                                             <h4>Langues</h4>
                                             <ul id="preview-languages" data-edit-target="languages"></ul>
+                                        </section>
+                                        <section>
+                                            <h4>Activites & interets</h4>
+                                            <ul id="preview-activities" data-edit-target="activities"></ul>
                                         </section>
                                     </div>
                                 </article>
@@ -558,6 +572,7 @@ Anglais professionnel</textarea>
                                 </article>
                             </div>
                         </div>
+                        <div class="preview-page-thumbnails" id="preview-page-thumbnails" aria-label="Pages visibles du document"></div>
                         <div class="cover-letter-panel" id="cover-letter-panel" data-builder-panel="letter">
                             <div class="section-heading section-heading-compact">
                                 <p class="section-kicker">Lettre de motivation</p>

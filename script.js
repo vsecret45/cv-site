@@ -33,6 +33,7 @@ const cvPreviewStage = document.querySelector('#cv-preview-stage');
 const cvPrevPageButton = document.querySelector('#cv-prev-page');
 const cvNextPageButton = document.querySelector('#cv-next-page');
 const cvPageIndicator = document.querySelector('#cv-page-indicator');
+const previewPageThumbnails = document.querySelector('#preview-page-thumbnails');
 const previewModeTabs = document.querySelectorAll('[data-preview-mode]');
 const cvOverflowIndicator = document.querySelector('#cv-overflow-indicator');
 const previewHeadlineScale = document.querySelector('#preview-headline-scale');
@@ -83,6 +84,7 @@ const previewNodes = {
     skills: document.querySelector('#preview-skills'),
     education: document.querySelector('#preview-education'),
     languages: document.querySelector('#preview-languages'),
+    activities: document.querySelector('#preview-activities'),
     preview: document.querySelector('#cv-preview'),
 };
 
@@ -398,6 +400,7 @@ const applyCompactCvLayout = (autoTriggered = false) => {
     const skillsField = cvForm.elements.skills;
     const educationField = cvForm.elements.education;
     const languagesField = cvForm.elements.languages;
+    const activitiesField = cvForm.elements.activities;
     const fontSizeField = cvForm.elements.fontSize;
     const lineSpacingField = cvForm.elements.lineSpacing;
     const layoutThemeField = cvForm.elements.layoutTheme;
@@ -442,6 +445,10 @@ const applyCompactCvLayout = (autoTriggered = false) => {
         languagesField.value = splitLines(languagesField.value).slice(0, 3).join('\n');
     }
 
+    if (activitiesField) {
+        activitiesField.value = splitLines(activitiesField.value).slice(0, 3).join('\n');
+    }
+
     if (autoTriggered) {
         setCvStatus('CV compacte automatiquement pour tenir sur 1 page');
     }
@@ -459,6 +466,7 @@ const updateCvPageMode = () => {
         splitLines(values.skills || '').length +
         splitLines(values.education || '').length +
         splitLines(values.languages || '').length +
+        splitLines(values.activities || '').length +
         Math.ceil(((values.summary || '').trim().length || 0) / 110);
 
     const isOverflow = totalLines > 22;
@@ -529,6 +537,19 @@ const updatePreviewPagination = () => {
 
     if (cvNextPageButton) {
         cvNextPageButton.disabled = currentPreviewPage >= totalPages;
+    }
+
+    if (previewPageThumbnails) {
+        previewPageThumbnails.innerHTML = '';
+        for (let page = 1; page <= totalPages; page += 1) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = `page-thumb${page === currentPreviewPage ? ' is-active' : ''}`;
+            button.textContent = `${page}`;
+            button.setAttribute('aria-label', `Voir la page ${page}`);
+            button.addEventListener('click', () => scrollToPreviewPage(page));
+            previewPageThumbnails.appendChild(button);
+        }
     }
 };
 
@@ -699,6 +720,7 @@ const updateCvPreview = () => {
     fillList(previewNodes.skills, splitLines(values.skills || ''));
     fillList(previewNodes.education, splitLines(values.education || ''));
     fillList(previewNodes.languages, splitLines(values.languages || ''));
+    fillList(previewNodes.activities, splitLines(values.activities || ''));
 
     previewNodes.preview.classList.remove('theme-executive', 'theme-creative', 'theme-compact', 'theme-ats', 'theme-web');
     previewNodes.preview.classList.add(`theme-${cvModeThemeMap[values.cvMode] || 'executive'}`);
@@ -817,6 +839,7 @@ const analyzeCv = (values) => {
     const experiences = splitLines(values.experience || '');
     const skills = splitLines(values.skills || '');
     const education = splitLines(values.education || '');
+    const activities = splitLines(values.activities || '');
     const jobTarget = (values.jobTarget || '').toLowerCase();
     const headline = (values.headline || '').toLowerCase();
     const baseContent = `${values.headline || ''} ${values.summary || ''} ${values.skills || ''} ${values.experience || ''}`.toLowerCase();
@@ -851,6 +874,11 @@ const analyzeCv = (values) => {
         analysis.push('Formation renseignee');
     } else {
         suggestions.push('Ajouter une section formation ou certification');
+    }
+
+    if (activities.length > 0) {
+        score += 2;
+        analysis.push('Activites complementaires renseignees');
     }
 
     const measurable = /%|\d|ans|clients|projets|utilisateurs/i.test(values.experience || '');
@@ -1360,6 +1388,9 @@ const parseImportedCv = (text) => {
     cvForm.elements.permit.value = '';
     if (cvForm.elements.languages) {
         cvForm.elements.languages.value = '';
+    }
+    if (cvForm.elements.activities) {
+        cvForm.elements.activities.value = '';
     }
 
     const nameLine =
