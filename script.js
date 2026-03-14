@@ -750,21 +750,21 @@ const refreshCvModule = () => {
     try {
         if (cvLayout) {
             cvLayout.classList.remove('is-preview-focus');
-            cvLayout.style.removeProperty('display');
+            cvLayout.style.display = 'grid';
         }
         if (cvLayoutToggle) {
             cvLayoutToggle.setAttribute('aria-expanded', 'true');
             cvLayoutToggle.setAttribute('aria-label', 'Rabattre les reglages');
         }
         if (cvEditorPanel) {
-            cvEditorPanel.style.removeProperty('display');
-            cvEditorPanel.style.removeProperty('opacity');
-            cvEditorPanel.style.removeProperty('pointer-events');
+            cvEditorPanel.style.display = 'grid';
+            cvEditorPanel.style.opacity = '1';
+            cvEditorPanel.style.pointerEvents = 'auto';
         }
         if (cvPreviewShell) {
-            cvPreviewShell.style.removeProperty('display');
-            cvPreviewShell.style.removeProperty('opacity');
-            cvPreviewShell.style.removeProperty('pointer-events');
+            cvPreviewShell.style.display = 'grid';
+            cvPreviewShell.style.opacity = '1';
+            cvPreviewShell.style.pointerEvents = 'auto';
         }
         if (previewNodes.preview) {
             previewNodes.preview.classList.remove('is-hidden-preview');
@@ -781,6 +781,7 @@ const refreshCvModule = () => {
             cvPreviewViewport.scrollTop = 0;
         }
         updatePreviewViewport();
+        updatePreviewPagination();
     } catch (error) {
         console.error(error);
         setCvStatus('Le module CV a rencontre un probleme, mais l editeur reste charge');
