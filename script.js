@@ -705,13 +705,18 @@ const updatePreviewViewport = () => {
 
     const zoom = getZoomLevel();
     const stagePages = getVisiblePreviewPages();
+    if (!stagePages.length) {
+        cvPreviewStage.style.height = 'auto';
+        updatePreviewPagination();
+        return;
+    }
     const pageGap = stagePages.length > 1 ? (stagePages.length - 1) * 18 * 3.78 : 0;
     const totalHeight = stagePages.reduce((sum, page) => {
         page.style.transform = `scale(${zoom})`;
         return sum + page.scrollHeight * zoom;
     }, 0);
 
-    cvPreviewStage.style.height = `${totalHeight + pageGap + 24}px`;
+    cvPreviewStage.style.height = `${Math.max(totalHeight + pageGap, 0)}px`;
     updatePreviewPagination();
 };
 
@@ -737,6 +742,21 @@ const scrollToPreviewPage = (page) => {
 
     cvPreviewViewport.scrollTo({ top: targetTop, behavior: 'smooth' });
     updatePreviewPagination();
+};
+
+const refreshCvModule = () => {
+    try {
+        updateCvPreview();
+        setPreviewMode(currentPreviewMode || 'cv');
+        currentPreviewPage = 1;
+        if (cvPreviewViewport) {
+            cvPreviewViewport.scrollTop = 0;
+        }
+        updatePreviewViewport();
+    } catch (error) {
+        console.error(error);
+        setCvStatus('Le module CV a rencontre un probleme, mais l editeur reste charge');
+    }
 };
 
 const cvModeThemeMap = {
@@ -1968,7 +1988,7 @@ window.addEventListener('load', () => {
     document.body.classList.remove('is-preload');
     document.body.classList.add('is-ready');
     loadCvDraft();
-    updateCvPreview();
+    refreshCvModule();
 });
 
 if (navLinks.length > 0 && sections.length > 0) {
@@ -2442,6 +2462,9 @@ if (cvImportInput) {
             }
 
             parseImportedCv(text);
+            if (cvPreviewViewport) {
+                cvPreviewViewport.scrollTop = 0;
+            }
         } catch (error) {
             console.error(error);
             setCvStatus('Import impossible pour ce document');

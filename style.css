@@ -851,10 +851,10 @@ img {
 }
 
 .cv-preview-viewport {
-    height: min(78vh, 920px);
+    height: min(74vh, 860px);
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 1rem 0.75rem 1.5rem;
+    padding: 0.75rem;
     border: 1px solid var(--line);
     border-radius: 22px;
     background:
@@ -864,8 +864,9 @@ img {
 .cv-preview-stage {
     display: grid;
     justify-items: center;
+    align-content: start;
     gap: 18mm;
-    min-height: 100%;
+    min-height: 0;
 }
 
 .preview-page-thumbnails {
