@@ -199,7 +199,7 @@
                             <textarea
                                 name="summary"
                                 rows="4"
-                                placeholder="Accroche du profil"
+                                placeholder="Optionnel"
                             >Je conçois des interfaces web modernes, claires et orientees experience utilisateur.</textarea>
                         </label>
 
@@ -216,7 +216,7 @@ Creation d'interfaces web lisibles et professionnelles</textarea>
 
                         <div class="form-split">
                             <label class="field field-message">
-                                <span>Profil / points forts</span>
+                                <span>Competences</span>
                                 <textarea
                                     name="skills"
                                     rows="5"
@@ -530,27 +530,72 @@ Sport / activites personnelles</textarea>
                                         <p class="cv-meta" id="preview-meta" data-edit-target="location" contenteditable="true" spellcheck="false">Rueil-Malmaison (92500) | 07.77.46.48.37 | purvelours@proton.me</p>
                                         <p class="cv-permit" id="preview-permit" data-edit-target="permit" contenteditable="true" spellcheck="false">Permis B</p>
                                     </header>
-                                    <div class="cv-body">
-                                        <section>
-                                            <h4>Profil</h4>
+                                    <div class="cv-body" id="cv-preview-sections">
+                                        <section data-section-key="summary">
+                                            <div class="cv-section-head">
+                                                <h4>Profil</h4>
+                                                <div class="cv-section-actions">
+                                                    <button type="button" class="cv-section-action" data-section-action="up" data-section-key="summary" aria-label="Monter le bloc Profil">↑</button>
+                                                    <button type="button" class="cv-section-action" data-section-action="down" data-section-key="summary" aria-label="Descendre le bloc Profil">↓</button>
+                                                    <button type="button" class="cv-section-action" data-section-action="delete" data-section-key="summary" aria-label="Supprimer le bloc Profil">×</button>
+                                                </div>
+                                            </div>
                                             <p id="preview-summary" data-edit-target="summary" contenteditable="true" spellcheck="true">Je conçois des interfaces web modernes, claires et orientees experience utilisateur.</p>
-                                            <ul id="preview-skills" data-edit-target="skills"></ul>
                                         </section>
-                                        <section>
-                                            <h4>Experiences professionnelles</h4>
-                                            <ul id="preview-experience" data-edit-target="experience"></ul>
+                                        <section data-section-key="skills">
+                                            <div class="cv-section-head">
+                                                <h4>Competences cles</h4>
+                                                <div class="cv-section-actions">
+                                                    <button type="button" class="cv-section-action" data-section-action="up" data-section-key="skills" aria-label="Monter le bloc Competences">↑</button>
+                                                    <button type="button" class="cv-section-action" data-section-action="down" data-section-key="skills" aria-label="Descendre le bloc Competences">↓</button>
+                                                    <button type="button" class="cv-section-action" data-section-action="delete" data-section-key="skills" aria-label="Supprimer le bloc Competences">×</button>
+                                                </div>
+                                            </div>
+                                            <ul id="preview-skills" data-edit-target="skills" contenteditable="true" spellcheck="true"></ul>
                                         </section>
-                                        <section>
-                                            <h4>Formations & certifications</h4>
-                                            <ul id="preview-education" data-edit-target="education"></ul>
+                                        <section data-section-key="experience">
+                                            <div class="cv-section-head">
+                                                <h4>Experiences professionnelles</h4>
+                                                <div class="cv-section-actions">
+                                                    <button type="button" class="cv-section-action" data-section-action="up" data-section-key="experience" aria-label="Monter le bloc Experiences">↑</button>
+                                                    <button type="button" class="cv-section-action" data-section-action="down" data-section-key="experience" aria-label="Descendre le bloc Experiences">↓</button>
+                                                    <button type="button" class="cv-section-action" data-section-action="delete" data-section-key="experience" aria-label="Supprimer le bloc Experiences">×</button>
+                                                </div>
+                                            </div>
+                                            <ul id="preview-experience" data-edit-target="experience" contenteditable="true" spellcheck="true"></ul>
                                         </section>
-                                        <section>
-                                            <h4>Langues</h4>
-                                            <ul id="preview-languages" data-edit-target="languages"></ul>
+                                        <section data-section-key="education">
+                                            <div class="cv-section-head">
+                                                <h4>Formations & certifications</h4>
+                                                <div class="cv-section-actions">
+                                                    <button type="button" class="cv-section-action" data-section-action="up" data-section-key="education" aria-label="Monter le bloc Formations">↑</button>
+                                                    <button type="button" class="cv-section-action" data-section-action="down" data-section-key="education" aria-label="Descendre le bloc Formations">↓</button>
+                                                    <button type="button" class="cv-section-action" data-section-action="delete" data-section-key="education" aria-label="Supprimer le bloc Formations">×</button>
+                                                </div>
+                                            </div>
+                                            <ul id="preview-education" data-edit-target="education" contenteditable="true" spellcheck="true"></ul>
                                         </section>
-                                        <section>
-                                            <h4>Activites & interets</h4>
-                                            <ul id="preview-activities" data-edit-target="activities"></ul>
+                                        <section data-section-key="activities">
+                                            <div class="cv-section-head">
+                                                <h4>Activites & interets</h4>
+                                                <div class="cv-section-actions">
+                                                    <button type="button" class="cv-section-action" data-section-action="up" data-section-key="activities" aria-label="Monter le bloc Activites">↑</button>
+                                                    <button type="button" class="cv-section-action" data-section-action="down" data-section-key="activities" aria-label="Descendre le bloc Activites">↓</button>
+                                                    <button type="button" class="cv-section-action" data-section-action="delete" data-section-key="activities" aria-label="Supprimer le bloc Activites">×</button>
+                                                </div>
+                                            </div>
+                                            <ul id="preview-activities" data-edit-target="activities" contenteditable="true" spellcheck="true"></ul>
+                                        </section>
+                                        <section data-section-key="languages">
+                                            <div class="cv-section-head">
+                                                <h4>Langues</h4>
+                                                <div class="cv-section-actions">
+                                                    <button type="button" class="cv-section-action" data-section-action="up" data-section-key="languages" aria-label="Monter le bloc Langues">↑</button>
+                                                    <button type="button" class="cv-section-action" data-section-action="down" data-section-key="languages" aria-label="Descendre le bloc Langues">↓</button>
+                                                    <button type="button" class="cv-section-action" data-section-action="delete" data-section-key="languages" aria-label="Supprimer le bloc Langues">×</button>
+                                                </div>
+                                            </div>
+                                            <ul id="preview-languages" data-edit-target="languages" contenteditable="true" spellcheck="true"></ul>
                                         </section>
                                     </div>
                                 </article>

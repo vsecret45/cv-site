@@ -40,6 +40,7 @@ const previewHeadlineScale = document.querySelector('#preview-headline-scale');
 const previewLineSpacing = document.querySelector('#preview-line-spacing');
 const previewLayoutTheme = document.querySelector('#preview-layout-theme');
 const previewFitInlineButton = document.querySelector('#preview-fit-inline');
+const previewSectionsRoot = document.querySelector('#cv-preview-sections');
 const letterCompanyField = document.querySelector('#letter-company');
 const letterRoleField = document.querySelector('#letter-role');
 const letterStyleField = document.querySelector('#letter-style');
@@ -73,6 +74,7 @@ let pdfjsLoader;
 let currentPreviewPage = 1;
 let currentPreviewMode = 'cv';
 let isAutoFittingCv = false;
+let cvSectionOrder = ['summary', 'skills', 'experience', 'education', 'activities', 'languages'];
 
 const previewNodes = {
     fullName: document.querySelector('#preview-name'),
@@ -93,6 +95,15 @@ const templateThemeMap = {
     modern: 'template-modern',
     executive: 'template-executive',
     minimal: 'template-minimal',
+};
+
+const cvSectionLabels = {
+    summary: 'Profil',
+    skills: 'Competences cles',
+    experience: 'Experiences professionnelles',
+    education: 'Formations & certifications',
+    activities: 'Activites & interets',
+    languages: 'Langues',
 };
 
 const templatePresets = {
@@ -609,7 +620,7 @@ const fillList = (target, items) => {
     target.innerHTML = '';
     target.classList.remove('cv-experience-list');
 
-    items.forEach((item) => {
+    dedupeImportedItems(items.filter(Boolean)).forEach((item) => {
         const li = document.createElement('li');
         li.textContent = item;
         target.appendChild(li);
@@ -652,7 +663,7 @@ const renderExperienceList = (target, items) => {
     target.innerHTML = '';
     target.classList.add('cv-experience-list');
 
-    items.forEach((item) => {
+    dedupeImportedItems(items.filter(Boolean)).forEach((item) => {
         const entry = parseExperienceEntry(item);
         const li = document.createElement('li');
         li.className = 'cv-experience-item';
@@ -696,6 +707,19 @@ const renderExperienceList = (target, items) => {
     });
 };
 
+const reorderPreviewSections = () => {
+    if (!previewSectionsRoot) {
+        return;
+    }
+
+    cvSectionOrder.forEach((key) => {
+        const section = previewSectionsRoot.querySelector(`[data-section-key="${key}"]`);
+        if (section) {
+            previewSectionsRoot.appendChild(section);
+        }
+    });
+};
+
 const updateCvPreview = () => {
     if (!cvForm || !previewNodes.preview) {
         return;
@@ -712,15 +736,42 @@ const updateCvPreview = () => {
         previewNodes.permit.textContent = values.permit || '';
         previewNodes.permit.hidden = !values.permit;
     }
-    previewNodes.headline.textContent = values.headline || 'Intitule du profil';
-    previewNodes.summary.textContent = values.summary || '';
-    previewNodes.summary.hidden = !values.summary;
+    previewNodes.headline.textContent = values.headline || 'Intitule du metier';
+    if (previewNodes.summary) {
+        previewNodes.summary.textContent = values.summary || '';
+    }
 
-    renderExperienceList(previewNodes.experience, splitLines(values.experience || ''));
-    fillList(previewNodes.skills, splitLines(values.skills || ''));
-    fillList(previewNodes.education, splitLines(values.education || ''));
-    fillList(previewNodes.languages, splitLines(values.languages || ''));
-    fillList(previewNodes.activities, splitLines(values.activities || ''));
+    const skillItems = dedupeImportedItems(splitLines(values.skills || ''));
+    const experienceItems = dedupeImportedItems(splitLines(values.experience || ''));
+    const educationItems = dedupeImportedItems(splitLines(values.education || ''));
+    const languageItems = dedupeImportedItems(splitLines(values.languages || ''));
+    const activityItems = dedupeImportedItems(splitLines(values.activities || ''));
+
+    renderExperienceList(previewNodes.experience, experienceItems);
+    fillList(previewNodes.skills, skillItems);
+    fillList(previewNodes.education, educationItems);
+    fillList(previewNodes.languages, languageItems);
+    fillList(previewNodes.activities, activityItems);
+
+    if (previewSectionsRoot) {
+        const sectionMap = {
+            summary: Boolean((values.summary || '').trim()),
+            skills: skillItems.length,
+            experience: experienceItems.length,
+            education: educationItems.length,
+            activities: activityItems.length,
+            languages: languageItems.length,
+        };
+
+        Object.entries(sectionMap).forEach(([key, count]) => {
+            const section = previewSectionsRoot.querySelector(`[data-section-key="${key}"]`);
+            if (section) {
+                section.hidden = count === 0;
+            }
+        });
+
+        reorderPreviewSections();
+    }
 
     previewNodes.preview.classList.remove('theme-executive', 'theme-creative', 'theme-compact', 'theme-ats', 'theme-web');
     previewNodes.preview.classList.add(`theme-${cvModeThemeMap[values.cvMode] || 'executive'}`);
@@ -1249,7 +1300,7 @@ const extractHeadlineAndSummary = ({ cleanLines, joinedText, nameLine, locationL
 };
 
 const extractPermitValue = (text) => {
-    const match = text.match(/\bPermis\s+[A-Z](?:\s*(?:et|\/|-)\s*[A-Z])*(?:\s*[-–]\s*FIMO[^\n|,]*)?/i);
+    const match = text.match(/\bPermis\s+[A-Z](?:\s*(?:et|\/|-)\s*[A-Z])*(?:\s*[-–]\s*FIMO(?:\s+[A-Za-zÀ-ÿ-]+){0,4})?/i);
     return match ? match[0].trim() : '';
 };
 
@@ -1497,7 +1548,14 @@ const parseImportedCv = (text) => {
         headlineLine,
     });
 
-    const summaryValue = (summarySection || extractedProfile.summary || getSummaryFallback(cleanLines, headlineLine)).replace(/\n+/g, ' ').trim();
+    const summaryValue = (summarySection || extractedProfile.summary || getSummaryFallback(cleanLines, headlineLine))
+        .replace(/\bCOMP[ÉE]TENCES(?:\s+CL[EÉ]S)?\b[\s\S]*$/i, '')
+        .replace(/\bEXP[ÉE]RIENCES(?:\s+PROFESSIONNELLES)?\b[\s\S]*$/i, '')
+        .replace(/\bFORMATIONS(?:\s*&\s*CERTIFICATIONS)?\b[\s\S]*$/i, '')
+        .replace(/\bACTIVIT[ÉE]S?(?:\s*&\s*INT[ÉE]R[ÊE]TS)?\b[\s\S]*$/i, '')
+        .replace(/\n+/g, ' ')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
     const skillsItems = normalizeSkillItems(splitImportedItems(skillsSection || fallbackSections.skills.join('\n')));
     const experienceItems = groupImportedExperiences(splitImportedItems(experienceSection || fallbackSections.experience.join('\n')));
     const educationItems = normalizeEducationItems(splitImportedItems(educationSection || fallbackSections.education.join('\n')));
@@ -1533,7 +1591,9 @@ const parseImportedCv = (text) => {
 
 const exportWord = () => {
     const activePreview = currentPreviewMode === 'letter' ? letterPagePreview : previewNodes.preview;
-    const content = activePreview?.innerText || '';
+    const clone = activePreview?.cloneNode(true);
+    clone?.querySelectorAll('.cv-section-actions').forEach((node) => node.remove());
+    const content = clone?.innerText || activePreview?.innerText || '';
     downloadFile(currentPreviewMode === 'letter' ? 'lettre-motivation.doc' : 'cv-intelligent.doc', content, 'application/msword');
 };
 
@@ -1548,6 +1608,7 @@ const exportPdf = async () => {
     setCvStatus('Generation du PDF...');
 
     const clone = activePreview.cloneNode(true);
+    clone.querySelectorAll('.cv-section-actions').forEach((node) => node.remove());
     clone.style.transform = 'none';
     clone.style.width = '210mm';
     clone.style.minHeight = '297mm';
@@ -1587,6 +1648,8 @@ const exportPdf = async () => {
 
 const exportWebVersion = () => {
     const activePreview = currentPreviewMode === 'letter' ? letterPagePreview : previewNodes.preview;
+    const clone = activePreview?.cloneNode(true);
+    clone?.querySelectorAll('.cv-section-actions').forEach((node) => node.remove());
     const html = `
 <!DOCTYPE html>
 <html lang="fr">
@@ -1603,7 +1666,7 @@ const exportWebVersion = () => {
   </style>
 </head>
 <body>
-  <article class="cv">${activePreview?.innerHTML || ''}</article>
+  <article class="cv">${clone?.innerHTML || activePreview?.innerHTML || ''}</article>
 </body>
 </html>`;
     downloadFile(currentPreviewMode === 'letter' ? 'lettre-web.html' : 'cv-web.html', html, 'text/html');
@@ -1771,6 +1834,48 @@ if (previewLayoutTheme && cvForm) {
 if (previewFitInlineButton) {
     previewFitInlineButton.addEventListener('click', fitCvToSinglePage);
 }
+
+document.querySelectorAll('.cv-section-action').forEach((button) => {
+    button.addEventListener('click', () => {
+        if (!cvForm) {
+            return;
+        }
+
+        const key = button.dataset.sectionKey;
+        const action = button.dataset.sectionAction;
+
+        if (!key || !action) {
+            return;
+        }
+
+        if (action === 'delete') {
+            const field = cvForm.elements[key];
+            if (field) {
+                field.value = '';
+            }
+            updateCvPreview();
+            setCvStatus(`${cvSectionLabels[key] || 'Bloc'} supprime`);
+            return;
+        }
+
+        const index = cvSectionOrder.indexOf(key);
+        if (index === -1) {
+            return;
+        }
+
+        if (action === 'up' && index > 0) {
+            [cvSectionOrder[index - 1], cvSectionOrder[index]] = [cvSectionOrder[index], cvSectionOrder[index - 1]];
+        }
+
+        if (action === 'down' && index < cvSectionOrder.length - 1) {
+            [cvSectionOrder[index + 1], cvSectionOrder[index]] = [cvSectionOrder[index], cvSectionOrder[index + 1]];
+        }
+
+        reorderPreviewSections();
+        updatePreviewViewport();
+        setCvStatus(`Ordre mis a jour : ${cvSectionLabels[key] || 'Bloc'}`);
+    });
+});
 
 document.querySelectorAll('[data-edit-target]').forEach((node) => {
     node.addEventListener('click', () => {
