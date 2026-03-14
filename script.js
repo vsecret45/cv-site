@@ -1919,7 +1919,7 @@ const exportPdf = async () => {
     wrapper.style.minHeight = '297mm';
     wrapper.style.pointerEvents = 'none';
     wrapper.style.background = '#ffffff';
-    wrapper.style.opacity = '0.01';
+    wrapper.style.transform = 'translateX(-250vw)';
     wrapper.style.zIndex = '9999';
     wrapper.style.overflow = 'visible';
     wrapper.appendChild(clone);

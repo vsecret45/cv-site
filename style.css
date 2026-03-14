@@ -614,6 +614,32 @@ img {
     gap: 0.8rem;
 }
 
+.cv-action-groups {
+    display: grid;
+    gap: 1rem;
+}
+
+.cv-action-group {
+    display: grid;
+    gap: 0.7rem;
+    padding: 1rem 1rem 1.05rem;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.76);
+}
+
+.cv-action-group h4 {
+    margin: 0;
+    font-size: 0.92rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-soft);
+}
+
+.cv-action-group-single .cv-actions {
+    justify-content: flex-start;
+}
+
 .cv-preview-shell {
     display: grid;
     gap: 1rem;
