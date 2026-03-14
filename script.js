@@ -449,14 +449,61 @@ const extractTextFromPdf = async (file) => {
     for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
         const page = await pdf.getPage(pageNumber);
         const textContent = await page.getTextContent();
-        const line = textContent.items
-            .map((item) => ('str' in item ? item.str : ''))
-            .join(' ')
-            .replace(/\s+/g, ' ')
-            .trim();
+        const rawItems = textContent.items
+            .filter((item) => 'str' in item && item.str && Array.isArray(item.transform))
+            .map((item) => ({
+                text: item.str.trim(),
+                x: Number(item.transform[4] || 0),
+                y: Number(item.transform[5] || 0),
+            }))
+            .filter((item) => item.text);
 
-        if (line) {
-            pageTexts.push(line);
+        if (!rawItems.length) {
+            continue;
+        }
+
+        rawItems.sort((a, b) => {
+            if (Math.abs(b.y - a.y) > 2) {
+                return b.y - a.y;
+            }
+            return a.x - b.x;
+        });
+
+        const lines = [];
+
+        rawItems.forEach((item) => {
+            const lastLine = lines[lines.length - 1];
+
+            if (!lastLine || Math.abs(lastLine.y - item.y) > 2.5) {
+                lines.push({ y: item.y, parts: [item] });
+                return;
+            }
+
+            lastLine.parts.push(item);
+        });
+
+        const pageLineText = lines
+            .map((line) =>
+                line.parts
+                    .sort((a, b) => a.x - b.x)
+                    .map((part, index, parts) => {
+                        const previous = parts[index - 1];
+                        if (!previous) {
+                            return part.text;
+                        }
+
+                        const gap = part.x - previous.x;
+                        const spacer = gap > 12 ? ' ' : '';
+                        return `${spacer}${part.text}`;
+                    })
+                    .join('')
+                    .replace(/\s{2,}/g, ' ')
+                    .trim()
+            )
+            .filter(Boolean);
+
+        if (pageLineText.length) {
+            pageTexts.push(pageLineText.join('\n'));
         }
     }
 
@@ -1614,7 +1661,7 @@ const parseImportedCv = (text) => {
     }
 
     const permitLine = cleanLines.find((line) => /permis/i.test(line)) || '';
-    const permitValue = extractPermitValue(permitLine || joinedText);
+    const permitValue = extractPermitValue(permitLine);
     if (permitValue) {
         cvForm.elements.permit.value = permitValue;
     }
@@ -1705,9 +1752,15 @@ const parseImportedCv = (text) => {
         .replace(/\n+/g, ' ')
         .replace(/\s{2,}/g, ' ')
         .trim();
-    const skillsItems = normalizeSkillItems(splitImportedItems(skillsSection || fallbackSections.skills.join('\n')));
-    const experienceItems = groupImportedExperiences(splitImportedItems(experienceSection || fallbackSections.experience.join('\n')));
-    const educationItems = normalizeEducationItems(splitImportedItems(educationSection || fallbackSections.education.join('\n')));
+    const skillsItems = normalizeSkillItems(
+        splitImportedItems(skillsSection || fallbackSections.skills.join('\n'))
+    ).filter((item) => !/^(permis\b|fatima sidi amar\b)/i.test(item));
+    const experienceItems = groupImportedExperiences(
+        splitImportedItems(experienceSection || fallbackSections.experience.join('\n'))
+    ).filter((item) => !/^(permis\b|fatima sidi amar\b)/i.test(item));
+    const educationItems = normalizeEducationItems(
+        splitImportedItems(educationSection || fallbackSections.education.join('\n'))
+    ).filter((item) => !/^(fatima sidi amar\b|rueil|conseill[eè]re relation client\b)/i.test(item));
 
     cvForm.elements.headline.value = extractedProfile.headline || headlineLine || cvForm.elements.headline.value;
 
