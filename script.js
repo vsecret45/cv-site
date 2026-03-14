@@ -1628,6 +1628,9 @@ const parseImportedCv = (text) => {
         return;
     }
 
+    const previousActivities = cvForm.elements.activities ? cvForm.elements.activities.value : '';
+    const previousLanguages = cvForm.elements.languages ? cvForm.elements.languages.value : '';
+
     const normalizedText = preprocessImportedCvText(text);
     const lines = splitLines(normalizedText);
     const cleanLines = lines.filter((line) => !/^%PDF-|^\/(Title|Parent|Dest|Next|Prev)\b/i.test(line));
@@ -1648,11 +1651,11 @@ const parseImportedCv = (text) => {
     cvForm.elements.education.value = '';
     cvForm.elements.headline.value = '';
     cvForm.elements.permit.value = '';
-    if (cvForm.elements.languages) {
-        cvForm.elements.languages.value = '';
-    }
     if (cvForm.elements.activities) {
         cvForm.elements.activities.value = '';
+    }
+    if (cvForm.elements.languages) {
+        cvForm.elements.languages.value = '';
     }
 
     const nameLine =
@@ -1803,6 +1806,12 @@ const parseImportedCv = (text) => {
     const languageLines = cleanLines.filter((line) => /\b(francais|anglais|espagnol|arabe|italien|allemand)\b/i.test(line));
     if (languageLines.length && cvForm.elements.languages) {
         cvForm.elements.languages.value = dedupeImportedItems(languageLines).slice(0, 6).join('\n');
+    } else if (cvForm.elements.languages && previousLanguages.trim()) {
+        cvForm.elements.languages.value = previousLanguages;
+    }
+
+    if (cvForm.elements.activities && previousActivities.trim()) {
+        cvForm.elements.activities.value = previousActivities;
     }
 
     updateCvPreview();
