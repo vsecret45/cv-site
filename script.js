@@ -746,8 +746,23 @@ const scrollToPreviewPage = (page) => {
 
 const refreshCvModule = () => {
     try {
+        if (cvLayout) {
+            cvLayout.classList.remove('is-preview-focus');
+        }
+        if (cvLayoutToggle) {
+            cvLayoutToggle.setAttribute('aria-expanded', 'true');
+            cvLayoutToggle.setAttribute('aria-label', 'Rabattre les reglages');
+        }
+        if (previewNodes.preview) {
+            previewNodes.preview.classList.remove('is-hidden-preview');
+            previewNodes.preview.setAttribute('aria-hidden', 'false');
+        }
+        if (letterPagePreview) {
+            letterPagePreview.classList.add('is-hidden-preview');
+            letterPagePreview.setAttribute('aria-hidden', 'true');
+        }
         updateCvPreview();
-        setPreviewMode(currentPreviewMode || 'cv');
+        setPreviewMode('cv');
         currentPreviewPage = 1;
         if (cvPreviewViewport) {
             cvPreviewViewport.scrollTop = 0;
@@ -1894,9 +1909,13 @@ const exportPdf = async () => {
 
     const wrapper = document.createElement('div');
     wrapper.style.position = 'fixed';
-    wrapper.style.left = '-99999px';
-    wrapper.style.top = '0';
+    wrapper.style.inset = '0 auto auto 0';
+    wrapper.style.width = '210mm';
+    wrapper.style.opacity = '0';
+    wrapper.style.pointerEvents = 'none';
+    wrapper.style.zIndex = '-1';
     wrapper.style.background = '#ffffff';
+    wrapper.style.overflow = 'hidden';
     wrapper.appendChild(clone);
     document.body.appendChild(wrapper);
 
@@ -1998,6 +2017,12 @@ window.addEventListener('load', () => {
     document.body.classList.add('is-ready');
     loadCvDraft();
     refreshCvModule();
+});
+
+window.addEventListener('hashchange', () => {
+    if (window.location.hash === '#cv-intelligent') {
+        window.setTimeout(refreshCvModule, 80);
+    }
 });
 
 if (navLinks.length > 0 && sections.length > 0) {
