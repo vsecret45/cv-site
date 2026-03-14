@@ -1,4 +1,5 @@
 const navLinks = document.querySelectorAll('.nav-links a');
+const cvOpenLinks = document.querySelectorAll('a[href="#cv-intelligent"]');
 const sections = [...document.querySelectorAll('main section[id]')];
 const contactForm = document.querySelector('#contact-form');
 const cards = document.querySelectorAll('.card');
@@ -1899,27 +1900,38 @@ const exportPdf = async () => {
     setCvStatus('Generation du PDF...');
 
     const clone = activePreview.cloneNode(true);
-    clone.querySelectorAll('.cv-section-actions').forEach((node) => node.remove());
+    clone.querySelectorAll('.cv-section-actions, .cv-page-guide').forEach((node) => node.remove());
+    clone.querySelectorAll('[contenteditable="true"]').forEach((node) => node.removeAttribute('contenteditable'));
     clone.style.transform = 'none';
     clone.style.width = '210mm';
     clone.style.minHeight = '297mm';
     clone.style.margin = '0';
     clone.style.boxShadow = 'none';
     clone.style.borderRadius = '0';
+    clone.style.opacity = '1';
+    clone.style.visibility = 'visible';
 
     const wrapper = document.createElement('div');
     wrapper.style.position = 'fixed';
-    wrapper.style.inset = '0 auto auto 0';
+    wrapper.style.top = '0';
+    wrapper.style.left = '0';
     wrapper.style.width = '210mm';
-    wrapper.style.opacity = '0';
+    wrapper.style.minHeight = '297mm';
     wrapper.style.pointerEvents = 'none';
-    wrapper.style.zIndex = '-1';
     wrapper.style.background = '#ffffff';
-    wrapper.style.overflow = 'hidden';
+    wrapper.style.opacity = '0.01';
+    wrapper.style.zIndex = '9999';
+    wrapper.style.overflow = 'visible';
     wrapper.appendChild(clone);
     document.body.appendChild(wrapper);
 
     try {
+        await new Promise((resolve) => {
+            window.requestAnimationFrame(() => {
+                window.requestAnimationFrame(resolve);
+            });
+        });
+
         await window.html2pdf()
             .set({
                 margin: 0,
@@ -2023,6 +2035,12 @@ window.addEventListener('hashchange', () => {
     if (window.location.hash === '#cv-intelligent') {
         window.setTimeout(refreshCvModule, 80);
     }
+});
+
+cvOpenLinks.forEach((link) => {
+    link.addEventListener('click', () => {
+        window.setTimeout(refreshCvModule, 60);
+    });
 });
 
 if (navLinks.length > 0 && sections.length > 0) {
