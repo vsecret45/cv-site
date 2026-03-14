@@ -1332,9 +1332,21 @@ const extractHeadlineAndSummary = ({ cleanLines, joinedText, nameLine, locationL
         .replace(/\s*\|\s*/g, ' ')
         .replace(/\s{2,}/g, ' ')
         .trim();
+    const topLines = splitLines(preSkills)
+        .map((line) => stripContactFragments(line, [nameLine, locationLine, phoneLine, emailLine, permitLine]).trim())
+        .filter(Boolean)
+        .filter((line) => !looksLikeSectionHeading(line));
+    const headerCandidate = topLines.find(
+        (line) =>
+            line.length > 8 &&
+            line.length < 110 &&
+            !/@/.test(line) &&
+            !/(\+33|0)[\s.\-]?\d([\s.\-]?\d{2}){4}/.test(line) &&
+            !/\(\d{5}\)/.test(line)
+    ) || '';
 
     const splitMatch = compact.match(/^(.*?)(?=\b(rigoureuse|rigoureux|autonome|attachee|attach[eé]|motivee|motiv[eé]e|professionnelle|professionnel|titulaire|exp[ée]rience|habitu[ée]e|je)\b)([\s\S]*)/i);
-    const extractedHeadline = splitMatch?.[1]?.trim() || headlineLine || '';
+    const extractedHeadline = splitMatch?.[1]?.trim() || headerCandidate || headlineLine || '';
     const extractedSummary = splitMatch ? compact.slice(extractedHeadline.length).trim() : getSummaryFallback(cleanLines, extractedHeadline || headlineLine);
 
     return {
