@@ -1261,11 +1261,7 @@ img {
 }
 
 .cv-label {
-    color: #2f3f7f;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    font-size: 0.8rem;
+    display: none;
 }
 
 .cv-header h3 {
@@ -1309,7 +1305,6 @@ img {
 
 #preview-name,
 #preview-meta,
-#preview-permit,
 #preview-headline,
 #preview-summary,
 #preview-skills,
@@ -1324,7 +1319,6 @@ img {
 
 #preview-name:hover,
 #preview-meta:hover,
-#preview-permit:hover,
 #preview-headline:hover,
 #preview-summary:hover,
 #preview-skills:hover,
@@ -1337,7 +1331,6 @@ img {
 
 #preview-name:focus,
 #preview-meta:focus,
-#preview-permit:focus,
 #preview-headline:focus,
 #preview-summary:focus,
 #preview-skills:focus,

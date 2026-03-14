@@ -79,7 +79,6 @@ let cvSectionOrder = ['summary', 'skills', 'experience', 'education', 'activitie
 const previewNodes = {
     fullName: document.querySelector('#preview-name'),
     meta: document.querySelector('#preview-meta'),
-    permit: document.querySelector('#preview-permit'),
     headline: document.querySelector('#preview-headline'),
     summary: document.querySelector('#preview-summary'),
     experience: document.querySelector('#preview-experience'),
@@ -99,10 +98,10 @@ const templateThemeMap = {
 
 const cvSectionLabels = {
     summary: 'Profil',
-    skills: 'Competences cles',
+    skills: 'Competences',
     experience: 'Experiences professionnelles',
-    education: 'Formations & certifications',
-    activities: 'Activites & interets',
+    education: 'Formations',
+    activities: 'Activites',
     languages: 'Langues',
 };
 
@@ -731,10 +730,6 @@ const updateCvPreview = () => {
     previewNodes.fullName.textContent = values.fullName || 'Votre nom';
     if (previewNodes.meta) {
         previewNodes.meta.textContent = [values.location, values.phone, values.email].filter(Boolean).join(' | ');
-    }
-    if (previewNodes.permit) {
-        previewNodes.permit.textContent = values.permit || '';
-        previewNodes.permit.hidden = !values.permit;
     }
     previewNodes.headline.textContent = values.headline || 'Intitule du metier';
     if (previewNodes.summary) {
