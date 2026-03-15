@@ -1907,10 +1907,49 @@ const exportWord = () => {
     );
 };
 
-const exportPdf = async () => {
-    const JsPdf = window.jspdf?.jsPDF;
+const buildStaticExportNode = (mode = currentPreviewMode) => {
+    const sourcePreview = mode === 'letter' ? letterPagePreview : previewNodes.preview;
 
-    if (!JsPdf) {
+    if (!sourcePreview) {
+        return null;
+    }
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'pdf-export-root';
+    wrapper.style.position = 'fixed';
+    wrapper.style.left = '-99999px';
+    wrapper.style.top = '0';
+    wrapper.style.width = '210mm';
+    wrapper.style.background = '#ffffff';
+    wrapper.style.padding = '0';
+    wrapper.style.margin = '0';
+    wrapper.style.zIndex = '-1';
+
+    const clone = sourcePreview.cloneNode(true);
+    clone.classList.remove('is-hidden-preview');
+    clone.removeAttribute('aria-hidden');
+    clone.style.transform = 'none';
+    clone.style.boxShadow = 'none';
+    clone.style.margin = '0';
+    clone.style.background = '#ffffff';
+
+    clone.querySelectorAll('.cv-section-actions, .cv-page-guide, .cv-label').forEach((node) => node.remove());
+    clone.querySelectorAll('[contenteditable]').forEach((node) => node.removeAttribute('contenteditable'));
+    clone.querySelectorAll('[spellcheck]').forEach((node) => node.removeAttribute('spellcheck'));
+    clone.querySelectorAll('section[hidden]').forEach((node) => node.remove());
+
+    wrapper.appendChild(clone);
+    document.body.appendChild(wrapper);
+
+    return wrapper;
+};
+
+const exportPdf = async () => {
+    const html2pdfFn = window.html2pdf;
+    const JsPdf = window.jspdf?.jsPDF;
+    let exportNode = null;
+
+    if (!html2pdfFn && !JsPdf) {
         setCvStatus('Export PDF indisponible pour le moment');
         return;
     }
@@ -1918,6 +1957,39 @@ const exportPdf = async () => {
     setCvStatus('Generation du PDF...');
 
     try {
+        if (html2pdfFn) {
+            exportNode = buildStaticExportNode(currentPreviewMode);
+
+            if (!exportNode?.firstElementChild) {
+                throw new Error('Export node unavailable');
+            }
+
+            await new Promise((resolve) => window.requestAnimationFrame(() => window.setTimeout(resolve, 60)));
+
+            await html2pdfFn()
+                .set({
+                    margin: [0, 0, 0, 0],
+                    filename: currentPreviewMode === 'letter' ? 'lettre-motivation.pdf' : 'cv-intelligent.pdf',
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: {
+                        scale: 2,
+                        useCORS: true,
+                        backgroundColor: '#ffffff',
+                        scrollX: 0,
+                        scrollY: 0,
+                    },
+                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                    pagebreak: { mode: ['css', 'legacy'] },
+                })
+                .from(exportNode.firstElementChild)
+                .save();
+
+            exportNode.remove();
+            exportNode = null;
+            setCvStatus('PDF telecharge');
+            return;
+        }
+
         const doc = new JsPdf({ unit: 'mm', format: 'a4', orientation: 'portrait' });
         const pageHeight = 297;
         const pageWidth = 210;
@@ -2068,6 +2140,8 @@ const exportPdf = async () => {
     } catch (error) {
         console.error(error);
         setCvStatus('Echec de generation du PDF');
+    } finally {
+        exportNode?.remove();
     }
 };
 

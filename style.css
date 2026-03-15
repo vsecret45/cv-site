@@ -1472,6 +1472,27 @@ img {
     gap: 0.5rem;
 }
 
+.cv-list-compact {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 0.35rem 1rem !important;
+    padding-left: 0 !important;
+    list-style: none !important;
+}
+
+.cv-list-compact li {
+    position: relative;
+    padding-left: 0.75rem;
+    margin: 0;
+}
+
+.cv-list-compact li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--cv-accent);
+}
+
 .cv-body p[contenteditable="true"] {
     min-height: 1.6rem;
 }
@@ -2022,6 +2043,11 @@ body.is-ready .skill-delay-8 {
     .cv-form,
     .cv-preview-toolbar,
     .cv-analysis-panel {
+        display: none !important;
+    }
+
+    .is-hidden-preview,
+    [aria-hidden="true"] {
         display: none !important;
     }
 
