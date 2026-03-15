@@ -217,6 +217,21 @@ Creation d'interfaces web lisibles et professionnelles</textarea>
                         </label>
 
                         <div class="form-split">
+                            <label class="field">
+                                <span>Type de projet</span>
+                                <input type="text" name="projectType" placeholder="Ex. Projet personnel" value="Prototype produit">
+                            </label>
+                            <label class="field field-message">
+                                <span>Projets</span>
+                                <textarea
+                                    name="projects"
+                                    rows="4"
+                                    placeholder="Un projet par ligne"
+                                >Plateforme CV intelligent - Prototype personnel - 2024 • Prototype d'une future plateforme de generation de CV intelligents prets a l'emploi avec assistance IA.</textarea>
+                            </label>
+                        </div>
+
+                        <div class="form-split">
                             <label class="field field-message">
                                 <span>Competences</span>
                                 <textarea
@@ -586,6 +601,17 @@ Sport / activites personnelles</textarea>
                                                 </div>
                                             </div>
                                             <ul id="preview-experience" data-edit-target="experience" contenteditable="true" spellcheck="true"></ul>
+                                        </section>
+                                        <section data-section-key="projects">
+                                            <div class="cv-section-head">
+                                                <h4>Projets</h4>
+                                                <div class="cv-section-actions">
+                                                    <button type="button" class="cv-section-action" data-section-action="up" data-section-key="projects" aria-label="Monter le bloc Projets">↑</button>
+                                                    <button type="button" class="cv-section-action" data-section-action="down" data-section-key="projects" aria-label="Descendre le bloc Projets">↓</button>
+                                                    <button type="button" class="cv-section-action" data-section-action="delete" data-section-key="projects" aria-label="Supprimer le bloc Projets">×</button>
+                                                </div>
+                                            </div>
+                                            <ul id="preview-projects" data-edit-target="projects" contenteditable="true" spellcheck="true"></ul>
                                         </section>
                                         <section data-section-key="education">
                                             <div class="cv-section-head">

@@ -76,7 +76,7 @@ let pdfjsLoader;
 let currentPreviewPage = 1;
 let currentPreviewMode = 'cv';
 let isAutoFittingCv = false;
-let cvSectionOrder = ['summary', 'skills', 'experience', 'education', 'activities', 'languages'];
+let cvSectionOrder = ['summary', 'skills', 'experience', 'projects', 'education', 'activities', 'languages'];
 
 const previewNodes = {
     fullName: document.querySelector('#preview-name'),
@@ -84,6 +84,7 @@ const previewNodes = {
     headline: document.querySelector('#preview-headline'),
     summary: document.querySelector('#preview-summary'),
     experience: document.querySelector('#preview-experience'),
+    projects: document.querySelector('#preview-projects'),
     skills: document.querySelector('#preview-skills'),
     education: document.querySelector('#preview-education'),
     languages: document.querySelector('#preview-languages'),
@@ -103,6 +104,7 @@ const cvSectionLabels = {
     summary: 'Profil',
     skills: 'Competences',
     experience: 'Experiences professionnelles',
+    projects: 'Projets',
     education: 'Formations',
     activities: 'Activites',
     languages: 'Langues',
@@ -176,6 +178,8 @@ const applyCvPreset = (preset) => {
             'Entreprise / Organisation - Poste occupe • Ville | Dates • Accueil et accompagnement des clients • Gestion et suivi des dossiers administratifs • Traitement des demandes et resolution des problemes',
             'Entreprise / Organisation - Poste occupe • Ville | Dates • Gestion des appels et des courriers • Organisation et classement des documents • Suivi administratif',
         ].join('\n');
+        form.projectType.value = 'Projet personnel';
+        form.projects.value = "Plateforme CV intelligent - Prototype personnel - 2024 • Prototype d'une future plateforme de generation de CV intelligents prets a l'emploi avec assistance IA.";
         form.education.value = [
             'Diplome ou formation - Etablissement - Annee',
         ].join('\n');
@@ -207,6 +211,8 @@ const applyCvPreset = (preset) => {
             'Entreprise - Poste | Ville | Dates • Accueil et accompagnement des clients • Gestion des operations et suivi des dossiers • Conseil sur les produits et services',
             'Entreprise - Poste | Ville | Dates • Gestion administrative • Suivi des documents et dossiers clients',
         ].join('\n');
+        form.projectType.value = 'Projet metier';
+        form.projects.value = 'Parcours client et suivi de comptes - Prototype bancaire - 2024 • Organisation d un parcours plus clair pour la relation client et la gestion des demandes.';
         form.education.value = ['Diplome - Etablissement - Annee'].join('\n');
         form.languages.value = ['Francais - Courant', 'Arabe - Bilingue'].join('\n');
         form.activities.value = ['Lecture', 'Developpement personnel', 'Voyages'].join('\n');
@@ -235,6 +241,8 @@ const applyCvPreset = (preset) => {
         form.experience.value = [
             'Relation client / Gestion administrative - Divers postes • France | Dates • Accueil et orientation du public • Gestion des demandes et resolution de situations clients • Travail en coordination avec differentes equipes',
         ].join('\n');
+        form.projectType.value = 'Projet terrain';
+        form.projects.value = 'Simulation parcours usagers - Prototype transport - 2024 • Maquette d un outil de presentation et d information voyageurs.';
         form.education.value = ['Formation ou diplome - Etablissement - Annee'].join('\n');
         form.languages.value = ['Francais : courant', 'Arabe : bilingue'].join('\n');
         form.activities.value = ['Lecture', 'Developpement personnel', 'Activites culturelles'].join('\n');
@@ -263,6 +271,8 @@ const applyCvPreset = (preset) => {
         form.experience.value = [
             'Entreprise - Poste | Ville | Dates • Gestion des appels et courriers • Organisation et classement des dossiers • Suivi administratif',
         ].join('\n');
+        form.projectType.value = 'Projet bureautique';
+        form.projects.value = 'Tableau de suivi administratif - Prototype interne - 2024 • Structuration d un suivi simple pour les demandes et les dossiers.';
         form.education.value = ['Diplome - Etablissement - Annee'].join('\n');
         form.languages.value = ['Francais - Courant', 'Arabe - Bilingue'].join('\n');
         form.activities.value = ['Lecture', 'Developpement personnel', 'Voyages'].join('\n');
@@ -545,6 +555,7 @@ const applyCompactCvLayout = (autoTriggered = false) => {
     const experienceField = cvForm.elements.experience;
     const skillsField = cvForm.elements.skills;
     const educationField = cvForm.elements.education;
+    const projectField = cvForm.elements.projects;
     const languagesField = cvForm.elements.languages;
     const activitiesField = cvForm.elements.activities;
     const fontSizeField = cvForm.elements.fontSize;
@@ -579,6 +590,13 @@ const applyCompactCvLayout = (autoTriggered = false) => {
             .join('\n');
     }
 
+    if (projectField) {
+        projectField.value = splitLines(projectField.value)
+            .slice(0, 3)
+            .map((line) => line.split(' • ').slice(0, 3).join(' • '))
+            .join('\n');
+    }
+
     if (skillsField) {
         skillsField.value = splitLines(skillsField.value).slice(0, 6).join('\n');
     }
@@ -609,6 +627,7 @@ const updateCvPageMode = () => {
     const values = Object.fromEntries(formData.entries());
     const totalLines =
         splitLines(values.experience || '').length +
+        splitLines(values.projects || '').length +
         splitLines(values.skills || '').length +
         splitLines(values.education || '').length +
         splitLines(values.languages || '').length +
@@ -843,13 +862,15 @@ const parseExperienceEntry = (line) => {
     };
 };
 
-const renderExperienceList = (target, items) => {
+const renderTimelineList = (target, items, options = {}) => {
     if (!target) {
         return;
     }
 
     target.innerHTML = '';
     target.classList.add('cv-experience-list');
+
+    const projectType = options.projectType?.trim();
 
     dedupeImportedItems(items.filter(Boolean)).forEach((item) => {
         const entry = parseExperienceEntry(item);
@@ -861,7 +882,10 @@ const renderExperienceList = (target, items) => {
 
         const title = document.createElement('div');
         title.className = 'cv-experience-title';
-        title.textContent = entry.title;
+        title.textContent =
+            projectType && !entry.title.toLowerCase().includes(projectType.toLowerCase())
+                ? `${entry.title} - ${projectType}`
+                : entry.title;
         head.appendChild(title);
 
         if (entry.date) {
@@ -927,13 +951,15 @@ const updateCvPreview = () => {
 
     const skillItems = dedupeImportedItems(splitLines(values.skills || ''));
     const experienceItems = dedupeImportedItems(splitLines(values.experience || ''));
+    const projectItems = dedupeImportedItems(splitLines(values.projects || ''));
     const educationItems = dedupeImportedItems(splitLines(values.education || ''));
     const languageItems = dedupeImportedItems(splitLines(values.languages || ''));
     const activityItems = dedupeImportedItems(splitLines(values.activities || ''));
 
-    renderExperienceList(previewNodes.experience, experienceItems);
+    renderTimelineList(previewNodes.experience, experienceItems);
+    renderTimelineList(previewNodes.projects, projectItems, { projectType: values.projectType || '' });
     fillList(previewNodes.skills, skillItems);
-    fillList(previewNodes.education, educationItems);
+    renderTimelineList(previewNodes.education, educationItems);
     fillList(previewNodes.languages, languageItems);
     fillList(previewNodes.activities, activityItems);
 
@@ -942,6 +968,7 @@ const updateCvPreview = () => {
             summary: Boolean((values.summary || '').trim()),
             skills: skillItems.length,
             experience: experienceItems.length,
+            projects: projectItems.length,
             education: educationItems.length,
             activities: activityItems.length,
             languages: languageItems.length,
@@ -1051,7 +1078,7 @@ const getJobOfferAnalysis = (values) => {
         return { score: null, matched: [], missing: [] };
     }
 
-    const content = `${values.headline || ''} ${values.summary || ''} ${values.skills || ''} ${values.experience || ''}`.toLowerCase();
+    const content = `${values.headline || ''} ${values.summary || ''} ${values.skills || ''} ${values.experience || ''} ${values.projects || ''}`.toLowerCase();
     const dynamicKeywords = Object.entries(offerKeywordMap)
         .filter(([key]) => offer.includes(key))
         .flatMap(([, keywords]) => keywords);
@@ -1073,12 +1100,13 @@ const getJobOfferAnalysis = (values) => {
 const analyzeCv = (values) => {
     const summary = (values.summary || '').trim();
     const experiences = splitLines(values.experience || '');
+    const projects = splitLines(values.projects || '');
     const skills = splitLines(values.skills || '');
     const education = splitLines(values.education || '');
     const activities = splitLines(values.activities || '');
     const jobTarget = (values.jobTarget || '').toLowerCase();
     const headline = (values.headline || '').toLowerCase();
-    const baseContent = `${values.headline || ''} ${values.summary || ''} ${values.skills || ''} ${values.experience || ''}`.toLowerCase();
+    const baseContent = `${values.headline || ''} ${values.summary || ''} ${values.skills || ''} ${values.experience || ''} ${values.projects || ''}`.toLowerCase();
 
     let score = 58;
     const analysis = [];
@@ -1103,6 +1131,11 @@ const analyzeCv = (values) => {
         analysis.push('Experiences bien identifiees');
     } else {
         suggestions.push('Developper les experiences avec plus de contexte');
+    }
+
+    if (projects.length) {
+        score += 4;
+        analysis.push('Projet produit visible');
     }
 
     if (education.length > 0) {
@@ -2089,6 +2122,7 @@ const exportPdf = async () => {
         const summary = cvForm?.elements.summary?.value?.trim() || '';
         const skills = splitLines(cvForm?.elements.skills?.value || '');
         const experiences = splitLines(cvForm?.elements.experience?.value || '');
+        const projects = splitLines(cvForm?.elements.projects?.value || '');
         const education = splitLines(cvForm?.elements.education?.value || '');
         const activities = splitLines(cvForm?.elements.activities?.value || '');
         const languages = splitLines(cvForm?.elements.languages?.value || '');
@@ -2121,6 +2155,11 @@ const exportPdf = async () => {
 
         writeSectionTitle('Experiences professionnelles');
         writeBulletList(experiences);
+
+        if (projects.length) {
+            writeSectionTitle('Projets');
+            writeBulletList(projects);
+        }
 
         writeSectionTitle('Formations');
         writeBulletList(education);

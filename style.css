@@ -1403,6 +1403,7 @@ img {
 #preview-summary,
 #preview-skills,
 #preview-experience,
+#preview-projects,
 #preview-education,
 #preview-languages,
 #preview-activities {
@@ -1417,6 +1418,7 @@ img {
 #preview-summary:hover,
 #preview-skills:hover,
 #preview-experience:hover,
+#preview-projects:hover,
 #preview-education:hover,
 #preview-languages:hover,
 #preview-activities:hover {
@@ -1429,6 +1431,7 @@ img {
 #preview-summary:focus,
 #preview-skills:focus,
 #preview-experience:focus,
+#preview-projects:focus,
 #preview-education:focus,
 #preview-languages:focus,
 #preview-activities:focus {
