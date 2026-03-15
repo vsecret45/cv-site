@@ -666,16 +666,22 @@ const setPreviewMode = (mode) => {
         const showCv = currentPreviewMode === 'cv';
         previewNodes.preview.classList.toggle('is-hidden-preview', !showCv);
         previewNodes.preview.setAttribute('aria-hidden', String(!showCv));
+        previewNodes.preview.style.display = showCv ? 'block' : 'none';
+        previewNodes.preview.style.visibility = showCv ? 'visible' : 'hidden';
     }
 
     if (letterPagePreview) {
         const showLetter = currentPreviewMode === 'letter';
         letterPagePreview.classList.toggle('is-hidden-preview', !showLetter);
         letterPagePreview.setAttribute('aria-hidden', String(!showLetter));
+        letterPagePreview.style.display = showLetter ? 'block' : 'none';
+        letterPagePreview.style.visibility = showLetter ? 'visible' : 'hidden';
     }
 
     if (coverLetterPanel) {
-        coverLetterPanel.classList.toggle('is-hidden-panel', currentPreviewMode !== 'letter');
+        const showLetterPanel = currentPreviewMode === 'letter';
+        coverLetterPanel.classList.toggle('is-hidden-panel', !showLetterPanel);
+        coverLetterPanel.style.display = showLetterPanel ? 'grid' : 'none';
     }
 
     previewModeTabs.forEach((tab) => {
@@ -771,10 +777,15 @@ const refreshCvModule = () => {
 
         if (cvSection) {
             cvSection.classList.add('is-visible');
+            cvSection.style.display = 'block';
+            cvSection.style.opacity = '1';
+            cvSection.style.transform = 'none';
         }
         if (cvLayout) {
             cvLayout.classList.remove('is-preview-focus');
             cvLayout.style.display = 'grid';
+            cvLayout.style.opacity = '1';
+            cvLayout.style.visibility = 'visible';
         }
         if (cvLayoutToggle) {
             cvLayoutToggle.setAttribute('aria-expanded', 'true');
@@ -784,19 +795,42 @@ const refreshCvModule = () => {
             cvEditorPanel.style.display = 'grid';
             cvEditorPanel.style.opacity = '1';
             cvEditorPanel.style.pointerEvents = 'auto';
+            cvEditorPanel.style.visibility = 'visible';
+        }
+        if (cvForm) {
+            cvForm.style.display = 'grid';
+            cvForm.style.visibility = 'visible';
+            cvForm.hidden = false;
         }
         if (cvPreviewShell) {
             cvPreviewShell.style.display = 'grid';
             cvPreviewShell.style.opacity = '1';
             cvPreviewShell.style.pointerEvents = 'auto';
+            cvPreviewShell.style.visibility = 'visible';
+        }
+        if (cvPreviewViewport) {
+            cvPreviewViewport.style.display = 'block';
+            cvPreviewViewport.style.visibility = 'visible';
+        }
+        if (cvPreviewStage) {
+            cvPreviewStage.style.display = 'grid';
+            cvPreviewStage.style.visibility = 'visible';
         }
         if (previewNodes.preview) {
             previewNodes.preview.classList.remove('is-hidden-preview');
             previewNodes.preview.setAttribute('aria-hidden', 'false');
+            previewNodes.preview.style.display = 'block';
+            previewNodes.preview.style.visibility = 'visible';
         }
         if (letterPagePreview) {
             letterPagePreview.classList.add('is-hidden-preview');
             letterPagePreview.setAttribute('aria-hidden', 'true');
+            letterPagePreview.style.display = 'none';
+            letterPagePreview.style.visibility = 'hidden';
+        }
+        if (coverLetterPanel) {
+            coverLetterPanel.classList.add('is-hidden-panel');
+            coverLetterPanel.style.display = 'none';
         }
         updateCvPreview();
         setPreviewMode('cv');
@@ -1978,11 +2012,10 @@ const buildStaticExportNode = (mode = currentPreviewMode) => {
 };
 
 const exportPdf = async () => {
-    const html2pdfFn = window.html2pdf;
     const JsPdf = window.jspdf?.jsPDF;
     let exportNode = null;
 
-    if (!html2pdfFn && !JsPdf) {
+    if (!JsPdf) {
         setCvStatus('Export PDF indisponible pour le moment');
         return;
     }
@@ -1990,39 +2023,6 @@ const exportPdf = async () => {
     setCvStatus('Generation du PDF...');
 
     try {
-        if (html2pdfFn) {
-            exportNode = buildStaticExportNode(currentPreviewMode);
-
-            if (!exportNode?.firstElementChild) {
-                throw new Error('Export node unavailable');
-            }
-
-            await new Promise((resolve) => window.requestAnimationFrame(() => window.setTimeout(resolve, 60)));
-
-            await html2pdfFn()
-                .set({
-                    margin: [0, 0, 0, 0],
-                    filename: currentPreviewMode === 'letter' ? 'lettre-motivation.pdf' : 'cv-intelligent.pdf',
-                    image: { type: 'jpeg', quality: 0.98 },
-                    html2canvas: {
-                        scale: 2,
-                        useCORS: true,
-                        backgroundColor: '#ffffff',
-                        scrollX: 0,
-                        scrollY: 0,
-                    },
-                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                    pagebreak: { mode: ['css', 'legacy'] },
-                })
-                .from(exportNode.firstElementChild)
-                .save();
-
-            exportNode.remove();
-            exportNode = null;
-            setCvStatus('PDF telecharge');
-            return;
-        }
-
         const doc = new JsPdf({ unit: 'mm', format: 'a4', orientation: 'portrait' });
         const pageHeight = 297;
         const pageWidth = 210;
@@ -2258,7 +2258,12 @@ const getAssistantReply = (message) => {
 window.addEventListener('load', () => {
     document.body.classList.remove('is-preload');
     document.body.classList.add('is-ready');
-    loadCvDraft();
+    try {
+        loadCvDraft();
+    } catch (error) {
+        console.error(error);
+        setCvStatus('Brouillon local ignore pour eviter un blocage');
+    }
     refreshCvModule();
 });
 
@@ -2590,12 +2595,25 @@ if (cvPrintButton) {
         fitCvToSinglePage();
         setPreviewMode('cv');
         currentPreviewPage = 1;
+        if (previewNodes.preview) {
+            previewNodes.preview.classList.remove('is-hidden-preview');
+            previewNodes.preview.setAttribute('aria-hidden', 'false');
+        }
+        if (letterPagePreview) {
+            letterPagePreview.classList.add('is-hidden-preview');
+            letterPagePreview.setAttribute('aria-hidden', 'true');
+        }
+        if (coverLetterPanel) {
+            coverLetterPanel.classList.add('is-hidden-panel');
+        }
         if (cvPreviewViewport) {
             cvPreviewViewport.scrollTop = 0;
         }
         document.body.classList.add('print-cv');
-        window.print();
-        window.setTimeout(() => document.body.classList.remove('print-cv'), 300);
+        window.requestAnimationFrame(() => {
+            window.print();
+            window.setTimeout(() => document.body.classList.remove('print-cv'), 300);
+        });
     });
 }
 
