@@ -2008,7 +2008,8 @@ body.is-ready .skill-delay-8 {
     .preview-page-thumbnails,
     .cover-letter-panel,
     .cv-section-actions,
-    .cv-page-guide {
+    .cv-page-guide,
+    #letter-page-preview {
         display: none !important;
     }
 

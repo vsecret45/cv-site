@@ -756,6 +756,74 @@ const fitCvToSinglePage = () => {
     setCvStatus('CV ajuste pour tenir sur 1 page');
 };
 
+const getPrintFieldBackup = () => {
+    if (!cvForm) {
+        return null;
+    }
+
+    const fieldNames = [
+        'summary',
+        'experience',
+        'projects',
+        'skills',
+        'education',
+        'languages',
+        'activities',
+        'fontSize',
+        'lineSpacing',
+        'layoutTheme',
+        'headlineScale',
+    ];
+
+    return fieldNames.reduce((acc, name) => {
+        const field = cvForm.elements[name];
+        if (field) {
+            acc[name] = field.value;
+        }
+        return acc;
+    }, {});
+};
+
+const restorePrintFieldBackup = (backup) => {
+    if (!cvForm || !backup) {
+        return;
+    }
+
+    Object.entries(backup).forEach(([name, value]) => {
+        const field = cvForm.elements[name];
+        if (field) {
+            field.value = value;
+        }
+    });
+    updateCvPreview();
+};
+
+const optimizeForPrint = () => {
+    if (!cvForm) {
+        return null;
+    }
+
+    const backup = getPrintFieldBackup();
+    fitCvToSinglePage();
+
+    if (getPreviewPageCount() > 1 && cvForm.elements.activities?.value) {
+        cvForm.elements.activities.value = '';
+        updateCvPreview();
+    }
+
+    if (getPreviewPageCount() > 1 && cvForm.elements.languages?.value) {
+        cvForm.elements.languages.value = splitLines(cvForm.elements.languages.value).slice(0, 2).join('\n');
+        updateCvPreview();
+    }
+
+    if (getPreviewPageCount() > 1 && cvForm.elements.projects?.value) {
+        cvForm.elements.projects.value = splitLines(cvForm.elements.projects.value).slice(0, 1).join('\n');
+        updateCvPreview();
+    }
+
+    return backup;
+};
+
 const scrollToPreviewPage = (page) => {
     if (!cvPreviewViewport || !cvPreviewStage) {
         return;
@@ -2592,7 +2660,7 @@ if (cvMatchJobButton) {
 
 if (cvPrintButton) {
     cvPrintButton.addEventListener('click', () => {
-        fitCvToSinglePage();
+        const printBackup = optimizeForPrint();
         setPreviewMode('cv');
         currentPreviewPage = 1;
         if (previewNodes.preview) {
@@ -2612,7 +2680,10 @@ if (cvPrintButton) {
         document.body.classList.add('print-cv');
         window.requestAnimationFrame(() => {
             window.print();
-            window.setTimeout(() => document.body.classList.remove('print-cv'), 300);
+            window.setTimeout(() => {
+                document.body.classList.remove('print-cv');
+                restorePrintFieldBackup(printBackup);
+            }, 300);
         });
     });
 }
@@ -2726,6 +2797,11 @@ if (cvPreviewViewport) {
 setPreviewMode('cv');
 
 if (cvImportInput) {
+    cvImportInput.addEventListener('click', (event) => {
+        event.target.value = '';
+        setCvStatus('Choisissez un PDF, DOCX ou texte a importer');
+    });
+
     cvImportInput.addEventListener('change', async (event) => {
         const file = event.target.files?.[0];
 
