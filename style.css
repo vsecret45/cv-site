@@ -2002,6 +2002,7 @@ body.is-ready .skill-delay-8 {
     .assistant-chat,
     .topbar,
     .hero,
+    #cv-intelligent > .section-heading,
     .section:not(#cv-intelligent),
     .site-footer,
     .cv-focus-toggle,
@@ -2009,7 +2010,9 @@ body.is-ready .skill-delay-8 {
     .cover-letter-panel,
     .cv-section-actions,
     .cv-page-guide,
-    #letter-page-preview {
+    #letter-page-preview,
+    .cv-letter-page,
+    [data-preview-doc="letter"] {
         display: none !important;
     }
 

@@ -2084,8 +2084,14 @@ const exportPdf = async () => {
     let exportNode = null;
 
     if (!JsPdf) {
-        setCvStatus('Export PDF indisponible pour le moment');
+        setCvStatus('Export PDF indisponible : rechargez la page puis recommencez');
         return;
+    }
+
+    setPreviewMode('cv');
+    currentPreviewPage = 1;
+    if (cvPreviewViewport) {
+        cvPreviewViewport.scrollTop = 0;
     }
 
     setCvStatus('Generation du PDF...');
@@ -2705,20 +2711,42 @@ if (cvShareButton) {
         const shareUrl = `${window.location.origin}${window.location.pathname}#cv-intelligent`;
 
         try {
+            if (navigator.share) {
+                await navigator.share({
+                    title: 'CV intelligent',
+                    text: 'Voir le module CV intelligent',
+                    url: shareUrl,
+                });
+                setCvStatus('Lien partage');
+                return;
+            }
+
             await navigator.clipboard.writeText(shareUrl);
             setCvStatus('Lien copie');
         } catch (error) {
             console.error(error);
-            setCvStatus('Impossible de copier le lien');
+            window.prompt('Copiez ce lien :', shareUrl);
+            setCvStatus('Lien pret a etre copie');
         }
     });
 }
 
 if (cvEmailButton) {
     cvEmailButton.addEventListener('click', () => {
-        const subject = encodeURIComponent('CV intelligent - candidature');
-        const body = encodeURIComponent(previewNodes.preview?.innerText || '');
+        const shareUrl = `${window.location.origin}${window.location.pathname}#cv-intelligent`;
+        const fullName = cvForm?.elements.fullName?.value?.trim() || 'Candidature';
+        const headline = cvForm?.elements.headline?.value?.trim() || '';
+        const subject = encodeURIComponent(`CV intelligent - ${fullName}`);
+        const body = encodeURIComponent(
+            [
+                `${fullName}${headline ? ` - ${headline}` : ''}`,
+                '',
+                'Version web :',
+                shareUrl,
+            ].join('\n')
+        );
         window.location.href = `mailto:purvelours@proton.me?subject=${subject}&body=${body}`;
+        setCvStatus('Ouverture de votre application mail');
     });
 }
 
