@@ -2280,8 +2280,30 @@ const exportWebVersion = () => {
 <body>
   <article class="cv">${clone?.innerHTML || activePreview?.innerHTML || ''}</article>
 </body>
-</html>`;
+    </html>`;
     downloadFile(currentPreviewMode === 'letter' ? 'lettre-web.html' : 'cv-web.html', html, 'text/html');
+};
+
+const openMailClient = async (mailtoUrl, fallbackText, statusMessage) => {
+    try {
+        const link = document.createElement('a');
+        link.href = mailtoUrl;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setCvStatus(statusMessage);
+    } catch (error) {
+        console.error(error);
+        try {
+            await navigator.clipboard.writeText(fallbackText);
+            setCvStatus('Application mail non detectee : contenu copie');
+        } catch (clipboardError) {
+            console.error(clipboardError);
+            window.prompt('Copiez ce texte pour votre mail :', fallbackText);
+            setCvStatus('Copiez le contenu du mail manuellement');
+        }
+    }
 };
 
 const openAssistant = (prompt = '') => {
@@ -2732,11 +2754,17 @@ if (cvShareButton) {
 }
 
 if (cvEmailButton) {
-    cvEmailButton.addEventListener('click', () => {
+    cvEmailButton.addEventListener('click', async () => {
         const shareUrl = `${window.location.origin}${window.location.pathname}#cv-intelligent`;
         const fullName = cvForm?.elements.fullName?.value?.trim() || 'Candidature';
         const headline = cvForm?.elements.headline?.value?.trim() || '';
         const subject = encodeURIComponent(`CV intelligent - ${fullName}`);
+        const rawBody = [
+            `${fullName}${headline ? ` - ${headline}` : ''}`,
+            '',
+            'Version web :',
+            shareUrl,
+        ].join('\n');
         const body = encodeURIComponent(
             [
                 `${fullName}${headline ? ` - ${headline}` : ''}`,
@@ -2745,8 +2773,11 @@ if (cvEmailButton) {
                 shareUrl,
             ].join('\n')
         );
-        window.location.href = `mailto:purvelours@proton.me?subject=${subject}&body=${body}`;
-        setCvStatus('Ouverture de votre application mail');
+        await openMailClient(
+            `mailto:purvelours@proton.me?subject=${subject}&body=${body}`,
+            rawBody,
+            'Ouverture de votre application mail'
+        );
     });
 }
 
@@ -2761,10 +2792,15 @@ if (letterExportWordButton) {
 }
 
 if (letterEmailButton) {
-    letterEmailButton.addEventListener('click', () => {
+    letterEmailButton.addEventListener('click', async () => {
         const subject = encodeURIComponent(letterSubject?.textContent || 'Candidature');
-        const body = encodeURIComponent(letterBody?.textContent || '');
-        window.location.href = `mailto:purvelours@proton.me?subject=${subject}&body=${body}`;
+        const rawBody = letterBody?.textContent || '';
+        const body = encodeURIComponent(rawBody);
+        await openMailClient(
+            `mailto:purvelours@proton.me?subject=${subject}&body=${body}`,
+            rawBody,
+            'Ouverture de votre application mail'
+        );
     });
 }
 
