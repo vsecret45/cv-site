@@ -28,6 +28,12 @@
                     <a href="#possibilites">Possibilites</a>
                     <a href="#contact">Contact</a>
                 </div>
+                <div class="auth-actions" id="auth-actions">
+                    <span class="auth-badge" id="auth-status">Mode invite</span>
+                    <button class="button button-secondary auth-button" type="button" id="auth-open-login">Se connecter</button>
+                    <button class="button button-secondary auth-button" type="button" id="auth-open-signup">Creer un compte</button>
+                    <button class="button button-secondary auth-button is-hidden" type="button" id="auth-logout">Deconnexion</button>
+                </div>
             </nav>
 
             <div class="hero-content">
@@ -161,7 +167,7 @@
                         <div class="form-split">
                             <label class="field">
                                 <span>Nom</span>
-                                <input type="text" name="fullName" placeholder="Votre nom complet" value="Sidi Amar Fatima">
+                                <input type="text" name="fullName" placeholder="Votre nom complet" value="Votre nom">
                             </label>
                             <label class="field">
                                 <span>Titre du metier</span>
@@ -169,7 +175,7 @@
                                     type="text"
                                     name="headline"
                                     placeholder="Ex. Conductrice de transport en commun - Permis D"
-                                    value="Developpeuse web front-end"
+                                    value="Intitule du poste vise"
                                 >
                             </label>
                         </div>
@@ -177,18 +183,18 @@
                         <div class="form-split">
                             <label class="field">
                                 <span>Ville / code postal</span>
-                                <input type="text" name="location" placeholder="Ex. Rueil-Malmaison (92500)" value="Rueil-Malmaison (92500)">
+                                <input type="text" name="location" placeholder="Ex. Paris (75000)" value="Ville / code postal">
                             </label>
                             <label class="field">
                                 <span>Telephone</span>
-                                <input type="text" name="phone" placeholder="Votre numero" value="07.77.46.48.37">
+                                <input type="text" name="phone" placeholder="Votre numero" value="06 00 00 00 00">
                             </label>
                         </div>
 
                         <div class="form-split">
                             <label class="field">
                                 <span>Email</span>
-                                <input type="email" name="email" placeholder="Votre email" value="purvelours@proton.me">
+                                <input type="email" name="email" placeholder="Votre email" value="email@exemple.com">
                             </label>
                             <label class="field">
                                 <span>Permis</span>
@@ -202,7 +208,7 @@
                                 name="summary"
                                 rows="4"
                                 placeholder="Optionnel"
-                            >Je conçois des interfaces web modernes, claires et orientees experience utilisateur.</textarea>
+                            >Profil clair, organise et oriente resultat, avec une presentation adaptee au poste vise.</textarea>
                         </label>
 
                         <label class="field field-message">
@@ -211,9 +217,9 @@
                                 name="experience"
                                 rows="5"
                                 placeholder="Une experience par ligne"
-                            >Conception de sites vitrines modernes
-Structuration de pages et parcours utilisateurs
-Creation d'interfaces web lisibles et professionnelles</textarea>
+                            >Entreprise - Poste - Ville - 2024
+Mission principale ou resultat cle
+Responsabilite complementaire</textarea>
                         </label>
 
                         <div class="form-split">
@@ -227,7 +233,7 @@ Creation d'interfaces web lisibles et professionnelles</textarea>
                                     name="projects"
                                     rows="4"
                                     placeholder="Un projet par ligne"
-                                >Plateforme CV intelligent - Prototype personnel - 2024 • Prototype d'une future plateforme de generation de CV intelligents prets a l'emploi avec assistance IA.</textarea>
+                                >Projet principal - 2024 • Resultat, impact ou realisation</textarea>
                             </label>
                         </div>
 
@@ -238,12 +244,11 @@ Creation d'interfaces web lisibles et professionnelles</textarea>
                                     name="skills"
                                     rows="5"
                                     placeholder="Un point fort par ligne"
-                                >HTML
-CSS
-JavaScript
-React
-UI / UX
-Figma</textarea>
+                                >Gestion de projet
+Communication
+Organisation
+Analyse
+Suite bureautique</textarea>
                             </label>
                             <label class="field field-message">
                                 <span>Formations</span>
@@ -251,9 +256,7 @@ Figma</textarea>
                                     name="education"
                                     rows="5"
                                     placeholder="Une formation par ligne"
-                                >Formation developpement web
-Apprentissage design d'interface
-Pratique de la conception front-end</textarea>
+                                >Diplome ou formation - Etablissement - Annee</textarea>
                             </label>
                         </div>
                         <label class="field field-message">
@@ -263,7 +266,7 @@ Pratique de la conception front-end</textarea>
                                 rows="3"
                                 placeholder="Une langue par ligne"
                             >Francais
-Anglais professionnel</textarea>
+Anglais</textarea>
                         </label>
                         <label class="field field-message">
                             <span>Activites / centres d'interet</span>
@@ -271,9 +274,9 @@ Anglais professionnel</textarea>
                                 name="activities"
                                 rows="3"
                                 placeholder="Une activite par ligne"
-                            >Technologie et innovation
-Apprentissage continu
-Sport / activites personnelles</textarea>
+                            >Lecture
+Veille professionnelle
+Sport</textarea>
                         </label>
 
                         <div class="form-split">
@@ -506,11 +509,6 @@ Sport / activites personnelles</textarea>
 
                     <aside class="cv-preview-shell">
                         <div class="cv-preview-toolbar">
-                            <div class="preview-toolbar-group">
-                                <span>Apercu en temps reel</span>
-                                <span class="preview-status" id="cv-status">CV synchronise</span>
-                                <span class="preview-overflow-indicator" id="cv-overflow-indicator">1 page</span>
-                            </div>
                             <div class="preview-toolbar-group preview-toolbar-group-tools">
                                 <label class="preview-quick-control">
                                     <span>Titre</span>
@@ -538,24 +536,57 @@ Sport / activites personnelles</textarea>
                                         <option value="minimal">Minimal</option>
                                     </select>
                                 </label>
-                                <button class="preview-fit-button" type="button" id="preview-fit-inline">1 page auto</button>
                             </div>
-                            <div class="preview-toolbar-group">
+                            <div class="preview-toolbar-group preview-toolbar-group-mode">
                                 <div class="preview-mode-tabs" role="tablist" aria-label="Type de document">
                                     <button class="preview-mode-tab is-active" type="button" id="preview-mode-cv" data-preview-mode="cv" aria-selected="true">CV</button>
                                     <button class="preview-mode-tab" type="button" id="preview-mode-letter" data-preview-mode="letter" aria-selected="false">Lettre</button>
                                 </div>
-                                <label class="preview-zoom-control">
-                                    <span>Zoom</span>
-                                    <select id="cv-zoom" name="zoomLevel">
-                                        <option value="0.5">50%</option>
-                                        <option value="0.75" selected>75%</option>
-                                        <option value="1">100%</option>
+                                <span class="preview-status" id="cv-status">CV synchronise</span>
+                            </div>
+                        </div>
+                        <div class="cv-word-toolbar-shell" id="cv-word-toolbar-shell">
+                            <div class="cv-word-toolbar" id="cv-word-toolbar" aria-label="Mini toolbar">
+                                <label class="word-toolbar-field">
+                                    <span>Police</span>
+                                    <select id="cv-inline-font">
+                                        <option value="Arial, sans-serif">Arial</option>
+                                        <option value="Roboto, sans-serif">Roboto</option>
+                                        <option value="'Times New Roman', serif">Times New Roman</option>
                                     </select>
                                 </label>
-                                <button class="preview-nav" type="button" id="cv-prev-page" aria-label="Page precedente">‹</button>
-                                <span class="preview-page-indicator" id="cv-page-indicator">Page 1 / 1</span>
-                                <button class="preview-nav" type="button" id="cv-next-page" aria-label="Page suivante">›</button>
+                                <label class="word-toolbar-field word-toolbar-field-size">
+                                    <span>Taille</span>
+                                    <select id="cv-inline-size">
+                                        <option value="12px">12</option>
+                                        <option value="14px" selected>14</option>
+                                        <option value="16px">16</option>
+                                        <option value="18px">18</option>
+                                        <option value="24px">24</option>
+                                    </select>
+                                </label>
+                                <div class="word-toolbar-segment" role="group" aria-label="Mise en forme">
+                                    <button class="word-toolbar-button" type="button" id="cv-inline-bold" aria-label="Gras"><strong>B</strong></button>
+                                    <button class="word-toolbar-button" type="button" id="cv-inline-italic" aria-label="Italique"><em>I</em></button>
+                                    <button class="word-toolbar-button" type="button" id="cv-inline-underline" aria-label="Souligne"><u>U</u></button>
+                                </div>
+                                <div class="word-toolbar-segment" role="group" aria-label="Alignement">
+                                    <button class="word-toolbar-button" type="button" data-align="left" aria-label="Aligner a gauche">G</button>
+                                    <button class="word-toolbar-button" type="button" data-align="center" aria-label="Centrer">C</button>
+                                    <button class="word-toolbar-button" type="button" data-align="right" aria-label="Aligner a droite">D</button>
+                                </div>
+                                <div class="word-toolbar-segment" role="group" aria-label="Liste">
+                                    <button class="word-toolbar-button word-toolbar-button-list" type="button" id="cv-inline-list" aria-label="Liste a puces">• Liste</button>
+                                </div>
+                                <label class="word-toolbar-field word-toolbar-field-line-height">
+                                    <span>Interligne</span>
+                                    <select id="cv-inline-line-height">
+                                        <option value="1">1</option>
+                                        <option value="1.15">1.15</option>
+                                        <option value="1.5">1.5</option>
+                                        <option value="2">2</option>
+                                    </select>
+                                </label>
                             </div>
                         </div>
                         <div class="cv-preview-viewport" id="cv-preview-viewport">
@@ -564,9 +595,9 @@ Sport / activites personnelles</textarea>
                                     <div class="cv-page-guide" aria-hidden="true"></div>
                                     <header class="cv-header">
                                         <p class="cv-label">CV intelligent</p>
-                                        <h3 id="preview-name" data-edit-target="fullName" contenteditable="true" spellcheck="false">Sidi Amar Fatima</h3>
-                                        <p class="cv-meta" id="preview-meta" data-edit-target="location" contenteditable="true" spellcheck="false">Rueil-Malmaison (92500) | 07.77.46.48.37 | purvelours@proton.me</p>
-                                        <p id="preview-headline" data-edit-target="headline" contenteditable="true" spellcheck="false">Developpeuse web front-end</p>
+                                        <h3 id="preview-name" data-edit-target="fullName" contenteditable="true" spellcheck="false">Votre nom</h3>
+                                        <p class="cv-meta" id="preview-meta" data-edit-target="location" contenteditable="true" spellcheck="false">Ville / code postal | 06 00 00 00 00 | email@exemple.com</p>
+                                        <p id="preview-headline" data-edit-target="headline" contenteditable="true" spellcheck="false">Intitule du poste vise</p>
                                     </header>
                                     <div class="cv-body" id="cv-preview-sections">
                                         <section data-section-key="summary">
@@ -578,7 +609,7 @@ Sport / activites personnelles</textarea>
                                                     <button type="button" class="cv-section-action" data-section-action="delete" data-section-key="summary" aria-label="Supprimer le bloc Profil">×</button>
                                                 </div>
                                             </div>
-                                            <p id="preview-summary" data-edit-target="summary" contenteditable="true" spellcheck="true">Je conçois des interfaces web modernes, claires et orientees experience utilisateur.</p>
+                                            <p id="preview-summary" data-edit-target="summary" contenteditable="true" spellcheck="true">Profil clair, organise et oriente resultat, avec une presentation adaptee au poste vise.</p>
                                         </section>
                                         <section data-section-key="skills">
                                             <div class="cv-section-head">
@@ -651,7 +682,7 @@ Sport / activites personnelles</textarea>
                                 <article class="cv-preview cv-letter-page theme-executive font-manrope template-wordpro is-hidden-preview" id="letter-page-preview" data-preview-doc="letter" aria-hidden="true">
                                     <header class="cv-header cv-header-letter">
                                         <p class="cv-label">Lettre de motivation</p>
-                                        <h3 id="letter-page-title">Sidi Amar Fatima</h3>
+                                        <h3 id="letter-page-title">Votre nom</h3>
                                         <p class="cv-meta" id="letter-page-meta">Candidature professionnelle personnalisee</p>
                                     </header>
                                     <div class="letter-page-body">
@@ -666,7 +697,6 @@ Sport / activites personnelles</textarea>
                                 </article>
                             </div>
                         </div>
-                        <div class="preview-page-thumbnails" id="preview-page-thumbnails" aria-label="Pages visibles du document"></div>
                         <div class="cover-letter-panel" id="cover-letter-panel" data-builder-panel="letter">
                             <div class="section-heading section-heading-compact">
                                 <p class="section-kicker">Lettre de motivation</p>
@@ -865,6 +895,55 @@ Sport / activites personnelles</textarea>
             <input id="assistant-input" type="text" placeholder="Ecrivez votre besoin...">
             <button class="button button-primary" type="submit">Envoyer</button>
         </form>
+    </section>
+
+    <section class="auth-modal is-hidden" id="auth-modal" aria-hidden="true">
+        <div class="auth-modal-backdrop" data-auth-close></div>
+        <div class="auth-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+            <button class="auth-modal-close" id="auth-close" type="button" aria-label="Fermer">×</button>
+            <p class="section-kicker">Compte local</p>
+            <h2 id="auth-modal-title">Se connecter ou creer un compte</h2>
+            <p class="auth-modal-text">Chaque compte garde son brouillon sur cet appareil pour eviter d'ouvrir directement le CV d'une autre personne.</p>
+            <div class="auth-modal-tabs" role="tablist" aria-label="Connexion ou inscription">
+                <button class="auth-tab is-active" type="button" data-auth-view="login" aria-selected="true">Se connecter</button>
+                <button class="auth-tab" type="button" data-auth-view="signup" aria-selected="false">Creer un compte</button>
+            </div>
+            <div class="auth-modal-panel" id="auth-panel-login">
+                <form class="auth-form" id="auth-login-form">
+                    <label class="field">
+                        <span>Email</span>
+                        <input type="email" name="email" placeholder="email@exemple.com" required>
+                    </label>
+                    <label class="field">
+                        <span>Mot de passe</span>
+                        <input type="password" name="password" placeholder="Votre mot de passe" required>
+                    </label>
+                    <button class="button button-primary" type="submit">Se connecter</button>
+                </form>
+            </div>
+            <div class="auth-modal-panel is-hidden" id="auth-panel-signup">
+                <form class="auth-form" id="auth-signup-form">
+                    <label class="field">
+                        <span>Nom</span>
+                        <input type="text" name="name" placeholder="Votre nom" required>
+                    </label>
+                    <label class="field">
+                        <span>Email</span>
+                        <input type="email" name="email" placeholder="email@exemple.com" required>
+                    </label>
+                    <label class="field">
+                        <span>Mot de passe</span>
+                        <input type="password" name="password" placeholder="Choisir un mot de passe" required>
+                    </label>
+                    <label class="field">
+                        <span>Confirmation</span>
+                        <input type="password" name="confirmPassword" placeholder="Retaper le mot de passe" required>
+                    </label>
+                    <button class="button button-primary" type="submit">Creer mon compte</button>
+                </form>
+            </div>
+            <p class="auth-feedback" id="auth-feedback" aria-live="polite"></p>
+        </div>
     </section>
 
     <script src="https://cdn.jsdelivr.net/npm/mammoth@1.11.0/mammoth.browser.min.js" defer></script>

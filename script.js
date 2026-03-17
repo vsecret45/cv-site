@@ -25,23 +25,27 @@ const cvSuggestionsList = document.querySelector('#cv-suggestions-list');
 const cvAnalyzeButton = document.querySelector('#cv-analyze');
 const cvMatchJobButton = document.querySelector('#cv-match-job');
 const jobOfferField = document.querySelector('#job-offer');
-const cvZoomSelect = document.querySelector('#cv-zoom');
 const cvLayout = document.querySelector('#cv-layout');
 const cvEditorPanel = document.querySelector('#cv-editor-panel');
 const cvLayoutToggle = document.querySelector('#cv-layout-toggle');
 const cvPreviewShell = document.querySelector('.cv-preview-shell');
 const cvPreviewViewport = document.querySelector('#cv-preview-viewport');
 const cvPreviewStage = document.querySelector('#cv-preview-stage');
-const cvPrevPageButton = document.querySelector('#cv-prev-page');
-const cvNextPageButton = document.querySelector('#cv-next-page');
-const cvPageIndicator = document.querySelector('#cv-page-indicator');
-const previewPageThumbnails = document.querySelector('#preview-page-thumbnails');
 const previewModeTabs = document.querySelectorAll('[data-preview-mode]');
 const cvOverflowIndicator = document.querySelector('#cv-overflow-indicator');
 const previewHeadlineScale = document.querySelector('#preview-headline-scale');
 const previewLineSpacing = document.querySelector('#preview-line-spacing');
 const previewLayoutTheme = document.querySelector('#preview-layout-theme');
 const previewFitInlineButton = document.querySelector('#preview-fit-inline');
+const cvWordToolbarShell = document.querySelector('#cv-word-toolbar-shell');
+const cvInlineFont = document.querySelector('#cv-inline-font');
+const cvInlineSize = document.querySelector('#cv-inline-size');
+const cvInlineBoldButton = document.querySelector('#cv-inline-bold');
+const cvInlineItalicButton = document.querySelector('#cv-inline-italic');
+const cvInlineUnderlineButton = document.querySelector('#cv-inline-underline');
+const cvInlineAlignButtons = document.querySelectorAll('[data-align]');
+const cvInlineListButton = document.querySelector('#cv-inline-list');
+const cvInlineLineHeight = document.querySelector('#cv-inline-line-height');
 const previewSectionsRoot = document.querySelector('#cv-preview-sections');
 const letterCompanyField = document.querySelector('#letter-company');
 const letterRoleField = document.querySelector('#letter-role');
@@ -69,6 +73,18 @@ const suggestionChips = document.querySelectorAll('.suggestion-chip');
 const expandableCards = document.querySelectorAll('[data-expandable]');
 const presetChips = document.querySelectorAll('.preset-chip');
 const templatePresetChips = document.querySelectorAll('[data-template-preset]');
+const authStatus = document.querySelector('#auth-status');
+const authOpenLoginButton = document.querySelector('#auth-open-login');
+const authOpenSignupButton = document.querySelector('#auth-open-signup');
+const authLogoutButton = document.querySelector('#auth-logout');
+const authModal = document.querySelector('#auth-modal');
+const authCloseButton = document.querySelector('#auth-close');
+const authFeedback = document.querySelector('#auth-feedback');
+const authTabs = document.querySelectorAll('[data-auth-view]');
+const authLoginPanel = document.querySelector('#auth-panel-login');
+const authSignupPanel = document.querySelector('#auth-panel-signup');
+const authLoginForm = document.querySelector('#auth-login-form');
+const authSignupForm = document.querySelector('#auth-signup-form');
 const PDFJS_MODULE_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/legacy/build/pdf.min.mjs';
 const PDFJS_WORKER_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/legacy/build/pdf.worker.min.mjs';
 
@@ -77,6 +93,9 @@ let currentPreviewPage = 1;
 let currentPreviewMode = 'cv';
 let isAutoFittingCv = false;
 let cvSectionOrder = ['summary', 'skills', 'experience', 'projects', 'education', 'activities', 'languages'];
+let currentUser = null;
+let activeEditableNode = null;
+let cvEditableContent = {};
 
 const previewNodes = {
     fullName: document.querySelector('#preview-name'),
@@ -91,6 +110,38 @@ const previewNodes = {
     activities: document.querySelector('#preview-activities'),
     preview: document.querySelector('#cv-preview'),
 };
+
+const editableFieldMap = {
+    fullName: 'fullName',
+    headline: 'headline',
+    summary: 'summary',
+    skills: 'skills',
+    experience: 'experience',
+    projects: 'projects',
+    education: 'education',
+    activities: 'activities',
+    languages: 'languages',
+    location: 'location',
+    phone: 'location',
+    email: 'location',
+    permit: 'location',
+};
+
+const editablePreviewNodeMap = {
+    fullName: previewNodes.fullName,
+    headline: previewNodes.headline,
+    summary: previewNodes.summary,
+    skills: previewNodes.skills,
+    experience: previewNodes.experience,
+    projects: previewNodes.projects,
+    education: previewNodes.education,
+    activities: previewNodes.activities,
+    languages: previewNodes.languages,
+    location: previewNodes.meta,
+};
+
+const editableTargets = Object.keys(editablePreviewNodeMap);
+const defaultCvValues = cvForm ? Object.fromEntries(new FormData(cvForm).entries()) : {};
 
 const templateThemeMap = {
     wordpro: 'template-wordpro',
@@ -162,6 +213,11 @@ const applyCvPreset = (preset) => {
     }
 
     const form = cvForm.elements;
+    const defaultEmail = currentUser?.email || 'email@exemple.com';
+
+    if (['client', 'banking', 'transport', 'admin'].includes(preset)) {
+        clearEditableOverrides();
+    }
 
     if (preset === 'client') {
         form.headline.value = 'Conseillere clientele / Gestion administrative';
@@ -186,9 +242,9 @@ const applyCvPreset = (preset) => {
         form.languages.value = ['Francais : courant', 'Arabe : bilingue'].join('\n');
         form.activities.value = ['Lecture', 'Developpement personnel', 'Voyages'].join('\n');
         form.jobTarget.value = 'relation client';
-        form.location.value = 'Rueil-Malmaison (92500)';
-        form.phone.value = '07.77.46.48.37';
-        form.email.value = 'sharian@live.fr';
+        form.location.value = 'Ville / code postal';
+        form.phone.value = '06 00 00 00 00';
+        form.email.value = defaultEmail;
         form.permit.value = 'Permis B';
         form.fontTheme.value = 'lato';
         form.layoutTheme.value = 'wordpro';
@@ -217,9 +273,9 @@ const applyCvPreset = (preset) => {
         form.languages.value = ['Francais - Courant', 'Arabe - Bilingue'].join('\n');
         form.activities.value = ['Lecture', 'Developpement personnel', 'Voyages'].join('\n');
         form.jobTarget.value = 'relation client';
-        form.location.value = 'Rueil-Malmaison (92500)';
-        form.phone.value = '07.77.46.48.37';
-        form.email.value = 'sharian@live.fr';
+        form.location.value = 'Ville / code postal';
+        form.phone.value = '06 00 00 00 00';
+        form.email.value = defaultEmail;
         form.permit.value = 'Permis B';
         form.fontTheme.value = 'lato';
         form.layoutTheme.value = 'wordpro';
@@ -247,9 +303,9 @@ const applyCvPreset = (preset) => {
         form.languages.value = ['Francais : courant', 'Arabe : bilingue'].join('\n');
         form.activities.value = ['Lecture', 'Developpement personnel', 'Activites culturelles'].join('\n');
         form.jobTarget.value = 'relation client';
-        form.location.value = 'Rueil-Malmaison (92500)';
-        form.phone.value = '07.77.46.48.37';
-        form.email.value = 'sharian@live.fr';
+        form.location.value = 'Ville / code postal';
+        form.phone.value = '06 00 00 00 00';
+        form.email.value = defaultEmail;
         form.permit.value = 'Permis B et D';
         form.fontTheme.value = 'lato';
         form.layoutTheme.value = 'wordpro';
@@ -277,9 +333,9 @@ const applyCvPreset = (preset) => {
         form.languages.value = ['Francais - Courant', 'Arabe - Bilingue'].join('\n');
         form.activities.value = ['Lecture', 'Developpement personnel', 'Voyages'].join('\n');
         form.jobTarget.value = 'relation client';
-        form.location.value = 'Rueil-Malmaison (92500)';
-        form.phone.value = '07.77.46.48.37';
-        form.email.value = 'sharian@live.fr';
+        form.location.value = 'Ville / code postal';
+        form.phone.value = '06 00 00 00 00';
+        form.email.value = defaultEmail;
         form.permit.value = 'Permis B';
         form.fontTheme.value = 'inter';
         form.layoutTheme.value = 'wordpro';
@@ -358,23 +414,417 @@ const downloadFile = (filename, content, type) => {
     URL.revokeObjectURL(url);
 };
 
-const getCvDraftStorageKey = () => 'cv-site-builder-draft-v1';
-
 const setCvStatus = (message) => {
     if (cvStatus) {
         cvStatus.textContent = message;
     }
 };
 
-const saveCvDraft = () => {
+let cvDraftSaveTimer = null;
+
+const scheduleCvDraftSave = () => {
+    window.clearTimeout(cvDraftSaveTimer);
+    cvDraftSaveTimer = window.setTimeout(() => {
+        saveCvDraft(true);
+    }, 500);
+};
+
+const escapeHtml = (value = '') =>
+    value
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+
+const getAuthAccountsStorageKey = () => 'cv-site-builder-accounts-v1';
+
+const getAuthSessionStorageKey = () => 'cv-site-builder-session-v1';
+
+const normalizeAccountEmail = (value = '') => value.trim().toLowerCase();
+
+const getStoredAccounts = () => {
+    try {
+        const raw = window.localStorage.getItem(getAuthAccountsStorageKey());
+        const accounts = raw ? JSON.parse(raw) : [];
+        return Array.isArray(accounts) ? accounts : [];
+    } catch (error) {
+        console.error(error);
+        return [];
+    }
+};
+
+const saveStoredAccounts = (accounts) => {
+    window.localStorage.setItem(getAuthAccountsStorageKey(), JSON.stringify(accounts));
+};
+
+const hashPassword = async (password) => {
+    const value = password.trim();
+
+    if (!window.crypto?.subtle || !window.TextEncoder) {
+        return window.btoa(value);
+    }
+
+    const buffer = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+    return [...new Uint8Array(buffer)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+};
+
+const setAuthFeedback = (message = '', isError = false) => {
+    if (!authFeedback) {
+        return;
+    }
+
+    authFeedback.textContent = message;
+    authFeedback.style.color = isError ? '#be185d' : '#2f3f7f';
+};
+
+const setAuthView = (view) => {
+    const activeView = view === 'signup' ? 'signup' : 'login';
+
+    authTabs.forEach((tab) => {
+        const isActive = tab.dataset.authView === activeView;
+        tab.classList.toggle('is-active', isActive);
+        tab.setAttribute('aria-selected', String(isActive));
+    });
+
+    authLoginPanel?.classList.toggle('is-hidden', activeView !== 'login');
+    authSignupPanel?.classList.toggle('is-hidden', activeView !== 'signup');
+    setAuthFeedback('');
+};
+
+const openAuthModal = (view = 'login') => {
+    if (!authModal) {
+        return;
+    }
+
+    setAuthView(view);
+    authModal.classList.remove('is-hidden');
+    authModal.setAttribute('aria-hidden', 'false');
+};
+
+const closeAuthModal = () => {
+    if (!authModal) {
+        return;
+    }
+
+    authModal.classList.add('is-hidden');
+    authModal.setAttribute('aria-hidden', 'true');
+    setAuthFeedback('');
+};
+
+const persistAuthSession = (user) => {
+    currentUser = user
+        ? {
+            email: normalizeAccountEmail(user.email),
+            name: (user.name || '').trim(),
+        }
+        : null;
+
+    if (currentUser) {
+        window.localStorage.setItem(getAuthSessionStorageKey(), JSON.stringify(currentUser));
+    } else {
+        window.localStorage.removeItem(getAuthSessionStorageKey());
+    }
+};
+
+const loadAuthSession = () => {
+    try {
+        const raw = window.localStorage.getItem(getAuthSessionStorageKey());
+        currentUser = raw ? JSON.parse(raw) : null;
+    } catch (error) {
+        console.error(error);
+        currentUser = null;
+    }
+};
+
+const updateAuthUi = () => {
+    if (authStatus) {
+        authStatus.textContent = currentUser ? `Connecte : ${currentUser.name || currentUser.email}` : 'Mode invite';
+    }
+
+    authOpenLoginButton?.classList.toggle('is-hidden', Boolean(currentUser));
+    authOpenSignupButton?.classList.toggle('is-hidden', Boolean(currentUser));
+    authLogoutButton?.classList.toggle('is-hidden', !currentUser);
+};
+
+const resetCvFormToDefaults = () => {
     if (!cvForm) {
         return;
     }
 
+    Object.entries(defaultCvValues).forEach(([name, value]) => {
+        const field = cvForm.elements[name];
+        if (!field) {
+            return;
+        }
+
+        if (field.type === 'checkbox') {
+            field.checked = Boolean(value);
+        } else {
+            field.value = value;
+        }
+    });
+};
+
+const applyCurrentUserDefaults = () => {
+    if (!cvForm || !currentUser) {
+        return;
+    }
+
+    if (cvForm.elements.email) {
+        cvForm.elements.email.value = currentUser.email;
+    }
+
+    if (cvForm.elements.fullName && currentUser.name && (!cvForm.elements.fullName.value || cvForm.elements.fullName.value === defaultCvValues.fullName)) {
+        cvForm.elements.fullName.value = currentUser.name;
+    }
+};
+
+const getCvDraftStorageKey = () => `cv-site-builder-draft-v2-${currentUser ? normalizeAccountEmail(currentUser.email) : 'guest'}`;
+
+const extractEditableNodeStyleState = (node) => ({
+    fontFamily: node?.style.fontFamily || '',
+    fontSize: node?.style.fontSize || '',
+    textAlign: node?.style.textAlign || '',
+    lineHeight: node?.style.lineHeight || '1.2',
+});
+
+const applyEditableNodeStyleState = (node, styleState = {}) => {
+    if (!node) {
+        return;
+    }
+
+    node.style.fontFamily = styleState.fontFamily || '';
+    node.style.fontSize = styleState.fontSize || '';
+    node.style.textAlign = styleState.textAlign || '';
+    node.style.lineHeight = styleState.lineHeight || '1.2';
+};
+
+const isDefaultEditableStyleState = (styleState = {}) =>
+    !styleState.fontFamily &&
+    !styleState.fontSize &&
+    !styleState.textAlign &&
+    (!styleState.lineHeight || styleState.lineHeight === '1.2');
+
+const stripBulletPrefix = (line) => line.replace(/^[•●▪◦\-–—*]\s*/, '').trim();
+
+const trimTrailingBreaks = (container) => {
+    if (!container) {
+        return;
+    }
+
+    while (container.lastChild?.nodeType === Node.TEXT_NODE && !(container.lastChild.textContent || '').trim()) {
+        container.lastChild.remove();
+    }
+
+    while (container.lastChild?.nodeType === Node.ELEMENT_NODE && container.lastChild.tagName === 'BR') {
+        container.lastChild.remove();
+    }
+};
+
+const appendSanitizedInlineChildren = (source, target) => {
+    [...(source?.childNodes || [])].forEach((child) => {
+        if (child.nodeType === Node.TEXT_NODE) {
+            const text = (child.textContent || '').replace(/\u00a0/g, ' ');
+            if (text) {
+                target.appendChild(document.createTextNode(text));
+            }
+            return;
+        }
+
+        if (child.nodeType !== Node.ELEMENT_NODE) {
+            return;
+        }
+
+        const tag = child.tagName.toUpperCase();
+
+        if (tag === 'BR') {
+            target.appendChild(document.createElement('br'));
+            return;
+        }
+
+        if (tag === 'STRONG' || tag === 'B') {
+            const strong = document.createElement('strong');
+            appendSanitizedInlineChildren(child, strong);
+            if (strong.textContent.trim()) {
+                target.appendChild(strong);
+            }
+            return;
+        }
+
+        if (tag === 'EM' || tag === 'I') {
+            const em = document.createElement('em');
+            appendSanitizedInlineChildren(child, em);
+            if (em.textContent.trim()) {
+                target.appendChild(em);
+            }
+            return;
+        }
+
+        if (tag === 'U') {
+            const u = document.createElement('u');
+            appendSanitizedInlineChildren(child, u);
+            if (u.textContent.trim()) {
+                target.appendChild(u);
+            }
+            return;
+        }
+
+        if (tag === 'DIV' || tag === 'P' || tag === 'LI') {
+            appendSanitizedInlineChildren(child, target);
+            target.appendChild(document.createElement('br'));
+            return;
+        }
+
+        if (tag === 'UL' || tag === 'OL') {
+            [...child.querySelectorAll('li')].forEach((item, index) => {
+                if (target.childNodes.length) {
+                    target.appendChild(document.createElement('br'));
+                }
+                target.appendChild(document.createTextNode(`• ${item.textContent.trim()}`));
+                if (index < child.querySelectorAll('li').length - 1) {
+                    target.appendChild(document.createElement('br'));
+                }
+            });
+            return;
+        }
+
+        appendSanitizedInlineChildren(child, target);
+    });
+};
+
+const sanitizeTextBlockHtml = (html) => {
+    const template = document.createElement('template');
+    template.innerHTML = html;
+    const container = document.createElement('div');
+
+    appendSanitizedInlineChildren(template.content, container);
+    trimTrailingBreaks(container);
+
+    return container.innerHTML.trim();
+};
+
+const createSanitizedListItem = (sourceNode) => {
+    const li = document.createElement('li');
+    appendSanitizedInlineChildren(sourceNode, li);
+    trimTrailingBreaks(li);
+    return li;
+};
+
+const collectSanitizedListItems = (source, items) => {
+    [...(source?.childNodes || [])].forEach((child) => {
+        if (child.nodeType === Node.TEXT_NODE) {
+            splitLines(normalizeImportedText(child.textContent || ''))
+                .map(stripBulletPrefix)
+                .filter(Boolean)
+                .forEach((line) => {
+                    const li = document.createElement('li');
+                    li.textContent = line;
+                    items.push(li);
+                });
+            return;
+        }
+
+        if (child.nodeType !== Node.ELEMENT_NODE) {
+            return;
+        }
+
+        const tag = child.tagName.toUpperCase();
+
+        if (tag === 'LI') {
+            const li = createSanitizedListItem(child);
+            if (li.textContent.trim()) {
+                items.push(li);
+            }
+            return;
+        }
+
+        if (tag === 'UL' || tag === 'OL') {
+            collectSanitizedListItems(child, items);
+            return;
+        }
+
+        splitLines(normalizeImportedText(child.textContent || ''))
+            .map(stripBulletPrefix)
+            .filter(Boolean)
+            .forEach((line) => {
+                const li = document.createElement('li');
+                li.textContent = line;
+                items.push(li);
+            });
+    });
+};
+
+const sanitizeListHtml = (html) => {
+    const template = document.createElement('template');
+    template.innerHTML = html;
+    const items = [];
+
+    collectSanitizedListItems(template.content, items);
+
+    return items.map((item) => item.outerHTML).join('');
+};
+
+const normalizeEditableNode = (node) => {
+    if (!node) {
+        return;
+    }
+
+    const styleState = extractEditableNodeStyleState(node);
+    node.innerHTML = node.tagName === 'UL' || node.tagName === 'OL'
+        ? sanitizeListHtml(node.innerHTML)
+        : sanitizeTextBlockHtml(node.innerHTML);
+    applyEditableNodeStyleState(node, styleState);
+};
+
+const storeEditableNodeState = (node) => {
+    const target = node?.getAttribute('data-edit-target');
+
+    if (!target) {
+        return;
+    }
+
+    normalizeEditableNode(node);
+
+    const html = node.innerHTML.trim();
+    const style = extractEditableNodeStyleState(node);
+
+    if (!html && isDefaultEditableStyleState(style)) {
+        delete cvEditableContent[target];
+        return;
+    }
+
+    cvEditableContent[target] = { html, style };
+};
+
+const clearEditableOverride = (target) => {
+    if (!target) {
+        return;
+    }
+
+    delete cvEditableContent[target];
+};
+
+const clearEditableOverrides = (targets = editableTargets) => {
+    targets.forEach((target) => clearEditableOverride(target));
+};
+
+const saveCvDraft = (silent = false) => {
+    if (!cvForm) {
+        return;
+    }
+
+    persistAllEditableNodes({ refreshPreview: false });
     const formData = new FormData(cvForm);
     const values = Object.fromEntries(formData.entries());
-    window.localStorage.setItem(getCvDraftStorageKey(), JSON.stringify(values));
-    setCvStatus('CV sauvegarde localement');
+    const payload = {
+        values,
+        editableContent: cvEditableContent,
+        savedAt: new Date().toISOString(),
+        user: currentUser?.email || null,
+    };
+    window.localStorage.setItem(getCvDraftStorageKey(), JSON.stringify(payload));
+    setCvStatus(silent ? 'Brouillon enregistre' : 'CV sauvegarde localement');
 };
 
 const loadCvDraft = () => {
@@ -382,13 +832,19 @@ const loadCvDraft = () => {
         return;
     }
 
+    resetCvFormToDefaults();
+    applyCurrentUserDefaults();
+    cvEditableContent = {};
+
     const raw = window.localStorage.getItem(getCvDraftStorageKey());
     if (!raw) {
+        updateCvPreview();
         return;
     }
 
     try {
-        const values = JSON.parse(raw);
+        const payload = JSON.parse(raw);
+        const values = payload?.values && typeof payload.values === 'object' ? payload.values : payload;
         Object.entries(values).forEach(([key, value]) => {
             const field = cvForm.elements[key];
             if (!field) {
@@ -401,9 +857,16 @@ const loadCvDraft = () => {
                 field.value = value;
             }
         });
+
+        if (payload?.editableContent && typeof payload.editableContent === 'object') {
+            cvEditableContent = payload.editableContent;
+        }
     } catch (error) {
         console.error(error);
     }
+
+    applyCurrentUserDefaults();
+    updateCvPreview();
 };
 
 const isBinaryDocument = (file) => {
@@ -652,8 +1115,6 @@ const updateCvPageMode = () => {
     updatePreviewViewport();
 };
 
-const getZoomLevel = () => Number(cvZoomSelect?.value || 0.75);
-
 const getVisiblePreviewPages = () =>
     [...(cvPreviewStage?.querySelectorAll('.cv-preview') || [])].filter((page) => !page.classList.contains('is-hidden-preview'));
 
@@ -684,6 +1145,10 @@ const setPreviewMode = (mode) => {
         coverLetterPanel.style.display = showLetterPanel ? 'grid' : 'none';
     }
 
+    if (cvWordToolbarShell) {
+        cvWordToolbarShell.classList.toggle('is-hidden', currentPreviewMode !== 'cv');
+    }
+
     previewModeTabs.forEach((tab) => {
         const isActive = tab.dataset.previewMode === currentPreviewMode;
         tab.classList.toggle('is-active', isActive);
@@ -692,37 +1157,6 @@ const setPreviewMode = (mode) => {
 
     currentPreviewPage = 1;
     updatePreviewViewport();
-    scrollToPreviewPage(1);
-};
-
-const updatePreviewPagination = () => {
-    const totalPages = getPreviewPageCount();
-    currentPreviewPage = Math.min(Math.max(currentPreviewPage, 1), totalPages);
-
-    if (cvPageIndicator) {
-        cvPageIndicator.textContent = `Page ${currentPreviewPage} / ${totalPages}`;
-    }
-
-    if (cvPrevPageButton) {
-        cvPrevPageButton.disabled = currentPreviewPage <= 1;
-    }
-
-    if (cvNextPageButton) {
-        cvNextPageButton.disabled = currentPreviewPage >= totalPages;
-    }
-
-    if (previewPageThumbnails) {
-        previewPageThumbnails.innerHTML = '';
-        for (let page = 1; page <= totalPages; page += 1) {
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = `page-thumb${page === currentPreviewPage ? ' is-active' : ''}`;
-            button.textContent = `${page}`;
-            button.setAttribute('aria-label', `Voir la page ${page}`);
-            button.addEventListener('click', () => scrollToPreviewPage(page));
-            previewPageThumbnails.appendChild(button);
-        }
-    }
 };
 
 const updatePreviewViewport = () => {
@@ -730,21 +1164,18 @@ const updatePreviewViewport = () => {
         return;
     }
 
-    const zoom = getZoomLevel();
     const stagePages = getVisiblePreviewPages();
     if (!stagePages.length) {
         cvPreviewStage.style.height = 'auto';
-        updatePreviewPagination();
         return;
     }
     const pageGap = stagePages.length > 1 ? (stagePages.length - 1) * 18 * 3.78 : 0;
     const totalHeight = stagePages.reduce((sum, page) => {
-        page.style.transform = `scale(${zoom})`;
-        return sum + page.scrollHeight * zoom;
+        page.style.transform = '';
+        return sum + page.scrollHeight;
     }, 0);
 
     cvPreviewStage.style.height = `${Math.max(totalHeight + pageGap, 0)}px`;
-    updatePreviewPagination();
 };
 
 const fitCvToSinglePage = () => {
@@ -836,7 +1267,6 @@ const scrollToPreviewPage = (page) => {
     const targetTop = targetPage ? targetPage.offsetTop - 8 : 0;
 
     cvPreviewViewport.scrollTo({ top: targetTop, behavior: 'smooth' });
-    updatePreviewPagination();
 };
 
 const refreshCvModule = () => {
@@ -907,7 +1337,7 @@ const refreshCvModule = () => {
             cvPreviewViewport.scrollTop = 0;
         }
         updatePreviewViewport();
-        updatePreviewPagination();
+        updateWordToolbarState();
     } catch (error) {
         console.error(error);
         setCvStatus('Le module CV a rencontre un probleme, mais l editeur reste charge');
@@ -1034,6 +1464,49 @@ const reorderPreviewSections = () => {
     });
 };
 
+const renderEditableOverride = (target, node) => {
+    if (!node) {
+        return false;
+    }
+
+    const override = cvEditableContent[target];
+    node.removeAttribute('style');
+
+    if (!override || typeof override.html !== 'string') {
+        applyEditableNodeStyleState(node, { lineHeight: '1.2' });
+        return false;
+    }
+
+    node.innerHTML = override.html;
+    applyEditableNodeStyleState(node, override.style || {});
+    return true;
+};
+
+const renderEditableTextNode = (node, target, text) => {
+    if (!node) {
+        return;
+    }
+
+    if (renderEditableOverride(target, node)) {
+        return;
+    }
+
+    node.textContent = text;
+};
+
+const renderEditableListNode = (node, target, renderFallback) => {
+    if (!node) {
+        return;
+    }
+
+    if (renderEditableOverride(target, node)) {
+        return;
+    }
+
+    renderFallback();
+    applyEditableNodeStyleState(node, { lineHeight: '1.2' });
+};
+
 const updateCvPreview = () => {
     if (!cvForm || !previewNodes.preview) {
         return;
@@ -1042,13 +1515,13 @@ const updateCvPreview = () => {
     const formData = new FormData(cvForm);
     const values = Object.fromEntries(formData.entries());
 
-    previewNodes.fullName.textContent = values.fullName || 'Votre nom';
+    renderEditableTextNode(previewNodes.fullName, 'fullName', values.fullName || 'Votre nom');
     if (previewNodes.meta) {
-        previewNodes.meta.textContent = [values.location, values.phone, values.email].filter(Boolean).join(' | ');
+        renderEditableTextNode(previewNodes.meta, 'location', [values.location, values.phone, values.email].filter(Boolean).join(' | '));
     }
-    previewNodes.headline.textContent = values.headline || 'Intitule du metier';
+    renderEditableTextNode(previewNodes.headline, 'headline', values.headline || 'Intitule du metier');
     if (previewNodes.summary) {
-        previewNodes.summary.textContent = values.summary || '';
+        renderEditableTextNode(previewNodes.summary, 'summary', values.summary || '');
     }
 
     const skillItems = dedupeImportedItems(splitLines(values.skills || ''));
@@ -1058,12 +1531,12 @@ const updateCvPreview = () => {
     const languageItems = dedupeImportedItems(splitLines(values.languages || ''));
     const activityItems = dedupeImportedItems(splitLines(values.activities || ''));
 
-    renderTimelineList(previewNodes.experience, experienceItems);
-    renderTimelineList(previewNodes.projects, projectItems, { projectType: values.projectType || '' });
-    fillList(previewNodes.skills, skillItems);
-    renderTimelineList(previewNodes.education, educationItems);
-    fillList(previewNodes.languages, languageItems);
-    fillList(previewNodes.activities, activityItems);
+    renderEditableListNode(previewNodes.experience, 'experience', () => renderTimelineList(previewNodes.experience, experienceItems));
+    renderEditableListNode(previewNodes.projects, 'projects', () => renderTimelineList(previewNodes.projects, projectItems, { projectType: values.projectType || '' }));
+    renderEditableListNode(previewNodes.skills, 'skills', () => fillList(previewNodes.skills, skillItems));
+    renderEditableListNode(previewNodes.education, 'education', () => renderTimelineList(previewNodes.education, educationItems));
+    renderEditableListNode(previewNodes.languages, 'languages', () => fillList(previewNodes.languages, languageItems));
+    renderEditableListNode(previewNodes.activities, 'activities', () => fillList(previewNodes.activities, activityItems));
 
     if (previewSectionsRoot) {
         const sectionMap = {
@@ -1361,6 +1834,7 @@ const adaptCvToJobOffer = () => {
         skillsField.value = [...new Set([...injectedKeywords.map(toTitleCase), ...existing])].slice(0, 12).join('\n');
     }
 
+    clearEditableOverrides();
     updateCvPreview();
     setCvStatus('CV adapte a l offre');
 };
@@ -1428,6 +1902,7 @@ const autoOrganizeCv = () => {
         headlineField.value = toTitleCase(headlineField.value.trim());
     }
 
+    clearEditableOverrides();
     updateCvPreview();
 
     setCvStatus('Sections auto-organisees');
@@ -1457,6 +1932,7 @@ const improveCv = () => {
             .join('\n');
     }
 
+    clearEditableOverrides();
     updateCvPreview();
 
     setCvStatus('CV ameliore pour recruteurs');
@@ -1983,6 +2459,7 @@ const parseImportedCv = (text) => {
         cvForm.elements.activities.value = previousActivities;
     }
 
+    clearEditableOverrides();
     updateCvPreview();
     setPreviewMode('cv');
     currentPreviewPage = 1;
@@ -2286,12 +2763,7 @@ const exportWebVersion = () => {
 
 const openMailClient = async (mailtoUrl, fallbackText, statusMessage) => {
     try {
-        const link = document.createElement('a');
-        link.href = mailtoUrl;
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
+        window.location.href = mailtoUrl;
         setCvStatus(statusMessage);
     } catch (error) {
         console.error(error);
@@ -2351,9 +2823,102 @@ const getAssistantReply = (message) => {
     return "Je peux vous aider a clarifier votre besoin, presenter les services du site, ouvrir le module CV intelligent ou suggerer une direction de projet.";
 };
 
+const handleAuthLogin = async (event) => {
+    event.preventDefault();
+
+    const formData = new FormData(authLoginForm);
+    const email = normalizeAccountEmail((formData.get('email') || '').toString());
+    const password = (formData.get('password') || '').toString();
+    const accounts = getStoredAccounts();
+    const account = accounts.find((entry) => normalizeAccountEmail(entry.email) === email);
+
+    if (!account) {
+        setAuthFeedback('Compte introuvable sur cet appareil.', true);
+        return;
+    }
+
+    const passwordHash = await hashPassword(password);
+
+    if (account.passwordHash !== passwordHash) {
+        setAuthFeedback('Mot de passe incorrect.', true);
+        return;
+    }
+
+    persistAuthSession(account);
+    activeEditableNode = null;
+    updateAuthUi();
+    loadCvDraft();
+    refreshCvModule();
+    authLoginForm.reset();
+    closeAuthModal();
+    setCvStatus('Compte charge');
+};
+
+const handleAuthSignup = async (event) => {
+    event.preventDefault();
+
+    const formData = new FormData(authSignupForm);
+    const name = (formData.get('name') || '').toString().trim();
+    const email = normalizeAccountEmail((formData.get('email') || '').toString());
+    const password = (formData.get('password') || '').toString();
+    const confirmPassword = (formData.get('confirmPassword') || '').toString();
+
+    if (!name || !email || !password) {
+        setAuthFeedback('Tous les champs sont obligatoires.', true);
+        return;
+    }
+
+    if (password.length < 6) {
+        setAuthFeedback('Choisissez un mot de passe de 6 caracteres minimum.', true);
+        return;
+    }
+
+    if (password !== confirmPassword) {
+        setAuthFeedback('La confirmation ne correspond pas.', true);
+        return;
+    }
+
+    const accounts = getStoredAccounts();
+
+    if (accounts.some((entry) => normalizeAccountEmail(entry.email) === email)) {
+        setAuthFeedback('Un compte existe deja pour cet email.', true);
+        return;
+    }
+
+    const account = {
+        name,
+        email,
+        passwordHash: await hashPassword(password),
+        createdAt: new Date().toISOString(),
+    };
+
+    accounts.push(account);
+    saveStoredAccounts(accounts);
+    persistAuthSession(account);
+    activeEditableNode = null;
+    updateAuthUi();
+    loadCvDraft();
+    refreshCvModule();
+    authSignupForm.reset();
+    closeAuthModal();
+    setCvStatus('Compte cree');
+};
+
+const handleAuthLogout = () => {
+    persistAuthSession(null);
+    activeEditableNode = null;
+    updateAuthUi();
+    loadCvDraft();
+    refreshCvModule();
+    setPreviewMode('cv');
+    setCvStatus('Mode invite actif');
+};
+
 window.addEventListener('load', () => {
     document.body.classList.remove('is-preload');
     document.body.classList.add('is-ready');
+    loadAuthSession();
+    updateAuthUi();
     try {
         loadCvDraft();
     } catch (error) {
@@ -2373,6 +2938,27 @@ cvOpenLinks.forEach((link) => {
     link.addEventListener('click', () => {
         window.setTimeout(refreshCvModule, 60);
     });
+});
+
+authOpenLoginButton?.addEventListener('click', () => openAuthModal('login'));
+authOpenSignupButton?.addEventListener('click', () => openAuthModal('signup'));
+authLogoutButton?.addEventListener('click', handleAuthLogout);
+authCloseButton?.addEventListener('click', closeAuthModal);
+authModal?.querySelectorAll('[data-auth-close]')?.forEach((node) => {
+    node.addEventListener('click', closeAuthModal);
+});
+authTabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+        setAuthView(tab.dataset.authView || 'login');
+    });
+});
+authLoginForm?.addEventListener('submit', handleAuthLogin);
+authSignupForm?.addEventListener('submit', handleAuthSignup);
+
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && authModal && !authModal.classList.contains('is-hidden')) {
+        closeAuthModal();
+    }
 });
 
 if (navLinks.length > 0 && sections.length > 0) {
@@ -2454,8 +3040,25 @@ if (revealSections.length > 0) {
 }
 
 if (cvForm) {
-    cvForm.addEventListener('input', updateCvPreview);
-    cvForm.addEventListener('change', updateCvPreview);
+    const handleCvFormMutation = (event) => {
+        const fieldName = event.target?.name;
+        const linkedTarget = fieldName ? editableFieldMap[fieldName] : '';
+
+        if (linkedTarget) {
+            clearEditableOverride(linkedTarget);
+        }
+
+        if (fieldName === 'projectType') {
+            clearEditableOverride('projects');
+        }
+
+        updateCvPreview();
+        updateWordToolbarState();
+        scheduleCvDraftSave();
+    };
+
+    cvForm.addEventListener('input', handleCvFormMutation);
+    cvForm.addEventListener('change', handleCvFormMutation);
 }
 
 if (previewHeadlineScale && cvForm) {
@@ -2504,6 +3107,7 @@ document.querySelectorAll('.cv-section-action').forEach((button) => {
             if (field) {
                 field.value = '';
             }
+            clearEditableOverride(key);
             updateCvPreview();
             setCvStatus(`${cvSectionLabels[key] || 'Bloc'} supprime`);
             return;
@@ -2557,8 +3161,70 @@ document.querySelectorAll('[data-edit-target]').forEach((node) => {
     });
 });
 
-const syncPreviewEditableNode = (node) => {
-    if (!cvForm) {
+const getEditableSelectionNode = () => {
+    const selection = document.getSelection();
+    const anchor = selection?.anchorNode;
+    const element = anchor?.nodeType === Node.TEXT_NODE ? anchor.parentElement : anchor;
+    return element?.closest?.('[contenteditable="true"]') || null;
+};
+
+const getActiveEditableNode = () => {
+    if (activeEditableNode && document.body.contains(activeEditableNode)) {
+        return activeEditableNode;
+    }
+
+    activeEditableNode = getEditableSelectionNode();
+    return activeEditableNode;
+};
+
+const updateWordToolbarState = () => {
+    const node = getActiveEditableNode();
+
+    cvWordToolbarShell?.classList.toggle('is-hidden', currentPreviewMode !== 'cv');
+
+    if (!node) {
+        cvInlineBoldButton?.classList.remove('is-active');
+        cvInlineItalicButton?.classList.remove('is-active');
+        cvInlineUnderlineButton?.classList.remove('is-active');
+        cvInlineAlignButtons.forEach((button) => button.classList.remove('is-active'));
+        return;
+    }
+
+    const styles = window.getComputedStyle(node);
+    const family = styles.fontFamily.toLowerCase();
+    const fontSize = `${Math.round(Number.parseFloat(styles.fontSize) || 14)}px`;
+    const lineHeight = styles.lineHeight === 'normal'
+        ? '1.2'
+        : `${Math.round((((Number.parseFloat(styles.lineHeight) || Number.parseFloat(styles.fontSize) || 14) / (Number.parseFloat(styles.fontSize) || 14)) + Number.EPSILON) * 100) / 100}`;
+
+    if (cvInlineFont) {
+        if (family.includes('roboto')) {
+            cvInlineFont.value = 'Roboto, sans-serif';
+        } else if (family.includes('times')) {
+            cvInlineFont.value = "'Times New Roman', serif";
+        } else {
+            cvInlineFont.value = 'Arial, sans-serif';
+        }
+    }
+
+    if (cvInlineSize) {
+        cvInlineSize.value = ['12px', '14px', '16px', '18px', '24px'].includes(fontSize) ? fontSize : '14px';
+    }
+
+    if (cvInlineLineHeight) {
+        cvInlineLineHeight.value = ['1', '1.15', '1.5', '2'].includes(lineHeight) ? lineHeight : '1';
+    }
+
+    cvInlineBoldButton?.classList.toggle('is-active', Number.parseInt(styles.fontWeight, 10) >= 600);
+    cvInlineItalicButton?.classList.toggle('is-active', styles.fontStyle === 'italic');
+    cvInlineUnderlineButton?.classList.toggle('is-active', styles.textDecorationLine.includes('underline'));
+    cvInlineAlignButtons.forEach((button) => {
+        button.classList.toggle('is-active', (styles.textAlign || 'left') === (button.dataset.align || 'left'));
+    });
+};
+
+const syncPreviewEditableNode = (node, { refreshPreview = false, normalize = true } = {}) => {
+    if (!cvForm || !node) {
         return;
     }
 
@@ -2569,14 +3235,19 @@ const syncPreviewEditableNode = (node) => {
         return;
     }
 
-    if (target === 'fullName' || target === 'headline') {
-        field.value = node.textContent.trim();
-    } else if (target === 'summary') {
-        field.value = node.textContent.trim();
-    } else if (target === 'permit') {
-        field.value = node.textContent.trim();
+    if (normalize) {
+        storeEditableNodeState(node);
+    } else if (target) {
+        cvEditableContent[target] = {
+            html: node.innerHTML.trim(),
+            style: extractEditableNodeStyleState(node),
+        };
+    }
+
+    if (target === 'fullName' || target === 'headline' || target === 'summary' || target === 'permit') {
+        field.value = node.innerText.trim();
     } else if (target === 'location') {
-        const parts = node.textContent
+        const parts = node.innerText
             .split('|')
             .map((item) => item.trim())
             .filter(Boolean);
@@ -2597,21 +3268,132 @@ const syncPreviewEditableNode = (node) => {
         field.value = items.join('\n');
     }
 
-    updateCvPreview();
-    setCvStatus('Modification appliquee');
+    if (refreshPreview) {
+        updateCvPreview();
+    } else {
+        updateCvPageMode();
+    }
+
+    updateWordToolbarState();
+};
+
+const persistAllEditableNodes = ({ refreshPreview = false } = {}) => {
+    document.querySelectorAll('[contenteditable="true"]').forEach((node) => {
+        syncPreviewEditableNode(node, { refreshPreview });
+    });
+};
+
+const insertHtmlAtCursor = (html) => {
+    document.execCommand('insertHTML', false, html);
+};
+
+const handleEditablePaste = (event, node) => {
+    event.preventDefault();
+
+    const clipboard = event.clipboardData || window.clipboardData;
+    const plainText = normalizeImportedText(clipboard?.getData('text/plain') || '');
+
+    if (!plainText) {
+        return;
+    }
+
+    if (node.tagName === 'UL' || node.tagName === 'OL') {
+        const listHtml = splitLines(plainText)
+            .map(stripBulletPrefix)
+            .filter(Boolean)
+            .map((line) => `<li>${escapeHtml(line)}</li>`)
+            .join('');
+        insertHtmlAtCursor(listHtml);
+    } else {
+        const textHtml = plainText.split('\n').map((line) => escapeHtml(line)).join('<br>');
+        insertHtmlAtCursor(textHtml);
+    }
+
+    window.requestAnimationFrame(() => {
+        normalizeEditableNode(node);
+        syncPreviewEditableNode(node, { refreshPreview: false });
+        setCvStatus('Texte colle sans styles externes');
+    });
+};
+
+const applyEditableRootStyle = (styleKey, value) => {
+    const node = getActiveEditableNode();
+
+    if (!node) {
+        setCvStatus('Cliquez d abord dans le CV pour modifier le texte');
+        return;
+    }
+
+    node.focus();
+    node.style[styleKey] = value;
+    syncPreviewEditableNode(node, { refreshPreview: false });
+    setCvStatus('Mise en forme appliquee');
+};
+
+const applyInlineCommand = (command) => {
+    const node = getActiveEditableNode();
+
+    if (!node) {
+        setCvStatus('Cliquez d abord dans le CV pour modifier le texte');
+        return;
+    }
+
+    node.focus();
+    document.execCommand(command, false, null);
+    syncPreviewEditableNode(node, { refreshPreview: false });
+    setCvStatus('Mise en forme appliquee');
 };
 
 document.querySelectorAll('[contenteditable="true"]').forEach((node) => {
     node.addEventListener('focus', () => {
+        activeEditableNode = node;
+        updateWordToolbarState();
         setCvStatus('Edition directe active');
     });
+    node.addEventListener('input', () => {
+        activeEditableNode = node;
+        syncPreviewEditableNode(node, { refreshPreview: false, normalize: false });
+        scheduleCvDraftSave();
+    });
     node.addEventListener('blur', () => {
-        syncPreviewEditableNode(node);
+        normalizeEditableNode(node);
+        syncPreviewEditableNode(node, { refreshPreview: true });
+        scheduleCvDraftSave();
+    });
+    node.addEventListener('paste', (event) => {
+        activeEditableNode = node;
+        handleEditablePaste(event, node);
     });
     node.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
             node.blur();
         }
+    });
+});
+
+document.addEventListener('selectionchange', () => {
+    const editableNode = getEditableSelectionNode();
+    if (editableNode) {
+        activeEditableNode = editableNode;
+        updateWordToolbarState();
+    }
+});
+
+cvInlineFont?.addEventListener('change', () => applyEditableRootStyle('fontFamily', cvInlineFont.value));
+cvInlineSize?.addEventListener('change', () => applyEditableRootStyle('fontSize', cvInlineSize.value));
+cvInlineLineHeight?.addEventListener('change', () => applyEditableRootStyle('lineHeight', cvInlineLineHeight.value));
+document.querySelectorAll('.word-toolbar-button').forEach((button) => {
+    button.addEventListener('mousedown', (event) => {
+        event.preventDefault();
+    });
+});
+cvInlineBoldButton?.addEventListener('click', () => applyInlineCommand('bold'));
+cvInlineItalicButton?.addEventListener('click', () => applyInlineCommand('italic'));
+cvInlineUnderlineButton?.addEventListener('click', () => applyInlineCommand('underline'));
+cvInlineListButton?.addEventListener('click', () => applyInlineCommand('insertUnorderedList'));
+cvInlineAlignButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+        applyEditableRootStyle('textAlign', button.dataset.align || 'left');
     });
 });
 
@@ -2804,13 +3586,6 @@ if (letterEmailButton) {
     });
 }
 
-if (cvZoomSelect) {
-    cvZoomSelect.addEventListener('change', () => {
-        updatePreviewViewport();
-        scrollToPreviewPage(currentPreviewPage);
-    });
-}
-
 if (cvLayoutToggle && cvLayout && cvEditorPanel) {
     cvLayoutToggle.addEventListener('click', () => {
         const isPreviewFocus = cvLayout.classList.toggle('is-preview-focus');
@@ -2820,41 +3595,6 @@ if (cvLayoutToggle && cvLayout && cvEditorPanel) {
             updatePreviewViewport();
             scrollToPreviewPage(currentPreviewPage);
         }, 180);
-    });
-}
-
-if (cvPrevPageButton) {
-    cvPrevPageButton.addEventListener('click', () => {
-        scrollToPreviewPage(currentPreviewPage - 1);
-    });
-}
-
-if (cvNextPageButton) {
-    cvNextPageButton.addEventListener('click', () => {
-        scrollToPreviewPage(currentPreviewPage + 1);
-    });
-}
-
-if (cvPreviewViewport) {
-    cvPreviewViewport.addEventListener('scroll', () => {
-        if (!cvPreviewStage) {
-            return;
-        }
-
-        const pages = getVisiblePreviewPages();
-        let nearestPage = 1;
-        let nearestDistance = Number.POSITIVE_INFINITY;
-
-        pages.forEach((page, index) => {
-            const distance = Math.abs(page.offsetTop - cvPreviewViewport.scrollTop);
-            if (distance < nearestDistance) {
-                nearestDistance = distance;
-                nearestPage = index + 1;
-            }
-        });
-
-        currentPreviewPage = nearestPage;
-        updatePreviewPagination();
     });
 }
 
