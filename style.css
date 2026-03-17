@@ -2181,6 +2181,7 @@ body.is-ready .skill-delay-8 {
     display: grid;
     place-items: center;
     padding: 1rem;
+    overflow-y: auto;
 }
 
 .auth-modal-backdrop {
@@ -2201,6 +2202,8 @@ body.is-ready .skill-delay-8 {
     border-radius: 24px;
     background: rgba(255, 255, 255, 0.98);
     box-shadow: 0 28px 60px rgba(15, 23, 42, 0.18);
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
 }
 
 .auth-modal-close {
