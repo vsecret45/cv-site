@@ -2081,6 +2081,49 @@ body.is-ready .skill-delay-8 {
     width: auto;
 }
 
+.auth-modal {
+    padding: 0.75rem;
+}
+
+.auth-modal-dialog {
+    width: min(100%, 100%);
+    max-height: calc(100dvh - 1.5rem);
+    padding: 1rem;
+    border-radius: 20px;
+    gap: 0.85rem;
+}
+
+.auth-modal-dialog h2 {
+    font-size: 1.9rem;
+    line-height: 1.05;
+    padding-right: 2.75rem;
+}
+
+.auth-modal-text {
+    font-size: 0.98rem;
+}
+
+.auth-modal-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+}
+
+.auth-tab {
+    width: 100%;
+    min-height: 2.5rem;
+    padding-inline: 0.75rem;
+}
+
+.auth-form {
+    gap: 0.8rem;
+}
+
+.auth-modal-close {
+    top: 0.7rem;
+    right: 0.7rem;
+}
+
 .preview-toolbar-group-tools,
 .preview-toolbar-group-mode,
 .cv-word-toolbar {
