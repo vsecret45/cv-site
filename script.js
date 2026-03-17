@@ -521,15 +521,16 @@ const persistAuthSession = (user) => {
         : null;
 
     if (currentUser) {
-        window.localStorage.setItem(getAuthSessionStorageKey(), JSON.stringify(currentUser));
+        window.sessionStorage.setItem(getAuthSessionStorageKey(), JSON.stringify(currentUser));
     } else {
+        window.sessionStorage.removeItem(getAuthSessionStorageKey());
         window.localStorage.removeItem(getAuthSessionStorageKey());
     }
 };
 
 const loadAuthSession = () => {
     try {
-        const raw = window.localStorage.getItem(getAuthSessionStorageKey());
+        const raw = window.sessionStorage.getItem(getAuthSessionStorageKey());
         currentUser = raw ? JSON.parse(raw) : null;
     } catch (error) {
         console.error(error);
@@ -2917,7 +2918,7 @@ const handleAuthLogout = () => {
 window.addEventListener('load', () => {
     document.body.classList.remove('is-preload');
     document.body.classList.add('is-ready');
-    loadAuthSession();
+    persistAuthSession(null);
     updateAuthUi();
     try {
         loadCvDraft();
