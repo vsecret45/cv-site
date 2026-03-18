@@ -3212,15 +3212,40 @@ const normalizeCvTextareaValue = (fieldName, value) => {
     return value.trim();
 };
 
+const setTextareaNormalizedValue = (field, fieldName) => {
+    if (!field || !fieldName) {
+        return false;
+    }
+
+    const normalizedValue = normalizeCvTextareaValue(fieldName, field.value);
+    const currentValue = field.value.trim();
+
+    if (!normalizedValue || normalizedValue === currentValue) {
+        return false;
+    }
+
+    field.value = normalizedValue;
+
+    if (typeof field.setSelectionRange === 'function') {
+        const caret = normalizedValue.length;
+        field.setSelectionRange(caret, caret);
+    }
+
+    return true;
+};
+
 if (cvForm) {
     const handleCvFormMutation = (event) => {
         const fieldName = event.target?.name;
         const linkedTarget = fieldName ? editableFieldMap[fieldName] : '';
 
-        if (event.type === 'change' && ['experience', 'projects', 'education'].includes(fieldName)) {
-            const normalizedValue = normalizeCvTextareaValue(fieldName, event.target.value);
-            if (normalizedValue && normalizedValue !== event.target.value.trim()) {
-                event.target.value = normalizedValue;
+        if (['experience', 'projects', 'education'].includes(fieldName) && event.target instanceof HTMLTextAreaElement) {
+            const shouldNormalizeNow =
+                event.type === 'change' ||
+                (event.type === 'input' && /[\n\r]|[0-9]{4}/.test(event.data || '') );
+
+            if (shouldNormalizeNow) {
+                setTextareaNormalizedValue(event.target, fieldName);
             }
         }
 
@@ -3239,6 +3264,13 @@ if (cvForm) {
 
     cvForm.addEventListener('input', handleCvFormMutation);
     cvForm.addEventListener('change', handleCvFormMutation);
+    cvForm.querySelectorAll('textarea[name="experience"], textarea[name="projects"], textarea[name="education"]').forEach((field) => {
+        field.addEventListener('blur', () => {
+            setTextareaNormalizedValue(field, field.name);
+            updateCvPreview();
+            scheduleCvDraftSave();
+        });
+    });
 }
 
 if (previewHeadlineScale && cvForm) {
