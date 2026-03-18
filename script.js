@@ -73,7 +73,6 @@ const suggestionChips = document.querySelectorAll('.suggestion-chip');
 const expandableCards = document.querySelectorAll('[data-expandable]');
 const presetChips = document.querySelectorAll('.preset-chip');
 const templatePresetChips = document.querySelectorAll('[data-template-preset]');
-const authStatus = document.querySelector('#auth-status');
 const authOpenLoginButton = document.querySelector('#auth-open-login');
 const authOpenSignupButton = document.querySelector('#auth-open-signup');
 const authLogoutButton = document.querySelector('#auth-logout');
@@ -539,10 +538,6 @@ const loadAuthSession = () => {
 };
 
 const updateAuthUi = () => {
-    if (authStatus) {
-        authStatus.textContent = currentUser ? `Connecte : ${currentUser.name || currentUser.email}` : 'Mode invite';
-    }
-
     authOpenLoginButton?.classList.toggle('is-hidden', Boolean(currentUser));
     authOpenSignupButton?.classList.toggle('is-hidden', Boolean(currentUser));
     authLogoutButton?.classList.toggle('is-hidden', !currentUser);
@@ -2763,18 +2758,31 @@ const exportWebVersion = () => {
 };
 
 const openMailClient = async (mailtoUrl, fallbackText, statusMessage) => {
+    let mailOpened = false;
+
     try {
-        window.location.href = mailtoUrl;
-        setCvStatus(statusMessage);
+        const link = document.createElement('a');
+        link.href = mailtoUrl;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        mailOpened = true;
     } catch (error) {
         console.error(error);
+    }
+
+    try {
+        await navigator.clipboard.writeText(fallbackText);
+        setCvStatus(mailOpened ? `${statusMessage} - contenu copie en secours` : 'Application mail non detectee : contenu copie');
+    } catch (clipboardError) {
+        console.error(clipboardError);
         try {
-            await navigator.clipboard.writeText(fallbackText);
-            setCvStatus('Application mail non detectee : contenu copie');
-        } catch (clipboardError) {
-            console.error(clipboardError);
             window.prompt('Copiez ce texte pour votre mail :', fallbackText);
-            setCvStatus('Copiez le contenu du mail manuellement');
+            setCvStatus(mailOpened ? statusMessage : 'Copiez le contenu du mail manuellement');
+        } catch (promptError) {
+            console.error(promptError);
+            setCvStatus(mailOpened ? statusMessage : 'Impossible d ouvrir l application mail');
         }
     }
 };

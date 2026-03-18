@@ -834,16 +834,27 @@ img {
 }
 
 .cv-word-toolbar {
-    display: flex;
-    align-items: end;
-    gap: 0.55rem;
-    flex-wrap: wrap;
-    padding: 0.8rem 0.9rem;
+    display: grid;
+    gap: 0.7rem;
+    padding: 0.75rem 0.9rem;
     border: 1px solid rgba(47, 63, 127, 0.12);
     border-radius: 18px;
     background: rgba(255, 255, 255, 0.96);
     box-shadow: 0 16px 28px rgba(31, 38, 72, 0.08);
     backdrop-filter: blur(10px);
+}
+
+.word-toolbar-row {
+    display: flex;
+    align-items: end;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+}
+
+.word-toolbar-row-actions {
+    justify-content: space-between;
+    padding-top: 0.15rem;
+    border-top: 1px solid rgba(47, 63, 127, 0.08);
 }
 
 .word-toolbar-field {
@@ -862,7 +873,7 @@ img {
 }
 
 .word-toolbar-field-line-height {
-    min-width: 84px;
+    min-width: 96px;
 }
 
 .word-toolbar-field select {
@@ -886,9 +897,9 @@ img {
 }
 
 .word-toolbar-button {
-    min-width: 2.3rem;
-    min-height: 2.3rem;
-    padding: 0.45rem 0.7rem;
+    min-width: 2.25rem;
+    min-height: 2.25rem;
+    padding: 0.42rem 0.62rem;
     border: 0;
     border-radius: 10px;
     background: transparent;
@@ -908,7 +919,8 @@ img {
 }
 
 .word-toolbar-button-list {
-    min-width: auto;
+    min-width: 5.6rem;
+    justify-content: center;
 }
 
 .preview-status {
@@ -2131,6 +2143,14 @@ body.is-ready .skill-delay-8 {
 }
 
 .preview-toolbar-group-mode {
+    justify-content: flex-start;
+}
+
+.word-toolbar-row {
+    align-items: stretch;
+}
+
+.word-toolbar-row-actions {
     justify-content: flex-start;
 }
 

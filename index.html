@@ -29,7 +29,6 @@
                     <a href="#contact">Contact</a>
                 </div>
                 <div class="auth-actions" id="auth-actions">
-                    <span class="auth-badge" id="auth-status">Mode invite</span>
                     <button class="button button-secondary auth-button" type="button" id="auth-open-login">Se connecter</button>
                     <button class="button button-secondary auth-button" type="button" id="auth-open-signup">Creer un compte</button>
                     <button class="button button-secondary auth-button is-hidden" type="button" id="auth-logout">Deconnexion</button>
@@ -547,46 +546,50 @@ Sport</textarea>
                         </div>
                         <div class="cv-word-toolbar-shell" id="cv-word-toolbar-shell">
                             <div class="cv-word-toolbar" id="cv-word-toolbar" aria-label="Mini toolbar">
-                                <label class="word-toolbar-field">
-                                    <span>Police</span>
-                                    <select id="cv-inline-font">
-                                        <option value="Arial, sans-serif">Arial</option>
-                                        <option value="Roboto, sans-serif">Roboto</option>
-                                        <option value="'Times New Roman', serif">Times New Roman</option>
-                                    </select>
-                                </label>
-                                <label class="word-toolbar-field word-toolbar-field-size">
-                                    <span>Taille</span>
-                                    <select id="cv-inline-size">
-                                        <option value="12px">12</option>
-                                        <option value="14px" selected>14</option>
-                                        <option value="16px">16</option>
-                                        <option value="18px">18</option>
-                                        <option value="24px">24</option>
-                                    </select>
-                                </label>
-                                <div class="word-toolbar-segment" role="group" aria-label="Mise en forme">
-                                    <button class="word-toolbar-button" type="button" id="cv-inline-bold" aria-label="Gras"><strong>B</strong></button>
-                                    <button class="word-toolbar-button" type="button" id="cv-inline-italic" aria-label="Italique"><em>I</em></button>
-                                    <button class="word-toolbar-button" type="button" id="cv-inline-underline" aria-label="Souligne"><u>U</u></button>
+                                <div class="word-toolbar-row word-toolbar-row-main">
+                                    <label class="word-toolbar-field">
+                                        <span>Police</span>
+                                        <select id="cv-inline-font">
+                                            <option value="Arial, sans-serif">Arial</option>
+                                            <option value="Roboto, sans-serif">Roboto</option>
+                                            <option value="'Times New Roman', serif">Times New Roman</option>
+                                        </select>
+                                    </label>
+                                    <label class="word-toolbar-field word-toolbar-field-size">
+                                        <span>Taille</span>
+                                        <select id="cv-inline-size">
+                                            <option value="12px">12</option>
+                                            <option value="14px" selected>14</option>
+                                            <option value="16px">16</option>
+                                            <option value="18px">18</option>
+                                            <option value="24px">24</option>
+                                        </select>
+                                    </label>
+                                    <label class="word-toolbar-field word-toolbar-field-line-height">
+                                        <span>Interligne</span>
+                                        <select id="cv-inline-line-height">
+                                            <option value="1">1</option>
+                                            <option value="1.15">1.15</option>
+                                            <option value="1.5">1.5</option>
+                                            <option value="2">2</option>
+                                        </select>
+                                    </label>
                                 </div>
-                                <div class="word-toolbar-segment" role="group" aria-label="Alignement">
-                                    <button class="word-toolbar-button" type="button" data-align="left" aria-label="Aligner a gauche">G</button>
-                                    <button class="word-toolbar-button" type="button" data-align="center" aria-label="Centrer">C</button>
-                                    <button class="word-toolbar-button" type="button" data-align="right" aria-label="Aligner a droite">D</button>
+                                <div class="word-toolbar-row word-toolbar-row-actions">
+                                    <div class="word-toolbar-segment" role="group" aria-label="Mise en forme">
+                                        <button class="word-toolbar-button" type="button" id="cv-inline-bold" aria-label="Gras"><strong>B</strong></button>
+                                        <button class="word-toolbar-button" type="button" id="cv-inline-italic" aria-label="Italique"><em>I</em></button>
+                                        <button class="word-toolbar-button" type="button" id="cv-inline-underline" aria-label="Souligne"><u>U</u></button>
+                                    </div>
+                                    <div class="word-toolbar-segment" role="group" aria-label="Alignement">
+                                        <button class="word-toolbar-button" type="button" data-align="left" aria-label="Aligner a gauche">G</button>
+                                        <button class="word-toolbar-button" type="button" data-align="center" aria-label="Centrer">C</button>
+                                        <button class="word-toolbar-button" type="button" data-align="right" aria-label="Aligner a droite">D</button>
+                                    </div>
+                                    <div class="word-toolbar-segment" role="group" aria-label="Liste">
+                                        <button class="word-toolbar-button word-toolbar-button-list" type="button" id="cv-inline-list" aria-label="Liste a puces">• Liste</button>
+                                    </div>
                                 </div>
-                                <div class="word-toolbar-segment" role="group" aria-label="Liste">
-                                    <button class="word-toolbar-button word-toolbar-button-list" type="button" id="cv-inline-list" aria-label="Liste a puces">• Liste</button>
-                                </div>
-                                <label class="word-toolbar-field word-toolbar-field-line-height">
-                                    <span>Interligne</span>
-                                    <select id="cv-inline-line-height">
-                                        <option value="1">1</option>
-                                        <option value="1.15">1.15</option>
-                                        <option value="1.5">1.5</option>
-                                        <option value="2">2</option>
-                                    </select>
-                                </label>
                             </div>
                         </div>
                         <div class="cv-preview-viewport" id="cv-preview-viewport">
