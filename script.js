@@ -2140,6 +2140,26 @@ const normalizeStandaloneDate = (value) =>
         .replace(/\s{2,}/g, ' ')
         .trim();
 
+const appendStandaloneDateToEntry = (entry, rawDate) => {
+    const normalizedDate = normalizeStandaloneDate(rawDate || '');
+
+    if (!entry || !normalizedDate) {
+        return entry;
+    }
+
+    const previousDate = extractTrailingStandaloneDate(entry);
+
+    if (previousDate) {
+        const preferredDate = pickPreferredDate(previousDate.value, normalizedDate);
+        return `${entry
+            .slice(0, previousDate.index)
+            .replace(/[\s|,–-]+$/g, '')
+            .trim()} - ${preferredDate}`.trim();
+    }
+
+    return `${entry.replace(/[\s|,–-]+$/g, '').trim()} - ${normalizedDate}`.trim();
+};
+
 const pickPreferredDate = (currentDate, incomingDate) => {
     const current = normalizeStandaloneDate(currentDate || '');
     const incoming = normalizeStandaloneDate(incomingDate || '');
@@ -2177,20 +2197,7 @@ const mergeStandaloneDateItems = (items) => {
         }
 
         if (standaloneDateRegex.test(item) && merged.length) {
-            const normalizedDate = normalizeStandaloneDate(item);
-            const previous = merged[merged.length - 1];
-            const previousDate = extractTrailingStandaloneDate(previous);
-
-            if (previousDate) {
-                const preferredDate = pickPreferredDate(previousDate.value, normalizedDate);
-                merged[merged.length - 1] = `${previous
-                    .slice(0, previousDate.index)
-                    .replace(/[\s|,–-]+$/g, '')
-                    .trim()} - ${preferredDate}`.trim();
-                return;
-            }
-
-            merged[merged.length - 1] = `${previous.replace(/[\s|,–-]+$/g, '').trim()} - ${normalizedDate}`.trim();
+            merged[merged.length - 1] = appendStandaloneDateToEntry(merged[merged.length - 1], item);
             return;
         }
 
@@ -2320,8 +2327,8 @@ const normalizeSkillItems = (items) =>
     );
 
 const normalizeEducationItems = (items) =>
-    mergeStandaloneDateItems(
-        items
+    (() => {
+        const preparedItems = items
             .map((item) => item.replace(/^[-•]\s*/, '').replace(/\s{2,}/g, ' ').trim())
             .filter(
                 (item) =>
@@ -2330,8 +2337,44 @@ const normalizeEducationItems = (items) =>
                     !looksLikeSectionHeading(item) &&
                     (!isLikelyExperienceHeader(item) || standaloneDateRegex.test(item)) &&
                     !/\b(?:responsable|conseill[eè]re|machiniste|receveur|service premium|gestion d[’']equipe)\b/i.test(item)
-            )
-    );
+            );
+
+        const educationEntryStartRegex = /\b(?:permis|dipl[oô]me|formation|certification|bac|bts|master|licence|niveau|ecole|école|universit[eé]|simplon|fimo|iobsp|42)\b/i;
+        const grouped = [];
+        let current = '';
+
+        preparedItems.forEach((item) => {
+            if (standaloneDateRegex.test(item)) {
+                if (current) {
+                    current = appendStandaloneDateToEntry(current, item);
+                }
+                return;
+            }
+
+            const cleanedItem = item.replace(/^[-–—]\s*/, '').trim();
+            const isNewEntry =
+                !current ||
+                educationEntryStartRegex.test(cleanedItem) ||
+                (cleanedItem.length > 80 && /[–|-]/.test(cleanedItem));
+
+            if (!isNewEntry) {
+                current = `${current} - ${cleanedItem}`.replace(/\s{2,}/g, ' ').trim();
+                return;
+            }
+
+            if (current) {
+                grouped.push(current);
+            }
+
+            current = cleanedItem;
+        });
+
+        if (current) {
+            grouped.push(current);
+        }
+
+        return dedupeImportedItems(grouped.map(cleanImportedSectionLine).filter(Boolean));
+    })();
 
 const groupImportedExperiences = (items) => {
     const groups = [];
