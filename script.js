@@ -1373,8 +1373,21 @@ const experienceDateRegex = new RegExp(
 const parseExperienceEntry = (line) => {
     const cleanLine = line.replace(/\s{2,}/g, ' ').trim();
     const dateMatch = cleanLine.match(experienceDateRegex);
-    const date = dateMatch ? `${dateMatch[1]} - ${dateMatch[2]}` : '';
-    const withoutDate = dateMatch ? cleanLine.replace(dateMatch[0], '').replace(/\s+,/g, ',').trim() : cleanLine;
+    let date = dateMatch ? `${dateMatch[1]} - ${dateMatch[2]}` : '';
+    let withoutDate = dateMatch ? cleanLine.replace(dateMatch[0], '').replace(/\s+,/g, ',').trim() : cleanLine;
+
+    if (!date) {
+        const singleDateMatch = cleanLine.match(trailingSingleDateRegex);
+        if (singleDateMatch) {
+            date = normalizeStandaloneDate(singleDateMatch[1]);
+            withoutDate = cleanLine
+                .slice(0, singleDateMatch.index)
+                .replace(/[\s|,–-]+$/g, '')
+                .replace(/\s+,/g, ',')
+                .trim();
+        }
+    }
+
     const bulletParts = withoutDate
         .split(/\s+•\s+/)
         .map((part) => part.trim())
@@ -1521,9 +1534,9 @@ const updateCvPreview = () => {
     }
 
     const skillItems = dedupeImportedItems(splitLines(values.skills || ''));
-    const experienceItems = dedupeImportedItems(splitLines(values.experience || ''));
-    const projectItems = dedupeImportedItems(splitLines(values.projects || ''));
-    const educationItems = dedupeImportedItems(splitLines(values.education || ''));
+    const experienceItems = mergeStandaloneDateItems(dedupeImportedItems(splitLines(values.experience || '')));
+    const projectItems = mergeStandaloneDateItems(dedupeImportedItems(splitLines(values.projects || '')));
+    const educationItems = normalizeEducationItems(splitLines(values.education || ''));
     const languageItems = dedupeImportedItems(splitLines(values.languages || ''));
     const activityItems = dedupeImportedItems(splitLines(values.activities || ''));
 
@@ -2093,6 +2106,100 @@ const dedupeImportedItems = (items) => {
     });
 };
 
+const standaloneDateRegex = new RegExp(
+    `^(?:(?:${monthNamesPattern})\\.?\\s*\\d{4}|\\d{4})(?:\\s*[–-]\\s*(?:(?:${monthNamesPattern})\\.?\\s*\\d{4}|\\d{4}|aujourd'hui|present|pr[ée]sent))?$`,
+    'i'
+);
+
+const trailingSingleDateRegex = new RegExp(
+    `(?:^|\\s*[|,–-]\\s*)((?:${monthNamesPattern})\\.?\\s*\\d{4}|\\d{4})$`,
+    'i'
+);
+
+const extractTrailingStandaloneDate = (line) => {
+    const match = line.match(
+        new RegExp(
+            `(?:\\s*[|,–-]\\s*)(((?:(?:${monthNamesPattern})\\.?\\s*\\d{4}|\\d{4})(?:\\s*[–-]\\s*(?:(?:${monthNamesPattern})\\.?\\s*\\d{4}|\\d{4}|aujourd'hui|present|pr[ée]sent))?))$`,
+            'i'
+        )
+    );
+
+    if (!match) {
+        return null;
+    }
+
+    return {
+        value: match[1],
+        index: match.index,
+    };
+};
+
+const normalizeStandaloneDate = (value) =>
+    value
+        .replace(/\s*[–-]\s*/g, ' - ')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+
+const pickPreferredDate = (currentDate, incomingDate) => {
+    const current = normalizeStandaloneDate(currentDate || '');
+    const incoming = normalizeStandaloneDate(incomingDate || '');
+
+    if (!current) {
+        return incoming;
+    }
+
+    if (!incoming || current === incoming) {
+        return current;
+    }
+
+    const currentIsRange = /\s-\s/.test(current);
+    const incomingIsRange = /\s-\s/.test(incoming);
+
+    if (!currentIsRange && incomingIsRange) {
+        return incoming;
+    }
+
+    if (currentIsRange && !incomingIsRange) {
+        return current;
+    }
+
+    return incoming.length >= current.length ? incoming : current;
+};
+
+const mergeStandaloneDateItems = (items) => {
+    const merged = [];
+
+    items.forEach((rawItem) => {
+        const item = cleanImportedSectionLine(rawItem || '');
+
+        if (!item) {
+            return;
+        }
+
+        if (standaloneDateRegex.test(item) && merged.length) {
+            const normalizedDate = normalizeStandaloneDate(item);
+            const previous = merged[merged.length - 1];
+            const previousDate = extractTrailingStandaloneDate(previous);
+
+            if (previousDate) {
+                const preferredDate = pickPreferredDate(previousDate.value, normalizedDate);
+                merged[merged.length - 1] = `${previous
+                    .slice(0, previousDate.index)
+                    .replace(/[\s|,–-]+$/g, '')
+                    .trim()} - ${preferredDate}`.trim();
+                return;
+            }
+
+            merged[merged.length - 1] = `${previous.replace(/[\s|,–-]+$/g, '').trim()} - ${normalizedDate}`.trim();
+            return;
+        }
+
+        merged.push(item);
+    });
+
+    return dedupeImportedItems(merged);
+};
+
 const getSummaryFallback = (lines, headline) => {
     const headlineKey = normalizeForMatch(headline || '');
 
@@ -2213,7 +2320,7 @@ const normalizeSkillItems = (items) =>
     );
 
 const normalizeEducationItems = (items) =>
-    dedupeImportedItems(
+    mergeStandaloneDateItems(
         items
             .map((item) => item.replace(/^[-•]\s*/, '').replace(/\s{2,}/g, ' ').trim())
             .filter(
@@ -2221,7 +2328,7 @@ const normalizeEducationItems = (items) =>
                     item &&
                     item.length < 180 &&
                     !looksLikeSectionHeading(item) &&
-                    !isLikelyExperienceHeader(item) &&
+                    (!isLikelyExperienceHeader(item) || standaloneDateRegex.test(item)) &&
                     !/\b(?:responsable|conseill[eè]re|machiniste|receveur|service premium|gestion d[’']equipe)\b/i.test(item)
             )
     );
@@ -3048,10 +3155,31 @@ if (revealSections.length > 0) {
     revealSections.forEach((section) => sectionObserver.observe(section));
 }
 
+const normalizeCvTextareaValue = (fieldName, value) => {
+    const items = splitLines(value || '');
+
+    if (fieldName === 'education') {
+        return normalizeEducationItems(items).join('\n');
+    }
+
+    if (fieldName === 'experience' || fieldName === 'projects') {
+        return mergeStandaloneDateItems(dedupeImportedItems(items)).join('\n');
+    }
+
+    return value.trim();
+};
+
 if (cvForm) {
     const handleCvFormMutation = (event) => {
         const fieldName = event.target?.name;
         const linkedTarget = fieldName ? editableFieldMap[fieldName] : '';
+
+        if (event.type === 'change' && ['experience', 'projects', 'education'].includes(fieldName)) {
+            const normalizedValue = normalizeCvTextareaValue(fieldName, event.target.value);
+            if (normalizedValue && normalizedValue !== event.target.value.trim()) {
+                event.target.value = normalizedValue;
+            }
+        }
 
         if (linkedTarget) {
             clearEditableOverride(linkedTarget);
