@@ -5,14 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta
         name="description"
-        content="Sidi Amar Fatima conçoit des sites web, plateformes digitales et interfaces modernes, claires et adaptees a chaque projet."
+        content="Plateforme CV moderne pour importer, structurer, personnaliser et exporter un CV avec apercu en direct, lettre de motivation et analyse ATS."
     >
-    <title>Sidi Amar Fatima | Creation de Sites Web</title>
+    <title>CV Studio | Plateforme CV moderne</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
         href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Lato:wght@400;700&family=Libre+Baskerville:wght@400;700&family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&family=Roboto:wght@400;500;700&display=swap"
         rel="stylesheet"
+    >
+    <link
+        rel="icon"
+        href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%232f3f7f'/%3E%3Cpath d='M18 21h12c10 0 16 6 16 16s-6 16-16 16H18V21zm10 24c6 0 10-3 10-8s-4-8-10-8h-2v16h2z' fill='white'/%3E%3C/svg%3E"
     >
     <link rel="stylesheet" href="style.css">
 </head>
@@ -20,13 +24,12 @@
     <div class="page-shell">
         <header class="hero" id="top">
             <nav class="topbar" aria-label="Navigation principale">
-                <a class="brand" href="#top">F. Sidi Amar</a>
+                <a class="brand" href="#top">CV Studio</a>
                 <div class="nav-links">
-                    <a href="#top">Accueil</a>
-                    <a href="#creation">Creation</a>
-                    <a href="#cv-intelligent">CV intelligent</a>
-                    <a href="#possibilites">Possibilites</a>
-                    <a href="#contact">Contact</a>
+                    <a href="#creation">Produit</a>
+                    <a href="#services">Etapes</a>
+                    <a href="#cv-intelligent">Editeur</a>
+                    <a href="#assistant-ia">Assistant IA</a>
                 </div>
                 <div class="auth-actions" id="auth-actions">
                     <button class="button button-secondary auth-button" type="button" id="auth-open-login">Se connecter</button>
@@ -35,464 +38,596 @@
                 </div>
             </nav>
 
-            <div class="hero-content">
-                <p class="eyebrow hero-reveal hero-reveal-delay-1">Creation digitale</p>
-                <h1 class="hero-title hero-reveal-delay-2">
-                    <span class="title-line">Sidi Amar Fatima</span>
-                </h1>
-                <p class="hero-role hero-reveal hero-reveal-delay-3">Creation de sites web et de plateformes digitales modernes</p>
-                <p class="hero-text hero-reveal hero-reveal-delay-4">
-                    Conception d'interfaces elegantes, d'outils intelligents et de solutions digitales personnalisees.
-                </p>
-                <p class="hero-note hero-reveal hero-reveal-delay-5">
-                    Des solutions web elegantes et efficaces.
-                </p>
-                <div class="hero-actions hero-reveal hero-reveal-delay-6">
-                    <a class="button button-primary" href="#contact">Discuter d'un projet</a>
-                    <a class="button button-secondary" href="#cv-intelligent">Ouvrir le CV intelligent</a>
+            <div class="hero-grid">
+                <div class="hero-content">
+                    <p class="eyebrow hero-reveal hero-reveal-delay-1">Plateforme CV moderne</p>
+                    <h1 class="hero-title hero-reveal-delay-2">
+                        <span class="title-line">Creer un CV clair, elegant et pret a envoyer.</span>
+                    </h1>
+                    <p class="hero-role hero-reveal hero-reveal-delay-3">
+                        Import, edition, IA, lettre de motivation et partage dans un seul espace.
+                    </p>
+                    <p class="hero-text hero-reveal hero-reveal-delay-4">
+                        L experience est recentree sur le document : importer un ancien CV, le nettoyer, le tenir sur
+                        une page, l adapter a une offre et l exporter sans friction.
+                    </p>
+                    <div class="hero-actions hero-reveal hero-reveal-delay-5">
+                        <a class="button button-primary" href="#cv-intelligent">Ouvrir l editeur CV</a>
+                        <a class="button button-secondary" href="#services">Voir le parcours guide</a>
+                    </div>
+                    <div class="hero-metrics hero-reveal hero-reveal-delay-6">
+                        <article class="hero-metric">
+                            <strong>.txt .md .pdf .docx</strong>
+                            <span>Import direct de l ancien CV</span>
+                        </article>
+                        <article class="hero-metric">
+                            <strong>Apercu en direct</strong>
+                            <span>Feuille plus visible cote droit</span>
+                        </article>
+                        <article class="hero-metric">
+                            <strong>Analyse ATS</strong>
+                            <span>Score, mots cles et offre d emploi</span>
+                        </article>
+                    </div>
                 </div>
+
+                <aside class="hero-panel hero-reveal hero-reveal-delay-5">
+                    <p class="hero-panel-kicker">Parcours guide</p>
+                    <div class="hero-panel-list">
+                        <article class="hero-panel-item">
+                            <span>01</span>
+                            <div>
+                                <strong>Importer</strong>
+                                <p>Recuperer un brouillon existant sans repartir de zero.</p>
+                            </div>
+                        </article>
+                        <article class="hero-panel-item">
+                            <span>02</span>
+                            <div>
+                                <strong>Modifier</strong>
+                                <p>Structurer le CV et la lettre dans une logique Word moderne.</p>
+                            </div>
+                        </article>
+                        <article class="hero-panel-item">
+                            <span>03</span>
+                            <div>
+                                <strong>Ameliorer avec IA</strong>
+                                <p>ATS, reformulation, adaptation a une offre et ajustement a 1 page.</p>
+                            </div>
+                        </article>
+                        <article class="hero-panel-item">
+                            <span>04</span>
+                            <div>
+                                <strong>Exporter</strong>
+                                <p>PDF, Word et impression sans sortir de l outil.</p>
+                            </div>
+                        </article>
+                        <article class="hero-panel-item">
+                            <span>05</span>
+                            <div>
+                                <strong>Partager</strong>
+                                <p>Version web, lien et email pour diffuser rapidement.</p>
+                            </div>
+                        </article>
+                    </div>
+                </aside>
             </div>
         </header>
 
         <main>
             <section class="section section-profile reveal-section" id="creation">
-                <div class="section-heading">
-                    <p class="section-kicker">Creation digitale</p>
-                    <h2>Des solutions web modernes, claires et pensees sur mesure</h2>
+                <div class="section-heading section-heading-wide">
+                    <p class="section-kicker">Produit</p>
+                    <h2>Une plateforme CV professionnelle, epuree et recentree sur un seul usage</h2>
+                    <p class="section-intro">
+                        Le site ne melange plus identite personnelle, services web et outil CV. Il se concentre sur un
+                        coeur produit clair : CV moderne, lettre synchronisee, analyse ATS et version web.
+                    </p>
                 </div>
-                <div class="profile-panel expandable-card is-open" data-expandable>
-                    <p>
-                        Je concois des sites web et des plateformes digitales modernes, penses pour etre clairs,
-                        efficaces et adaptes a chaque projet.
-                    </p>
-                    <p>
-                        Chaque creation est realisee sur mesure, en fonction des besoins et de l'identite du projet.
-                    </p>
-                    <button class="inline-link expand-trigger" type="button" aria-expanded="true">
-                        Voir le detail
-                    </button>
-                    <div class="expandable-content">
-                        <div class="expandable-inner">
-                            <p>
-                                Je concois des solutions web modernes, elegantes et adaptees a chaque projet. Cela
-                                inclut la creation de sites, plateformes digitales, interfaces et outils intelligents.
-                            </p>
-                        </div>
-                    </div>
+                <div class="product-grid">
+                    <article class="content-card card product-card">
+                        <h3>Document central</h3>
+                        <ul class="feature-list">
+                            <li>Apercu CV en direct avec feuille plus grande et plus lisible.</li>
+                            <li>Onglets CV / Lettre dans le meme environnement de travail.</li>
+                            <li>Reglages visibles sans noyer l utilisateur dans une usine a boutons.</li>
+                        </ul>
+                    </article>
+                    <article class="content-card card product-card">
+                        <h3>Personnalisation utile</h3>
+                        <ul class="feature-list">
+                            <li>Police, taille, interligne, theme, palette, alignement et couleur.</li>
+                            <li>Presets rapides puis reglages fins pour adapter le ton du document.</li>
+                            <li>Auto-organisation et ajustement a une page sans casser la structure.</li>
+                        </ul>
+                    </article>
+                    <article class="content-card card product-card">
+                        <h3>Diffusion rapide</h3>
+                        <ul class="feature-list">
+                            <li>Export PDF, export Word et impression.</li>
+                            <li>Version web, partage de lien et envoi par mail.</li>
+                            <li>Positionnement pret pour un portfolio numerique plus tard.</li>
+                        </ul>
+                    </article>
                 </div>
             </section>
 
             <section class="section section-cards reveal-section" id="services">
-                <div class="cards-grid">
-                    <article class="content-card card interactive-card expandable-card" data-expandable>
-                        <h3>Sites web</h3>
-                        <p>Creation de sites modernes, clairs et adaptes a chaque activite.</p>
-                        <button class="inline-link expand-trigger" type="button" aria-expanded="false">Ouvrir</button>
-                        <div class="expandable-content">
-                            <div class="expandable-inner">
-                                <p>
-                                    Creation de sites web modernes, clairs et professionnels, adaptes aux besoins et
-                                    a l'identite du projet.
-                                </p>
-                            </div>
-                        </div>
+                <div class="section-heading section-heading-wide">
+                    <p class="section-kicker">Etapes</p>
+                    <h2>Importer, modifier, renforcer avec l IA, puis exporter proprement</h2>
+                    <p class="section-intro">
+                        Chaque bloc de l interface suit un moment precis du parcours. Le produit reste lisible meme
+                        quand il couvre le CV, la lettre, l ATS et la version web.
+                    </p>
+                </div>
+                <div class="cards-grid workflow-grid">
+                    <article class="content-card card workflow-card">
+                        <span class="workflow-step">01</span>
+                        <h3>Importer</h3>
+                        <ul class="feature-list">
+                            <li>Import ancien CV : `.txt`, `.md`, `.pdf`, `.docx`.</li>
+                            <li>Demarrage rapide avec presets de contenu.</li>
+                            <li>Sauvegarde locale du brouillon.</li>
+                        </ul>
                     </article>
-                    <article class="content-card card interactive-card expandable-card" data-expandable>
-                        <h3>Plateformes digitales</h3>
-                        <p>Conception d'interfaces et d'outils pour structurer un projet ou un service.</p>
-                        <button class="inline-link expand-trigger" type="button" aria-expanded="false">Ouvrir</button>
-                        <div class="expandable-content">
-                            <div class="expandable-inner">
-                                <p>
-                                    Conception de plateformes interactives avec organisation des contenus, logique
-                                    utilisateur et outils digitaux personnalises.
-                                </p>
-                            </div>
-                        </div>
+                    <article class="content-card card workflow-card">
+                        <span class="workflow-step">02</span>
+                        <h3>Modifier</h3>
+                        <ul class="feature-list">
+                            <li>Coordonnees, profil, experiences, projets, langues et activites.</li>
+                            <li>Apercu CV en direct pour corriger sans changer d ecran.</li>
+                            <li>Edition directe possible dans la feuille.</li>
+                        </ul>
                     </article>
-                    <article class="content-card card interactive-card expandable-card" data-expandable>
-                        <h3>Solutions personnalisees</h3>
-                        <p>Creations digitales sur mesure selon les besoins et l'identite du projet.</p>
-                        <button class="inline-link expand-trigger" type="button" aria-expanded="false">Ouvrir</button>
-                        <div class="expandable-content">
-                            <div class="expandable-inner">
-                                <p>
-                                    Chaque projet est concu sur mesure. L'objectif est de creer une solution digitale
-                                    unique et adaptee.
-                                </p>
-                            </div>
-                        </div>
+                    <article class="content-card card workflow-card">
+                        <span class="workflow-step">03</span>
+                        <h3>Ameliorer avec IA</h3>
+                        <ul class="feature-list">
+                            <li>Analyse ATS, score, mots cles et suggestions.</li>
+                            <li>Coller une offre d emploi pour adapter le CV.</li>
+                            <li>Auto-organiser, reformuler et ajuster a 1 page.</li>
+                        </ul>
                     </article>
-                    <article class="content-card card interactive-card expandable-card" data-expandable>
-                        <h3>CV intelligent</h3>
-                        <p>Creation de documents, automatisation, export et optimisation professionnelle.</p>
-                        <button class="inline-link expand-trigger" type="button" aria-expanded="false">Ouvrir</button>
-                        <div class="expandable-content">
-                            <div class="expandable-inner">
-                                <p>
-                                    Conception d'outils intelligents pour creer automatiquement des CV et lettres de
-                                    motivation, avec mise en page moderne, personnalisation, export PDF/Word et logique
-                                    d'optimisation ATS.
-                                </p>
-                            </div>
-                        </div>
+                    <article class="content-card card workflow-card">
+                        <span class="workflow-step">04</span>
+                        <h3>Exporter</h3>
+                        <ul class="feature-list">
+                            <li>Exporter en PDF et Word.</li>
+                            <li>Imprimer le document final.</li>
+                            <li>Conserver une mise en page propre et stable.</li>
+                        </ul>
+                    </article>
+                    <article class="content-card card workflow-card">
+                        <span class="workflow-step">05</span>
+                        <h3>Partager</h3>
+                        <ul class="feature-list">
+                            <li>Version web du CV.</li>
+                            <li>Partager un lien ou preparer un mail.</li>
+                            <li>Base logique pour un portfolio numerique plus tard.</li>
+                        </ul>
                     </article>
                 </div>
             </section>
 
             <section class="section section-cv reveal-section" id="cv-intelligent">
-                <div class="section-heading">
-                    <p class="section-kicker">CV intelligent</p>
-                    <h2>Generer un CV moderne, organise et personnalisable</h2>
+                <div class="section-heading section-heading-wide">
+                    <p class="section-kicker">Editeur guide</p>
+                    <h2>CV, lettre et apercu en direct dans le meme poste de travail</h2>
+                    <p class="section-intro">
+                        La colonne gauche garde la saisie, les styles et l analyse. La colonne droite agrandit la
+                        feuille pour verifier la mise en page avant export.
+                    </p>
                 </div>
                 <div class="cv-layout" id="cv-layout">
                     <div class="cv-editor-panel" id="cv-editor-panel">
-                    <form class="cv-form" id="cv-form">
-                        <div class="cv-quick-presets">
-                            <div class="section-heading section-heading-compact">
-                                <p class="section-kicker">Demarrage rapide</p>
-                                <h3>Pre-remplir et styliser en un clic</h3>
-                            </div>
-                            <div class="preset-actions">
-                                <button class="preset-chip" type="button" data-preset="client">Relation client</button>
-                                <button class="preset-chip" type="button" data-preset="banking">Bancaire</button>
-                                <button class="preset-chip" type="button" data-preset="transport">Transport</button>
-                                <button class="preset-chip" type="button" data-preset="admin">Administratif</button>
-                                <button class="preset-chip" type="button" data-preset="luxury">Style luxe</button>
-                                <button class="preset-chip" type="button" data-preset="ats">Mode ATS</button>
+                        <div class="editor-overview">
+                            <span class="editor-overview-label">Flux guide</span>
+                            <div class="editor-overview-steps">
+                                <span>1. Importer</span>
+                                <span>2. Modifier</span>
+                                <span>3. Personnaliser</span>
+                                <span>4. IA</span>
+                                <span>5. Exporter</span>
                             </div>
                         </div>
+                        <form class="cv-form" id="cv-form">
+                            <section class="editor-stage">
+                                <div class="editor-stage-header">
+                                    <p class="editor-stage-kicker">Etape 1</p>
+                                    <div>
+                                        <h3>Importer et preparer la base</h3>
+                                        <p>Demarrez avec un preset, importez un ancien CV puis sauvegardez votre brouillon localement.</p>
+                                    </div>
+                                </div>
 
-                        <div class="form-split">
-                            <label class="field">
-                                <span>Nom</span>
-                                <input type="text" name="fullName" placeholder="Votre nom complet" value="Votre nom">
-                            </label>
-                            <label class="field">
-                                <span>Titre du metier</span>
-                                <input
-                                    type="text"
-                                    name="headline"
-                                    placeholder="Ex. Conductrice de transport en commun - Permis D"
-                                    value="Intitule du poste vise"
-                                >
-                            </label>
-                        </div>
+                                <div class="cv-quick-presets">
+                                    <div class="section-heading section-heading-compact">
+                                        <p class="section-kicker">Demarrage rapide</p>
+                                        <h3>Pre-remplir et styliser en un clic</h3>
+                                    </div>
+                                    <div class="preset-actions">
+                                        <button class="preset-chip" type="button" data-preset="client">Relation client</button>
+                                        <button class="preset-chip" type="button" data-preset="banking">Bancaire</button>
+                                        <button class="preset-chip" type="button" data-preset="transport">Transport</button>
+                                        <button class="preset-chip" type="button" data-preset="admin">Administratif</button>
+                                        <button class="preset-chip" type="button" data-preset="luxury">Signature premium</button>
+                                        <button class="preset-chip" type="button" data-preset="ats">Mode ATS</button>
+                                    </div>
+                                </div>
 
-                        <div class="form-split">
-                            <label class="field">
-                                <span>Ville / code postal</span>
-                                <input type="text" name="location" placeholder="Ex. Paris (75000)" value="Ville / code postal">
-                            </label>
-                            <label class="field">
-                                <span>Telephone</span>
-                                <input type="text" name="phone" placeholder="Votre numero" value="06 00 00 00 00">
-                            </label>
-                        </div>
+                                <label class="field">
+                                    <span>Importer mon ancien CV</span>
+                                    <input type="file" id="cv-import" accept=".txt,.md,.text,.pdf,.doc,.docx">
+                                    <small class="field-hint">
+                                        Import direct pour `.txt`, `.md`, `.pdf` et `.docx`. Le format `.doc` ancien reste a
+                                        convertir en `.docx`.
+                                    </small>
+                                </label>
 
-                        <div class="form-split">
-                            <label class="field">
-                                <span>Email</span>
-                                <input type="email" name="email" placeholder="Votre email" value="email@exemple.com">
-                            </label>
-                            <label class="field">
-                                <span>Permis</span>
-                                <input type="text" name="permit" placeholder="Ex. Permis B" value="Permis B">
-                            </label>
-                        </div>
+                                <div class="cv-stage-actions">
+                                    <button class="button button-secondary" type="button" id="cv-save">Sauvegarder</button>
+                                </div>
+                            </section>
 
-                        <label class="field field-message">
-                            <span>Profil / accroche</span>
-                            <textarea
-                                name="summary"
-                                rows="4"
-                                placeholder="Optionnel"
-                            >Profil clair, organise et oriente resultat, avec une presentation adaptee au poste vise.</textarea>
-                        </label>
+                            <section class="editor-stage">
+                                <div class="editor-stage-header">
+                                    <p class="editor-stage-kicker">Etape 2</p>
+                                    <div>
+                                        <h3>Modifier le contenu du CV</h3>
+                                        <p>Renseignez les blocs essentiels puis corrigez si besoin directement dans la feuille a droite.</p>
+                                    </div>
+                                </div>
 
-                        <label class="field field-message">
-                            <span>Experiences</span>
-                            <textarea
-                                name="experience"
-                                rows="5"
-                                placeholder="Une experience par ligne"
-                            >Entreprise - Poste - Ville - 2024
+                                <div class="form-split">
+                                    <label class="field">
+                                        <span>Nom</span>
+                                        <input type="text" name="fullName" placeholder="Votre nom complet" value="Votre nom">
+                                    </label>
+                                    <label class="field">
+                                        <span>Titre du metier</span>
+                                        <input
+                                            type="text"
+                                            name="headline"
+                                            placeholder="Ex. Conductrice de transport en commun - Permis D"
+                                            value="Intitule du poste vise"
+                                        >
+                                    </label>
+                                </div>
+
+                                <div class="form-split">
+                                    <label class="field">
+                                        <span>Ville / code postal</span>
+                                        <input type="text" name="location" placeholder="Ex. Paris (75000)" value="Ville / code postal">
+                                    </label>
+                                    <label class="field">
+                                        <span>Telephone</span>
+                                        <input type="text" name="phone" placeholder="Votre numero" value="06 00 00 00 00">
+                                    </label>
+                                </div>
+
+                                <div class="form-split">
+                                    <label class="field">
+                                        <span>Email</span>
+                                        <input type="email" name="email" placeholder="Votre email" value="email@exemple.com">
+                                    </label>
+                                    <label class="field">
+                                        <span>Permis</span>
+                                        <input type="text" name="permit" placeholder="Ex. Permis B" value="Permis B">
+                                    </label>
+                                </div>
+
+                                <label class="field field-message">
+                                    <span>Profil / accroche</span>
+                                    <textarea
+                                        name="summary"
+                                        rows="4"
+                                        placeholder="Optionnel"
+                                    >Profil clair, organise et oriente resultat, avec une presentation adaptee au poste vise.</textarea>
+                                </label>
+
+                                <label class="field field-message">
+                                    <span>Experiences</span>
+                                    <textarea
+                                        name="experience"
+                                        rows="5"
+                                        placeholder="Une experience par ligne"
+                                    >Entreprise - Poste - Ville - 2024
 Mission principale ou resultat cle
 Responsabilite complementaire</textarea>
-                        </label>
+                                </label>
 
-                        <div class="form-split">
-                            <label class="field">
-                                <span>Type de projet</span>
-                                <input type="text" name="projectType" placeholder="Ex. Projet personnel" value="Prototype produit">
-                            </label>
-                            <label class="field field-message">
-                                <span>Projets</span>
-                                <textarea
-                                    name="projects"
-                                    rows="4"
-                                    placeholder="Un projet par ligne"
-                                >Projet principal - 2024 • Resultat, impact ou realisation</textarea>
-                            </label>
-                        </div>
+                                <div class="form-split">
+                                    <label class="field">
+                                        <span>Type de projet</span>
+                                        <input type="text" name="projectType" placeholder="Ex. Projet personnel" value="Prototype produit">
+                                    </label>
+                                    <label class="field field-message">
+                                        <span>Projets</span>
+                                        <textarea
+                                            name="projects"
+                                            rows="4"
+                                            placeholder="Un projet par ligne"
+                                        >Projet principal - 2024 • Resultat, impact ou realisation</textarea>
+                                    </label>
+                                </div>
 
-                        <div class="form-split">
-                            <label class="field field-message">
-                                <span>Competences</span>
-                                <textarea
-                                    name="skills"
-                                    rows="5"
-                                    placeholder="Un point fort par ligne"
-                                >Gestion de projet
+                                <div class="form-split">
+                                    <label class="field field-message">
+                                        <span>Competences</span>
+                                        <textarea
+                                            name="skills"
+                                            rows="5"
+                                            placeholder="Un point fort par ligne"
+                                        >Gestion de projet
 Communication
 Organisation
 Analyse
 Suite bureautique</textarea>
-                            </label>
-                            <label class="field field-message">
-                                <span>Formations</span>
-                                <textarea
-                                    name="education"
-                                    rows="5"
-                                    placeholder="Une formation par ligne"
-                                >Diplome ou formation - Etablissement - Annee</textarea>
-                            </label>
-                        </div>
-                        <label class="field field-message">
-                            <span>Langues</span>
-                            <textarea
-                                name="languages"
-                                rows="3"
-                                placeholder="Une langue par ligne"
-                            >Francais
+                                    </label>
+                                    <label class="field field-message">
+                                        <span>Formations</span>
+                                        <textarea
+                                            name="education"
+                                            rows="5"
+                                            placeholder="Une formation par ligne"
+                                        >Diplome ou formation - Etablissement - Annee</textarea>
+                                    </label>
+                                </div>
+
+                                <label class="field field-message">
+                                    <span>Langues</span>
+                                    <textarea
+                                        name="languages"
+                                        rows="3"
+                                        placeholder="Une langue par ligne"
+                                    >Francais
 Anglais</textarea>
-                        </label>
-                        <label class="field field-message">
-                            <span>Activites / centres d'interet</span>
-                            <textarea
-                                name="activities"
-                                rows="3"
-                                placeholder="Une activite par ligne"
-                            >Lecture
+                                </label>
+
+                                <label class="field field-message">
+                                    <span>Activites / centres d'interet</span>
+                                    <textarea
+                                        name="activities"
+                                        rows="3"
+                                        placeholder="Une activite par ligne"
+                                    >Lecture
 Veille professionnelle
 Sport</textarea>
-                        </label>
+                                </label>
+                            </section>
 
-                        <div class="form-split">
-                            <label class="field">
-                                <span>Type de CV</span>
-                                <select name="cvMode">
-                                    <option value="classic">CV classique</option>
-                                    <option value="design">CV design</option>
-                                    <option value="ats">CV ATS</option>
-                                    <option value="web">CV web interactif</option>
-                                </select>
-                            </label>
-                            <label class="field">
-                                <span>Poste vise</span>
-                                <select name="jobTarget">
-                                    <option value="developpeur web">Developpeur web</option>
-                                    <option value="marketing">Marketing</option>
-                                    <option value="relation client">Relation client</option>
-                                </select>
-                            </label>
-                        </div>
-
-                        <div class="form-split">
-                            <label class="field">
-                                <span>Police</span>
-                                <select name="fontTheme">
-                                    <option value="inter">Inter</option>
-                                    <option value="manrope">Manrope</option>
-                                    <option value="roboto">Roboto</option>
-                                    <option value="lato">Lato</option>
-                                    <option value="serif">Libre Baskerville</option>
-                                    <option value="playfair">Playfair Display</option>
-                                    <option value="mono">IBM Plex Sans</option>
-                                </select>
-                            </label>
-                            <label class="field">
-                                <span>Template</span>
-                                <select name="layoutTheme">
-                                    <option value="wordpro">Word Pro</option>
-                                    <option value="classic">Classique</option>
-                                    <option value="modern">Moderne</option>
-                                    <option value="executive">Executive</option>
-                                    <option value="minimal">Minimal</option>
-                                </select>
-                            </label>
-                        </div>
-                        <div class="design-panel">
-                            <div class="section-heading section-heading-compact">
-                                <p class="section-kicker">Conception</p>
-                                <h3>Themes, couleurs et mise en page</h3>
-                            </div>
-                        <div class="template-presets" aria-label="Mises en forme pretes a l emploi">
-                            <button class="template-chip" type="button" data-template-preset="classic">
-                                <strong>Simple</strong>
-                                <span>Sobre, lisible, une page</span>
-                            </button>
-                            <button class="template-chip" type="button" data-template-preset="professional">
-                                <strong>Professionnel</strong>
-                                <span>Dates claires, structure nette</span>
-                            </button>
-                            <button class="template-chip" type="button" data-template-preset="design">
-                                <strong>Design</strong>
-                                <span>Accent visuel, sections plus edito</span>
-                            </button>
-                            <button class="template-chip" type="button" data-template-preset="luxury">
-                                <strong>Luxe</strong>
-                                <span>Cadre premium, tons elegants</span>
-                            </button>
-                        </div>
-                        </div>
-
-                        <div class="cv-toolbar">
-                            <label class="field">
-                                <span>Taille</span>
-                                <select name="fontSize">
-                                    <option value="normal">Normale</option>
-                                    <option value="large">Grande</option>
-                                    <option value="compact">Compacte</option>
-                                </select>
-                            </label>
-                            <label class="field">
-                                <span>Palette</span>
-                                <select name="colorTheme">
-                                    <option value="indigo">Indigo moderne</option>
-                                    <option value="emerald">Emerald minimal</option>
-                                    <option value="rose">Rose editorial</option>
-                                    <option value="graphite">Graphite premium</option>
-                                </select>
-                            </label>
-                            <label class="field">
-                                <span>Conception</span>
-                                <select name="designMood">
-                                    <option value="clean">Clean</option>
-                                    <option value="editorial">Editorial</option>
-                                    <option value="startup">Startup</option>
-                                    <option value="luxury">Luxury</option>
-                                </select>
-                            </label>
-                            <label class="field">
-                                <span>Alignement</span>
-                                <select name="textAlign">
-                                    <option value="left">Gauche</option>
-                                    <option value="center">Centre</option>
-                                    <option value="right">Droite</option>
-                                </select>
-                            </label>
-                            <label class="field">
-                                <span>Espacement</span>
-                                <select name="lineSpacing">
-                                    <option value="normal">Normal</option>
-                                    <option value="airy">Aere</option>
-                                    <option value="tight">Serre</option>
-                                </select>
-                            </label>
-                            <label class="field field-color">
-                                <span>Couleur</span>
-                                <input type="color" name="accentColor" value="#2f3f7f">
-                            </label>
-                            <label class="tool-toggle">
-                                <input type="checkbox" name="isBold">
-                                <span>B</span>
-                            </label>
-                            <label class="tool-toggle">
-                                <input type="checkbox" name="isItalic">
-                                <span>I</span>
-                            </label>
-                            <label class="tool-toggle">
-                                <input type="checkbox" name="isUnderline">
-                                <span>U</span>
-                            </label>
-                        </div>
-                        <p class="field-hint field-hint-toolbar">
-                            Outils essentiels pour cadrer rapidement un CV propre, lisible et personnalisable sans
-                            complexite inutile.
-                        </p>
-                        <input type="hidden" name="headlineScale" value="normal">
-
-                        <label class="field">
-                            <span>Importer mon ancien CV</span>
-                            <input type="file" id="cv-import" accept=".txt,.md,.text,.pdf,.doc,.docx">
-                            <small class="field-hint">
-                                Import direct pour `.txt`, `.md`, `.pdf` et `.docx`. Le format `.doc` ancien reste a
-                                convertir en `.docx`.
-                            </small>
-                        </label>
-
-                        <div class="cv-action-groups">
-                            <div class="cv-action-group cv-action-group-single">
-                                <h4>Sauvegarde</h4>
-                                <div class="cv-actions">
-                                    <button class="button button-secondary" type="button" id="cv-save">Sauvegarder</button>
+                            <section class="editor-stage">
+                                <div class="editor-stage-header">
+                                    <p class="editor-stage-kicker">Etape 3</p>
+                                    <div>
+                                        <h3>Personnaliser le rendu</h3>
+                                        <p>Choisissez le ton du document puis affinez les reglages sans doublons inutiles.</p>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="cv-action-group">
-                                <h4>Edition</h4>
-                                <div class="cv-actions">
+
+                                <div class="form-split">
+                                    <label class="field">
+                                        <span>Type de CV</span>
+                                        <select name="cvMode">
+                                            <option value="classic">CV classique</option>
+                                            <option value="design">CV design</option>
+                                            <option value="ats">CV ATS</option>
+                                            <option value="web">CV web interactif</option>
+                                        </select>
+                                    </label>
+                                    <label class="field">
+                                        <span>Poste vise</span>
+                                        <select name="jobTarget">
+                                            <option value="developpeur web">Developpeur web</option>
+                                            <option value="marketing">Marketing</option>
+                                            <option value="relation client">Relation client</option>
+                                        </select>
+                                    </label>
+                                </div>
+
+                                <div class="form-split">
+                                    <label class="field">
+                                        <span>Police</span>
+                                        <select name="fontTheme">
+                                            <option value="inter">Inter</option>
+                                            <option value="manrope">Manrope</option>
+                                            <option value="roboto">Roboto</option>
+                                            <option value="lato">Lato</option>
+                                            <option value="serif">Libre Baskerville</option>
+                                            <option value="playfair">Playfair Display</option>
+                                            <option value="mono">IBM Plex Sans</option>
+                                        </select>
+                                    </label>
+                                    <label class="field">
+                                        <span>Template</span>
+                                        <select name="layoutTheme">
+                                            <option value="wordpro">Word Pro</option>
+                                            <option value="classic">Classique</option>
+                                            <option value="modern">Moderne</option>
+                                            <option value="executive">Executive</option>
+                                            <option value="minimal">Minimal</option>
+                                        </select>
+                                    </label>
+                                </div>
+
+                                <div class="design-panel">
+                                    <div class="section-heading section-heading-compact">
+                                        <p class="section-kicker">Styles rapides</p>
+                                        <h3>Themes, palette et mise en page</h3>
+                                    </div>
+                                    <div class="template-presets" aria-label="Mises en forme pretes a l emploi">
+                                        <button class="template-chip" type="button" data-template-preset="classic">
+                                            <strong>Simple</strong>
+                                            <span>Sobre, lisible, une page</span>
+                                        </button>
+                                        <button class="template-chip" type="button" data-template-preset="professional">
+                                            <strong>Professionnel</strong>
+                                            <span>Dates claires, structure nette</span>
+                                        </button>
+                                        <button class="template-chip" type="button" data-template-preset="design">
+                                            <strong>Editorial</strong>
+                                            <span>Accent visuel, sections plus magazine</span>
+                                        </button>
+                                        <button class="template-chip" type="button" data-template-preset="luxury">
+                                            <strong>Signature</strong>
+                                            <span>Graphite, indigo profond et touche champagne</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="cv-toolbar">
+                                    <label class="field">
+                                        <span>Taille</span>
+                                        <select name="fontSize">
+                                            <option value="normal">Normale</option>
+                                            <option value="large">Grande</option>
+                                            <option value="compact">Compacte</option>
+                                        </select>
+                                    </label>
+                                    <label class="field">
+                                        <span>Palette</span>
+                                        <select name="colorTheme">
+                                            <option value="indigo">Indigo moderne</option>
+                                            <option value="emerald">Emerald minimal</option>
+                                            <option value="rose">Rose editorial</option>
+                                            <option value="graphite">Graphite premium</option>
+                                        </select>
+                                    </label>
+                                    <label class="field">
+                                        <span>Conception</span>
+                                        <select name="designMood">
+                                            <option value="clean">Clean</option>
+                                            <option value="editorial">Editorial</option>
+                                            <option value="startup">Startup</option>
+                                            <option value="luxury">Luxury</option>
+                                        </select>
+                                    </label>
+                                    <label class="field">
+                                        <span>Alignement</span>
+                                        <select name="textAlign">
+                                            <option value="left">Gauche</option>
+                                            <option value="center">Centre</option>
+                                            <option value="right">Droite</option>
+                                        </select>
+                                    </label>
+                                    <label class="field">
+                                        <span>Espacement</span>
+                                        <select name="lineSpacing">
+                                            <option value="normal">Normal</option>
+                                            <option value="airy">Aere</option>
+                                            <option value="tight">Serre</option>
+                                        </select>
+                                    </label>
+                                    <label class="field field-color">
+                                        <span>Couleur</span>
+                                        <input type="color" name="accentColor" value="#2f3f7f">
+                                    </label>
+                                    <label class="tool-toggle">
+                                        <input type="checkbox" name="isBold">
+                                        <span>B</span>
+                                    </label>
+                                    <label class="tool-toggle">
+                                        <input type="checkbox" name="isItalic">
+                                        <span>I</span>
+                                    </label>
+                                    <label class="tool-toggle">
+                                        <input type="checkbox" name="isUnderline">
+                                        <span>U</span>
+                                    </label>
+                                </div>
+
+                                <p class="field-hint field-hint-toolbar">
+                                    Outils essentiels pour cadrer rapidement un CV propre, lisible et personnalisable sans
+                                    complexite inutile.
+                                </p>
+                                <input type="hidden" name="headlineScale" value="normal">
+                            </section>
+
+                            <section class="editor-stage">
+                                <div class="editor-stage-header">
+                                    <p class="editor-stage-kicker">Etape 4</p>
+                                    <div>
+                                        <h3>Ameliorer avec l IA</h3>
+                                        <p>Utilisez l automatisation pour nettoyer, renforcer le texte et verifier la compatibilite ATS.</p>
+                                    </div>
+                                </div>
+
+                                <div class="cv-stage-actions">
                                     <button class="button button-secondary" type="button" id="cv-autofill">Auto-organiser</button>
                                     <button class="button button-secondary" type="button" id="cv-improve">Ameliorer mon CV</button>
                                     <button class="button button-secondary" type="button" id="cv-fit-page">Ajuster a 1 page</button>
                                     <button class="button button-secondary" type="button" id="cv-ai-improve">Assistant IA</button>
                                 </div>
-                            </div>
-                            <div class="cv-action-group">
-                                <h4>Export</h4>
-                                <div class="cv-actions">
-                                    <button class="button button-primary" type="button" id="cv-export-pdf">Exporter PDF</button>
-                                    <button class="button button-secondary" type="button" id="cv-export-word">Exporter Word</button>
-                                    <button class="button button-secondary" type="button" id="cv-print">Imprimer</button>
+
+                                <div class="cv-analysis-panel cv-ai-panel">
+                                    <div class="analysis-block analysis-block-header">
+                                        <h4>Assistant IA CV</h4>
+                                        <p class="field-hint">Analyse ATS, suggestions et adaptation a une offre. Cette zone n'entre jamais dans la page du CV.</p>
+                                    </div>
+                                    <div class="ats-score">
+                                        <span>Score ATS</span>
+                                        <strong id="ats-score-value">82%</strong>
+                                    </div>
+                                    <div class="analysis-block">
+                                        <h4>Compatibilite offre</h4>
+                                        <div class="job-match">
+                                            <strong id="job-match-value">--</strong>
+                                            <button class="button button-secondary" type="button" id="cv-analyze">Analyser mon CV</button>
+                                        </div>
+                                    </div>
+                                    <div class="analysis-block">
+                                        <h4>Analyse de votre CV</h4>
+                                        <ul id="cv-analysis-list"></ul>
+                                    </div>
+                                    <div class="analysis-block">
+                                        <h4>Suggestions</h4>
+                                        <ul id="cv-suggestions-list"></ul>
+                                    </div>
+                                    <label class="field field-message">
+                                        <span>Offre d'emploi</span>
+                                        <textarea
+                                            id="job-offer"
+                                            name="jobOffer"
+                                            rows="5"
+                                            placeholder="Coller l'offre d'emploi ici pour adapter le CV."
+                                        ></textarea>
+                                    </label>
+                                    <div class="cv-actions">
+                                        <button class="button button-secondary" type="button" id="cv-match-job">Adapter mon CV a une offre</button>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="cv-action-group">
-                                <h4>Partage</h4>
-                                <div class="cv-actions">
-                                    <button class="button button-secondary" type="button" id="cv-export-web">Version web</button>
-                                    <button class="button button-secondary" type="button" id="cv-share">Partager lien</button>
-                                    <button class="button button-secondary" type="button" id="cv-email">Envoyer par mail</button>
+                            </section>
+
+                            <section class="editor-stage">
+                                <div class="editor-stage-header">
+                                    <p class="editor-stage-kicker">Etape 5</p>
+                                    <div>
+                                        <h3>Exporter et partager</h3>
+                                        <p>Finalisez le document pour l impression, le Word, le PDF et la diffusion en ligne.</p>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                        <div class="cv-analysis-panel cv-ai-panel">
-                            <div class="analysis-block analysis-block-header">
-                                <h4>Assistant IA CV</h4>
-                                <p class="field-hint">Analyse ATS, suggestions et adaptation a une offre. Cette zone n'entre jamais dans la page du CV.</p>
-                            </div>
-                            <div class="ats-score">
-                                <span>Score ATS</span>
-                                <strong id="ats-score-value">82%</strong>
-                            </div>
-                            <div class="analysis-block">
-                                <h4>Compatibilite offre</h4>
-                                <div class="job-match">
-                                    <strong id="job-match-value">--</strong>
-                                    <button class="button button-secondary" type="button" id="cv-analyze">Analyser mon CV</button>
+
+                                <div class="editor-stage-grid">
+                                    <div class="cv-action-group">
+                                        <h4>Export</h4>
+                                        <div class="cv-actions">
+                                            <button class="button button-primary" type="button" id="cv-export-pdf">Exporter PDF</button>
+                                            <button class="button button-secondary" type="button" id="cv-export-word">Exporter Word</button>
+                                            <button class="button button-secondary" type="button" id="cv-print">Imprimer</button>
+                                        </div>
+                                    </div>
+                                    <div class="cv-action-group">
+                                        <h4>Partage</h4>
+                                        <div class="cv-actions">
+                                            <button class="button button-secondary" type="button" id="cv-export-web">Version web</button>
+                                            <button class="button button-secondary" type="button" id="cv-share">Partager lien</button>
+                                            <button class="button button-secondary" type="button" id="cv-email">Envoyer par mail</button>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="analysis-block">
-                                <h4>Analyse de votre CV</h4>
-                                <ul id="cv-analysis-list"></ul>
-                            </div>
-                            <div class="analysis-block">
-                                <h4>Suggestions</h4>
-                                <ul id="cv-suggestions-list"></ul>
-                            </div>
-                            <label class="field field-message">
-                                <span>Offre d'emploi</span>
-                                <textarea
-                                    id="job-offer"
-                                    name="jobOffer"
-                                    rows="5"
-                                    placeholder="Coller l'offre d'emploi ici pour adapter le CV."
-                                ></textarea>
-                            </label>
-                            <div class="cv-actions">
-                                <button class="button button-secondary" type="button" id="cv-match-job">Adapter mon CV a une offre</button>
-                            </div>
-                        </div>
-                    </form>
+                            </section>
+                        </form>
                     </div>
 
                     <button
@@ -541,7 +676,7 @@ Sport</textarea>
                                     <button class="preview-mode-tab is-active" type="button" id="preview-mode-cv" data-preview-mode="cv" aria-selected="true">CV</button>
                                     <button class="preview-mode-tab" type="button" id="preview-mode-letter" data-preview-mode="letter" aria-selected="false">Lettre</button>
                                 </div>
-                                <span class="preview-status" id="cv-status">CV synchronise</span>
+                                <span class="preview-status" id="cv-status">Apercu synchronise</span>
                             </div>
                         </div>
                         <div class="cv-word-toolbar-shell" id="cv-word-toolbar-shell">
@@ -597,7 +732,7 @@ Sport</textarea>
                                 <article class="cv-preview theme-executive font-manrope template-wordpro" id="cv-preview" data-preview-doc="cv">
                                     <div class="cv-page-guide" aria-hidden="true"></div>
                                     <header class="cv-header">
-                                        <p class="cv-label">CV intelligent</p>
+                                        <p class="cv-label">CV moderne</p>
                                         <h3 id="preview-name" data-edit-target="fullName" contenteditable="true" spellcheck="false">Votre nom</h3>
                                         <p class="cv-meta" id="preview-meta" data-edit-target="location" contenteditable="true" spellcheck="false">Ville / code postal | 06 00 00 00 00 | email@exemple.com</p>
                                         <p id="preview-headline" data-edit-target="headline" contenteditable="true" spellcheck="false">Intitule du poste vise</p>
@@ -693,8 +828,9 @@ Sport</textarea>
                                         <div class="letter-body" id="letter-body-page">
                                             Madame, Monsieur,
 
-                                            Je souhaite vous proposer ma candidature pour un poste en lien avec la creation
-                                            digitale, les interfaces web et l'experience utilisateur.
+                                            Je souhaite vous proposer ma candidature pour un poste en lien avec mes
+                                            competences, mon sens de l organisation et ma capacite a produire un
+                                            document clair et professionnel.
                                         </div>
                                     </div>
                                 </article>
@@ -737,8 +873,9 @@ Sport</textarea>
                                 <div class="letter-body" id="letter-body">
                                     Madame, Monsieur,
 
-                                    Je souhaite vous proposer ma candidature pour un poste en lien avec la creation
-                                    digitale, les interfaces web et l'experience utilisateur.
+                                    Je souhaite vous proposer ma candidature pour un poste en lien avec mes
+                                    competences, mon sens de l organisation et ma capacite a produire un document
+                                    clair et professionnel.
                                 </div>
                             </article>
                         </div>
@@ -747,152 +884,83 @@ Sport</textarea>
             </section>
 
             <section class="section reveal-section" id="possibilites">
-                <div class="section-heading">
-                    <p class="section-kicker">Possibilites</p>
-                    <h2>Des solutions ouvertes a plusieurs types de projets</h2>
+                <div class="section-heading section-heading-wide">
+                    <p class="section-kicker">Documents synchronises</p>
+                    <h2>Le meme contenu peut vivre en CV, lettre et version web</h2>
+                    <p class="section-intro">
+                        Le produit est recentre sur le CV aujourd hui, tout en gardant une extension logique vers un
+                        portfolio numerique plus tard.
+                    </p>
                 </div>
                 <div class="demo-grid">
-                    <article class="demo-card card interactive-card expandable-card" data-expandable>
-                        <span class="demo-label">Interfaces</span>
-                        <p>Des interfaces visuelles claires, professionnelles et contemporaines.</p>
-                        <button class="inline-link expand-trigger" type="button" aria-expanded="false">Ouvrir</button>
-                        <div class="expandable-content">
-                            <div class="expandable-inner">
-                                <p>
-                                    Creation d'interfaces modernes et elegantes avec une attention particuliere a
-                                    l'experience utilisateur et a la clarte visuelle.
-                                </p>
-                            </div>
-                        </div>
+                    <article class="demo-card card">
+                        <span class="demo-label">CV</span>
+                        <p>Le document principal reste la priorite : structure nette, lecture rapide et export propre.</p>
                     </article>
-                    <article class="demo-card card interactive-card expandable-card" data-expandable>
-                        <span class="demo-label">CV intelligent</span>
-                        <p>Un outil de creation de CV avec apercu en temps reel, styles et export PDF.</p>
-                        <button class="inline-link expand-trigger" type="button" aria-expanded="false">Ouvrir</button>
-                        <div class="expandable-content">
-                            <div class="expandable-inner">
-                                <p>
-                                    Outil intelligent permettant de creer automatiquement des CV personnalises, lettres
-                                    de motivation, mise en page moderne, export PDF, export Word, optimisation ATS et
-                                    automatisation de contenu.
-                                </p>
-                            </div>
-                        </div>
+                    <article class="demo-card card">
+                        <span class="demo-label">Lettre</span>
+                        <p>La lettre de motivation reprend le meme contexte de candidature sans casser le parcours.</p>
                     </article>
-                    <article class="demo-card card interactive-card expandable-card" data-expandable>
-                        <span class="demo-label">Automatisation</span>
-                        <p>Des logiques d'organisation, de remplissage et de structuration pour gagner du temps.</p>
-                        <button class="inline-link expand-trigger" type="button" aria-expanded="false">Ouvrir</button>
-                        <div class="expandable-content">
-                            <div class="expandable-inner">
-                                <p>
-                                    Organisation automatique des sections, ajustement de la mise en page, optimisation
-                                    ATS et generation de contenu plus rapide.
-                                </p>
-                            </div>
-                        </div>
+                    <article class="demo-card card">
+                        <span class="demo-label">ATS</span>
+                        <p>Le score, les suggestions et les mots cles restent hors de la feuille pour ne pas polluer le document.</p>
                     </article>
-                    <article class="demo-card card interactive-card expandable-card" data-expandable>
-                        <span class="demo-label">Data & IA</span>
-                        <p>Un assistant interactif pour orienter les visiteurs et presenter des solutions digitales.</p>
-                        <button class="inline-link expand-trigger" type="button" aria-expanded="false">Ouvrir</button>
-                        <div class="expandable-content">
-                            <div class="expandable-inner">
-                                <p>
-                                    Assistant interactif, logique d'analyse et orientation de l'utilisateur vers les
-                                    bons outils de creation digitale et de documents.
-                                </p>
-                            </div>
-                        </div>
+                    <article class="demo-card card">
+                        <span class="demo-label">Version web</span>
+                        <p>Le CV peut aussi devenir un lien a partager, base utile pour un futur portfolio numerique.</p>
                     </article>
                 </div>
             </section>
 
             <section class="section section-assistant reveal-section" id="assistant-ia">
-                <div class="section-heading">
+                <div class="section-heading section-heading-wide">
                     <p class="section-kicker">Assistant IA</p>
-                    <h2>Un assistant interactif pour orienter les visiteurs</h2>
+                    <h2>Une aide retractable pour l ATS, la reformulation et l adaptation a une offre</h2>
+                    <p class="section-intro">
+                        L assistant reste dans son panneau flottant. Il aide a reformuler, analyser et guider, sans
+                        jamais entrer dans la page du CV.
+                    </p>
                 </div>
-                <div class="assistant-panel">
+                <div class="assistant-panel assistant-panel-compact">
                     <p>
-                        Bonjour, comment puis-je vous aider aujourd'hui ? L'assistant peut orienter vers la creation
-                        d'un CV, suggérer des ameliorations ou presenter les possibilites de plateforme digitale.
+                        Ouvrez le bouton flottant pour demander une analyse ATS, un meilleur titre, une lettre de
+                        motivation ou une adaptation a une annonce.
                     </p>
                     <div class="assistant-suggestions">
-                        <button class="suggestion-chip" type="button" data-prompt="Aide-moi a creer un CV">Creer un CV</button>
-                        <button class="suggestion-chip" type="button" data-prompt="Quels services proposes-tu ?">Services digitaux</button>
-                        <button class="suggestion-chip" type="button" data-prompt="Comment automatiser un parcours ?">Automatisation</button>
+                        <button class="suggestion-chip" type="button" data-prompt="Analyse mon CV pour l ATS">Analyser ATS</button>
+                        <button class="suggestion-chip" type="button" data-prompt="Aide-moi a adapter mon CV a une offre">Adapter a une offre</button>
+                        <button class="suggestion-chip" type="button" data-prompt="Aide-moi a rediger une lettre de motivation">Lettre de motivation</button>
                     </div>
-                </div>
-            </section>
-
-            <section class="section section-contact reveal-section" id="contact">
-                <div class="section-heading">
-                    <h2>Discuter d'un projet</h2>
-                </div>
-                <div class="contact-layout">
-                    <div class="contact-panel contact-panel-info">
-                        <p>
-                            Une idee, un projet ou une interaction web a imaginer ? Je peux vous accompagner dans sa
-                            conception et sa realisation.
-                        </p>
-                        <p>Toutes les idees sont les bienvenues.</p>
-                        <div class="contact-details">
-                            <a class="contact-link" href="mailto:purvelours@proton.me">purvelours@proton.me</a>
-                            <a class="contact-link" href="tel:0777464837">07 77 46 48 37</a>
-                        </div>
-                    </div>
-
-                    <form class="contact-form" id="contact-form">
-                        <label class="field">
-                            <span>Nom</span>
-                            <input type="text" name="name" placeholder="Votre nom" required>
-                        </label>
-                        <label class="field">
-                            <span>Email</span>
-                            <input type="email" name="email" placeholder="votre@email.com">
-                        </label>
-                        <label class="field field-message">
-                            <span>Message</span>
-                            <textarea
-                                name="message"
-                                rows="6"
-                                placeholder="Expliquez votre projet, vos idees ou vos besoins."
-                                required
-                            ></textarea>
-                        </label>
-                        <button class="button button-primary contact-button" type="submit">Envoyer par mail</button>
-                    </form>
                 </div>
             </section>
         </main>
 
         <footer class="site-footer">
-            <p>Sidi Amar Fatima</p>
-            <p>Creation digitale &amp; interfaces web</p>
+            <p>CV Studio</p>
+            <p>CV moderne, lettre synchronisee, analyse ATS et version web.</p>
         </footer>
     </div>
 
     <button class="assistant-toggle" id="assistant-toggle" type="button" aria-expanded="false">
-        Assistant IA
+        Aide IA
     </button>
     <section class="assistant-chat" id="assistant-chat" aria-label="Assistant IA">
         <div class="assistant-chat-header">
             <div>
                 <strong>Assistant IA</strong>
-                <p>Bonjour, comment puis-je vous aider aujourd'hui ?</p>
+                <p>Je peux analyser un CV, renforcer les mots cles ATS et aider sur la lettre.</p>
             </div>
             <button class="assistant-close" id="assistant-close" type="button" aria-label="Fermer">×</button>
         </div>
         <div class="assistant-messages" id="assistant-messages">
             <article class="assistant-bubble assistant-bubble-bot">
-                Bonjour, comment puis-je vous aider aujourd'hui ?
+                Bonjour, je peux vous aider a ameliorer le CV, l adapter a une offre ou preparer la lettre.
             </article>
         </div>
         <div class="assistant-quick-actions">
-            <button class="suggestion-chip" type="button" data-prompt="Je veux creer un CV">CV</button>
-            <button class="suggestion-chip" type="button" data-prompt="Je cherche une plateforme digitale">Plateforme</button>
-            <button class="suggestion-chip" type="button" data-prompt="Je veux une solution IA">IA</button>
+            <button class="suggestion-chip" type="button" data-prompt="Analyse mon CV pour l ATS">Analyser ATS</button>
+            <button class="suggestion-chip" type="button" data-prompt="Aide-moi a adapter mon CV a une offre">Adapter offre</button>
+            <button class="suggestion-chip" type="button" data-prompt="Aide-moi a rediger une lettre de motivation">Lettre</button>
         </div>
         <form class="assistant-input-row" id="assistant-form">
             <input id="assistant-input" type="text" placeholder="Ecrivez votre besoin...">

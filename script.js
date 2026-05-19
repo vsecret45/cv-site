@@ -234,7 +234,7 @@ const applyCvPreset = (preset) => {
             'Entreprise / Organisation - Poste occupe • Ville | Dates • Gestion des appels et des courriers • Organisation et classement des documents • Suivi administratif',
         ].join('\n');
         form.projectType.value = 'Projet personnel';
-        form.projects.value = "Plateforme CV intelligent - Prototype personnel - 2024 • Prototype d'une future plateforme de generation de CV intelligents prets a l'emploi avec assistance IA.";
+        form.projects.value = "CV Studio - Prototype personnel - 2024 • Prototype d'une plateforme CV moderne prete a l'emploi avec assistance IA et export multi-format.";
         form.education.value = [
             'Diplome ou formation - Etablissement - Annee',
         ].join('\n');
@@ -369,19 +369,23 @@ const applyCvPreset = (preset) => {
 const assistantAnswers = [
     {
         test: /cv|resume|curriculum/i,
-        reply: "Je peux vous aider a creer un CV intelligent : remplissez le formulaire, choisissez un style, puis exportez le document en PDF.",
+        reply: "Je peux vous aider a structurer le CV, clarifier le titre, nettoyer les sections et preparer l export.",
     },
     {
-        test: /site|creation|plateforme/i,
-        reply: "Je peux presenter la creation digitale, les interfaces modernes, les plateformes personnalisees et les solutions sur mesure adaptees a votre projet.",
+        test: /offre|ats|mot.?cle|annonce/i,
+        reply: "Je peux analyser le CV pour l ATS, detecter des mots cles utiles et l adapter a une offre d emploi.",
     },
     {
-        test: /automatisation|workflow|process/i,
-        reply: "Je peux orienter vers des parcours automatises, des formulaires intelligents et des integrations digitales pour structurer un service.",
+        test: /lettre|motivation/i,
+        reply: "Je peux aider a generer une lettre de motivation coherente avec le titre vise et les competences du CV.",
     },
     {
-        test: /ia|ai|intelligence/i,
-        reply: "Je peux suggérer des usages IA pour assister un utilisateur, organiser des informations ou enrichir une plateforme digitale.",
+        test: /export|pdf|word|imprim|partag|web/i,
+        reply: "Je peux guider vers l export PDF, le Word, l impression, la version web ou le partage de lien.",
+    },
+    {
+        test: /ia|ai|intelligence|amelior|reformul/i,
+        reply: "Je peux reformuler un profil, resserrer la lecture recruteur et suggerer une version plus nette du CV.",
     },
 ];
 
@@ -1859,11 +1863,11 @@ const generateCoverLetter = () => {
     let body = `Madame, Monsieur,\n\nJe vous adresse ma candidature pour le poste de ${role} au sein de ${company}. ${profile || 'Mon parcours m a permis de developper une approche claire, structuree et orientee resultat.'}\n\n`;
 
     if (style === 'short') {
-        body += `Mes competences en ${skills || 'creation digitale et structuration de projets'} me permettent de contribuer rapidement a vos besoins. Ma motivation principale est de ${motivation}.\n\nJe reste disponible pour echanger.\n\nCordialement,`;
+        body += `Mes competences en ${skills || 'organisation, communication et structuration de contenu'} me permettent de contribuer rapidement a vos besoins. Ma motivation principale est de ${motivation}.\n\nJe reste disponible pour echanger.\n\nCordialement,`;
     } else if (style === 'modern') {
         body += `J aime concevoir des solutions utiles, lisibles et adaptees aux attentes terrain. Mes competences en ${skills || 'interfaces, organisation et experience utilisateur'} peuvent renforcer vos projets. Je souhaite aujourd hui ${motivation}.\n\nJe serais ravie d apporter cette energie et cette rigueur a ${company}.\n\nBien cordialement,`;
     } else {
-        body += `Au fil de mes experiences, j ai developpe des competences en ${skills || 'creation digitale, organisation et accompagnement'}. Elles me permettent d aborder les projets avec rigueur, sens du detail et capacite d adaptation. Je souhaite aujourd hui ${motivation}.\n\nJe serais ravie de pouvoir mettre ces competences au service de ${company}.\n\nCordialement,`;
+        body += `Au fil de mes experiences, j ai developpe des competences en ${skills || 'organisation, accompagnement et sens du detail'}. Elles me permettent d aborder les projets avec rigueur, sens du detail et capacite d adaptation. Je souhaite aujourd hui ${motivation}.\n\nJe serais ravie de pouvoir mettre ces competences au service de ${company}.\n\nCordialement,`;
     }
 
     if (letterSubject) {
@@ -2979,7 +2983,7 @@ const getAssistantReply = (message) => {
         return found.reply;
     }
 
-    return "Je peux vous aider a clarifier votre besoin, presenter les services du site, ouvrir le module CV intelligent ou suggerer une direction de projet.";
+    return "Je peux vous aider a clarifier un CV, analyser l ATS, adapter le document a une offre ou preparer la lettre de motivation.";
 };
 
 const handleAuthLogin = async (event) => {
@@ -3151,7 +3155,7 @@ if (contactForm) {
         const email = (formData.get('email') || '').toString().trim();
         const message = (formData.get('message') || '').toString().trim();
 
-        const subject = encodeURIComponent(`Projet web - ${name || 'Prise de contact'}`);
+        const subject = encodeURIComponent(`Message CV - ${name || 'Prise de contact'}`);
         const body = encodeURIComponent(
             [
                 `Nom : ${name || '-'}`,
@@ -3162,7 +3166,7 @@ if (contactForm) {
             ].join('\n')
         );
 
-        window.location.href = `mailto:purvelours@proton.me?subject=${subject}&body=${body}`;
+        window.location.href = `mailto:?subject=${subject}&body=${body}`;
     });
 }
 
@@ -3729,8 +3733,8 @@ if (cvShareButton) {
         try {
             if (navigator.share) {
                 await navigator.share({
-                    title: 'CV intelligent',
-                    text: 'Voir le module CV intelligent',
+                    title: 'CV Studio',
+                    text: 'Voir le CV en ligne',
                     url: shareUrl,
                 });
                 setCvStatus('Lien partage');
@@ -3752,7 +3756,7 @@ if (cvEmailButton) {
         const shareUrl = `${window.location.origin}${window.location.pathname}#cv-intelligent`;
         const fullName = cvForm?.elements.fullName?.value?.trim() || 'Candidature';
         const headline = cvForm?.elements.headline?.value?.trim() || '';
-        const subject = encodeURIComponent(`CV intelligent - ${fullName}`);
+        const subject = encodeURIComponent(`CV - ${fullName}`);
         const rawBody = [
             `${fullName}${headline ? ` - ${headline}` : ''}`,
             '',
@@ -3768,7 +3772,7 @@ if (cvEmailButton) {
             ].join('\n')
         );
         await openMailClient(
-            `mailto:purvelours@proton.me?subject=${subject}&body=${body}`,
+            `mailto:?subject=${subject}&body=${body}`,
             rawBody,
             'Ouverture de votre application mail'
         );
@@ -3791,7 +3795,7 @@ if (letterEmailButton) {
         const rawBody = letterBody?.textContent || '';
         const body = encodeURIComponent(rawBody);
         await openMailClient(
-            `mailto:purvelours@proton.me?subject=${subject}&body=${body}`,
+            `mailto:?subject=${subject}&body=${body}`,
             rawBody,
             'Ouverture de votre application mail'
         );
