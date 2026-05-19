@@ -25,84 +25,22 @@
         <header class="hero" id="top">
             <nav class="topbar" aria-label="Navigation principale">
                 <a class="brand" href="#top">CV Studio</a>
-                <div class="nav-links">
-                    <a href="#top">Accueil</a>
-                    <a href="#cv-intelligent">Editeur</a>
-                    <a href="#assistant-ia">Aide IA</a>
-                </div>
+                <a class="button button-primary topbar-cta" href="#cv-intelligent">Creer / importer un CV</a>
                 <div class="auth-actions" id="auth-actions">
                     <button class="button button-secondary auth-button" type="button" id="auth-open-login">Se connecter</button>
                     <button class="button button-secondary auth-button" type="button" id="auth-open-signup">Creer un compte</button>
                     <button class="button button-secondary auth-button is-hidden" type="button" id="auth-logout">Deconnexion</button>
                 </div>
             </nav>
-
-            <div class="hero-grid hero-grid-compact">
-                <div class="hero-content">
-                    <p class="eyebrow hero-reveal hero-reveal-delay-1">Createur de CV professionnel</p>
-                    <h1 class="hero-title hero-reveal-delay-2">
-                        <span class="title-line">CV, lettre et apercu en direct dans un espace clair.</span>
-                    </h1>
-                    <p class="hero-role hero-reveal hero-reveal-delay-3">
-                        Import, edition, mise en page, ATS, export PDF/Word et partage.
-                    </p>
-                    <p class="hero-text hero-reveal hero-reveal-delay-4">
-                        L outil reste recentre sur un seul usage : preparer un CV propre, le corriger rapidement,
-                        generer la lettre et diffuser la bonne version sans perdre du temps dans des blocs inutiles.
-                    </p>
-                    <div class="hero-actions hero-reveal hero-reveal-delay-5">
-                        <a class="button button-primary" href="#cv-intelligent">Ouvrir l editeur</a>
-                        <a class="button button-secondary" href="#assistant-ia">Voir l aide IA</a>
-                    </div>
-                    <div class="hero-highlights hero-reveal hero-reveal-delay-6">
-                        <article class="hero-highlight">
-                            <strong>.txt .md .pdf .docx</strong>
-                            <span>Import direct du CV existant</span>
-                        </article>
-                        <article class="hero-highlight">
-                            <strong>Apercu A4 en direct</strong>
-                            <span>Feuille plus visible a droite</span>
-                        </article>
-                        <article class="hero-highlight">
-                            <strong>Analyse ATS</strong>
-                            <span>Score, mots cles et adaptation a une offre</span>
-                        </article>
-                    </div>
-                </div>
-            </div>
         </header>
 
         <main>
             <section class="section section-cv reveal-section" id="cv-intelligent">
-                <div class="section-heading section-heading-wide section-heading-editor">
-                    <p class="section-kicker">Editeur CV</p>
-                    <h2>Les commandes utiles a gauche, la feuille A4 a droite</h2>
-                    <p class="section-intro">
-                        Import, contenu, modele, IA et export restent accessibles sans transformer l interface en page
-                        explicative.
-                    </p>
-                </div>
                 <div class="cv-layout" id="cv-layout">
                     <div class="cv-editor-panel" id="cv-editor-panel">
                         <form class="cv-form" id="cv-form">
                             <div class="editor-command-bar">
-                                <section class="command-group">
-                                    <div class="command-group-topline">
-                                        <span class="command-group-heading">Demarrage rapide</span>
-                                        <p class="command-group-title">Pre-remplir et styliser en un clic</p>
-                                    </div>
-
-                                    <div class="cv-quick-presets cv-quick-presets-compact">
-                                        <div class="preset-actions">
-                                            <button class="preset-chip" type="button" data-preset="client">Relation client</button>
-                                            <button class="preset-chip" type="button" data-preset="banking">Bancaire</button>
-                                            <button class="preset-chip" type="button" data-preset="transport">Transport</button>
-                                            <button class="preset-chip" type="button" data-preset="admin">Administratif</button>
-                                            <button class="preset-chip" type="button" data-preset="luxury">Signature premium</button>
-                                            <button class="preset-chip" type="button" data-preset="ats">Mode ATS</button>
-                                        </div>
-                                    </div>
-
+                                <section class="command-group command-group-primary">
                                     <div class="command-grid command-grid-file">
                                         <label class="field field-compact">
                                             <span>Importer mon ancien CV</span>
@@ -112,39 +50,9 @@
                                         <div class="command-inline-actions">
                                             <button class="button button-secondary" type="button" id="cv-save">Sauvegarder</button>
                                             <button class="button button-secondary" type="button" id="cv-autofill">Auto-organiser</button>
+                                            <button class="button button-secondary" type="button" id="cv-improve">Ameliorer</button>
+                                            <button class="button button-secondary" type="button" id="cv-fit-page">Ajuster a 1 page</button>
                                         </div>
-                                    </div>
-                                </section>
-
-                                <section class="command-group">
-                                    <div class="command-group-topline">
-                                        <span class="command-group-heading">Actions visibles</span>
-                                        <p class="command-group-title">Modele, amelioration et export sans quitter l ecran</p>
-                                    </div>
-
-                                    <div class="template-presets" aria-label="Mises en forme pretes a l emploi">
-                                        <button class="template-chip" type="button" data-template-preset="classic">
-                                            <strong>Simple</strong>
-                                            <span>Sobre, lisible, une page</span>
-                                        </button>
-                                        <button class="template-chip" type="button" data-template-preset="professional">
-                                            <strong>Professionnel</strong>
-                                            <span>Dates claires, structure nette</span>
-                                        </button>
-                                        <button class="template-chip" type="button" data-template-preset="design">
-                                            <strong>Editorial</strong>
-                                            <span>Accent visuel, sections plus edito</span>
-                                        </button>
-                                        <button class="template-chip" type="button" data-template-preset="luxury">
-                                            <strong>Signature</strong>
-                                            <span>Graphite, indigo profond et touche champagne</span>
-                                        </button>
-                                    </div>
-
-                                    <div class="command-inline-actions">
-                                        <button class="button button-secondary" type="button" id="cv-improve">Ameliorer mon CV</button>
-                                        <button class="button button-secondary" type="button" id="cv-fit-page">Ajuster a 1 page</button>
-                                        <button class="button button-secondary" type="button" id="cv-ai-improve">Assistant IA</button>
                                     </div>
 
                                     <div class="command-inline-actions">
@@ -157,11 +65,28 @@
                                         <button class="button button-secondary" type="button" id="cv-export-web">Version web</button>
                                         <button class="button button-secondary" type="button" id="cv-share">Partager lien</button>
                                         <button class="button button-secondary" type="button" id="cv-email">Envoyer par mail</button>
+                                        <button class="button button-secondary" type="button" id="cv-ai-improve">Assistant IA</button>
                                     </div>
                                 </section>
                             </div>
 
                             <div class="editor-form-body">
+                                <details class="utility-panel">
+                                    <summary>Demarrage rapide</summary>
+                                    <div class="utility-panel-body">
+                                        <div class="cv-quick-presets cv-quick-presets-compact">
+                                            <div class="preset-actions">
+                                                <button class="preset-chip" type="button" data-preset="client">Relation client</button>
+                                                <button class="preset-chip" type="button" data-preset="banking">Bancaire</button>
+                                                <button class="preset-chip" type="button" data-preset="transport">Transport</button>
+                                                <button class="preset-chip" type="button" data-preset="admin">Administratif</button>
+                                                <button class="preset-chip" type="button" data-preset="luxury">Signature premium</button>
+                                                <button class="preset-chip" type="button" data-preset="ats">Mode ATS</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </details>
+
                                 <section class="editor-stage">
                                     <div class="editor-stage-header">
                                         <h3>Coordonnees et titre</h3>
@@ -289,163 +214,180 @@ Sport</textarea>
                                     </label>
                                 </section>
 
-                                <section class="editor-stage">
-                                    <div class="editor-stage-header">
-                                        <h3>Modeles et reglages</h3>
-                                    </div>
-
-                                    <div class="form-split">
-                                        <label class="field">
-                                            <span>Type de CV</span>
-                                            <select name="cvMode">
-                                                <option value="classic">CV classique</option>
-                                                <option value="design">CV design</option>
-                                                <option value="ats">CV ATS</option>
-                                                <option value="web">CV web interactif</option>
-                                            </select>
-                                        </label>
-                                        <label class="field">
-                                            <span>Poste vise</span>
-                                            <select name="jobTarget">
-                                                <option value="developpeur web">Developpeur web</option>
-                                                <option value="marketing">Marketing</option>
-                                                <option value="relation client">Relation client</option>
-                                            </select>
-                                        </label>
-                                    </div>
-
-                                    <div class="form-split">
-                                        <label class="field">
-                                            <span>Police</span>
-                                            <select name="fontTheme">
-                                                <option value="inter">Inter</option>
-                                                <option value="manrope">Manrope</option>
-                                                <option value="roboto">Roboto</option>
-                                                <option value="lato">Lato</option>
-                                                <option value="serif">Libre Baskerville</option>
-                                                <option value="playfair">Playfair Display</option>
-                                                <option value="mono">IBM Plex Sans</option>
-                                            </select>
-                                        </label>
-                                        <label class="field">
-                                            <span>Template</span>
-                                            <select name="layoutTheme">
-                                                <option value="wordpro">Word Pro</option>
-                                                <option value="classic">Classique</option>
-                                                <option value="modern">Moderne</option>
-                                                <option value="executive">Executive</option>
-                                                <option value="minimal">Minimal</option>
-                                            </select>
-                                        </label>
-                                    </div>
-
-                                    <div class="cv-toolbar">
-                                        <label class="field">
-                                            <span>Taille</span>
-                                            <select name="fontSize">
-                                                <option value="normal">Normale</option>
-                                                <option value="large">Grande</option>
-                                                <option value="compact">Compacte</option>
-                                            </select>
-                                        </label>
-                                        <label class="field">
-                                            <span>Palette</span>
-                                            <select name="colorTheme">
-                                                <option value="indigo">Indigo moderne</option>
-                                                <option value="emerald">Emerald minimal</option>
-                                                <option value="rose">Rose editorial</option>
-                                                <option value="graphite">Graphite premium</option>
-                                            </select>
-                                        </label>
-                                        <label class="field">
-                                            <span>Conception</span>
-                                            <select name="designMood">
-                                                <option value="clean">Clean</option>
-                                                <option value="editorial">Editorial</option>
-                                                <option value="startup">Startup</option>
-                                                <option value="luxury">Luxury</option>
-                                            </select>
-                                        </label>
-                                        <label class="field">
-                                            <span>Alignement</span>
-                                            <select name="textAlign">
-                                                <option value="left">Gauche</option>
-                                                <option value="center">Centre</option>
-                                                <option value="right">Droite</option>
-                                            </select>
-                                        </label>
-                                        <label class="field">
-                                            <span>Espacement</span>
-                                            <select name="lineSpacing">
-                                                <option value="normal">Normal</option>
-                                                <option value="airy">Aere</option>
-                                                <option value="tight">Serre</option>
-                                            </select>
-                                        </label>
-                                        <label class="field field-color">
-                                            <span>Couleur</span>
-                                            <input type="color" name="accentColor" value="#2f3f7f">
-                                        </label>
-                                        <label class="tool-toggle">
-                                            <input type="checkbox" name="isBold">
-                                            <span>B</span>
-                                        </label>
-                                        <label class="tool-toggle">
-                                            <input type="checkbox" name="isItalic">
-                                            <span>I</span>
-                                        </label>
-                                        <label class="tool-toggle">
-                                            <input type="checkbox" name="isUnderline">
-                                            <span>U</span>
-                                        </label>
-                                    </div>
-
-                                    <input type="hidden" name="headlineScale" value="normal">
-                                </section>
-
-                                <section class="editor-stage">
-                                    <div class="editor-stage-header">
-                                        <h3>IA et ATS</h3>
-                                    </div>
-
-                                    <div class="cv-analysis-panel cv-ai-panel">
-                                        <div class="analysis-block analysis-block-header">
-                                            <h4>Analyse ATS, suggestions et adaptation a une offre</h4>
-                                            <p class="field-hint">Cette zone reste hors de la page du CV.</p>
+                                <details class="utility-panel">
+                                    <summary>Styles, modeles et themes</summary>
+                                    <div class="utility-panel-body">
+                                        <div class="template-presets" aria-label="Mises en forme pretes a l emploi">
+                                            <button class="template-chip" type="button" data-template-preset="classic">
+                                                <strong>Simple</strong>
+                                                <span>Sobre, lisible, une page</span>
+                                            </button>
+                                            <button class="template-chip" type="button" data-template-preset="professional">
+                                                <strong>Professionnel</strong>
+                                                <span>Dates claires, structure nette</span>
+                                            </button>
+                                            <button class="template-chip" type="button" data-template-preset="design">
+                                                <strong>Editorial</strong>
+                                                <span>Accent visuel, sections plus edito</span>
+                                            </button>
+                                            <button class="template-chip" type="button" data-template-preset="luxury">
+                                                <strong>Signature</strong>
+                                                <span>Graphite, indigo profond et touche champagne</span>
+                                            </button>
                                         </div>
-                                        <div class="ats-score">
-                                            <span>Score ATS</span>
-                                            <strong id="ats-score-value">82%</strong>
+
+                                        <div class="form-split">
+                                            <label class="field">
+                                                <span>Type de CV</span>
+                                                <select name="cvMode">
+                                                    <option value="classic">CV classique</option>
+                                                    <option value="design">CV design</option>
+                                                    <option value="ats">CV ATS</option>
+                                                    <option value="web">CV web interactif</option>
+                                                </select>
+                                            </label>
+                                            <label class="field">
+                                                <span>Poste vise</span>
+                                                <select name="jobTarget">
+                                                    <option value="developpeur web">Developpeur web</option>
+                                                    <option value="marketing">Marketing</option>
+                                                    <option value="relation client">Relation client</option>
+                                                </select>
+                                            </label>
                                         </div>
-                                        <div class="analysis-block">
-                                            <h4>Compatibilite offre</h4>
-                                            <div class="job-match">
-                                                <strong id="job-match-value">--</strong>
-                                                <button class="button button-secondary" type="button" id="cv-analyze">Analyser mon CV</button>
+
+                                        <div class="form-split">
+                                            <label class="field">
+                                                <span>Police</span>
+                                                <select name="fontTheme">
+                                                    <option value="inter">Inter</option>
+                                                    <option value="manrope">Manrope</option>
+                                                    <option value="roboto">Roboto</option>
+                                                    <option value="lato">Lato</option>
+                                                    <option value="serif">Libre Baskerville</option>
+                                                    <option value="playfair">Playfair Display</option>
+                                                    <option value="mono">IBM Plex Sans</option>
+                                                </select>
+                                            </label>
+                                            <label class="field">
+                                                <span>Template</span>
+                                                <select name="layoutTheme">
+                                                    <option value="wordpro">Word Pro</option>
+                                                    <option value="classic">Classique</option>
+                                                    <option value="modern">Moderne</option>
+                                                    <option value="executive">Executive</option>
+                                                    <option value="minimal">Minimal</option>
+                                                </select>
+                                            </label>
+                                        </div>
+
+                                        <div class="cv-toolbar">
+                                            <label class="field">
+                                                <span>Taille</span>
+                                                <select name="fontSize">
+                                                    <option value="normal">Normale</option>
+                                                    <option value="large">Grande</option>
+                                                    <option value="compact">Compacte</option>
+                                                </select>
+                                            </label>
+                                            <label class="field">
+                                                <span>Palette</span>
+                                                <select name="colorTheme">
+                                                    <option value="indigo">Indigo moderne</option>
+                                                    <option value="emerald">Emerald minimal</option>
+                                                    <option value="rose">Rose editorial</option>
+                                                    <option value="graphite">Graphite premium</option>
+                                                </select>
+                                            </label>
+                                            <label class="field">
+                                                <span>Conception</span>
+                                                <select name="designMood">
+                                                    <option value="clean">Clean</option>
+                                                    <option value="editorial">Editorial</option>
+                                                    <option value="startup">Startup</option>
+                                                    <option value="luxury">Luxury</option>
+                                                </select>
+                                            </label>
+                                            <label class="field">
+                                                <span>Alignement</span>
+                                                <select name="textAlign">
+                                                    <option value="left">Gauche</option>
+                                                    <option value="center">Centre</option>
+                                                    <option value="right">Droite</option>
+                                                </select>
+                                            </label>
+                                            <label class="field">
+                                                <span>Espacement</span>
+                                                <select name="lineSpacing">
+                                                    <option value="normal">Normal</option>
+                                                    <option value="airy">Aere</option>
+                                                    <option value="tight">Serre</option>
+                                                </select>
+                                            </label>
+                                            <label class="field field-color">
+                                                <span>Couleur</span>
+                                                <input type="color" name="accentColor" value="#2f3f7f">
+                                            </label>
+                                            <label class="tool-toggle">
+                                                <input type="checkbox" name="isBold">
+                                                <span>B</span>
+                                            </label>
+                                            <label class="tool-toggle">
+                                                <input type="checkbox" name="isItalic">
+                                                <span>I</span>
+                                            </label>
+                                            <label class="tool-toggle">
+                                                <input type="checkbox" name="isUnderline">
+                                                <span>U</span>
+                                            </label>
+                                        </div>
+
+                                        <input type="hidden" name="headlineScale" value="normal">
+                                    </div>
+                                </details>
+
+                                <details class="utility-panel">
+                                    <summary>ATS, adaptation et lettre</summary>
+                                    <div class="utility-panel-body">
+                                        <div class="cv-analysis-panel cv-ai-panel">
+                                            <div class="analysis-block analysis-block-header">
+                                                <h4>Analyse ATS, suggestions et adaptation a une offre</h4>
+                                                <p class="field-hint">Cette zone reste hors de la page du CV.</p>
+                                            </div>
+                                            <div class="ats-score">
+                                                <span>Score ATS</span>
+                                                <strong id="ats-score-value">82%</strong>
+                                            </div>
+                                            <div class="analysis-block">
+                                                <h4>Compatibilite offre</h4>
+                                                <div class="job-match">
+                                                    <strong id="job-match-value">--</strong>
+                                                    <button class="button button-secondary" type="button" id="cv-analyze">Analyser mon CV</button>
+                                                </div>
+                                            </div>
+                                            <div class="analysis-block">
+                                                <h4>Analyse de votre CV</h4>
+                                                <ul id="cv-analysis-list"></ul>
+                                            </div>
+                                            <div class="analysis-block">
+                                                <h4>Suggestions</h4>
+                                                <ul id="cv-suggestions-list"></ul>
+                                            </div>
+                                            <label class="field field-message">
+                                                <span>Offre d'emploi</span>
+                                                <textarea
+                                                    id="job-offer"
+                                                    name="jobOffer"
+                                                    rows="5"
+                                                    placeholder="Coller l'offre d'emploi ici pour adapter le CV."
+                                                ></textarea>
+                                            </label>
+                                            <div class="cv-actions">
+                                                <button class="button button-secondary" type="button" id="cv-match-job">Adapter mon CV a une offre</button>
                                             </div>
                                         </div>
-                                        <div class="analysis-block">
-                                            <h4>Analyse de votre CV</h4>
-                                            <ul id="cv-analysis-list"></ul>
-                                        </div>
-                                        <div class="analysis-block">
-                                            <h4>Suggestions</h4>
-                                            <ul id="cv-suggestions-list"></ul>
-                                        </div>
-                                        <label class="field field-message">
-                                            <span>Offre d'emploi</span>
-                                            <textarea
-                                                id="job-offer"
-                                                name="jobOffer"
-                                                rows="5"
-                                                placeholder="Coller l'offre d'emploi ici pour adapter le CV."
-                                            ></textarea>
-                                        </label>
-                                        <div class="cv-actions">
-                                            <button class="button button-secondary" type="button" id="cv-match-job">Adapter mon CV a une offre</button>
-                                        </div>
                                     </div>
-                                </section>
+                                </details>
                             </div>
                         </form>
                     </div>
@@ -703,27 +645,6 @@ Sport</textarea>
                 </div>
             </section>
 
-            <section class="section section-assistant reveal-section" id="assistant-ia">
-                <div class="section-heading section-heading-wide section-heading-assistant">
-                    <p class="section-kicker">Assistant IA</p>
-                    <h2>Une aide retractable pour l ATS, la reformulation et la lettre</h2>
-                    <p class="section-intro">
-                        Le bouton flottant ouvre une aide discrete. Le CV reste au centre, l assistant reste a sa
-                        place.
-                    </p>
-                </div>
-                <div class="assistant-panel assistant-panel-compact">
-                    <p>
-                        Ouvrez le panneau pour demander une analyse ATS, retravailler un titre ou preparer une lettre
-                        de motivation.
-                    </p>
-                    <div class="assistant-suggestions">
-                        <button class="suggestion-chip" type="button" data-prompt="Analyse mon CV pour l ATS">Analyser ATS</button>
-                        <button class="suggestion-chip" type="button" data-prompt="Aide-moi a adapter mon CV a une offre">Adapter a une offre</button>
-                        <button class="suggestion-chip" type="button" data-prompt="Aide-moi a rediger une lettre de motivation">Lettre de motivation</button>
-                    </div>
-                </div>
-            </section>
         </main>
 
         <footer class="site-footer">
