@@ -25,7 +25,7 @@
         <header class="hero" id="top">
             <nav class="topbar" aria-label="Navigation principale">
                 <a class="brand" href="#top">CV Studio</a>
-                <a class="button button-primary topbar-cta" href="#cv-intelligent">Creer / importer un CV</a>
+                <a class="button button-primary topbar-cta" href="#cv-intelligent">Importer un CV</a>
                 <div class="auth-actions" id="auth-actions">
                     <button class="button button-secondary auth-button" type="button" id="auth-open-login">Se connecter</button>
                     <button class="button button-secondary auth-button" type="button" id="auth-open-signup">Creer un compte</button>
@@ -43,11 +43,11 @@
                                 <section class="command-group command-group-primary">
                                     <div class="command-grid command-grid-file">
                                         <label class="field field-compact">
-                                            <span>Importer mon ancien CV</span>
+                                            <span>Importer CV</span>
                                             <input type="file" id="cv-import" accept=".txt,.md,.text,.pdf,.doc,.docx">
-                                            <small class="field-hint">Formats acceptes : `.txt`, `.md`, `.pdf`, `.docx`.</small>
+                                            <small class="field-hint">PDF, DOCX, TXT, MD. Le nettoyage et le pre-remplissage se font ensuite dans l'editeur.</small>
                                         </label>
-                                        <div class="command-inline-actions">
+                                        <div class="command-inline-actions command-inline-actions-grid command-inline-actions-grid-2">
                                             <button class="button button-secondary" type="button" id="cv-save">Sauvegarder</button>
                                             <button class="button button-secondary" type="button" id="cv-autofill">Auto-organiser</button>
                                             <button class="button button-secondary" type="button" id="cv-improve">Ameliorer</button>
@@ -55,17 +55,27 @@
                                         </div>
                                     </div>
 
-                                    <div class="command-inline-actions">
+                                    <div class="quick-switch-strip" aria-label="Changer de modele rapidement">
+                                        <span class="quick-switch-label">Modeles rapides</span>
+                                        <div class="quick-switch-actions">
+                                            <button class="quick-switch-chip" type="button" data-template-preset="classic">Simple</button>
+                                            <button class="quick-switch-chip" type="button" data-template-preset="professional">Word Pro</button>
+                                            <button class="quick-switch-chip" type="button" data-template-preset="design">Editorial</button>
+                                            <button class="quick-switch-chip" type="button" data-template-preset="luxury">Signature</button>
+                                        </div>
+                                    </div>
+
+                                    <div class="command-inline-actions command-inline-actions-grid command-inline-actions-grid-3">
                                         <button class="button button-primary" type="button" id="cv-export-pdf">Exporter PDF</button>
                                         <button class="button button-secondary" type="button" id="cv-export-word">Exporter Word</button>
                                         <button class="button button-secondary" type="button" id="cv-print">Imprimer</button>
                                     </div>
 
-                                    <div class="command-inline-actions command-inline-actions-soft">
+                                    <div class="command-inline-actions command-inline-actions-grid command-inline-actions-grid-2 command-inline-actions-soft">
                                         <button class="button button-secondary" type="button" id="cv-export-web">Version web</button>
                                         <button class="button button-secondary" type="button" id="cv-share">Partager lien</button>
                                         <button class="button button-secondary" type="button" id="cv-email">Envoyer par mail</button>
-                                        <button class="button button-secondary" type="button" id="cv-ai-improve">Assistant IA</button>
+                                        <button class="button button-secondary" type="button" id="cv-ai-improve">IA / reformuler</button>
                                     </div>
                                 </section>
                             </div>
@@ -441,6 +451,12 @@ Sport</textarea>
                                 <span class="preview-status" id="cv-status">Apercu synchronise</span>
                             </div>
                         </div>
+                        <div class="preview-template-rail" aria-label="Modeles visibles dans l apercu">
+                            <button class="preview-template-chip" type="button" data-template-preset="classic">Simple</button>
+                            <button class="preview-template-chip" type="button" data-template-preset="professional">Word Pro</button>
+                            <button class="preview-template-chip" type="button" data-template-preset="design">Editorial</button>
+                            <button class="preview-template-chip" type="button" data-template-preset="luxury">Signature</button>
+                        </div>
                         <div class="cv-word-toolbar-shell" id="cv-word-toolbar-shell">
                             <div class="cv-word-toolbar" id="cv-word-toolbar" aria-label="Mini toolbar">
                                 <div class="word-toolbar-row word-toolbar-row-main">
@@ -646,11 +662,6 @@ Sport</textarea>
             </section>
 
         </main>
-
-        <footer class="site-footer">
-            <p>CV Studio</p>
-            <p>CV moderne, lettre synchronisee, analyse ATS et version web.</p>
-        </footer>
     </div>
 
     <button class="assistant-toggle" id="assistant-toggle" type="button" aria-expanded="false">

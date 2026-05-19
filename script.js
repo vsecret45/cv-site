@@ -199,6 +199,38 @@ const templatePresets = {
     },
 };
 
+const getActiveTemplatePresetKey = () => {
+    if (!cvForm) {
+        return '';
+    }
+
+    const layoutTheme = cvForm.elements.layoutTheme?.value || '';
+
+    if (layoutTheme === 'classic') {
+        return 'classic';
+    }
+
+    if (layoutTheme === 'wordpro') {
+        return 'professional';
+    }
+
+    if (layoutTheme === 'modern') {
+        return 'design';
+    }
+
+    if (layoutTheme === 'executive') {
+        return 'luxury';
+    }
+
+    return '';
+};
+
+const syncTemplatePresetState = (presetKey = getActiveTemplatePresetKey()) => {
+    templatePresetChips.forEach((chip) => {
+        chip.classList.toggle('is-active', chip.dataset.templatePreset === presetKey);
+    });
+};
+
 const focusPreviewTop = () => {
     setPreviewMode('cv');
     currentPreviewPage = 1;
@@ -1669,6 +1701,8 @@ const updateCvPreview = () => {
     if (previewLayoutTheme) {
         previewLayoutTheme.value = values.layoutTheme || 'classic';
     }
+
+    syncTemplatePresetState();
 };
 
 const getJobOfferAnalysis = (values) => {
@@ -3651,6 +3685,7 @@ templatePresetChips.forEach((chip) => {
 
         updateCvPreview();
         focusPreviewTop();
+        syncTemplatePresetState(chip.dataset.templatePreset || '');
         setCvStatus('Mise en forme appliquee');
     });
 });
