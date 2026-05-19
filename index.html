@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta
         name="description"
-        content="CV Studio : createur de CV professionnel avec import, apercu en direct, lettre de motivation, analyse ATS et export multi-format."
+        content="Kirby CV : createur de CV premium avec vraie page d accueil, import intelligent, apercu en direct, lettre de motivation, analyse ATS et export multi-format."
     >
-    <title>CV Studio | Createur de CV professionnel</title>
+    <title>Kirby CV | CV sans casse-tete</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Lato:wght@400;700&family=Libre+Baskerville:wght@400;700&family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&family=Roboto:wght@400;500;700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Lato:wght@400;700&family=Libre+Baskerville:wght@400;700&family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&family=Roboto:wght@400;500;700&family=Sora:wght@500;600;700;800&display=swap"
         rel="stylesheet"
     >
     <link
@@ -22,20 +22,286 @@
 </head>
 <body class="is-preload">
     <div class="page-shell">
-        <header class="hero" id="top">
+        <header class="hero site-header" id="top">
             <nav class="topbar" aria-label="Navigation principale">
-                <a class="brand" href="#top">CV Studio</a>
-                <a class="button button-primary topbar-cta" href="#cv-intelligent">Importer un CV</a>
-                <div class="auth-actions" id="auth-actions">
-                    <button class="button button-secondary auth-button" type="button" id="auth-open-login">Se connecter</button>
-                    <button class="button button-secondary auth-button" type="button" id="auth-open-signup">Creer un compte</button>
-                    <button class="button button-secondary auth-button is-hidden" type="button" id="auth-logout">Deconnexion</button>
+                <a class="brand" href="#accueil" aria-label="Kirby CV, retour a l accueil">
+                    <span class="brand-mark">K</span>
+                    <span class="brand-copy">
+                        <strong>Kirby CV</strong>
+                        <small>CV sans casse-tete</small>
+                    </span>
+                </a>
+                <div class="nav-links" aria-label="Sections du site">
+                    <a href="#accueil">Accueil</a>
+                    <a href="#modeles">Modeles</a>
+                    <a href="#cv-intelligent">Studio</a>
+                </div>
+                <div class="topbar-actions">
+                    <a class="button button-secondary topbar-link" href="#cv-intelligent">Ouvrir le studio</a>
+                    <div class="auth-actions" id="auth-actions">
+                        <button class="button button-secondary auth-button" type="button" id="auth-open-login">Se connecter</button>
+                        <button class="button button-secondary auth-button" type="button" id="auth-open-signup">Creer un compte</button>
+                        <button class="button button-secondary auth-button is-hidden" type="button" id="auth-logout">Deconnexion</button>
+                    </div>
                 </div>
             </nav>
         </header>
 
         <main>
+            <section class="section section-home reveal-section" id="accueil">
+                <div class="home-grid">
+                    <div class="home-copy">
+                        <p class="eyebrow">Kirby CV</p>
+                        <h1>Importez un CV brut, obtenez un rendu net, premium et pret a envoyer.</h1>
+                        <p class="section-intro home-intro">
+                            Kirby CV remet les priorites dans le bon ordre : une vraie page d accueil,
+                            un studio separe, une importation qui pre-remplit, puis des modeles modernes,
+                            futuristes et simples a utiliser.
+                        </p>
+                        <div class="hero-actions">
+                            <button class="button button-primary" type="button" data-studio-launch="import">Importer mon CV</button>
+                            <button class="button button-secondary" type="button" data-studio-launch="blank">Partir de zero</button>
+                        </div>
+                        <div class="hero-proof">
+                            <span>Import PDF / DOCX / TXT</span>
+                            <span>Pre-remplissage intelligent</span>
+                            <span>PDF, Word et version web</span>
+                        </div>
+                        <div class="hero-metrics home-metrics">
+                            <article class="hero-metric">
+                                <strong>30 sec pour demarrer</strong>
+                                <span>Le CV source est nettoye, trie puis place dans le studio.</span>
+                            </article>
+                            <article class="hero-metric">
+                                <strong>Une entree digne de 2026</strong>
+                                <span>Accueil, connexion, creation de compte et editeur ne sont plus melanges.</span>
+                            </article>
+                            <article class="hero-metric">
+                                <strong>Des modeles qui se demarquent</strong>
+                                <span>Future Grid, Boardroom, Signature et des reglages visuels plus propres.</span>
+                            </article>
+                        </div>
+                    </div>
+
+                    <div class="home-visual" aria-hidden="true">
+                        <div class="showcase-shell">
+                            <div class="showcase-topline">
+                                <span class="showcase-pill">Import intelligent</span>
+                                <span class="showcase-pill showcase-pill-soft">Apercu live</span>
+                                <span class="showcase-pill showcase-pill-soft">Future Grid</span>
+                            </div>
+                            <div class="showcase-board">
+                                <div class="showcase-sidebar">
+                                    <div class="showcase-upload">
+                                        <strong>Glissez un CV ou ouvrez un DOCX</strong>
+                                        <p>Kirby detecte le profil, les experiences, les competences et recadre la hierarchie.</p>
+                                    </div>
+                                    <div class="showcase-stack">
+                                        <div class="showcase-stack-item">
+                                            <span>01</span>
+                                            <div>
+                                                <strong>Importer</strong>
+                                                <p>Texte, PDF ou Word.</p>
+                                            </div>
+                                        </div>
+                                        <div class="showcase-stack-item">
+                                            <span>02</span>
+                                            <div>
+                                                <strong>Organiser</strong>
+                                                <p>Sections propres et pre-remplies.</p>
+                                            </div>
+                                        </div>
+                                        <div class="showcase-stack-item">
+                                            <span>03</span>
+                                            <div>
+                                                <strong>Signer</strong>
+                                                <p>Export premium sur une page.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="showcase-preview-card">
+                                    <div class="showcase-preview-head">
+                                        <p>FATIMA SIDI AMAR</p>
+                                        <span>Conseil client • support • coordination</span>
+                                    </div>
+                                    <div class="showcase-preview-grid">
+                                        <div class="showcase-preview-block showcase-preview-block-wide">
+                                            <small>PROFIL</small>
+                                            <p>Accroche courte, ton net, lecture recruteur rapide.</p>
+                                        </div>
+                                        <div class="showcase-preview-block">
+                                            <small>EXPERIENCE</small>
+                                            <p>Impact, resultat, dates.</p>
+                                        </div>
+                                        <div class="showcase-preview-block">
+                                            <small>COMPETENCES</small>
+                                            <p>Service client, suivi, outils.</p>
+                                        </div>
+                                        <div class="showcase-preview-block showcase-preview-block-wide">
+                                            <small>MODELE</small>
+                                            <p>Trame moderne, blanc aerien, contrastes indigo, gestes editoriaux.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="showcase-float showcase-float-score">
+                                    <strong>ATS 92%</strong>
+                                    <span>Lecture claire, densite maitrisee</span>
+                                </div>
+                                <div class="showcase-float showcase-float-theme">
+                                    <strong>Palette active</strong>
+                                    <span>Indigo, graphite, or doux</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section section-flow reveal-section" id="parcours">
+                <div class="section-heading section-heading-wide">
+                    <p class="section-kicker">Parcours propre</p>
+                    <h2>Accueil, import, connexion, puis studio. Chacun a enfin sa place.</h2>
+                    <p class="section-intro">
+                        Le site n ouvre plus directement sur un bloc d import pose au milieu.
+                        L utilisateur comprend d abord ce qu il peut faire, puis il choisit son point de depart.
+                    </p>
+                </div>
+                <div class="cards-grid workflow-grid">
+                    <article class="content-card workflow-card card">
+                        <span class="workflow-step">01</span>
+                        <h3>Entrer sans friction</h3>
+                        <p>Une home premium explique la promesse, les modeles et la vitesse d execution avant toute action.</p>
+                    </article>
+                    <article class="content-card workflow-card card">
+                        <span class="workflow-step">02</span>
+                        <h3>Choisir le bon demarrage</h3>
+                        <p>Importer un CV existant, partir d une feuille blanche guidee ou se connecter pour reprendre un brouillon.</p>
+                    </article>
+                    <article class="content-card workflow-card card">
+                        <span class="workflow-step">03</span>
+                        <h3>Modifier sans perdre du temps</h3>
+                        <p>Le studio garde l import, l apercu, les modeles et l export dans une seule zone de travail, plus nette.</p>
+                    </article>
+                </div>
+            </section>
+
+            <section class="section section-design reveal-section" id="modeles">
+                <div class="section-heading section-heading-wide">
+                    <p class="section-kicker">Direction visuelle</p>
+                    <h2>Des modeles plus nets, plus premium et moins vus partout.</h2>
+                    <p class="section-intro">
+                        L objectif est de sortir du rendu formulaire. Les trames ci-dessous ouvrent le studio
+                        avec une direction visuelle deja pensee pour un CV moderne et exploitable.
+                    </p>
+                </div>
+                <div class="design-grid">
+                    <article class="template-showcase card">
+                        <div class="template-preview template-preview-minimal">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                        <div class="template-showcase-copy">
+                            <p class="template-showcase-label">Minimal</p>
+                            <h3>Sobre, blanc, lisible, sans bruit.</h3>
+                            <p>Pour les candidatures qui demandent une lecture immediatement rassurante.</p>
+                            <button class="button button-secondary template-launch" type="button" data-studio-launch="classic">Ouvrir ce style</button>
+                        </div>
+                    </article>
+                    <article class="template-showcase card template-showcase-featured">
+                        <div class="template-preview template-preview-future">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                        <div class="template-showcase-copy">
+                            <p class="template-showcase-label">Future Grid</p>
+                            <h3>Le modele de rupture : net, aerien, moderne et visible.</h3>
+                            <p>Le bon equilibre entre design, impact et confort de lecture recruteur.</p>
+                            <button class="button button-primary template-launch" type="button" data-studio-launch="design">Lancer ce modele</button>
+                        </div>
+                    </article>
+                    <article class="template-showcase card">
+                        <div class="template-preview template-preview-boardroom">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                        <div class="template-showcase-copy">
+                            <p class="template-showcase-label">Boardroom</p>
+                            <h3>Professionnel, structure et precis.</h3>
+                            <p>Ideal pour les profils qui veulent une trame solide, directe et executive.</p>
+                            <button class="button button-secondary template-launch" type="button" data-studio-launch="professional">Ouvrir ce style</button>
+                        </div>
+                    </article>
+                    <article class="template-showcase card">
+                        <div class="template-preview template-preview-signature">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                        <div class="template-showcase-copy">
+                            <p class="template-showcase-label">Signature</p>
+                            <h3>Graphite, raffine, haut de gamme.</h3>
+                            <p>Pour un rendu plus editorial avec une touche premium tres assumee.</p>
+                            <button class="button button-secondary template-launch" type="button" data-studio-launch="luxury">Ouvrir ce style</button>
+                        </div>
+                    </article>
+                </div>
+            </section>
+
+            <section class="section section-entry reveal-section" id="studio-entry">
+                <div class="entry-shell">
+                    <div class="section-heading section-heading-wide">
+                        <p class="section-kicker">Acces studio</p>
+                        <h2>Choisissez votre point de depart, puis entrez dans le studio.</h2>
+                        <p class="section-intro">
+                            L import peut rester ultra rapide, mais il n occupe plus toute la facade.
+                            Le studio vient apres le choix de l utilisateur, pas avant.
+                        </p>
+                    </div>
+                    <div class="entry-grid">
+                        <article class="entry-card">
+                            <span class="workflow-step">Import express</span>
+                            <h3>Importer et pre-remplir</h3>
+                            <p>PDF, DOCX ou texte. Les rubriques sont nettoyees puis injectees dans l editeur.</p>
+                            <button class="button button-primary" type="button" data-studio-launch="import">Importer mon CV</button>
+                        </article>
+                        <article class="entry-card entry-card-highlight">
+                            <span class="workflow-step">Blank canvas</span>
+                            <h3>Partir d une feuille blanche guidee</h3>
+                            <p>Une base moderne est ouverte dans le studio avec les reglages Future Grid deja cales.</p>
+                            <button class="button button-secondary" type="button" data-studio-launch="blank">Ouvrir la toile</button>
+                        </article>
+                        <article class="entry-card">
+                            <span class="workflow-step">Compte</span>
+                            <h3>Connexion et reprise</h3>
+                            <p>Creer un compte ou reconnecter votre session pour retrouver votre brouillon sur cet appareil.</p>
+                            <div class="entry-card-actions">
+                                <button class="button button-secondary" type="button" data-studio-launch="login">Se connecter</button>
+                                <button class="button button-secondary" type="button" data-studio-launch="signup">Creer un compte</button>
+                            </div>
+                        </article>
+                    </div>
+                </div>
+            </section>
+
             <section class="section section-cv reveal-section" id="cv-intelligent">
+                <div class="section-heading section-heading-wide studio-heading">
+                    <p class="section-kicker">Studio Kirby CV</p>
+                    <h2>Le moteur de travail reste ici : import, retouche, apercu et export.</h2>
+                    <p class="section-intro">
+                        Une fois dans le studio, tout est concentre au meme endroit : feuille blanche guidee,
+                        import intelligent, reglages visuels, modele de lettre et export final.
+                    </p>
+                    <div class="studio-heading-badges">
+                        <span>Import intelligent</span>
+                        <span>Apercu live</span>
+                        <span>ATS et lettre</span>
+                        <span>Export PDF / Word / Web</span>
+                    </div>
+                </div>
                 <div class="cv-layout" id="cv-layout">
                     <div class="cv-editor-panel" id="cv-editor-panel">
                         <form class="cv-form" id="cv-form">
@@ -43,9 +309,9 @@
                                 <section class="command-group command-group-primary">
                                     <div class="command-grid command-grid-file">
                                         <label class="field field-compact">
-                                            <span>Importer CV</span>
+                                            <span>Importer le CV source</span>
                                             <input type="file" id="cv-import" accept=".txt,.md,.text,.pdf,.doc,.docx">
-                                            <small class="field-hint">PDF, DOCX, TXT, MD. Le nettoyage et le pre-remplissage se font ensuite dans l'editeur.</small>
+                                            <small class="field-hint">PDF, DOCX, TXT, MD. Kirby nettoie, trie et pre-remplit ensuite dans le studio.</small>
                                         </label>
                                         <div class="command-inline-actions command-inline-actions-grid command-inline-actions-grid-2">
                                             <button class="button button-secondary" type="button" id="cv-save">Sauvegarder</button>
@@ -56,11 +322,11 @@
                                     </div>
 
                                     <div class="quick-switch-strip" aria-label="Changer de modele rapidement">
-                                        <span class="quick-switch-label">Modeles rapides</span>
+                                        <span class="quick-switch-label">Rendus rapides</span>
                                         <div class="quick-switch-actions">
-                                            <button class="quick-switch-chip" type="button" data-template-preset="classic">Simple</button>
-                                            <button class="quick-switch-chip" type="button" data-template-preset="professional">Word Pro</button>
-                                            <button class="quick-switch-chip" type="button" data-template-preset="design">Editorial</button>
+                                            <button class="quick-switch-chip" type="button" data-template-preset="classic">Minimal</button>
+                                            <button class="quick-switch-chip" type="button" data-template-preset="professional">Boardroom</button>
+                                            <button class="quick-switch-chip" type="button" data-template-preset="design">Future Grid</button>
                                             <button class="quick-switch-chip" type="button" data-template-preset="luxury">Signature</button>
                                         </div>
                                     </div>
@@ -82,7 +348,7 @@
 
                             <div class="editor-form-body">
                                 <details class="utility-panel">
-                                    <summary>Demarrage rapide</summary>
+                                    <summary>Lancement rapide</summary>
                                     <div class="utility-panel-body">
                                         <div class="cv-quick-presets cv-quick-presets-compact">
                                             <div class="preset-actions">
@@ -225,20 +491,20 @@ Sport</textarea>
                                 </section>
 
                                 <details class="utility-panel">
-                                    <summary>Styles, modeles et themes</summary>
+                                    <summary>Direction visuelle</summary>
                                     <div class="utility-panel-body">
                                         <div class="template-presets" aria-label="Mises en forme pretes a l emploi">
                                             <button class="template-chip" type="button" data-template-preset="classic">
-                                                <strong>Simple</strong>
+                                                <strong>Minimal</strong>
                                                 <span>Sobre, lisible, une page</span>
                                             </button>
                                             <button class="template-chip" type="button" data-template-preset="professional">
-                                                <strong>Professionnel</strong>
+                                                <strong>Boardroom</strong>
                                                 <span>Dates claires, structure nette</span>
                                             </button>
                                             <button class="template-chip" type="button" data-template-preset="design">
-                                                <strong>Editorial</strong>
-                                                <span>Accent visuel, sections plus edito</span>
+                                                <strong>Future Grid</strong>
+                                                <span>Accent visuel, rythme net, allure 2026</span>
                                             </button>
                                             <button class="template-chip" type="button" data-template-preset="luxury">
                                                 <strong>Signature</strong>
@@ -282,11 +548,11 @@ Sport</textarea>
                                             <label class="field">
                                                 <span>Template</span>
                                                 <select name="layoutTheme">
-                                                    <option value="wordpro">Word Pro</option>
-                                                    <option value="classic">Classique</option>
-                                                    <option value="modern">Moderne</option>
-                                                    <option value="executive">Executive</option>
-                                                    <option value="minimal">Minimal</option>
+                                                    <option value="wordpro">Boardroom</option>
+                                                    <option value="classic">Minimal</option>
+                                                    <option value="modern">Future Grid</option>
+                                                    <option value="executive">Signature</option>
+                                                    <option value="minimal">Mono</option>
                                                 </select>
                                             </label>
                                         </div>
@@ -303,8 +569,8 @@ Sport</textarea>
                                             <label class="field">
                                                 <span>Palette</span>
                                                 <select name="colorTheme">
-                                                    <option value="indigo">Indigo moderne</option>
-                                                    <option value="emerald">Emerald minimal</option>
+                                                    <option value="indigo">Indigo neon</option>
+                                                    <option value="emerald">Emerald clean</option>
                                                     <option value="rose">Rose editorial</option>
                                                     <option value="graphite">Graphite premium</option>
                                                 </select>
@@ -314,7 +580,7 @@ Sport</textarea>
                                                 <select name="designMood">
                                                     <option value="clean">Clean</option>
                                                     <option value="editorial">Editorial</option>
-                                                    <option value="startup">Startup</option>
+                                                    <option value="startup">Future</option>
                                                     <option value="luxury">Luxury</option>
                                                 </select>
                                             </label>
@@ -435,11 +701,11 @@ Sport</textarea>
                                 <label class="preview-quick-control">
                                     <span>Theme</span>
                                     <select id="preview-layout-theme">
-                                        <option value="wordpro">Word Pro</option>
-                                        <option value="classic">Classique</option>
-                                        <option value="modern">Moderne</option>
-                                        <option value="executive">Executive</option>
-                                        <option value="minimal">Minimal</option>
+                                        <option value="wordpro">Boardroom</option>
+                                        <option value="classic">Minimal</option>
+                                        <option value="modern">Future Grid</option>
+                                        <option value="executive">Signature</option>
+                                        <option value="minimal">Mono</option>
                                     </select>
                                 </label>
                             </div>
@@ -452,9 +718,9 @@ Sport</textarea>
                             </div>
                         </div>
                         <div class="preview-template-rail" aria-label="Modeles visibles dans l apercu">
-                            <button class="preview-template-chip" type="button" data-template-preset="classic">Simple</button>
-                            <button class="preview-template-chip" type="button" data-template-preset="professional">Word Pro</button>
-                            <button class="preview-template-chip" type="button" data-template-preset="design">Editorial</button>
+                            <button class="preview-template-chip" type="button" data-template-preset="classic">Minimal</button>
+                            <button class="preview-template-chip" type="button" data-template-preset="professional">Boardroom</button>
+                            <button class="preview-template-chip" type="button" data-template-preset="design">Future Grid</button>
                             <button class="preview-template-chip" type="button" data-template-preset="luxury">Signature</button>
                         </div>
                         <div class="cv-word-toolbar-shell" id="cv-word-toolbar-shell">
@@ -510,7 +776,7 @@ Sport</textarea>
                                 <article class="cv-preview theme-executive font-manrope template-wordpro" id="cv-preview" data-preview-doc="cv">
                                     <div class="cv-page-guide" aria-hidden="true"></div>
                                     <header class="cv-header">
-                                        <p class="cv-label">CV moderne</p>
+                                        <p class="cv-label">CV premium</p>
                                         <h3 id="preview-name" data-edit-target="fullName" contenteditable="true" spellcheck="false">Votre nom</h3>
                                         <p class="cv-meta" id="preview-meta" data-edit-target="location" contenteditable="true" spellcheck="false">Ville / code postal | 06 00 00 00 00 | email@exemple.com</p>
                                         <p id="preview-headline" data-edit-target="headline" contenteditable="true" spellcheck="false">Intitule du poste vise</p>
@@ -695,7 +961,7 @@ Sport</textarea>
         <div class="auth-modal-backdrop" data-auth-close></div>
         <div class="auth-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
             <button class="auth-modal-close" id="auth-close" type="button" aria-label="Fermer">×</button>
-            <h2 id="auth-modal-title">Se connecter ou creer un compte</h2>
+            <h2 id="auth-modal-title">Se connecter ou creer un compte Kirby CV</h2>
             <p class="auth-modal-text">Le site s'ouvre toujours en mode invite. Connectez-vous seulement si vous voulez retrouver votre brouillon sur cet appareil, puis deconnectez-vous apres usage.</p>
             <div class="auth-modal-tabs" role="tablist" aria-label="Connexion ou inscription">
                 <button class="auth-tab is-active" type="button" data-auth-view="login" aria-selected="true">Se connecter</button>

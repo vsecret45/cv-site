@@ -84,6 +84,7 @@ const authLoginPanel = document.querySelector('#auth-panel-login');
 const authSignupPanel = document.querySelector('#auth-panel-signup');
 const authLoginForm = document.querySelector('#auth-login-form');
 const authSignupForm = document.querySelector('#auth-signup-form');
+const studioLaunchButtons = document.querySelectorAll('[data-studio-launch]');
 const PDFJS_MODULE_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/legacy/build/pdf.min.mjs';
 const PDFJS_WORKER_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/legacy/build/pdf.worker.min.mjs';
 
@@ -182,11 +183,11 @@ const templatePresets = {
     design: {
         layoutTheme: 'modern',
         fontTheme: 'manrope',
-        colorTheme: 'rose',
+        colorTheme: 'indigo',
         designMood: 'startup',
         lineSpacing: 'airy',
         textAlign: 'left',
-        accentColor: '#b83280',
+        accentColor: '#4f6bff',
     },
     luxury: {
         layoutTheme: 'executive',
@@ -231,10 +232,109 @@ const syncTemplatePresetState = (presetKey = getActiveTemplatePresetKey()) => {
     });
 };
 
+const applyTemplatePresetByKey = (presetKey, { focus = true, statusMessage = 'Mise en forme appliquee' } = {}) => {
+    if (!cvForm) {
+        return false;
+    }
+
+    const preset = templatePresets[presetKey || ''];
+
+    if (!preset) {
+        return false;
+    }
+
+    Object.entries(preset).forEach(([key, value]) => {
+        const field = cvForm.elements[key];
+        if (field) {
+            field.value = value;
+        }
+    });
+
+    updateCvPreview();
+
+    if (focus) {
+        focusPreviewTop();
+    }
+
+    syncTemplatePresetState(presetKey);
+    setCvStatus(statusMessage);
+    return true;
+};
+
 const focusPreviewTop = () => {
     setPreviewMode('cv');
     currentPreviewPage = 1;
     cvPreviewViewport?.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+const scrollToStudio = () => {
+    const cvSection = document.querySelector('#cv-intelligent');
+
+    if (!cvSection) {
+        return;
+    }
+
+    cvSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.setTimeout(refreshCvModule, 80);
+};
+
+const prepareGuidedBlankCanvas = () => {
+    if (!cvForm) {
+        return;
+    }
+
+    activeEditableNode = null;
+    resetCvFormToDefaults();
+    clearEditableOverrides();
+    applyCurrentUserDefaults();
+    applyTemplatePresetByKey('design', { focus: false, statusMessage: 'Toile guidee ouverte' });
+
+    if (cvForm.elements.cvMode) {
+        cvForm.elements.cvMode.value = 'design';
+    }
+
+    if (cvForm.elements.headlineScale) {
+        cvForm.elements.headlineScale.value = 'large';
+    }
+
+    updateCvPreview();
+    syncTemplatePresetState('design');
+    focusPreviewTop();
+};
+
+const launchStudioExperience = (mode = '') => {
+    if (mode === 'login') {
+        openAuthModal('login');
+        return;
+    }
+
+    if (mode === 'signup') {
+        openAuthModal('signup');
+        return;
+    }
+
+    if (mode === 'blank') {
+        prepareGuidedBlankCanvas();
+        scrollToStudio();
+        return;
+    }
+
+    if (mode === 'import') {
+        scrollToStudio();
+        if (cvImportInput) {
+            setCvStatus('Choisissez un CV a importer');
+            cvImportInput.click();
+        }
+        return;
+    }
+
+    if (templatePresets[mode]) {
+        applyTemplatePresetByKey(mode);
+        scrollToStudio();
+        return;
+    }
+
+    scrollToStudio();
 };
 
 const offerKeywordMap = {
@@ -272,7 +372,7 @@ const applyCvPreset = (preset) => {
             'Entreprise / Organisation - Poste occupe • Ville | Dates • Gestion des appels et des courriers • Organisation et classement des documents • Suivi administratif',
         ].join('\n');
         form.projectType.value = 'Projet personnel';
-        form.projects.value = "CV Studio - Prototype personnel - 2024 • Prototype d'une plateforme CV moderne prete a l'emploi avec assistance IA et export multi-format.";
+        form.projects.value = "Kirby CV - Prototype personnel - 2024 • Prototype d'une plateforme CV moderne prete a l'emploi avec assistance IA et export multi-format.";
         form.education.value = [
             'Diplome ou formation - Etablissement - Annee',
         ].join('\n');
@@ -2709,7 +2809,7 @@ const exportWord = () => {
 </body>
 </html>`;
     downloadFile(
-        currentPreviewMode === 'letter' ? 'lettre-motivation.doc' : 'cv-intelligent.doc',
+        currentPreviewMode === 'letter' ? 'lettre-motivation.doc' : 'kirby-cv.doc',
         html,
         'application/msword'
     );
@@ -2921,7 +3021,7 @@ const exportPdf = async () => {
             writeBulletList(languages, true);
         }
 
-        doc.save('cv-intelligent.pdf');
+        doc.save('kirby-cv.pdf');
         setCvStatus('PDF telecharge');
     } catch (error) {
         console.error(error);
@@ -3126,7 +3226,7 @@ const handleAuthLogout = () => {
 window.addEventListener('load', () => {
     document.body.classList.remove('is-preload');
     document.body.classList.add('is-ready');
-    persistAuthSession(null);
+    loadAuthSession();
     updateAuthUi();
     try {
         loadCvDraft();
@@ -3667,26 +3767,13 @@ presetChips.forEach((chip) => {
 
 templatePresetChips.forEach((chip) => {
     chip.addEventListener('click', () => {
-        if (!cvForm) {
-            return;
-        }
+        applyTemplatePresetByKey(chip.dataset.templatePreset || '');
+    });
+});
 
-        const preset = templatePresets[chip.dataset.templatePreset || ''];
-        if (!preset) {
-            return;
-        }
-
-        Object.entries(preset).forEach(([key, value]) => {
-            const field = cvForm.elements[key];
-            if (field) {
-                field.value = value;
-            }
-        });
-
-        updateCvPreview();
-        focusPreviewTop();
-        syncTemplatePresetState(chip.dataset.templatePreset || '');
-        setCvStatus('Mise en forme appliquee');
+studioLaunchButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+        launchStudioExperience(button.dataset.studioLaunch || '');
     });
 });
 
@@ -3781,7 +3868,7 @@ if (cvShareButton) {
         try {
             if (navigator.share) {
                 await navigator.share({
-                    title: 'CV Studio',
+                    title: 'Kirby CV',
                     text: 'Voir le CV en ligne',
                     url: shareUrl,
                 });
