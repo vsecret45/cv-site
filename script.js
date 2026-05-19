@@ -199,6 +199,12 @@ const templatePresets = {
     },
 };
 
+const focusPreviewTop = () => {
+    setPreviewMode('cv');
+    currentPreviewPage = 1;
+    cvPreviewViewport?.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
 const offerKeywordMap = {
     react: ['react', 'javascript', 'frontend', 'front-end', 'component'],
     ux: ['ux', 'ui', 'experience utilisateur', 'interface', 'figma'],
@@ -343,10 +349,13 @@ const applyCvPreset = (preset) => {
     }
 
     if (preset === 'luxury') {
+        form.cvMode.value = 'design';
         form.fontTheme.value = 'playfair';
         form.layoutTheme.value = 'executive';
         form.colorTheme.value = 'graphite';
         form.designMood.value = 'luxury';
+        form.fontSize.value = 'large';
+        form.headlineScale.value = 'large';
         form.textAlign.value = 'left';
         form.lineSpacing.value = 'airy';
         form.accentColor.value = '#9a7b43';
@@ -358,11 +367,14 @@ const applyCvPreset = (preset) => {
         form.fontTheme.value = 'roboto';
         form.colorTheme.value = 'graphite';
         form.designMood.value = 'clean';
+        form.fontSize.value = 'compact';
+        form.headlineScale.value = 'compact';
         form.textAlign.value = 'left';
         form.lineSpacing.value = 'normal';
     }
 
     updateCvPreview();
+    focusPreviewTop();
     setCvStatus('Preset applique');
 };
 
@@ -3638,6 +3650,7 @@ templatePresetChips.forEach((chip) => {
         });
 
         updateCvPreview();
+        focusPreviewTop();
         setCvStatus('Mise en forme appliquee');
     });
 });
