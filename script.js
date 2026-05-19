@@ -84,7 +84,9 @@ const authLoginPanel = document.querySelector('#auth-panel-login');
 const authSignupPanel = document.querySelector('#auth-panel-signup');
 const authLoginForm = document.querySelector('#auth-login-form');
 const authSignupForm = document.querySelector('#auth-signup-form');
-const studioLaunchButtons = document.querySelectorAll('[data-studio-launch]');
+const builderLaunchButtons = document.querySelectorAll('[data-builder-launch]');
+const menuToggle = document.querySelector('#menu-toggle');
+const siteMenu = document.querySelector('#site-menu');
 const PDFJS_MODULE_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/legacy/build/pdf.min.mjs';
 const PDFJS_WORKER_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/legacy/build/pdf.worker.min.mjs';
 
@@ -267,7 +269,7 @@ const focusPreviewTop = () => {
     cvPreviewViewport?.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
-const scrollToStudio = () => {
+const scrollToBuilder = () => {
     const cvSection = document.querySelector('#cv-intelligent');
 
     if (!cvSection) {
@@ -302,7 +304,14 @@ const prepareGuidedBlankCanvas = () => {
     focusPreviewTop();
 };
 
-const launchStudioExperience = (mode = '') => {
+const closeSiteMenu = () => {
+    siteMenu?.classList.remove('is-open');
+    menuToggle?.setAttribute('aria-expanded', 'false');
+};
+
+const launchBuilderExperience = (mode = '') => {
+    closeSiteMenu();
+
     if (mode === 'login') {
         openAuthModal('login');
         return;
@@ -315,12 +324,12 @@ const launchStudioExperience = (mode = '') => {
 
     if (mode === 'blank') {
         prepareGuidedBlankCanvas();
-        scrollToStudio();
+        scrollToBuilder();
         return;
     }
 
     if (mode === 'import') {
-        scrollToStudio();
+        scrollToBuilder();
         if (cvImportInput) {
             setCvStatus('Choisissez un CV a importer');
             cvImportInput.click();
@@ -330,11 +339,11 @@ const launchStudioExperience = (mode = '') => {
 
     if (templatePresets[mode]) {
         applyTemplatePresetByKey(mode);
-        scrollToStudio();
+        scrollToBuilder();
         return;
     }
 
-    scrollToStudio();
+    scrollToBuilder();
 };
 
 const offerKeywordMap = {
@@ -3771,10 +3780,27 @@ templatePresetChips.forEach((chip) => {
     });
 });
 
-studioLaunchButtons.forEach((button) => {
+builderLaunchButtons.forEach((button) => {
     button.addEventListener('click', () => {
-        launchStudioExperience(button.dataset.studioLaunch || '');
+        launchBuilderExperience(button.dataset.builderLaunch || '');
     });
+});
+
+menuToggle?.addEventListener('click', () => {
+    const isOpen = siteMenu?.classList.toggle('is-open') || false;
+    menuToggle.setAttribute('aria-expanded', String(isOpen));
+});
+
+document.addEventListener('click', (event) => {
+    if (!siteMenu?.classList.contains('is-open')) {
+        return;
+    }
+
+    if (siteMenu.contains(event.target) || menuToggle?.contains(event.target)) {
+        return;
+    }
+
+    closeSiteMenu();
 });
 
 previewModeTabs.forEach((tab) => {
