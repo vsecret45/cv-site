@@ -1,4 +1,6 @@
-const navLinks = document.querySelectorAll('.nav-links a');
+const navLinks = document.querySelectorAll('.nav-links a, .site-menu-links a');
+const siteMenuToggle = document.querySelector('#site-menu-toggle');
+const siteMenuPanel = document.querySelector('#site-menu-panel');
 const cvOpenLinks = document.querySelectorAll('a[href="#cv-intelligent"]');
 const sections = [...document.querySelectorAll('main section[id]')];
 const contactForm = document.querySelector('#contact-form');
@@ -70,6 +72,12 @@ const assistantForm = document.querySelector('#assistant-form');
 const assistantInput = document.querySelector('#assistant-input');
 const assistantMessages = document.querySelector('#assistant-messages');
 const suggestionChips = document.querySelectorAll('.suggestion-chip');
+const themeToggles = document.querySelectorAll('.theme-toggle');
+const aiBriefForm = document.querySelector('#ai-brief-form');
+const aiBriefInput = document.querySelector('#ai-brief-input');
+const aiBriefStyle = document.querySelector('#ai-brief-style');
+const aiBriefGoal = document.querySelector('#ai-brief-goal');
+const aiBriefOutput = document.querySelector('#ai-brief-output');
 const expandableCards = document.querySelectorAll('[data-expandable]');
 const presetChips = document.querySelectorAll('.preset-chip');
 const templatePresetChips = document.querySelectorAll('[data-template-preset]');
@@ -204,6 +212,39 @@ const offerKeywordMap = {
     ux: ['ux', 'ui', 'experience utilisateur', 'interface', 'figma'],
     api: ['api', 'integration', 'donnees', 'base de donnees'],
     client: ['relation client', 'accompagnement', 'service client', 'conseil'],
+};
+
+const applySiteTheme = (theme) => {
+    const nextTheme = theme === 'day' ? 'day' : 'night';
+    document.body.dataset.theme = nextTheme;
+    themeToggles.forEach((toggle) => {
+        toggle.setAttribute('aria-pressed', String(nextTheme === 'day'));
+        const label = toggle.querySelector('.theme-toggle-text');
+        if (label) {
+            label.textContent = nextTheme === 'day' ? 'Nuit' : 'Jour';
+        }
+    });
+    try {
+        window.localStorage.setItem('sa-creation-web-theme', nextTheme);
+    } catch (error) {
+        console.warn('Theme preference not saved', error);
+    }
+};
+
+const initSiteTheme = () => {
+    let storedTheme = 'night';
+    try {
+        storedTheme = window.localStorage.getItem('sa-creation-web-theme') || 'night';
+    } catch (error) {
+        storedTheme = 'night';
+    }
+
+    applySiteTheme(storedTheme);
+};
+
+const closeSiteMenu = () => {
+    siteMenuToggle?.setAttribute('aria-expanded', 'false');
+    siteMenuPanel?.classList.remove('is-open');
 };
 
 const applyCvPreset = (preset) => {
@@ -3076,6 +3117,7 @@ const handleAuthLogout = () => {
 window.addEventListener('load', () => {
     document.body.classList.remove('is-preload');
     document.body.classList.add('is-ready');
+    initSiteTheme();
     persistAuthSession(null);
     updateAuthUi();
     try {
@@ -3114,9 +3156,37 @@ authTabs.forEach((tab) => {
 authLoginForm?.addEventListener('submit', handleAuthLogin);
 authSignupForm?.addEventListener('submit', handleAuthSignup);
 
+siteMenuToggle?.addEventListener('click', () => {
+    const isOpen = siteMenuToggle.getAttribute('aria-expanded') === 'true';
+    siteMenuToggle.setAttribute('aria-expanded', String(!isOpen));
+    siteMenuPanel?.classList.toggle('is-open', !isOpen);
+});
+
+siteMenuPanel?.querySelectorAll('a')?.forEach((link) => {
+    link.addEventListener('click', closeSiteMenu);
+});
+
+document.addEventListener('click', (event) => {
+    if (!siteMenuPanel?.classList.contains('is-open')) {
+        return;
+    }
+
+    const target = event.target;
+    if (!(target instanceof Node)) {
+        return;
+    }
+
+    if (!siteMenuPanel.contains(target) && !siteMenuToggle?.contains(target)) {
+        closeSiteMenu();
+    }
+});
+
 document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && authModal && !authModal.classList.contains('is-hidden')) {
         closeAuthModal();
+    }
+    if (event.key === 'Escape') {
+        closeSiteMenu();
     }
 });
 
@@ -3149,6 +3219,7 @@ if (contactForm) {
         const formData = new FormData(contactForm);
         const name = (formData.get('name') || '').toString().trim();
         const email = (formData.get('email') || '').toString().trim();
+        const pack = (formData.get('pack') || '').toString().trim();
         const message = (formData.get('message') || '').toString().trim();
 
         const subject = encodeURIComponent(`Projet web - ${name || 'Prise de contact'}`);
@@ -3156,10 +3227,11 @@ if (contactForm) {
             [
                 `Nom : ${name || '-'}`,
                 `Email : ${email || '-'}`,
+                pack ? `Pack envisage : ${pack}` : '',
                 '',
                 'Message :',
                 message || '-',
-            ].join('\n')
+            ].filter((line, index, lines) => line || lines[index - 1]).join('\n')
         );
 
         window.location.href = `mailto:purvelours@proton.me?subject=${subject}&body=${body}`;
@@ -3914,6 +3986,13 @@ if (assistantClose) {
     assistantClose.addEventListener('click', closeAssistant);
 }
 
+themeToggles.forEach((toggle) => {
+    toggle.addEventListener('click', () => {
+        const currentTheme = document.body.dataset.theme === 'day' ? 'day' : 'night';
+        applySiteTheme(currentTheme === 'day' ? 'night' : 'day');
+    });
+});
+
 suggestionChips.forEach((chip) => {
     chip.addEventListener('click', () => {
         const prompt = chip.dataset.prompt || chip.textContent || '';
@@ -3938,3 +4017,159 @@ if (assistantForm) {
         assistantForm.reset();
     });
 }
+
+if (aiBriefForm && aiBriefInput && aiBriefOutput) {
+    aiBriefForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+
+        const activity = aiBriefInput.value.trim() || 'votre activite';
+        const visualStyle = aiBriefStyle?.value || 'moderne et rassurante';
+        const goal = aiBriefGoal?.value || 'recevoir des demandes de devis';
+        const cleanActivity = escapeHtml(activity);
+        const cleanVisualStyle = escapeHtml(visualStyle);
+        const cleanGoal = escapeHtml(goal);
+        const lowerActivity = activity.toLowerCase();
+        const isLocalBusiness = /restaurant|salon|coiffure|spa|institut|boutique|artisan|garage|yoga|coach|fitness|therapeute|photographe/.test(lowerActivity);
+        const isService = /consultant|coach|freelance|formation|service|agence|conseil|developpeur|designer/.test(lowerActivity);
+        const proofLabel = isLocalBusiness ? 'avis clients, photos et informations pratiques' : 'resultats, methode et exemples';
+        const ctaLabel = isService ? 'Demander un appel ou un devis' : 'Reserver, appeler ou demander un devis';
+
+        aiBriefOutput.innerHTML = `
+            <p class="signal-label">Apercu IA</p>
+            <h3>Structure proposee pour ${cleanActivity}</h3>
+            <ul>
+                <li>Direction : ambiance ${cleanVisualStyle}, avec un objectif clair : ${cleanGoal}.</li>
+                <li>Hero : une phrase claire pour comprendre l'offre en moins de 5 secondes.</li>
+                <li>Prestations : 3 offres ou services separes avec prix ou fourchettes si possible.</li>
+                <li>Confiance : ${proofLabel}.</li>
+                <li>Methode : comment se passe la demande, du premier message a la livraison.</li>
+                <li>Action principale : ${ctaLabel}.</li>
+            </ul>
+        `;
+    });
+}
+
+const initHeroParticles = () => {
+    const canvas = document.querySelector('#hero-particles');
+
+    if (!canvas || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        return;
+    }
+
+    const context = canvas.getContext('2d');
+    const hero = canvas.closest('.hero-immersive');
+    let particles = [];
+    let particleCount = window.innerWidth < 720 ? 720 : 1150;
+    let width = 0;
+    let height = 0;
+    let radius = 0;
+    let angle = 0;
+    let animationFrame;
+
+    const resize = () => {
+        const bounds = hero?.getBoundingClientRect() || { width: window.innerWidth, height: window.innerHeight };
+        const ratio = Math.min(window.devicePixelRatio || 1, 2);
+        width = Math.max(bounds.width, window.innerWidth);
+        height = Math.max(bounds.height, window.innerHeight * 0.9);
+        radius = Math.min(width, height) * (width < 720 ? 0.45 : 0.39);
+        particleCount = width < 720 ? 720 : 1150;
+        canvas.width = width * ratio;
+        canvas.height = height * ratio;
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+        context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    };
+
+    const resetParticles = () => {
+        particles = [];
+        for (let index = 0; index < particleCount; index += 1) {
+            const offset = 2 / particleCount;
+            const increment = Math.PI * (3 - Math.sqrt(5));
+            const y = index * offset - 1 + offset / 2;
+            const distance = Math.sqrt(1 - y * y);
+            const phi = index * increment;
+
+            particles.push({
+                x: Math.cos(phi) * distance,
+                y,
+                z: Math.sin(phi) * distance,
+                size: Math.random() * 1.4 + 0.35,
+                shimmer: Math.random() * Math.PI * 2,
+            });
+        }
+    };
+
+    const draw = () => {
+        context.clearRect(0, 0, width, height);
+        angle += 0.0026;
+
+        const centerX = width < 720 ? width * 0.5 : width * 0.69;
+        const centerY = width < 720 ? height * 0.42 : height * 0.51;
+        const perspective = radius * 2.8;
+
+        const gradient = context.createRadialGradient(centerX, centerY, radius * 0.12, centerX, centerY, radius * 1.12);
+        gradient.addColorStop(0, 'rgba(255,255,255,0.1)');
+        gradient.addColorStop(0.48, 'rgba(114,150,255,0.052)');
+        gradient.addColorStop(1, 'rgba(239,214,163,0)');
+        context.fillStyle = gradient;
+        context.beginPath();
+        context.arc(centerX, centerY, radius * 1.16, 0, Math.PI * 2);
+        context.fill();
+
+        const projected = particles.map((particle) => {
+            const cosY = Math.cos(angle);
+            const sinY = Math.sin(angle);
+            const cosX = Math.cos(angle * 0.42);
+            const sinX = Math.sin(angle * 0.42);
+            const rotatedX = particle.x * cosY - particle.z * sinY;
+            const rotatedZ = particle.x * sinY + particle.z * cosY;
+            const rotatedY = particle.y * cosX - rotatedZ * sinX * 0.34;
+            const depth = rotatedZ * cosX + particle.y * sinX * 0.34;
+            const scale = perspective / (perspective - depth * radius);
+
+            return {
+                x: centerX + rotatedX * radius * scale,
+                y: centerY + rotatedY * radius * scale,
+                z: depth,
+                size: particle.size * scale,
+                alpha: Math.max(0.16, 0.2 + (depth + 1) * 0.28),
+                shimmer: particle.shimmer,
+            };
+        }).sort((a, b) => a.z - b.z);
+
+        projected.forEach((particle, index) => {
+            const pulse = Math.sin(angle * 7 + particle.shimmer) * 0.18;
+            const dotSize = Math.max(0.35, particle.size + pulse);
+            const warm = index % 7 === 0;
+
+            context.beginPath();
+            context.arc(particle.x, particle.y, dotSize, 0, Math.PI * 2);
+            context.fillStyle = warm
+                ? `rgba(239, 214, 163, ${particle.alpha})`
+                : `rgba(255, 255, 255, ${particle.alpha})`;
+            context.fill();
+
+            if (index % 68 === 0) {
+                context.beginPath();
+                context.arc(particle.x, particle.y, dotSize * 3.8, 0, Math.PI * 2);
+                context.fillStyle = `rgba(130, 160, 255, ${particle.alpha * 0.08})`;
+                context.fill();
+            }
+        });
+
+        animationFrame = window.requestAnimationFrame(draw);
+    };
+
+    resize();
+    resetParticles();
+    draw();
+
+    window.addEventListener('resize', () => {
+        window.cancelAnimationFrame(animationFrame);
+        resize();
+        resetParticles();
+        draw();
+    }, { passive: true });
+};
+
+initHeroParticles();
