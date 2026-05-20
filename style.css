@@ -2777,6 +2777,44 @@ body.is-ready .skill-delay-8 {
     bottom: -5rem;
 }
 
+.pack-offer-card {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.8rem;
+    align-items: center;
+    width: fit-content;
+    max-width: 100%;
+    margin-bottom: 1rem;
+    padding: 0.78rem 1rem;
+    border: 1px solid rgba(239, 214, 163, 0.18);
+    border-radius: 999px;
+    background:
+        linear-gradient(145deg, rgba(239, 214, 163, 0.12), rgba(255, 255, 255, 0.035)),
+        rgba(255, 255, 255, 0.045);
+    color: var(--studio-muted);
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.16);
+    backdrop-filter: blur(14px);
+}
+
+.pack-offer-card p,
+.pack-offer-card strong,
+.pack-offer-card span {
+    margin: 0;
+}
+
+.pack-offer-card p {
+    color: #efd6a3;
+    font-weight: 900;
+}
+
+.pack-offer-card strong {
+    color: var(--studio-text);
+}
+
+.pack-offer-card span {
+    font-size: 0.9rem;
+}
+
 .price-card {
     display: grid;
     gap: 1rem;
@@ -3618,7 +3656,8 @@ body.studio-home[data-theme="day"] .contact-form {
 }
 
 body.studio-home[data-theme="day"] .page-pills span,
-body.studio-home[data-theme="day"] .contact-brief-list span {
+body.studio-home[data-theme="day"] .contact-brief-list span,
+body.studio-home[data-theme="day"] .pack-offer-card {
     border-color: rgba(42, 45, 58, 0.1);
     background: rgba(255, 255, 255, 0.54);
     color: rgba(42, 45, 58, 0.72);
