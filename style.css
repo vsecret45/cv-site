@@ -2268,6 +2268,28 @@ body.is-ready .skill-delay-8 {
         padding-inline: 0;
     }
 
+    .page-shell {
+        width: min(calc(100% - 1rem), var(--max-width));
+    }
+
+    .page-header {
+        padding-inline: 0.35rem;
+        gap: 1.6rem;
+    }
+
+    .page-intro {
+        padding-top: 1.8rem;
+    }
+
+    .page-intro h1 {
+        font-size: clamp(2.3rem, 12vw, 3.4rem);
+        letter-spacing: -0.05em;
+    }
+
+    .page-intro p:not(.eyebrow) {
+        font-size: 1rem;
+    }
+
     .topbar {
         border-radius: 24px;
         align-items: center;
@@ -2286,6 +2308,11 @@ body.is-ready .skill-delay-8 {
 
     .button {
         width: 100%;
+    }
+
+    .pack-offer-card {
+        width: 100%;
+        border-radius: 22px;
     }
 
     .preview-toolbar-group {
@@ -2962,6 +2989,7 @@ body.studio-home[data-theme="day"] .price-card .button {
     position: relative;
     display: grid;
     align-content: end;
+    gap: 0.45rem;
     min-height: 260px;
     padding: 1.25rem;
     border: 1px solid var(--studio-line);
@@ -2983,7 +3011,16 @@ body.studio-home[data-theme="day"] .price-card .button {
 .mood-card h3 {
     position: relative;
     z-index: 1;
-    font-size: 1.18rem;
+    font-size: clamp(1.08rem, 2vw, 1.35rem);
+}
+
+.mood-card p {
+    position: relative;
+    z-index: 1;
+    max-width: 13rem;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.86rem;
+    font-weight: 800;
 }
 
 .mood-card-premium {
@@ -3860,11 +3897,15 @@ body.studio-home .section:first-child {
     }
 
     .mood-card {
-        min-height: 190px;
+        min-height: 180px;
     }
 
     .price-card {
         min-height: auto;
+    }
+
+    .flow-step {
+        min-height: 180px;
     }
 
     .ai-brief-panel {

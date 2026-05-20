@@ -3220,6 +3220,9 @@ if (contactForm) {
         const name = (formData.get('name') || '').toString().trim();
         const email = (formData.get('email') || '').toString().trim();
         const pack = (formData.get('pack') || '').toString().trim();
+        const siteType = (formData.get('siteType') || '').toString().trim();
+        const mood = (formData.get('mood') || '').toString().trim();
+        const deadline = (formData.get('deadline') || '').toString().trim();
         const message = (formData.get('message') || '').toString().trim();
 
         const subject = encodeURIComponent(`Projet web - ${name || 'Prise de contact'}`);
@@ -3228,6 +3231,9 @@ if (contactForm) {
                 `Nom : ${name || '-'}`,
                 `Email : ${email || '-'}`,
                 pack ? `Pack envisage : ${pack}` : '',
+                siteType ? `Type de site : ${siteType}` : '',
+                mood ? `Ambiance souhaitee : ${mood}` : '',
+                deadline ? `Delai ideal : ${deadline}` : '',
                 '',
                 'Message :',
                 message || '-',
