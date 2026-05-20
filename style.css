@@ -2085,6 +2085,13 @@ img {
     width: fit-content;
 }
 
+.contact-form-status {
+    color: var(--text-soft);
+    font-size: 0.92rem;
+    line-height: 1.5;
+    min-height: 1.4rem;
+}
+
 .site-footer {
     padding: 2rem 0 1rem;
     border-top: 1px solid var(--line);
@@ -2864,6 +2871,22 @@ body.is-ready .skill-delay-8 {
     font-size: clamp(2.8rem, 6vw, 4.7rem);
     line-height: 1;
     letter-spacing: -0.05em;
+}
+
+.launch-price {
+    display: grid;
+    gap: 0.35rem;
+}
+
+.launch-price span {
+    color: var(--text-soft);
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+
+.launch-price s {
+    opacity: 0.72;
+    text-decoration-thickness: 0.12em;
 }
 
 .price-card ul {

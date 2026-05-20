@@ -4,6 +4,7 @@ const siteMenuPanel = document.querySelector('#site-menu-panel');
 const cvOpenLinks = document.querySelectorAll('a[href="#cv-intelligent"]');
 const sections = [...document.querySelectorAll('main section[id]')];
 const contactForm = document.querySelector('#contact-form');
+const contactFormStatus = document.querySelector('#contact-form-status');
 const cards = document.querySelectorAll('.card');
 const revealSections = document.querySelectorAll('.reveal-section');
 const cvForm = document.querySelector('#cv-form');
@@ -3217,30 +3218,27 @@ if (contactForm) {
         event.preventDefault();
 
         const formData = new FormData(contactForm);
-        const name = (formData.get('name') || '').toString().trim();
+        const lastName = (formData.get('lastName') || '').toString().trim();
+        const firstName = (formData.get('firstName') || '').toString().trim();
         const email = (formData.get('email') || '').toString().trim();
-        const pack = (formData.get('pack') || '').toString().trim();
-        const siteType = (formData.get('siteType') || '').toString().trim();
-        const mood = (formData.get('mood') || '').toString().trim();
-        const deadline = (formData.get('deadline') || '').toString().trim();
         const message = (formData.get('message') || '').toString().trim();
 
-        const subject = encodeURIComponent(`Projet web - ${name || 'Prise de contact'}`);
-        const body = encodeURIComponent(
-            [
-                `Nom : ${name || '-'}`,
-                `Email : ${email || '-'}`,
-                pack ? `Pack envisage : ${pack}` : '',
-                siteType ? `Type de site : ${siteType}` : '',
-                mood ? `Ambiance souhaitee : ${mood}` : '',
-                deadline ? `Delai ideal : ${deadline}` : '',
-                '',
-                'Message :',
-                message || '-',
-            ].filter((line, index, lines) => line || lines[index - 1]).join('\n')
-        );
+        const subject = encodeURIComponent(`Demande de contact - ${firstName} ${lastName}`.trim());
+        const body = encodeURIComponent([
+            `Nom : ${lastName || '-'}`,
+            `Prenom : ${firstName || '-'}`,
+            `Email : ${email || '-'}`,
+            '',
+            'Message :',
+            message || '-',
+        ].join('\n'));
+        const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=purvelours@proton.me&su=${subject}&body=${body}`;
 
-        window.location.href = `mailto:purvelours@proton.me?subject=${subject}&body=${body}`;
+        if (contactFormStatus) {
+            contactFormStatus.textContent = 'Ouverture de Gmail pour envoyer votre demande.';
+        }
+
+        window.open(gmailUrl, '_blank', 'noopener,noreferrer');
     });
 }
 

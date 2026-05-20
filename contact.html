@@ -45,7 +45,7 @@
             <div class="page-intro">
                 <p class="eyebrow">Contact</p>
                 <h1>Envoyez les bases, je vous aide a structurer le reste.</h1>
-                <p>Vous pouvez decrire votre activite simplement. Meme si ce n'est pas encore parfaitement clair, on peut organiser les idees.</p>
+                <p>Vous pouvez decrire votre activite simplement. Ce formulaire sert uniquement au contact par email, sans paiement.</p>
                 <div class="page-pills" aria-label="Contact rapide">
                     <span>Pack</span>
                     <span>Delai</span>
@@ -75,51 +75,22 @@
                     <form class="contact-form" id="contact-form">
                         <label class="field">
                             <span>Nom</span>
-                            <input type="text" name="name" placeholder="Votre nom" required>
+                            <input type="text" name="lastName" placeholder="Votre nom" required>
+                        </label>
+                        <label class="field">
+                            <span>Prenom</span>
+                            <input type="text" name="firstName" placeholder="Votre prenom" required>
                         </label>
                         <label class="field">
                             <span>Email</span>
-                            <input type="email" name="email" placeholder="votre@email.com">
-                        </label>
-                        <label class="field">
-                            <span>Pack envisage</span>
-                            <select name="pack">
-                                <option value="A definir">A definir</option>
-                                <option value="Autonome guide">Autonome guide - 490 euros</option>
-                                <option value="Accompagne">Accompagne - 890 euros</option>
-                                <option value="Premium sur mesure">Premium sur mesure - 1290 euros</option>
-                            </select>
-                        </label>
-                        <div class="form-split">
-                            <label class="field">
-                                <span>Type de site</span>
-                                <select name="siteType">
-                                    <option value="A definir">A definir</option>
-                                    <option value="Site une page">Site une page</option>
-                                    <option value="Site 3 a 5 pages">Site 3 a 5 pages</option>
-                                    <option value="Refonte">Refonte d'un site existant</option>
-                                </select>
-                            </label>
-                            <label class="field">
-                                <span>Ambiance souhaitee</span>
-                                <select name="mood">
-                                    <option value="A definir">A definir</option>
-                                    <option value="Elegant et premium">Elegant et premium</option>
-                                    <option value="Doux et rassurant">Doux et rassurant</option>
-                                    <option value="Chaleureux et local">Chaleureux et local</option>
-                                    <option value="Clair et professionnel">Clair et professionnel</option>
-                                </select>
-                            </label>
-                        </div>
-                        <label class="field">
-                            <span>Delai ideal</span>
-                            <input type="text" name="deadline" placeholder="Ex. ce mois-ci, 3 semaines, pas urgent">
+                            <input type="email" name="email" placeholder="votre@email.com" required>
                         </label>
                         <label class="field field-message">
                             <span>Message</span>
-                            <textarea name="message" rows="7" placeholder="Presentez votre activite, vos besoins, vos pages souhaitees ou vos idees." required></textarea>
+                            <textarea name="message" rows="8" placeholder="Presentez votre demande, votre activite ou vos questions." required></textarea>
                         </label>
-                        <button class="button button-primary contact-button" type="submit">Envoyer par mail</button>
+                        <button class="button button-primary contact-button" type="submit">Envoyer la demande</button>
+                        <p class="contact-form-status" id="contact-form-status" aria-live="polite"></p>
                     </form>
                 </div>
             </section>
