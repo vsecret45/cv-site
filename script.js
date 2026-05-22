@@ -84,6 +84,8 @@ const qrServiceInput = document.querySelector('#qr-service-input');
 const qrServicePreview = document.querySelector('#qr-service-preview');
 const qrServiceImage = document.querySelector('#qr-service-image');
 const qrServiceDownload = document.querySelector('#qr-service-download');
+const qrServiceTest = document.querySelector('#qr-service-test');
+const qrServiceStatus = document.querySelector('#qr-service-status');
 const expandableCards = document.querySelectorAll('[data-expandable]');
 const presetChips = document.querySelectorAll('.preset-chip');
 const templatePresetChips = document.querySelectorAll('[data-template-preset]');
@@ -4081,6 +4083,12 @@ if (qrServiceForm && qrServiceInput && qrServicePreview && qrServiceImage && qrS
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?${qrParams.toString()}`;
         currentQrUrl = qrUrl;
         qrServiceImage.src = qrUrl;
+        if (qrServiceTest) {
+            qrServiceTest.href = link;
+        }
+        if (qrServiceStatus) {
+            qrServiceStatus.textContent = `QR code genere pour : ${link}`;
+        }
         qrServicePreview.hidden = false;
     });
 

@@ -3033,6 +3033,29 @@ body.is-ready .skill-delay-8 {
     background: #ffffff;
 }
 
+.qr-service-result {
+    display: grid;
+    gap: 0.75rem;
+    min-width: min(100%, 24rem);
+}
+
+.qr-service-result p {
+    color: var(--text-soft);
+    font-weight: 800;
+}
+
+.qr-service-result small {
+    color: var(--text-soft);
+    font-size: 0.86rem;
+    line-height: 1.45;
+}
+
+.qr-service-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.7rem;
+}
+
 .custom-quote-panel .button {
     width: fit-content;
     margin-top: 0.35rem;
@@ -3157,6 +3180,11 @@ body.studio-home .qr-service-preview .button-secondary:focus-visible {
 body.studio-home .qr-service-preview {
     border-color: var(--studio-line);
     background: rgba(255, 255, 255, 0.045);
+}
+
+body.studio-home .qr-service-result p,
+body.studio-home .qr-service-result small {
+    color: var(--studio-muted);
 }
 
 body.studio-home[data-theme="day"] .small-service-card,
