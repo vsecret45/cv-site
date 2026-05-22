@@ -3034,6 +3034,147 @@ body.is-ready .skill-delay-8 {
     }
 }
 
+.home-services-note {
+    margin-top: -0.4rem;
+    font-size: 0.96rem;
+}
+
+body.studio-home .small-service-card,
+body.studio-home .qr-service-panel,
+body.studio-home .custom-quote-panel {
+    position: relative;
+    overflow: hidden;
+    border-color: var(--studio-line);
+    background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025)),
+        var(--studio-panel);
+    box-shadow: var(--studio-shadow);
+    backdrop-filter: blur(18px);
+}
+
+body.studio-home .small-service-card::before,
+body.studio-home .qr-service-panel::before,
+body.studio-home .custom-quote-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background:
+        linear-gradient(120deg, rgba(255, 255, 255, 0.13), transparent 28%, transparent 72%, rgba(239, 214, 163, 0.08)),
+        radial-gradient(circle at 90% 10%, rgba(114, 150, 255, 0.08), transparent 12rem);
+    pointer-events: none;
+}
+
+body.studio-home .small-service-card::after {
+    content: "";
+    position: absolute;
+    right: -3.5rem;
+    bottom: -4rem;
+    width: 11rem;
+    height: 11rem;
+    border: 1px solid rgba(239, 214, 163, 0.11);
+    border-radius: 50%;
+    box-shadow:
+        inset 0 0 0 1.8rem rgba(255, 255, 255, 0.018),
+        0 0 44px rgba(239, 214, 163, 0.08);
+    pointer-events: none;
+}
+
+body.studio-home .small-service-card > *,
+body.studio-home .qr-service-panel > *,
+body.studio-home .custom-quote-panel > * {
+    position: relative;
+    z-index: 1;
+}
+
+body.studio-home .small-service-card h3,
+body.studio-home .qr-service-panel h3,
+body.studio-home .custom-quote-panel h3 {
+    color: var(--studio-text);
+}
+
+body.studio-home .small-service-card p,
+body.studio-home .qr-service-panel p:not(.signal-label),
+body.studio-home .custom-quote-panel p:not(.signal-label),
+body.studio-home .home-services-note {
+    color: var(--studio-muted);
+}
+
+body.studio-home .small-service-card p {
+    color: #efd6a3;
+}
+
+body.studio-home .qr-service-form .button-primary,
+body.studio-home .custom-quote-panel .button-secondary,
+body.studio-home .qr-service-preview .button-secondary {
+    border-color: rgba(255, 255, 255, 0.16);
+    background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.105), rgba(255, 255, 255, 0.035)),
+        rgba(255, 255, 255, 0.045);
+    color: var(--studio-text);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 16px 38px rgba(0, 0, 0, 0.18);
+    backdrop-filter: blur(14px);
+}
+
+body.studio-home .qr-service-form .button-primary:hover,
+body.studio-home .qr-service-form .button-primary:focus-visible,
+body.studio-home .custom-quote-panel .button-secondary:hover,
+body.studio-home .custom-quote-panel .button-secondary:focus-visible,
+body.studio-home .qr-service-preview .button-secondary:hover,
+body.studio-home .qr-service-preview .button-secondary:focus-visible {
+    border-color: rgba(239, 214, 163, 0.34);
+    background:
+        linear-gradient(145deg, rgba(239, 214, 163, 0.16), rgba(255, 255, 255, 0.045)),
+        rgba(255, 255, 255, 0.06);
+    color: #fff8e8;
+}
+
+body.studio-home .qr-service-preview {
+    border-color: var(--studio-line);
+    background: rgba(255, 255, 255, 0.045);
+}
+
+body.studio-home[data-theme="day"] .small-service-card,
+body.studio-home[data-theme="day"] .qr-service-panel,
+body.studio-home[data-theme="day"] .custom-quote-panel {
+    background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.78), rgba(255, 249, 239, 0.52)),
+        var(--studio-panel);
+}
+
+body.studio-home[data-theme="day"] .small-service-card h3,
+body.studio-home[data-theme="day"] .qr-service-panel h3,
+body.studio-home[data-theme="day"] .custom-quote-panel h3 {
+    color: #171923;
+}
+
+body.studio-home[data-theme="day"] .small-service-card p {
+    color: #2f3f7f;
+}
+
+body.studio-home[data-theme="day"] .qr-service-panel p:not(.signal-label),
+body.studio-home[data-theme="day"] .custom-quote-panel p:not(.signal-label),
+body.studio-home[data-theme="day"] .home-services-note {
+    color: rgba(42, 45, 58, 0.72);
+}
+
+body.studio-home[data-theme="day"] .qr-service-form .button-primary,
+body.studio-home[data-theme="day"] .custom-quote-panel .button-secondary,
+body.studio-home[data-theme="day"] .qr-service-preview .button-secondary {
+    border-color: rgba(42, 45, 58, 0.13);
+    background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.68), rgba(255, 249, 239, 0.38)),
+        rgba(255, 255, 255, 0.46);
+    color: #171923;
+    box-shadow: 0 16px 34px rgba(74, 65, 45, 0.1);
+}
+
+body.studio-home[data-theme="day"] .qr-service-preview {
+    background: rgba(255, 255, 255, 0.72);
+}
+
 body.studio-home[data-theme="day"] .price-card .button {
     border-color: rgba(42, 45, 58, 0.13);
     background:
