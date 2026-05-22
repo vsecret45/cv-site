@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Lato:wght@400;700&family=Libre+Baskerville:wght@400;700&family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20260522-6">
+    <link rel="stylesheet" href="style.css?v=20260522-7">
 </head>
 <body class="is-preload studio-home">
     <div class="page-shell">
@@ -44,9 +44,9 @@
                 <h1>Envoyez les bases, je vous aide a structurer le reste.</h1>
                 <p>Vous pouvez decrire votre activite simplement. Ce formulaire sert uniquement au contact par email, sans paiement.</p>
                 <div class="page-pills" aria-label="Contact rapide">
-                    <span>Pack</span>
+                    <span>Besoin</span>
+                    <span>Budget</span>
                     <span>Delai</span>
-                    <span>Ambiance</span>
                 </div>
             </div>
         </header>
@@ -56,12 +56,21 @@
                 <div class="contact-layout">
                     <div class="contact-panel contact-panel-info">
                         <h2>Informations utiles</h2>
-                        <p>Pour demarrer, envoyez le type d'activite, les pages souhaitees, les exemples que vous aimez, le pack envisage et le delai ideal.</p>
+                        <p>Pour recevoir une reponse exploitable, indiquez ce que vous voulez obtenir : plus de demandes, une reservation plus simple, un paiement securise, un espace prive ou une meilleure presence Google.</p>
                         <div class="contact-brief-list" aria-label="A preparer">
                             <span>Activite</span>
-                            <span>Pages</span>
-                            <span>Style</span>
+                            <span>Besoin</span>
+                            <span>Budget</span>
                             <span>Objectif</span>
+                        </div>
+                        <div class="quote-hints" aria-label="Idees d'informations utiles">
+                            <p>Exemples a preciser :</p>
+                            <ul>
+                                <li>Le service qui vous interesse : QR code, mini-page, reservation, paiement, email automatique.</li>
+                                <li>Le lien existant, la page a creer ou le support a relier au QR code.</li>
+                                <li>Le resultat attendu : recevoir des demandes, faire payer un acompte, confirmer un rendez-vous.</li>
+                                <li>Les outils deja utilises : WhatsApp, Stripe, Google Business, Instagram, site actuel.</li>
+                            </ul>
                         </div>
                         <div class="contact-details">
                             <a class="contact-link" href="mailto:contact@sacreationweb.com">contact@sacreationweb.com</a>
@@ -82,9 +91,45 @@
                             <span>Email</span>
                             <input type="email" name="email" placeholder="votre@email.com" required>
                         </label>
+                        <label class="field">
+                            <span>Besoin principal</span>
+                            <select name="service">
+                                <option value="">Choisir une option</option>
+                                <option>QR code personnalise</option>
+                                <option>Creation visuelle simple</option>
+                                <option>Mini-page professionnelle</option>
+                                <option>Services web complementaires</option>
+                                <option>Espace client securise</option>
+                                <option>Automatisation email</option>
+                                <option>Reservation et rendez-vous</option>
+                                <option>Paiement et liens securises</option>
+                                <option>Securite et cybersecurite preventive</option>
+                                <option>Options avancees</option>
+                                <option>Projet specifique</option>
+                            </select>
+                        </label>
+                        <fieldset class="quote-options">
+                            <legend>Infos a ajouter au devis</legend>
+                            <label><input type="checkbox" name="details" value="J'ai deja un lien ou un site existant"> J'ai deja un lien ou un site existant</label>
+                            <label><input type="checkbox" name="details" value="Je veux recevoir plus de demandes de contact"> Recevoir plus de demandes</label>
+                            <label><input type="checkbox" name="details" value="Je veux simplifier une reservation ou un rendez-vous"> Simplifier une reservation</label>
+                            <label><input type="checkbox" name="details" value="Je veux proposer un paiement ou un acompte securise"> Paiement ou acompte securise</label>
+                            <label><input type="checkbox" name="details" value="Je veux des confirmations ou reponses automatiques par email"> Emails automatiques</label>
+                            <label><input type="checkbox" name="details" value="Je veux ameliorer ma visibilite Google"> Visibilite Google</label>
+                        </fieldset>
+                        <div class="contact-form-row">
+                            <label class="field">
+                                <span>Budget envisage</span>
+                                <input type="text" name="budget" placeholder="Ex : 79 €, 149 €, sur devis">
+                            </label>
+                            <label class="field">
+                                <span>Delai ideal</span>
+                                <input type="text" name="deadline" placeholder="Ex : cette semaine, ce mois-ci">
+                            </label>
+                        </div>
                         <label class="field field-message">
                             <span>Message</span>
-                            <textarea name="message" rows="8" placeholder="Presentez votre demande, votre activite ou vos questions." required></textarea>
+                            <textarea name="message" rows="8" placeholder="Presentez votre activite, le lien a utiliser, l'objectif attendu et les outils deja en place." required></textarea>
                         </label>
                         <button class="button button-primary contact-button" type="submit">Envoyer la demande</button>
                         <p class="contact-form-status" id="contact-form-status" aria-live="polite"></p>
@@ -98,6 +143,6 @@
             <p>Contact projet web</p>
         </footer>
     </div>
-    <script src="script.js?v=20260522-6" defer></script>
+    <script src="script.js?v=20260522-7" defer></script>
 </body>
 </html>

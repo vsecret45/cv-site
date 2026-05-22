@@ -25,7 +25,7 @@ const readBody = (request) =>
 
 const normalize = (value) => (typeof value === 'string' ? value.trim() : '');
 
-const sendContactEmail = async ({ firstName, lastName, email, message }) => {
+const sendContactEmail = async ({ firstName, lastName, email, message, service }) => {
     const smtpHost = process.env.SMTP_HOST;
     const smtpPort = Number.parseInt(process.env.SMTP_PORT || '465', 10);
     const smtpUser = process.env.SMTP_USER;
@@ -63,7 +63,7 @@ const sendContactEmail = async ({ firstName, lastName, email, message }) => {
         from: `"SA Creation Web" <${contactFromEmail}>`,
         to: contactToEmail,
         replyTo: email,
-        subject: `Nouvelle demande de contact - ${fullName}`,
+        subject: service ? `Nouvelle demande de devis - ${service} - ${fullName}` : `Nouvelle demande de contact - ${fullName}`,
         text,
     });
 };
@@ -93,6 +93,7 @@ module.exports = async (request, response) => {
     const lastName = normalize(payload.lastName);
     const email = normalize(payload.email);
     const message = normalize(payload.message);
+    const service = normalize(payload.service);
 
     if (!email || !message) {
         return json(response, 400, { error: 'missing_required_fields' });
@@ -126,7 +127,7 @@ module.exports = async (request, response) => {
     }
 
     try {
-        await sendContactEmail({ firstName, lastName, email, message });
+        await sendContactEmail({ firstName, lastName, email, message, service });
     } catch (error) {
         const errorCode = error && error.message === 'missing_smtp_config' ? 'missing_smtp_config' : 'email_send_failed';
         console.error('Contact email failed:', {

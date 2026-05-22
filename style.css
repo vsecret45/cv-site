@@ -2062,7 +2062,8 @@ img {
 }
 
 .field input,
-.field textarea {
+.field textarea,
+.field select {
     width: 100%;
     border: 1px solid var(--line);
     border-radius: 18px;
@@ -2075,10 +2076,73 @@ img {
 }
 
 .field input:focus,
-.field textarea:focus {
+.field textarea:focus,
+.field select:focus {
     outline: none;
     border-color: rgba(47, 63, 127, 0.45);
     box-shadow: 0 0 0 4px rgba(47, 63, 127, 0.08);
+}
+
+.contact-form-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.quote-hints {
+    display: grid;
+    gap: 0.7rem;
+    padding: 1rem;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.quote-hints p {
+    margin: 0;
+    font-weight: 800;
+}
+
+.quote-hints ul {
+    display: grid;
+    gap: 0.45rem;
+    margin: 0;
+    padding-left: 1.1rem;
+    color: var(--text-soft);
+}
+
+.quote-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.7rem 0.9rem;
+    margin: 0;
+    padding: 1rem;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+}
+
+.quote-options legend {
+    padding: 0 0.35rem;
+    font-size: 0.92rem;
+    font-weight: 800;
+    color: var(--text);
+}
+
+.quote-options label {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.55rem;
+    color: var(--text-soft);
+    font-size: 0.92rem;
+    line-height: 1.45;
+}
+
+.quote-options input {
+    width: 1rem;
+    min-width: 1rem;
+    height: 1rem;
+    margin-top: 0.18rem;
+    accent-color: #efd6a3;
 }
 
 .contact-button {
@@ -2937,7 +3001,7 @@ body.is-ready .skill-delay-8 {
 
 .small-service-card {
     display: grid;
-    grid-template-rows: auto auto 1fr;
+    grid-template-rows: auto auto 1fr auto;
     gap: 0.85rem;
     min-height: 260px;
     padding: 1.35rem;
@@ -2967,6 +3031,19 @@ body.is-ready .skill-delay-8 {
     color: var(--text-soft);
     font-size: 0.92rem;
     line-height: 1.45;
+}
+
+.service-request-link {
+    display: inline-flex;
+    width: fit-content;
+    color: #efd6a3;
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.service-request-link:hover,
+.service-request-link:focus-visible {
+    text-decoration: underline;
 }
 
 .small-services-support {
@@ -3076,6 +3153,11 @@ body.is-ready .skill-delay-8 {
     .custom-quote-panel .button,
     .qr-service-preview .button {
         width: 100%;
+    }
+
+    .contact-form-row,
+    .quote-options {
+        grid-template-columns: 1fr;
     }
 }
 
@@ -4085,11 +4167,33 @@ body.studio-home .field select:focus {
     box-shadow: 0 0 0 4px rgba(239, 214, 163, 0.08);
 }
 
+body.studio-home .quote-hints,
+body.studio-home .quote-options {
+    border-color: var(--studio-line);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+body.studio-home .quote-options legend,
+body.studio-home .quote-hints p {
+    color: var(--studio-text);
+}
+
+body.studio-home .quote-options label,
+body.studio-home .quote-hints ul {
+    color: var(--studio-muted);
+}
+
 body.studio-home[data-theme="day"] .field textarea,
 body.studio-home[data-theme="day"] .field input,
 body.studio-home[data-theme="day"] .field select {
     background: rgba(255, 255, 255, 0.76);
     color: #171923;
+}
+
+body.studio-home[data-theme="day"] .quote-hints,
+body.studio-home[data-theme="day"] .quote-options {
+    border-color: rgba(42, 45, 58, 0.1);
+    background: rgba(255, 255, 255, 0.5);
 }
 
 body.studio-home[data-theme="day"] .field textarea::placeholder,

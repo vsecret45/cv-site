@@ -3221,6 +3221,30 @@ if (navLinks.length > 0 && sections.length > 0) {
 }
 
 if (contactForm) {
+    const contactParams = new URLSearchParams(window.location.search);
+    const requestedService = contactParams.get('service');
+    const requestedBudget = contactParams.get('budget');
+    const serviceField = contactForm.querySelector('[name="service"]');
+    const budgetField = contactForm.querySelector('[name="budget"]');
+    const messageField = contactForm.querySelector('[name="message"]');
+
+    if (requestedService && serviceField) {
+        const matchingOption = [...serviceField.options].find((option) => option.value === requestedService || option.textContent === requestedService);
+        if (matchingOption) {
+            serviceField.value = matchingOption.value || matchingOption.textContent;
+        } else {
+            serviceField.value = 'Projet specifique';
+        }
+    }
+
+    if (requestedBudget && budgetField) {
+        budgetField.value = requestedBudget;
+    }
+
+    if (requestedService && messageField && !messageField.value.trim()) {
+        messageField.value = `Bonjour,\n\nJe souhaite un devis pour : ${requestedService}.\n\nMon activite : \nMon objectif : \nLien existant ou outil deja utilise : \nDetails utiles : `;
+    }
+
     contactForm.addEventListener('submit', async (event) => {
         event.preventDefault();
 
@@ -3228,16 +3252,29 @@ if (contactForm) {
         const lastName = (formData.get('lastName') || '').toString().trim();
         const firstName = (formData.get('firstName') || '').toString().trim();
         const email = (formData.get('email') || '').toString().trim();
+        const service = (formData.get('service') || '').toString().trim();
+        const budget = (formData.get('budget') || '').toString().trim();
+        const deadline = (formData.get('deadline') || '').toString().trim();
+        const details = formData.getAll('details').map((item) => item.toString().trim()).filter(Boolean);
         const message = (formData.get('message') || '').toString().trim();
+        const fullMessage = [
+            service ? `Besoin principal : ${service}` : 'Besoin principal : non precise',
+            budget ? `Budget envisage : ${budget}` : 'Budget envisage : non precise',
+            deadline ? `Delai ideal : ${deadline}` : 'Delai ideal : non precise',
+            details.length > 0 ? `Infos cochees : ${details.join(', ')}` : 'Infos cochees : aucune',
+            '',
+            'Message :',
+            message || '-',
+        ].join('\n');
 
-        const subject = encodeURIComponent(`Demande de contact - ${firstName} ${lastName}`.trim());
+        const subjectLabel = service ? `Demande de devis - ${service}` : 'Demande de contact';
+        const subject = encodeURIComponent(`${subjectLabel} - ${firstName} ${lastName}`.trim());
         const body = encodeURIComponent([
             `Nom : ${lastName || '-'}`,
             `Prenom : ${firstName || '-'}`,
             `Email : ${email || '-'}`,
             '',
-            'Message :',
-            message || '-',
+            fullMessage,
         ].join('\n'));
         const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=contact@sacreationweb.com&su=${subject}&body=${body}`;
 
@@ -3249,7 +3286,7 @@ if (contactForm) {
             const response = await fetch('/api/contact', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lastName, firstName, email, message }),
+                body: JSON.stringify({ lastName, firstName, email, message: fullMessage, service, budget, deadline, details }),
             });
 
             if (!response.ok) {
