@@ -4070,7 +4070,15 @@ if (qrServiceForm && qrServiceInput && qrServicePreview && qrServiceImage && qrS
             return;
         }
 
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(link)}`;
+        const qrParams = new URLSearchParams({
+            size: '900x900',
+            format: 'png',
+            ecc: 'H',
+            margin: '30',
+            qzone: '4',
+            data: link,
+        });
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?${qrParams.toString()}`;
         currentQrUrl = qrUrl;
         qrServiceImage.src = qrUrl;
         qrServicePreview.hidden = false;
