@@ -1,7 +1,10 @@
-const navLinks = document.querySelectorAll('.nav-links a');
+const navLinks = document.querySelectorAll('.nav-links a, .site-menu-links a');
+const siteMenuToggle = document.querySelector('#site-menu-toggle');
+const siteMenuPanel = document.querySelector('#site-menu-panel');
 const cvOpenLinks = document.querySelectorAll('a[href="#cv-intelligent"]');
 const sections = [...document.querySelectorAll('main section[id]')];
 const contactForm = document.querySelector('#contact-form');
+const contactFormStatus = document.querySelector('#contact-form-status');
 const cards = document.querySelectorAll('.card');
 const revealSections = document.querySelectorAll('.reveal-section');
 const cvForm = document.querySelector('#cv-form');
@@ -70,6 +73,17 @@ const assistantForm = document.querySelector('#assistant-form');
 const assistantInput = document.querySelector('#assistant-input');
 const assistantMessages = document.querySelector('#assistant-messages');
 const suggestionChips = document.querySelectorAll('.suggestion-chip');
+const themeToggles = document.querySelectorAll('.theme-toggle');
+const aiBriefForm = document.querySelector('#ai-brief-form');
+const aiBriefInput = document.querySelector('#ai-brief-input');
+const aiBriefStyle = document.querySelector('#ai-brief-style');
+const aiBriefGoal = document.querySelector('#ai-brief-goal');
+const aiBriefOutput = document.querySelector('#ai-brief-output');
+const qrServiceForm = document.querySelector('#qr-service-form');
+const qrServiceInput = document.querySelector('#qr-service-input');
+const qrServicePreview = document.querySelector('#qr-service-preview');
+const qrServiceImage = document.querySelector('#qr-service-image');
+const qrServiceDownload = document.querySelector('#qr-service-download');
 const expandableCards = document.querySelectorAll('[data-expandable]');
 const presetChips = document.querySelectorAll('.preset-chip');
 const templatePresetChips = document.querySelectorAll('[data-template-preset]');
@@ -84,9 +98,6 @@ const authLoginPanel = document.querySelector('#auth-panel-login');
 const authSignupPanel = document.querySelector('#auth-panel-signup');
 const authLoginForm = document.querySelector('#auth-login-form');
 const authSignupForm = document.querySelector('#auth-signup-form');
-const builderLaunchButtons = document.querySelectorAll('[data-builder-launch]');
-const menuToggle = document.querySelector('#menu-toggle');
-const siteMenu = document.querySelector('#site-menu');
 const PDFJS_MODULE_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/legacy/build/pdf.min.mjs';
 const PDFJS_WORKER_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/legacy/build/pdf.worker.min.mjs';
 
@@ -185,11 +196,11 @@ const templatePresets = {
     design: {
         layoutTheme: 'modern',
         fontTheme: 'manrope',
-        colorTheme: 'indigo',
+        colorTheme: 'rose',
         designMood: 'startup',
         lineSpacing: 'airy',
         textAlign: 'left',
-        accentColor: '#4f6bff',
+        accentColor: '#b83280',
     },
     luxury: {
         layoutTheme: 'executive',
@@ -202,155 +213,44 @@ const templatePresets = {
     },
 };
 
-const getActiveTemplatePresetKey = () => {
-    if (!cvForm) {
-        return '';
-    }
-
-    const layoutTheme = cvForm.elements.layoutTheme?.value || '';
-
-    if (layoutTheme === 'classic') {
-        return 'classic';
-    }
-
-    if (layoutTheme === 'wordpro') {
-        return 'professional';
-    }
-
-    if (layoutTheme === 'modern') {
-        return 'design';
-    }
-
-    if (layoutTheme === 'executive') {
-        return 'luxury';
-    }
-
-    return '';
-};
-
-const syncTemplatePresetState = (presetKey = getActiveTemplatePresetKey()) => {
-    templatePresetChips.forEach((chip) => {
-        chip.classList.toggle('is-active', chip.dataset.templatePreset === presetKey);
-    });
-};
-
-const applyTemplatePresetByKey = (presetKey, { focus = true, statusMessage = 'Mise en forme appliquee' } = {}) => {
-    if (!cvForm) {
-        return false;
-    }
-
-    const preset = templatePresets[presetKey || ''];
-
-    if (!preset) {
-        return false;
-    }
-
-    Object.entries(preset).forEach(([key, value]) => {
-        const field = cvForm.elements[key];
-        if (field) {
-            field.value = value;
-        }
-    });
-
-    updateCvPreview();
-
-    if (focus) {
-        focusPreviewTop();
-    }
-
-    syncTemplatePresetState(presetKey);
-    setCvStatus(statusMessage);
-    return true;
-};
-
-const focusPreviewTop = () => {
-    setPreviewMode('cv');
-    currentPreviewPage = 1;
-    cvPreviewViewport?.scrollTo({ top: 0, behavior: 'smooth' });
-};
-
-const scrollToBuilder = () => {
-    const cvSection = document.querySelector('#cv-intelligent');
-
-    if (!cvSection) {
-        return;
-    }
-
-    cvSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    window.setTimeout(refreshCvModule, 80);
-};
-
-const prepareGuidedBlankCanvas = () => {
-    if (!cvForm) {
-        return;
-    }
-
-    activeEditableNode = null;
-    resetCvFormToDefaults();
-    clearEditableOverrides();
-    applyCurrentUserDefaults();
-    applyTemplatePresetByKey('design', { focus: false, statusMessage: 'Toile guidee ouverte' });
-
-    if (cvForm.elements.cvMode) {
-        cvForm.elements.cvMode.value = 'design';
-    }
-
-    if (cvForm.elements.headlineScale) {
-        cvForm.elements.headlineScale.value = 'large';
-    }
-
-    updateCvPreview();
-    syncTemplatePresetState('design');
-    focusPreviewTop();
-};
-
-const closeSiteMenu = () => {
-    siteMenu?.classList.remove('is-open');
-    menuToggle?.setAttribute('aria-expanded', 'false');
-};
-
-const launchBuilderExperience = (mode = '') => {
-    closeSiteMenu();
-
-    if (mode === 'login') {
-        openAuthModal('login');
-        return;
-    }
-
-    if (mode === 'signup') {
-        openAuthModal('signup');
-        return;
-    }
-
-    if (mode === 'blank') {
-        prepareGuidedBlankCanvas();
-        scrollToBuilder();
-        return;
-    }
-
-    if (mode === 'import') {
-        scrollToBuilder();
-        if (cvImportInput) {
-            setCvStatus('Choisissez un CV a importer');
-            cvImportInput.click();
-        }
-        return;
-    }
-
-    if (templatePresets[mode]) {
-        applyTemplatePresetByKey(mode);
-        scrollToBuilder();
-        return;
-    }
-
-    scrollToBuilder();
-};
-
 const offerKeywordMap = {
     react: ['react', 'javascript', 'frontend', 'front-end', 'component'],
     ux: ['ux', 'ui', 'experience utilisateur', 'interface', 'figma'],
     api: ['api', 'integration', 'donnees', 'base de donnees'],
     client: ['relation client', 'accompagnement', 'service client', 'conseil'],
+};
+
+const applySiteTheme = (theme) => {
+    const nextTheme = theme === 'day' ? 'day' : 'night';
+    document.body.dataset.theme = nextTheme;
+    themeToggles.forEach((toggle) => {
+        toggle.setAttribute('aria-pressed', String(nextTheme === 'day'));
+        const label = toggle.querySelector('.theme-toggle-text');
+        if (label) {
+            label.textContent = nextTheme === 'day' ? 'Nuit' : 'Jour';
+        }
+    });
+    try {
+        window.localStorage.setItem('sa-creation-web-theme', nextTheme);
+    } catch (error) {
+        console.warn('Theme preference not saved', error);
+    }
+};
+
+const initSiteTheme = () => {
+    let storedTheme = 'night';
+    try {
+        storedTheme = window.localStorage.getItem('sa-creation-web-theme') || 'night';
+    } catch (error) {
+        storedTheme = 'night';
+    }
+
+    applySiteTheme(storedTheme);
+};
+
+const closeSiteMenu = () => {
+    siteMenuToggle?.setAttribute('aria-expanded', 'false');
+    siteMenuPanel?.classList.remove('is-open');
 };
 
 const applyCvPreset = (preset) => {
@@ -381,7 +281,7 @@ const applyCvPreset = (preset) => {
             'Entreprise / Organisation - Poste occupe • Ville | Dates • Gestion des appels et des courriers • Organisation et classement des documents • Suivi administratif',
         ].join('\n');
         form.projectType.value = 'Projet personnel';
-        form.projects.value = "Kirby CV - Prototype personnel - 2024 • Prototype d'une plateforme CV moderne prete a l'emploi avec assistance IA et export multi-format.";
+        form.projects.value = "Plateforme CV intelligent - Prototype personnel - 2024 • Prototype d'une future plateforme de generation de CV intelligents prets a l'emploi avec assistance IA.";
         form.education.value = [
             'Diplome ou formation - Etablissement - Annee',
         ].join('\n');
@@ -490,13 +390,10 @@ const applyCvPreset = (preset) => {
     }
 
     if (preset === 'luxury') {
-        form.cvMode.value = 'design';
         form.fontTheme.value = 'playfair';
         form.layoutTheme.value = 'executive';
         form.colorTheme.value = 'graphite';
         form.designMood.value = 'luxury';
-        form.fontSize.value = 'large';
-        form.headlineScale.value = 'large';
         form.textAlign.value = 'left';
         form.lineSpacing.value = 'airy';
         form.accentColor.value = '#9a7b43';
@@ -508,37 +405,30 @@ const applyCvPreset = (preset) => {
         form.fontTheme.value = 'roboto';
         form.colorTheme.value = 'graphite';
         form.designMood.value = 'clean';
-        form.fontSize.value = 'compact';
-        form.headlineScale.value = 'compact';
         form.textAlign.value = 'left';
         form.lineSpacing.value = 'normal';
     }
 
     updateCvPreview();
-    focusPreviewTop();
     setCvStatus('Preset applique');
 };
 
 const assistantAnswers = [
     {
         test: /cv|resume|curriculum/i,
-        reply: "Je peux vous aider a structurer le CV, clarifier le titre, nettoyer les sections et preparer l export.",
+        reply: "Je peux vous aider a creer un CV intelligent : remplissez le formulaire, choisissez un style, puis exportez le document en PDF.",
     },
     {
-        test: /offre|ats|mot.?cle|annonce/i,
-        reply: "Je peux analyser le CV pour l ATS, detecter des mots cles utiles et l adapter a une offre d emploi.",
+        test: /site|creation|plateforme/i,
+        reply: "Je peux presenter la creation digitale, les interfaces modernes, les plateformes personnalisees et les solutions sur mesure adaptees a votre projet.",
     },
     {
-        test: /lettre|motivation/i,
-        reply: "Je peux aider a generer une lettre de motivation coherente avec le titre vise et les competences du CV.",
+        test: /automatisation|workflow|process/i,
+        reply: "Je peux orienter vers des parcours automatises, des formulaires intelligents et des integrations digitales pour structurer un service.",
     },
     {
-        test: /export|pdf|word|imprim|partag|web/i,
-        reply: "Je peux guider vers l export PDF, le Word, l impression, la version web ou le partage de lien.",
-    },
-    {
-        test: /ia|ai|intelligence|amelior|reformul/i,
-        reply: "Je peux reformuler un profil, resserrer la lecture recruteur et suggerer une version plus nette du CV.",
+        test: /ia|ai|intelligence/i,
+        reply: "Je peux suggérer des usages IA pour assister un utilisateur, organiser des informations ou enrichir une plateforme digitale.",
     },
 ];
 
@@ -1810,8 +1700,6 @@ const updateCvPreview = () => {
     if (previewLayoutTheme) {
         previewLayoutTheme.value = values.layoutTheme || 'classic';
     }
-
-    syncTemplatePresetState();
 };
 
 const getJobOfferAnalysis = (values) => {
@@ -2018,11 +1906,11 @@ const generateCoverLetter = () => {
     let body = `Madame, Monsieur,\n\nJe vous adresse ma candidature pour le poste de ${role} au sein de ${company}. ${profile || 'Mon parcours m a permis de developper une approche claire, structuree et orientee resultat.'}\n\n`;
 
     if (style === 'short') {
-        body += `Mes competences en ${skills || 'organisation, communication et structuration de contenu'} me permettent de contribuer rapidement a vos besoins. Ma motivation principale est de ${motivation}.\n\nJe reste disponible pour echanger.\n\nCordialement,`;
+        body += `Mes competences en ${skills || 'creation digitale et structuration de projets'} me permettent de contribuer rapidement a vos besoins. Ma motivation principale est de ${motivation}.\n\nJe reste disponible pour echanger.\n\nCordialement,`;
     } else if (style === 'modern') {
         body += `J aime concevoir des solutions utiles, lisibles et adaptees aux attentes terrain. Mes competences en ${skills || 'interfaces, organisation et experience utilisateur'} peuvent renforcer vos projets. Je souhaite aujourd hui ${motivation}.\n\nJe serais ravie d apporter cette energie et cette rigueur a ${company}.\n\nBien cordialement,`;
     } else {
-        body += `Au fil de mes experiences, j ai developpe des competences en ${skills || 'organisation, accompagnement et sens du detail'}. Elles me permettent d aborder les projets avec rigueur, sens du detail et capacite d adaptation. Je souhaite aujourd hui ${motivation}.\n\nJe serais ravie de pouvoir mettre ces competences au service de ${company}.\n\nCordialement,`;
+        body += `Au fil de mes experiences, j ai developpe des competences en ${skills || 'creation digitale, organisation et accompagnement'}. Elles me permettent d aborder les projets avec rigueur, sens du detail et capacite d adaptation. Je souhaite aujourd hui ${motivation}.\n\nJe serais ravie de pouvoir mettre ces competences au service de ${company}.\n\nCordialement,`;
     }
 
     if (letterSubject) {
@@ -2818,7 +2706,7 @@ const exportWord = () => {
 </body>
 </html>`;
     downloadFile(
-        currentPreviewMode === 'letter' ? 'lettre-motivation.doc' : 'kirby-cv.doc',
+        currentPreviewMode === 'letter' ? 'lettre-motivation.doc' : 'cv-intelligent.doc',
         html,
         'application/msword'
     );
@@ -3030,7 +2918,7 @@ const exportPdf = async () => {
             writeBulletList(languages, true);
         }
 
-        doc.save('kirby-cv.pdf');
+        doc.save('cv-intelligent.pdf');
         setCvStatus('PDF telecharge');
     } catch (error) {
         console.error(error);
@@ -3138,7 +3026,7 @@ const getAssistantReply = (message) => {
         return found.reply;
     }
 
-    return "Je peux vous aider a clarifier un CV, analyser l ATS, adapter le document a une offre ou preparer la lettre de motivation.";
+    return "Je peux vous aider a clarifier votre besoin, presenter les services du site, ouvrir le module CV intelligent ou suggerer une direction de projet.";
 };
 
 const handleAuthLogin = async (event) => {
@@ -3235,7 +3123,8 @@ const handleAuthLogout = () => {
 window.addEventListener('load', () => {
     document.body.classList.remove('is-preload');
     document.body.classList.add('is-ready');
-    loadAuthSession();
+    initSiteTheme();
+    persistAuthSession(null);
     updateAuthUi();
     try {
         loadCvDraft();
@@ -3273,9 +3162,37 @@ authTabs.forEach((tab) => {
 authLoginForm?.addEventListener('submit', handleAuthLogin);
 authSignupForm?.addEventListener('submit', handleAuthSignup);
 
+siteMenuToggle?.addEventListener('click', () => {
+    const isOpen = siteMenuToggle.getAttribute('aria-expanded') === 'true';
+    siteMenuToggle.setAttribute('aria-expanded', String(!isOpen));
+    siteMenuPanel?.classList.toggle('is-open', !isOpen);
+});
+
+siteMenuPanel?.querySelectorAll('a')?.forEach((link) => {
+    link.addEventListener('click', closeSiteMenu);
+});
+
+document.addEventListener('click', (event) => {
+    if (!siteMenuPanel?.classList.contains('is-open')) {
+        return;
+    }
+
+    const target = event.target;
+    if (!(target instanceof Node)) {
+        return;
+    }
+
+    if (!siteMenuPanel.contains(target) && !siteMenuToggle?.contains(target)) {
+        closeSiteMenu();
+    }
+});
+
 document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && authModal && !authModal.classList.contains('is-hidden')) {
         closeAuthModal();
+    }
+    if (event.key === 'Escape') {
+        closeSiteMenu();
     }
 });
 
@@ -3306,22 +3223,27 @@ if (contactForm) {
         event.preventDefault();
 
         const formData = new FormData(contactForm);
-        const name = (formData.get('name') || '').toString().trim();
+        const lastName = (formData.get('lastName') || '').toString().trim();
+        const firstName = (formData.get('firstName') || '').toString().trim();
         const email = (formData.get('email') || '').toString().trim();
         const message = (formData.get('message') || '').toString().trim();
 
-        const subject = encodeURIComponent(`Message CV - ${name || 'Prise de contact'}`);
-        const body = encodeURIComponent(
-            [
-                `Nom : ${name || '-'}`,
-                `Email : ${email || '-'}`,
-                '',
-                'Message :',
-                message || '-',
-            ].join('\n')
-        );
+        const subject = encodeURIComponent(`Demande de contact - ${firstName} ${lastName}`.trim());
+        const body = encodeURIComponent([
+            `Nom : ${lastName || '-'}`,
+            `Prenom : ${firstName || '-'}`,
+            `Email : ${email || '-'}`,
+            '',
+            'Message :',
+            message || '-',
+        ].join('\n'));
+        const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=purvelours@proton.me&su=${subject}&body=${body}`;
 
-        window.location.href = `mailto:?subject=${subject}&body=${body}`;
+        if (contactFormStatus) {
+            contactFormStatus.textContent = 'Ouverture de Gmail pour envoyer votre demande.';
+        }
+
+        window.open(gmailUrl, '_blank', 'noopener,noreferrer');
     });
 }
 
@@ -3776,31 +3698,25 @@ presetChips.forEach((chip) => {
 
 templatePresetChips.forEach((chip) => {
     chip.addEventListener('click', () => {
-        applyTemplatePresetByKey(chip.dataset.templatePreset || '');
+        if (!cvForm) {
+            return;
+        }
+
+        const preset = templatePresets[chip.dataset.templatePreset || ''];
+        if (!preset) {
+            return;
+        }
+
+        Object.entries(preset).forEach(([key, value]) => {
+            const field = cvForm.elements[key];
+            if (field) {
+                field.value = value;
+            }
+        });
+
+        updateCvPreview();
+        setCvStatus('Mise en forme appliquee');
     });
-});
-
-builderLaunchButtons.forEach((button) => {
-    button.addEventListener('click', () => {
-        launchBuilderExperience(button.dataset.builderLaunch || '');
-    });
-});
-
-menuToggle?.addEventListener('click', () => {
-    const isOpen = siteMenu?.classList.toggle('is-open') || false;
-    menuToggle.setAttribute('aria-expanded', String(isOpen));
-});
-
-document.addEventListener('click', (event) => {
-    if (!siteMenu?.classList.contains('is-open')) {
-        return;
-    }
-
-    if (siteMenu.contains(event.target) || menuToggle?.contains(event.target)) {
-        return;
-    }
-
-    closeSiteMenu();
 });
 
 previewModeTabs.forEach((tab) => {
@@ -3894,8 +3810,8 @@ if (cvShareButton) {
         try {
             if (navigator.share) {
                 await navigator.share({
-                    title: 'Kirby CV',
-                    text: 'Voir le CV en ligne',
+                    title: 'CV intelligent',
+                    text: 'Voir le module CV intelligent',
                     url: shareUrl,
                 });
                 setCvStatus('Lien partage');
@@ -3917,7 +3833,7 @@ if (cvEmailButton) {
         const shareUrl = `${window.location.origin}${window.location.pathname}#cv-intelligent`;
         const fullName = cvForm?.elements.fullName?.value?.trim() || 'Candidature';
         const headline = cvForm?.elements.headline?.value?.trim() || '';
-        const subject = encodeURIComponent(`CV - ${fullName}`);
+        const subject = encodeURIComponent(`CV intelligent - ${fullName}`);
         const rawBody = [
             `${fullName}${headline ? ` - ${headline}` : ''}`,
             '',
@@ -3933,7 +3849,7 @@ if (cvEmailButton) {
             ].join('\n')
         );
         await openMailClient(
-            `mailto:?subject=${subject}&body=${body}`,
+            `mailto:purvelours@proton.me?subject=${subject}&body=${body}`,
             rawBody,
             'Ouverture de votre application mail'
         );
@@ -3956,7 +3872,7 @@ if (letterEmailButton) {
         const rawBody = letterBody?.textContent || '';
         const body = encodeURIComponent(rawBody);
         await openMailClient(
-            `mailto:?subject=${subject}&body=${body}`,
+            `mailto:purvelours@proton.me?subject=${subject}&body=${body}`,
             rawBody,
             'Ouverture de votre application mail'
         );
@@ -4079,6 +3995,13 @@ if (assistantClose) {
     assistantClose.addEventListener('click', closeAssistant);
 }
 
+themeToggles.forEach((toggle) => {
+    toggle.addEventListener('click', () => {
+        const currentTheme = document.body.dataset.theme === 'day' ? 'day' : 'night';
+        applySiteTheme(currentTheme === 'day' ? 'night' : 'day');
+    });
+});
+
 suggestionChips.forEach((chip) => {
     chip.addEventListener('click', () => {
         const prompt = chip.dataset.prompt || chip.textContent || '';
@@ -4103,3 +4026,176 @@ if (assistantForm) {
         assistantForm.reset();
     });
 }
+
+if (aiBriefForm && aiBriefInput && aiBriefOutput) {
+    aiBriefForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+
+        const activity = aiBriefInput.value.trim() || 'votre activite';
+        const visualStyle = aiBriefStyle?.value || 'moderne et rassurante';
+        const goal = aiBriefGoal?.value || 'recevoir des demandes de devis';
+        const cleanActivity = escapeHtml(activity);
+        const cleanVisualStyle = escapeHtml(visualStyle);
+        const cleanGoal = escapeHtml(goal);
+        const lowerActivity = activity.toLowerCase();
+        const isLocalBusiness = /restaurant|salon|coiffure|spa|institut|boutique|artisan|garage|yoga|coach|fitness|therapeute|photographe/.test(lowerActivity);
+        const isService = /consultant|coach|freelance|formation|service|agence|conseil|developpeur|designer/.test(lowerActivity);
+        const proofLabel = isLocalBusiness ? 'avis clients, photos et informations pratiques' : 'resultats, methode et exemples';
+        const ctaLabel = isService ? 'Demander un appel ou un devis' : 'Reserver, appeler ou demander un devis';
+
+        aiBriefOutput.innerHTML = `
+            <p class="signal-label">Apercu IA</p>
+            <h3>Structure proposee pour ${cleanActivity}</h3>
+            <ul>
+                <li>Direction : ambiance ${cleanVisualStyle}, avec un objectif clair : ${cleanGoal}.</li>
+                <li>Hero : une phrase claire pour comprendre l'offre en moins de 5 secondes.</li>
+                <li>Prestations : 3 offres ou services separes avec prix ou fourchettes si possible.</li>
+                <li>Confiance : ${proofLabel}.</li>
+                <li>Methode : comment se passe la demande, du premier message a la livraison.</li>
+                <li>Action principale : ${ctaLabel}.</li>
+            </ul>
+        `;
+    });
+}
+
+if (qrServiceForm && qrServiceInput && qrServicePreview && qrServiceImage && qrServiceDownload) {
+    qrServiceForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+
+        const link = qrServiceInput.value.trim();
+
+        if (!link) {
+            return;
+        }
+
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(link)}`;
+        qrServiceImage.src = qrUrl;
+        qrServiceDownload.href = qrUrl;
+        qrServicePreview.hidden = false;
+    });
+}
+
+const initHeroParticles = () => {
+    const canvas = document.querySelector('#hero-particles');
+
+    if (!canvas || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        return;
+    }
+
+    const context = canvas.getContext('2d');
+    const hero = canvas.closest('.hero-immersive');
+    let particles = [];
+    let particleCount = window.innerWidth < 720 ? 720 : 1150;
+    let width = 0;
+    let height = 0;
+    let radius = 0;
+    let angle = 0;
+    let animationFrame;
+
+    const resize = () => {
+        const bounds = hero?.getBoundingClientRect() || { width: window.innerWidth, height: window.innerHeight };
+        const ratio = Math.min(window.devicePixelRatio || 1, 2);
+        width = Math.max(bounds.width, window.innerWidth);
+        height = Math.max(bounds.height, window.innerHeight * 0.9);
+        radius = Math.min(width, height) * (width < 720 ? 0.45 : 0.39);
+        particleCount = width < 720 ? 720 : 1150;
+        canvas.width = width * ratio;
+        canvas.height = height * ratio;
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+        context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    };
+
+    const resetParticles = () => {
+        particles = [];
+        for (let index = 0; index < particleCount; index += 1) {
+            const offset = 2 / particleCount;
+            const increment = Math.PI * (3 - Math.sqrt(5));
+            const y = index * offset - 1 + offset / 2;
+            const distance = Math.sqrt(1 - y * y);
+            const phi = index * increment;
+
+            particles.push({
+                x: Math.cos(phi) * distance,
+                y,
+                z: Math.sin(phi) * distance,
+                size: Math.random() * 1.4 + 0.35,
+                shimmer: Math.random() * Math.PI * 2,
+            });
+        }
+    };
+
+    const draw = () => {
+        context.clearRect(0, 0, width, height);
+        angle += 0.0026;
+
+        const centerX = width < 720 ? width * 0.5 : width * 0.69;
+        const centerY = width < 720 ? height * 0.42 : height * 0.51;
+        const perspective = radius * 2.8;
+
+        const gradient = context.createRadialGradient(centerX, centerY, radius * 0.12, centerX, centerY, radius * 1.12);
+        gradient.addColorStop(0, 'rgba(255,255,255,0.1)');
+        gradient.addColorStop(0.48, 'rgba(114,150,255,0.052)');
+        gradient.addColorStop(1, 'rgba(239,214,163,0)');
+        context.fillStyle = gradient;
+        context.beginPath();
+        context.arc(centerX, centerY, radius * 1.16, 0, Math.PI * 2);
+        context.fill();
+
+        const projected = particles.map((particle) => {
+            const cosY = Math.cos(angle);
+            const sinY = Math.sin(angle);
+            const cosX = Math.cos(angle * 0.42);
+            const sinX = Math.sin(angle * 0.42);
+            const rotatedX = particle.x * cosY - particle.z * sinY;
+            const rotatedZ = particle.x * sinY + particle.z * cosY;
+            const rotatedY = particle.y * cosX - rotatedZ * sinX * 0.34;
+            const depth = rotatedZ * cosX + particle.y * sinX * 0.34;
+            const scale = perspective / (perspective - depth * radius);
+
+            return {
+                x: centerX + rotatedX * radius * scale,
+                y: centerY + rotatedY * radius * scale,
+                z: depth,
+                size: particle.size * scale,
+                alpha: Math.max(0.16, 0.2 + (depth + 1) * 0.28),
+                shimmer: particle.shimmer,
+            };
+        }).sort((a, b) => a.z - b.z);
+
+        projected.forEach((particle, index) => {
+            const pulse = Math.sin(angle * 7 + particle.shimmer) * 0.18;
+            const dotSize = Math.max(0.35, particle.size + pulse);
+            const warm = index % 7 === 0;
+
+            context.beginPath();
+            context.arc(particle.x, particle.y, dotSize, 0, Math.PI * 2);
+            context.fillStyle = warm
+                ? `rgba(239, 214, 163, ${particle.alpha})`
+                : `rgba(255, 255, 255, ${particle.alpha})`;
+            context.fill();
+
+            if (index % 68 === 0) {
+                context.beginPath();
+                context.arc(particle.x, particle.y, dotSize * 3.8, 0, Math.PI * 2);
+                context.fillStyle = `rgba(130, 160, 255, ${particle.alpha * 0.08})`;
+                context.fill();
+            }
+        });
+
+        animationFrame = window.requestAnimationFrame(draw);
+    };
+
+    resize();
+    resetParticles();
+    draw();
+
+    window.addEventListener('resize', () => {
+        window.cancelAnimationFrame(animationFrame);
+        resize();
+        resetParticles();
+        draw();
+    }, { passive: true });
+};
+
+initHeroParticles();

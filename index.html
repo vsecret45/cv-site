@@ -5,821 +5,241 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta
         name="description"
-        content="Kirby CV : createur de CV premium avec vraie page d accueil, import intelligent, apercu en direct, lettre de motivation, analyse ATS et export multi-format."
+        content="SA Création Web cree des sites vitrines modernes, elegants et responsive pour inspirer confiance et transformer les visiteurs en clients."
     >
-    <title>Kirby CV | CV sans casse-tete</title>
+    <title>SA Création Web | Sites modernes et elegants</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Lato:wght@400;700&family=Libre+Baskerville:wght@400;700&family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&family=Roboto:wght@400;500;700&family=Sora:wght@500;600;700;800&display=swap"
+        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Lato:wght@400;700&family=Libre+Baskerville:wght@400;700&family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&family=Roboto:wght@400;500;700&display=swap"
         rel="stylesheet"
     >
-    <link
-        rel="icon"
-        href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%232f3f7f'/%3E%3Cpath d='M18 21h12c10 0 16 6 16 16s-6 16-16 16H18V21zm10 24c6 0 10-3 10-8s-4-8-10-8h-2v16h2z' fill='white'/%3E%3C/svg%3E"
-    >
-    <link rel="stylesheet" href="style.css?v=20260520-2">
+    <link rel="stylesheet" href="style.css?v=20260522-2">
 </head>
-<body class="is-preload">
+<body class="is-preload studio-home">
     <div class="page-shell">
-        <header class="hero site-header" id="top">
+        <header class="hero hero-studio hero-immersive" id="top">
+            <canvas class="hero-particles" id="hero-particles" aria-hidden="true"></canvas>
+            <div class="hero-ambient" aria-hidden="true"></div>
             <nav class="topbar" aria-label="Navigation principale">
-                <a class="brand" href="#accueil" aria-label="Kirby CV, retour a l accueil">
-                    <span class="brand-mark">K</span>
-                    <span class="brand-copy">
-                        <strong>Kirby CV</strong>
-                        <small>CV sans casse-tete</small>
-                    </span>
-                </a>
-                <div class="nav-links" aria-label="Sections du site">
-                    <a href="#accueil">Accueil</a>
-                    <a href="#modeles">Modeles</a>
-                    <a href="#cv-intelligent">Creer mon CV</a>
-                </div>
-                <div class="topbar-actions">
-                    <a class="button button-primary topbar-link" href="#cv-intelligent">Creer mon CV</a>
-                    <div class="auth-actions" id="auth-actions">
-                        <button class="button button-secondary auth-button" type="button" id="auth-open-login">Se connecter</button>
-                        <button class="button button-secondary auth-button" type="button" id="auth-open-signup">Creer un compte</button>
-                        <button class="button button-secondary auth-button is-hidden" type="button" id="auth-logout">Deconnexion</button>
+                <a class="brand" href="index.html">SA Création Web</a>
+                <button class="couture-menu-toggle" id="site-menu-toggle" type="button" aria-label="Ouvrir le menu" aria-controls="site-menu-panel" aria-expanded="false">
+                    <span class="menu-glyph" aria-hidden="true"><i></i><i></i></span>
+                    <span class="sr-only">Menu</span>
+                </button>
+                <div class="site-menu-panel" id="site-menu-panel">
+                    <div class="site-menu-links">
+                        <a href="index.html">Accueil</a>
+                        <a href="prestations.html">Prestations</a>
+                        <a href="prestations.html#petits-services">Petits services</a>
+                        <a href="methode.html">Methode</a>
+                        <a href="realisations.html">Realisations</a>
+                        <a href="contact.html">Contact</a>
+                        <a href="cv.html">Projet CV</a>
                     </div>
-                    <button class="menu-toggle" type="button" id="menu-toggle" aria-expanded="false" aria-controls="site-menu" aria-label="Ouvrir le menu">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                    </button>
-                    <div class="site-menu" id="site-menu" aria-label="Menu rapide">
-                        <button type="button" data-builder-launch="import">Importer mon CV</button>
-                        <button type="button" data-builder-launch="blank">Creer mon CV</button>
-                        <button type="button" data-builder-launch="professional">Modele Word Pro</button>
-                        <button type="button" data-builder-launch="design">Modele moderne</button>
-                        <button type="button" data-builder-launch="login">Se connecter</button>
+                    <div class="site-menu-actions">
+                        <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Basculer entre mode nuit et mode jour" aria-pressed="false">
+                            <span class="theme-toggle-dot"></span>
+                            <span class="theme-toggle-text">Jour</span>
+                        </button>
+                        <a href="prestations.html">Voir les offres</a>
+                        <a href="contact.html">Contact</a>
                     </div>
                 </div>
             </nav>
+
+            <div class="studio-hero-grid">
+                <div class="hero-content">
+                    <p class="eyebrow hero-reveal hero-reveal-delay-1">Creation web premium</p>
+                    <h1 class="hero-title hero-reveal-delay-2">
+                        <span class="title-line">Des sites modernes, clairs et elegants.</span>
+                    </h1>
+                    <p class="hero-role hero-reveal hero-reveal-delay-3">
+                        Je cree des sites vitrines responsive penses pour inspirer confiance, presenter votre activite
+                        et transformer vos visiteurs en clients.
+                    </p>
+                    <p class="hero-text hero-reveal hero-reveal-delay-4">
+                        Une experience visuelle soignee, une structure claire, des textes mieux organises avec l'aide
+                        de l'IA, et un parcours simple pour demander un devis.
+                    </p>
+                    <div class="hero-actions hero-reveal hero-reveal-delay-6">
+                        <a class="button button-primary" href="prestations.html">Voir les packs</a>
+                        <a class="button button-secondary" href="contact.html">Demander un site</a>
+                    </div>
+                </div>
+
+                <aside class="studio-signal-card hero-reveal hero-reveal-delay-5">
+                    <div class="digital-core" aria-hidden="true">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                    <div class="design-tile design-tile-a" aria-hidden="true">
+                        <span>Aa</span>
+                        <i></i>
+                    </div>
+                    <div class="design-tile design-tile-b" aria-hidden="true">
+                        <span></span>
+                    </div>
+                </aside>
+            </div>
         </header>
 
         <main>
-            <section class="section section-home reveal-section" id="accueil">
-                <div class="home-clean">
-                    <p class="eyebrow">Kirby CV</p>
-                    <h1>Creer un CV propre, rapide et pret a exporter.</h1>
-                    <p class="section-intro home-intro">
-                        Importez votre CV existant pour le pre-remplir, ou creez un nouveau CV avec des modeles et des reglages simples.
+            <section class="section reveal-section">
+                <div class="section-heading">
+                    <p class="section-kicker">Deux parcours</p>
+                    <h2>Une vitrine aujourd'hui, une plateforme de creation demain.</h2>
+                    <p class="section-intro">
+                        SA Création Web est pensee comme une base evolutive : vous pouvez preparer votre projet avec
+                        un parcours guide, ou deleguer la creation avec un accompagnement humain.
                     </p>
-                    <div class="hero-actions">
-                        <button class="button button-primary" type="button" data-builder-launch="import">Importer mon CV</button>
-                        <button class="button button-secondary" type="button" data-builder-launch="blank">Creer mon CV</button>
-                    </div>
-                    <div class="home-strip" aria-label="Fonctions principales">
-                        <span>PDF</span>
-                        <span>DOCX</span>
-                        <span>TXT</span>
-                        <span>Modeles</span>
-                        <span>Police</span>
-                        <span>Interligne</span>
-                        <span>Export PDF</span>
-                        <span>Export Word</span>
-                    </div>
+                    <p class="section-intro home-services-note">
+                        En plus des sites vitrines, je propose aussi des services simples et rapides : QR codes
+                        personnalises, mini-pages professionnelles, formulaires, reservations, menus, cartes de visite
+                        et liens de paiement en ligne.
+                    </p>
+                </div>
+                <div class="journey-grid">
+                    <article class="journey-card journey-card-ai card">
+                        <p class="signal-label">Parcours guide</p>
+                        <h3>Créer votre direction de site</h3>
+                        <p>
+                            Le client décrit son activité, choisit une ambiance visuelle, ses couleurs, ses pages et
+                            son objectif. L'IA aide ensuite a preparer une structure, un brief et des textes de depart.
+                        </p>
+                        <ul>
+                            <li>Brief initial plus rapide</li>
+                            <li>Direction visuelle clarifiee</li>
+                            <li>Base prete pour une future API IA</li>
+                        </ul>
+                    </article>
+                    <article class="journey-card journey-card-human card">
+                        <p class="signal-label">Parcours humain</p>
+                        <h3>Deleguer a SA Création Web</h3>
+                        <p>
+                            Le client choisit un pack, explique sa vision, puis le site est construit avec choix design,
+                            structure, textes, responsive et mise en ligne.
+                        </p>
+                        <ul>
+                            <li>Accompagnement clair</li>
+                            <li>Creation sans prise de tete</li>
+                            <li>Personnalisation humaine</li>
+                        </ul>
+                    </article>
                 </div>
             </section>
 
-            <section class="section section-design reveal-section" id="modeles">
-                <div class="section-heading section-heading-wide">
-                    <p class="section-kicker">Modeles</p>
-                    <h2>Choisir une base de conception</h2>
+            <section class="section reveal-section ai-brief-section">
+                <div class="section-heading">
+                    <p class="section-kicker">Créer votre direction de site</p>
+                    <h2>Un premier module guide pour preparer le brief.</h2>
+                    <p class="section-intro">
+                        Ce module reste simple pour l'instant. Il pose la base d'un futur parcours plus complet :
+                        activite, ambiance, couleurs, pages, objectif, textes et cahier des charges.
+                    </p>
                 </div>
-                <div class="model-picker" aria-label="Modeles disponibles">
-                    <button class="model-card" type="button" data-builder-launch="classic">
-                        <span>Classique</span>
-                        <strong>Simple</strong>
-                    </button>
-                    <button class="model-card" type="button" data-builder-launch="professional">
-                        <span>Professionnel</span>
-                        <strong>Word Pro</strong>
-                    </button>
-                    <button class="model-card" type="button" data-builder-launch="design">
-                        <span>Moderne</span>
-                        <strong>Editorial</strong>
-                    </button>
-                    <button class="model-card" type="button" data-builder-launch="luxury">
-                        <span>Premium</span>
-                        <strong>Signature</strong>
-                    </button>
-                </div>
-            </section>
-
-            <section class="section section-cv reveal-section" id="cv-intelligent">
-                <div class="section-heading section-heading-wide editor-heading">
-                    <p class="section-kicker">Creation du CV</p>
-                    <h2>Importer, corriger, choisir le modele, exporter.</h2>
-                </div>
-                <div class="cv-layout" id="cv-layout">
-                    <div class="cv-editor-panel" id="cv-editor-panel">
-                        <form class="cv-form" id="cv-form">
-                            <div class="editor-command-bar">
-                                <section class="command-group command-group-primary">
-                                    <div class="command-grid command-grid-file">
-                                        <label class="field field-compact">
-                                            <span>Importer le CV source</span>
-                                            <input type="file" id="cv-import" accept=".txt,.md,.text,.pdf,.doc,.docx">
-                                            <small class="field-hint">PDF, DOCX, TXT, MD. Le contenu est nettoye, trie et pre-rempli dans l'editeur.</small>
-                                        </label>
-                                        <div class="command-inline-actions command-inline-actions-grid command-inline-actions-grid-2">
-                                            <button class="button button-secondary" type="button" id="cv-save">Sauvegarder</button>
-                                            <button class="button button-secondary" type="button" id="cv-autofill">Auto-organiser</button>
-                                            <button class="button button-secondary" type="button" id="cv-improve">Ameliorer</button>
-                                            <button class="button button-secondary" type="button" id="cv-fit-page">Ajuster a 1 page</button>
-                                        </div>
-                                    </div>
-
-                                    <div class="quick-switch-strip" aria-label="Changer de modele rapidement">
-                                        <span class="quick-switch-label">Rendus rapides</span>
-                                        <div class="quick-switch-actions">
-                                            <button class="quick-switch-chip" type="button" data-template-preset="classic">Simple</button>
-                                            <button class="quick-switch-chip" type="button" data-template-preset="professional">Word Pro</button>
-                                            <button class="quick-switch-chip" type="button" data-template-preset="design">Editorial</button>
-                                            <button class="quick-switch-chip" type="button" data-template-preset="luxury">Signature</button>
-                                        </div>
-                                    </div>
-
-                                    <div class="command-inline-actions command-inline-actions-grid command-inline-actions-grid-3">
-                                        <button class="button button-primary" type="button" id="cv-export-pdf">Exporter PDF</button>
-                                        <button class="button button-secondary" type="button" id="cv-export-word">Exporter Word</button>
-                                        <button class="button button-secondary" type="button" id="cv-print">Imprimer</button>
-                                    </div>
-
-                                    <div class="command-inline-actions command-inline-actions-grid command-inline-actions-grid-2 command-inline-actions-soft">
-                                        <button class="button button-secondary" type="button" id="cv-export-web">Version web</button>
-                                        <button class="button button-secondary" type="button" id="cv-share">Partager lien</button>
-                                        <button class="button button-secondary" type="button" id="cv-email">Envoyer par mail</button>
-                                        <button class="button button-secondary" type="button" id="cv-ai-improve">IA / reformuler</button>
-                                    </div>
-                                </section>
-                            </div>
-
-                            <div class="editor-form-body">
-                                <details class="utility-panel">
-                                    <summary>Lancement rapide</summary>
-                                    <div class="utility-panel-body">
-                                        <div class="cv-quick-presets cv-quick-presets-compact">
-                                            <div class="preset-actions">
-                                                <button class="preset-chip" type="button" data-preset="client">Relation client</button>
-                                                <button class="preset-chip" type="button" data-preset="banking">Bancaire</button>
-                                                <button class="preset-chip" type="button" data-preset="transport">Transport</button>
-                                                <button class="preset-chip" type="button" data-preset="admin">Administratif</button>
-                                                <button class="preset-chip" type="button" data-preset="luxury">Signature premium</button>
-                                                <button class="preset-chip" type="button" data-preset="ats">Mode ATS</button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </details>
-
-                                <section class="editor-stage">
-                                    <div class="editor-stage-header">
-                                        <h3>Coordonnees et titre</h3>
-                                    </div>
-
-                                    <div class="form-split">
-                                        <label class="field">
-                                            <span>Nom</span>
-                                            <input type="text" name="fullName" placeholder="Votre nom complet" value="Votre nom">
-                                        </label>
-                                        <label class="field">
-                                            <span>Titre du metier</span>
-                                            <input
-                                                type="text"
-                                                name="headline"
-                                                placeholder="Ex. Conductrice de transport en commun - Permis D"
-                                                value="Intitule du poste vise"
-                                            >
-                                        </label>
-                                    </div>
-
-                                    <div class="form-split">
-                                        <label class="field">
-                                            <span>Ville / code postal</span>
-                                            <input type="text" name="location" placeholder="Ex. Paris (75000)" value="Ville / code postal">
-                                        </label>
-                                        <label class="field">
-                                            <span>Telephone</span>
-                                            <input type="text" name="phone" placeholder="Votre numero" value="06 00 00 00 00">
-                                        </label>
-                                    </div>
-
-                                    <div class="form-split">
-                                        <label class="field">
-                                            <span>Email</span>
-                                            <input type="email" name="email" placeholder="Votre email" value="email@exemple.com">
-                                        </label>
-                                        <label class="field">
-                                            <span>Permis</span>
-                                            <input type="text" name="permit" placeholder="Ex. Permis B" value="Permis B">
-                                        </label>
-                                    </div>
-                                </section>
-
-                                <section class="editor-stage">
-                                    <div class="editor-stage-header">
-                                        <h3>Contenu du CV</h3>
-                                    </div>
-
-                                    <label class="field field-message">
-                                        <span>Profil / accroche</span>
-                                        <textarea
-                                            name="summary"
-                                            rows="4"
-                                            placeholder="Optionnel"
-                                        >Profil clair, organise et oriente resultat, avec une presentation adaptee au poste vise.</textarea>
-                                    </label>
-
-                                    <label class="field field-message">
-                                        <span>Experiences</span>
-                                        <textarea
-                                            name="experience"
-                                            rows="5"
-                                            placeholder="Une experience par ligne"
-                                        >Entreprise - Poste - Ville - 2024
-Mission principale ou resultat cle
-Responsabilite complementaire</textarea>
-                                    </label>
-
-                                    <label class="field">
-                                        <span>Type de projet</span>
-                                        <input type="text" name="projectType" placeholder="Ex. Projet personnel" value="Prototype produit">
-                                    </label>
-
-                                    <label class="field field-message">
-                                        <span>Projets</span>
-                                        <textarea
-                                            name="projects"
-                                            rows="4"
-                                            placeholder="Un projet par ligne"
-                                        >Projet principal - 2024 • Resultat, impact ou realisation</textarea>
-                                    </label>
-
-                                    <label class="field field-message">
-                                        <span>Competences</span>
-                                        <textarea
-                                            name="skills"
-                                            rows="5"
-                                            placeholder="Un point fort par ligne"
-                                        >Gestion de projet
-Communication
-Organisation
-Analyse
-Suite bureautique</textarea>
-                                    </label>
-
-                                    <label class="field field-message">
-                                        <span>Formations</span>
-                                        <textarea
-                                            name="education"
-                                            rows="5"
-                                            placeholder="Une formation par ligne"
-                                        >Diplome ou formation - Etablissement - Annee</textarea>
-                                    </label>
-
-                                    <label class="field field-message">
-                                        <span>Langues</span>
-                                        <textarea
-                                            name="languages"
-                                            rows="3"
-                                            placeholder="Une langue par ligne"
-                                        >Francais
-Anglais</textarea>
-                                    </label>
-
-                                    <label class="field field-message">
-                                        <span>Activites / centres d'interet</span>
-                                        <textarea
-                                            name="activities"
-                                            rows="3"
-                                            placeholder="Une activite par ligne"
-                                        >Lecture
-Veille professionnelle
-Sport</textarea>
-                                    </label>
-                                </section>
-
-                                <details class="utility-panel">
-                                    <summary>Direction visuelle</summary>
-                                    <div class="utility-panel-body">
-                                        <div class="template-presets" aria-label="Mises en forme pretes a l emploi">
-                                            <button class="template-chip" type="button" data-template-preset="classic">
-                                                <strong>Simple</strong>
-                                                <span>Sobre, lisible, une page</span>
-                                            </button>
-                                            <button class="template-chip" type="button" data-template-preset="professional">
-                                                <strong>Word Pro</strong>
-                                                <span>Dates claires, structure nette</span>
-                                            </button>
-                                            <button class="template-chip" type="button" data-template-preset="design">
-                                                <strong>Editorial</strong>
-                                                <span>Accent visuel, sections plus edito</span>
-                                            </button>
-                                            <button class="template-chip" type="button" data-template-preset="luxury">
-                                                <strong>Signature</strong>
-                                                <span>Graphite, indigo profond et touche champagne</span>
-                                            </button>
-                                        </div>
-
-                                        <div class="form-split">
-                                            <label class="field">
-                                                <span>Type de CV</span>
-                                                <select name="cvMode">
-                                                    <option value="classic">CV classique</option>
-                                                    <option value="design">CV design</option>
-                                                    <option value="ats">CV ATS</option>
-                                                    <option value="web">CV web interactif</option>
-                                                </select>
-                                            </label>
-                                            <label class="field">
-                                                <span>Poste vise</span>
-                                                <select name="jobTarget">
-                                                    <option value="developpeur web">Developpeur web</option>
-                                                    <option value="marketing">Marketing</option>
-                                                    <option value="relation client">Relation client</option>
-                                                </select>
-                                            </label>
-                                        </div>
-
-                                        <div class="form-split">
-                                            <label class="field">
-                                                <span>Police</span>
-                                                <select name="fontTheme">
-                                                    <option value="inter">Inter</option>
-                                                    <option value="manrope">Manrope</option>
-                                                    <option value="roboto">Roboto</option>
-                                                    <option value="lato">Lato</option>
-                                                    <option value="serif">Libre Baskerville</option>
-                                                    <option value="playfair">Playfair Display</option>
-                                                    <option value="mono">IBM Plex Sans</option>
-                                                </select>
-                                            </label>
-                                            <label class="field">
-                                                <span>Template</span>
-                                                <select name="layoutTheme">
-                                                    <option value="wordpro">Word Pro</option>
-                                                    <option value="classic">Classique</option>
-                                                    <option value="modern">Moderne</option>
-                                                    <option value="executive">Signature</option>
-                                                    <option value="minimal">Minimal</option>
-                                                </select>
-                                            </label>
-                                        </div>
-
-                                        <div class="cv-toolbar">
-                                            <label class="field">
-                                                <span>Taille</span>
-                                                <select name="fontSize">
-                                                    <option value="normal">Normale</option>
-                                                    <option value="large">Grande</option>
-                                                    <option value="compact">Compacte</option>
-                                                </select>
-                                            </label>
-                                            <label class="field">
-                                                <span>Palette</span>
-                                                <select name="colorTheme">
-                                                    <option value="indigo">Indigo neon</option>
-                                                    <option value="emerald">Emerald clean</option>
-                                                    <option value="rose">Rose editorial</option>
-                                                    <option value="graphite">Graphite premium</option>
-                                                </select>
-                                            </label>
-                                            <label class="field">
-                                                <span>Conception</span>
-                                                <select name="designMood">
-                                                    <option value="clean">Clean</option>
-                                                    <option value="editorial">Editorial</option>
-                                                    <option value="startup">Startup</option>
-                                                    <option value="luxury">Luxury</option>
-                                                </select>
-                                            </label>
-                                            <label class="field">
-                                                <span>Alignement</span>
-                                                <select name="textAlign">
-                                                    <option value="left">Gauche</option>
-                                                    <option value="center">Centre</option>
-                                                    <option value="right">Droite</option>
-                                                </select>
-                                            </label>
-                                            <label class="field">
-                                                <span>Espacement</span>
-                                                <select name="lineSpacing">
-                                                    <option value="normal">Normal</option>
-                                                    <option value="airy">Aere</option>
-                                                    <option value="tight">Serre</option>
-                                                </select>
-                                            </label>
-                                            <label class="field field-color">
-                                                <span>Couleur</span>
-                                                <input type="color" name="accentColor" value="#2f3f7f">
-                                            </label>
-                                            <label class="tool-toggle">
-                                                <input type="checkbox" name="isBold">
-                                                <span>B</span>
-                                            </label>
-                                            <label class="tool-toggle">
-                                                <input type="checkbox" name="isItalic">
-                                                <span>I</span>
-                                            </label>
-                                            <label class="tool-toggle">
-                                                <input type="checkbox" name="isUnderline">
-                                                <span>U</span>
-                                            </label>
-                                        </div>
-
-                                        <input type="hidden" name="headlineScale" value="normal">
-                                    </div>
-                                </details>
-
-                                <details class="utility-panel">
-                                    <summary>ATS, adaptation et lettre</summary>
-                                    <div class="utility-panel-body">
-                                        <div class="cv-analysis-panel cv-ai-panel">
-                                            <div class="analysis-block analysis-block-header">
-                                                <h4>Analyse ATS, suggestions et adaptation a une offre</h4>
-                                                <p class="field-hint">Cette zone reste hors de la page du CV.</p>
-                                            </div>
-                                            <div class="ats-score">
-                                                <span>Score ATS</span>
-                                                <strong id="ats-score-value">82%</strong>
-                                            </div>
-                                            <div class="analysis-block">
-                                                <h4>Compatibilite offre</h4>
-                                                <div class="job-match">
-                                                    <strong id="job-match-value">--</strong>
-                                                    <button class="button button-secondary" type="button" id="cv-analyze">Analyser mon CV</button>
-                                                </div>
-                                            </div>
-                                            <div class="analysis-block">
-                                                <h4>Analyse de votre CV</h4>
-                                                <ul id="cv-analysis-list"></ul>
-                                            </div>
-                                            <div class="analysis-block">
-                                                <h4>Suggestions</h4>
-                                                <ul id="cv-suggestions-list"></ul>
-                                            </div>
-                                            <label class="field field-message">
-                                                <span>Offre d'emploi</span>
-                                                <textarea
-                                                    id="job-offer"
-                                                    name="jobOffer"
-                                                    rows="5"
-                                                    placeholder="Coller l'offre d'emploi ici pour adapter le CV."
-                                                ></textarea>
-                                            </label>
-                                            <div class="cv-actions">
-                                                <button class="button button-secondary" type="button" id="cv-match-job">Adapter mon CV a une offre</button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </details>
-                            </div>
-                        </form>
-                    </div>
-
-                    <button
-                        class="cv-focus-toggle"
-                        id="cv-layout-toggle"
-                        type="button"
-                        aria-expanded="true"
-                        aria-controls="cv-editor-panel"
-                        aria-label="Rabattre les reglages"
-                    >
-                        <span class="cv-focus-toggle-arrow">‹</span>
-                    </button>
-
-                    <aside class="cv-preview-shell">
-                        <div class="cv-preview-toolbar">
-                            <div class="preview-toolbar-group preview-toolbar-group-tools">
-                                <label class="preview-quick-control">
-                                    <span>Titre</span>
-                                    <select id="preview-headline-scale">
-                                        <option value="normal" selected>Normal</option>
-                                        <option value="compact">Compact</option>
-                                        <option value="large">Impact</option>
-                                    </select>
-                                </label>
-                                <label class="preview-quick-control">
-                                    <span>Interligne</span>
-                                    <select id="preview-line-spacing">
-                                        <option value="normal" selected>Normal</option>
-                                        <option value="tight">Serre</option>
-                                        <option value="airy">Aere</option>
-                                    </select>
-                                </label>
-                                <label class="preview-quick-control">
-                                    <span>Theme</span>
-                                    <select id="preview-layout-theme">
-                                        <option value="wordpro">Word Pro</option>
-                                        <option value="classic">Classique</option>
-                                        <option value="modern">Moderne</option>
-                                        <option value="executive">Signature</option>
-                                        <option value="minimal">Minimal</option>
-                                    </select>
-                                </label>
-                            </div>
-                            <div class="preview-toolbar-group preview-toolbar-group-mode">
-                                <div class="preview-mode-tabs" role="tablist" aria-label="Type de document">
-                                    <button class="preview-mode-tab is-active" type="button" id="preview-mode-cv" data-preview-mode="cv" aria-selected="true">CV</button>
-                                    <button class="preview-mode-tab" type="button" id="preview-mode-letter" data-preview-mode="letter" aria-selected="false">Lettre</button>
-                                </div>
-                                <span class="preview-status" id="cv-status">Apercu synchronise</span>
-                            </div>
-                        </div>
-                        <div class="preview-template-rail" aria-label="Modeles visibles dans l apercu">
-                            <button class="preview-template-chip" type="button" data-template-preset="classic">Simple</button>
-                            <button class="preview-template-chip" type="button" data-template-preset="professional">Word Pro</button>
-                            <button class="preview-template-chip" type="button" data-template-preset="design">Editorial</button>
-                            <button class="preview-template-chip" type="button" data-template-preset="luxury">Signature</button>
-                        </div>
-                        <div class="cv-word-toolbar-shell" id="cv-word-toolbar-shell">
-                            <div class="cv-word-toolbar" id="cv-word-toolbar" aria-label="Mini toolbar">
-                                <div class="word-toolbar-row word-toolbar-row-main">
-                                    <label class="word-toolbar-field">
-                                        <span>Police</span>
-                                        <select id="cv-inline-font">
-                                            <option value="Arial, sans-serif">Arial</option>
-                                            <option value="Roboto, sans-serif">Roboto</option>
-                                            <option value="'Times New Roman', serif">Times New Roman</option>
-                                        </select>
-                                    </label>
-                                    <label class="word-toolbar-field word-toolbar-field-size">
-                                        <span>Taille</span>
-                                        <select id="cv-inline-size">
-                                            <option value="12px">12</option>
-                                            <option value="14px" selected>14</option>
-                                            <option value="16px">16</option>
-                                            <option value="18px">18</option>
-                                            <option value="24px">24</option>
-                                        </select>
-                                    </label>
-                                    <label class="word-toolbar-field word-toolbar-field-line-height">
-                                        <span>Interligne</span>
-                                        <select id="cv-inline-line-height">
-                                            <option value="1">1</option>
-                                            <option value="1.15">1.15</option>
-                                            <option value="1.5">1.5</option>
-                                            <option value="2">2</option>
-                                        </select>
-                                    </label>
-                                </div>
-                                <div class="word-toolbar-row word-toolbar-row-actions">
-                                    <div class="word-toolbar-segment" role="group" aria-label="Mise en forme">
-                                        <button class="word-toolbar-button" type="button" id="cv-inline-bold" aria-label="Gras"><strong>B</strong></button>
-                                        <button class="word-toolbar-button" type="button" id="cv-inline-italic" aria-label="Italique"><em>I</em></button>
-                                        <button class="word-toolbar-button" type="button" id="cv-inline-underline" aria-label="Souligne"><u>U</u></button>
-                                    </div>
-                                    <div class="word-toolbar-segment" role="group" aria-label="Alignement">
-                                        <button class="word-toolbar-button" type="button" data-align="left" aria-label="Aligner a gauche">G</button>
-                                        <button class="word-toolbar-button" type="button" data-align="center" aria-label="Centrer">C</button>
-                                        <button class="word-toolbar-button" type="button" data-align="right" aria-label="Aligner a droite">D</button>
-                                    </div>
-                                    <div class="word-toolbar-segment" role="group" aria-label="Liste">
-                                        <button class="word-toolbar-button word-toolbar-button-list" type="button" id="cv-inline-list" aria-label="Liste a puces">• Liste</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="cv-preview-viewport" id="cv-preview-viewport">
-                            <div class="cv-preview-stage" id="cv-preview-stage">
-                                <article class="cv-preview theme-executive font-manrope template-wordpro" id="cv-preview" data-preview-doc="cv">
-                                    <div class="cv-page-guide" aria-hidden="true"></div>
-                                    <header class="cv-header">
-                                        <p class="cv-label">CV premium</p>
-                                        <h3 id="preview-name" data-edit-target="fullName" contenteditable="true" spellcheck="false">Votre nom</h3>
-                                        <p class="cv-meta" id="preview-meta" data-edit-target="location" contenteditable="true" spellcheck="false">Ville / code postal | 06 00 00 00 00 | email@exemple.com</p>
-                                        <p id="preview-headline" data-edit-target="headline" contenteditable="true" spellcheck="false">Intitule du poste vise</p>
-                                    </header>
-                                    <div class="cv-body" id="cv-preview-sections">
-                                        <section data-section-key="summary">
-                                            <div class="cv-section-head">
-                                                <h4>Profil</h4>
-                                                <div class="cv-section-actions">
-                                                    <button type="button" class="cv-section-action" data-section-action="up" data-section-key="summary" aria-label="Monter le bloc Profil">↑</button>
-                                                    <button type="button" class="cv-section-action" data-section-action="down" data-section-key="summary" aria-label="Descendre le bloc Profil">↓</button>
-                                                    <button type="button" class="cv-section-action" data-section-action="delete" data-section-key="summary" aria-label="Supprimer le bloc Profil">×</button>
-                                                </div>
-                                            </div>
-                                            <p id="preview-summary" data-edit-target="summary" contenteditable="true" spellcheck="true">Profil clair, organise et oriente resultat, avec une presentation adaptee au poste vise.</p>
-                                        </section>
-                                        <section data-section-key="skills">
-                                            <div class="cv-section-head">
-                                                <h4>Competences</h4>
-                                                <div class="cv-section-actions">
-                                                    <button type="button" class="cv-section-action" data-section-action="up" data-section-key="skills" aria-label="Monter le bloc Competences">↑</button>
-                                                    <button type="button" class="cv-section-action" data-section-action="down" data-section-key="skills" aria-label="Descendre le bloc Competences">↓</button>
-                                                    <button type="button" class="cv-section-action" data-section-action="delete" data-section-key="skills" aria-label="Supprimer le bloc Competences">×</button>
-                                                </div>
-                                            </div>
-                                            <ul id="preview-skills" class="cv-list-compact" data-edit-target="skills" contenteditable="true" spellcheck="true"></ul>
-                                        </section>
-                                        <section data-section-key="experience">
-                                            <div class="cv-section-head">
-                                                <h4>Experiences professionnelles</h4>
-                                                <div class="cv-section-actions">
-                                                    <button type="button" class="cv-section-action" data-section-action="up" data-section-key="experience" aria-label="Monter le bloc Experiences">↑</button>
-                                                    <button type="button" class="cv-section-action" data-section-action="down" data-section-key="experience" aria-label="Descendre le bloc Experiences">↓</button>
-                                                    <button type="button" class="cv-section-action" data-section-action="delete" data-section-key="experience" aria-label="Supprimer le bloc Experiences">×</button>
-                                                </div>
-                                            </div>
-                                            <ul id="preview-experience" data-edit-target="experience" contenteditable="true" spellcheck="true"></ul>
-                                        </section>
-                                        <section data-section-key="projects">
-                                            <div class="cv-section-head">
-                                                <h4>Projets</h4>
-                                                <div class="cv-section-actions">
-                                                    <button type="button" class="cv-section-action" data-section-action="up" data-section-key="projects" aria-label="Monter le bloc Projets">↑</button>
-                                                    <button type="button" class="cv-section-action" data-section-action="down" data-section-key="projects" aria-label="Descendre le bloc Projets">↓</button>
-                                                    <button type="button" class="cv-section-action" data-section-action="delete" data-section-key="projects" aria-label="Supprimer le bloc Projets">×</button>
-                                                </div>
-                                            </div>
-                                            <ul id="preview-projects" data-edit-target="projects" contenteditable="true" spellcheck="true"></ul>
-                                        </section>
-                                        <section data-section-key="education">
-                                            <div class="cv-section-head">
-                                                <h4>Formations</h4>
-                                                <div class="cv-section-actions">
-                                                    <button type="button" class="cv-section-action" data-section-action="up" data-section-key="education" aria-label="Monter le bloc Formations">↑</button>
-                                                    <button type="button" class="cv-section-action" data-section-action="down" data-section-key="education" aria-label="Descendre le bloc Formations">↓</button>
-                                                    <button type="button" class="cv-section-action" data-section-action="delete" data-section-key="education" aria-label="Supprimer le bloc Formations">×</button>
-                                                </div>
-                                            </div>
-                                            <ul id="preview-education" data-edit-target="education" contenteditable="true" spellcheck="true"></ul>
-                                        </section>
-                                        <section data-section-key="activities">
-                                            <div class="cv-section-head">
-                                                <h4>Activites</h4>
-                                                <div class="cv-section-actions">
-                                                    <button type="button" class="cv-section-action" data-section-action="up" data-section-key="activities" aria-label="Monter le bloc Activites">↑</button>
-                                                    <button type="button" class="cv-section-action" data-section-action="down" data-section-key="activities" aria-label="Descendre le bloc Activites">↓</button>
-                                                    <button type="button" class="cv-section-action" data-section-action="delete" data-section-key="activities" aria-label="Supprimer le bloc Activites">×</button>
-                                                </div>
-                                            </div>
-                                            <ul id="preview-activities" class="cv-list-compact" data-edit-target="activities" contenteditable="true" spellcheck="true"></ul>
-                                        </section>
-                                        <section data-section-key="languages">
-                                            <div class="cv-section-head">
-                                                <h4>Langues</h4>
-                                                <div class="cv-section-actions">
-                                                    <button type="button" class="cv-section-action" data-section-action="up" data-section-key="languages" aria-label="Monter le bloc Langues">↑</button>
-                                                    <button type="button" class="cv-section-action" data-section-action="down" data-section-key="languages" aria-label="Descendre le bloc Langues">↓</button>
-                                                    <button type="button" class="cv-section-action" data-section-action="delete" data-section-key="languages" aria-label="Supprimer le bloc Langues">×</button>
-                                                </div>
-                                            </div>
-                                            <ul id="preview-languages" class="cv-list-compact" data-edit-target="languages" contenteditable="true" spellcheck="true"></ul>
-                                        </section>
-                                    </div>
-                                </article>
-                                <article class="cv-preview cv-letter-page theme-executive font-manrope template-wordpro is-hidden-preview" id="letter-page-preview" data-preview-doc="letter" aria-hidden="true">
-                                    <header class="cv-header cv-header-letter">
-                                        <p class="cv-label">Lettre de motivation</p>
-                                        <h3 id="letter-page-title">Votre nom</h3>
-                                        <p class="cv-meta" id="letter-page-meta">Candidature professionnelle personnalisee</p>
-                                    </header>
-                                    <div class="letter-page-body">
-                                        <p class="letter-subject" id="letter-subject-page">Objet : Candidature</p>
-                                        <div class="letter-body" id="letter-body-page">
-                                            Madame, Monsieur,
-
-                                            Je souhaite vous proposer ma candidature pour un poste en lien avec mes
-                                            competences, mon sens de l organisation et ma capacite a produire un
-                                            document clair et professionnel.
-                                        </div>
-                                    </div>
-                                </article>
-                            </div>
-                        </div>
-                        <div class="cover-letter-panel" id="cover-letter-panel" data-builder-panel="letter">
-                            <div class="section-heading section-heading-compact">
-                                <p class="section-kicker">Lettre de motivation</p>
-                                <h3>Generer une lettre de motivation</h3>
-                            </div>
-                            <div class="form-split">
-                                <label class="field">
-                                    <span>Entreprise</span>
-                                    <input type="text" id="letter-company" name="letterCompany" placeholder="Nom de l'entreprise">
-                                </label>
-                                <label class="field">
-                                    <span>Poste vise</span>
-                                    <input type="text" id="letter-role" name="letterRole" placeholder="Ex. Developpeur web front-end">
-                                </label>
-                            </div>
+                <div class="ai-brief-panel">
+                    <form class="ai-brief-form" id="ai-brief-form">
+                        <label class="field field-message">
+                            <span>Votre activite</span>
+                            <textarea
+                                id="ai-brief-input"
+                                rows="4"
+                                placeholder="Ex. salon de coiffure, coach sportif, artisan, boutique, restaurant..."
+                            ></textarea>
+                        </label>
+                        <div class="form-split">
                             <label class="field">
-                                <span>Style de lettre</span>
-                                <select id="letter-style" name="letterStyle">
-                                    <option value="classic">Classique</option>
-                                    <option value="short">Courte</option>
-                                    <option value="modern">Moderne</option>
+                                <span>Ambiance</span>
+                                <select id="ai-brief-style">
+                                    <option value="moderne et rassurante">Moderne rassurante</option>
+                                    <option value="premium et elegante">Premium elegante</option>
+                                    <option value="creative et audacieuse">Creative audacieuse</option>
+                                    <option value="sobre et professionnelle">Sobre professionnelle</option>
                                 </select>
                             </label>
                             <label class="field">
-                                <span>Motivation principale</span>
-                                <input type="text" id="letter-motivation" name="letterMotivation" placeholder="Pourquoi ce poste vous interesse">
+                                <span>Objectif</span>
+                                <select id="ai-brief-goal">
+                                    <option value="recevoir des demandes de devis">Recevoir des demandes</option>
+                                    <option value="presenter une activite clairement">Presenter l'activite</option>
+                                    <option value="renforcer la credibilite de l'activite">Renforcer la credibilite</option>
+                                    <option value="presenter une offre avec clarte">Presenter une offre</option>
+                                </select>
                             </label>
-                            <div class="cv-actions">
-                                <button class="button button-secondary" type="button" id="letter-generate">Generer ma lettre</button>
-                                <button class="button button-secondary" type="button" id="letter-export-word">Exporter Word</button>
-                                <button class="button button-primary" type="button" id="letter-email">Envoyer par mail</button>
-                            </div>
-                            <article class="letter-preview" id="letter-preview">
-                                <p class="letter-subject" id="letter-subject">Objet : Candidature</p>
-                                <div class="letter-body" id="letter-body">
-                                    Madame, Monsieur,
-
-                                    Je souhaite vous proposer ma candidature pour un poste en lien avec mes
-                                    competences, mon sens de l organisation et ma capacite a produire un document
-                                    clair et professionnel.
-                                </div>
-                            </article>
                         </div>
-                    </aside>
+                        <button class="button button-primary" type="submit">Generer une base</button>
+                    </form>
+                    <article class="ai-brief-output" id="ai-brief-output" aria-live="polite">
+                        <p class="signal-label">Apercu IA</p>
+                        <h3>Une structure prete a affiner</h3>
+                        <ul>
+                            <li>Accueil clair avec message principal.</li>
+                            <li>Prestations separees et lisibles.</li>
+                            <li>Preuves, methode et contact rapide.</li>
+                        </ul>
+                    </article>
                 </div>
             </section>
 
+            <section class="section reveal-section">
+                <div class="section-heading">
+                    <p class="section-kicker">Pour qui</p>
+                    <h2>Des sites pour presenter une activite sans discours complique</h2>
+                </div>
+                <div class="cards-grid">
+                    <article class="content-card card">
+                        <h3>Independants</h3>
+                        <p>Une page claire pour expliquer votre activite, vos services et votre maniere de travailler.</p>
+                    </article>
+                    <article class="content-card card">
+                        <h3>Petites entreprises</h3>
+                        <p>Un site professionnel pour rassurer, afficher les informations utiles et recevoir des demandes.</p>
+                    </article>
+                    <article class="content-card card">
+                        <h3>Projets en lancement</h3>
+                        <p>Une premiere vitrine propre pour tester une idee, presenter une offre et commencer a communiquer.</p>
+                    </article>
+                </div>
+            </section>
+
+            <section class="section reveal-section">
+                <div class="section-heading">
+                    <p class="section-kicker">Parcours</p>
+                    <h2>Chaque sujet a sa page, pour garder une plateforme lisible</h2>
+                </div>
+                <div class="feature-link-grid">
+                    <a class="feature-link-card card" href="prestations.html">
+                        <span>01</span>
+                        <h3>Prestations</h3>
+                        <p>Packs, prix, options et ce qui est inclus ou non.</p>
+                    </a>
+                    <a class="feature-link-card card" href="methode.html">
+                        <span>02</span>
+                        <h3>Methode UIA</h3>
+                        <p>Utilite, identite, action, avec aide IA pour structurer le contenu.</p>
+                    </a>
+                    <a class="feature-link-card card" href="realisations.html">
+                        <span>03</span>
+                        <h3>Realisations</h3>
+                        <p>Exemples, demonstrateurs et projets separes, dont le generateur CV.</p>
+                    </a>
+                    <a class="feature-link-card card" href="contact.html">
+                        <span>04</span>
+                        <h3>Contact</h3>
+                        <p>Envoyer les informations utiles pour demarrer simplement.</p>
+                    </a>
+                </div>
+            </section>
         </main>
+
+        <footer class="site-footer">
+            <p>SA Création Web</p>
+            <p>Creation de sites vitrines &amp; interfaces digitales</p>
+        </footer>
     </div>
 
-    <button class="assistant-toggle" id="assistant-toggle" type="button" aria-expanded="false">
-        Aide IA
-    </button>
-    <section class="assistant-chat" id="assistant-chat" aria-label="Assistant IA">
-        <div class="assistant-chat-header">
-            <div>
-                <strong>Assistant IA</strong>
-                <p>Je peux analyser un CV, renforcer les mots cles ATS et aider sur la lettre.</p>
-            </div>
-            <button class="assistant-close" id="assistant-close" type="button" aria-label="Fermer">×</button>
-        </div>
-        <div class="assistant-messages" id="assistant-messages">
-            <article class="assistant-bubble assistant-bubble-bot">
-                Bonjour, je peux vous aider a ameliorer le CV, l adapter a une offre ou preparer la lettre.
-            </article>
-        </div>
-        <div class="assistant-quick-actions">
-            <button class="suggestion-chip" type="button" data-prompt="Analyse mon CV pour l ATS">Analyser ATS</button>
-            <button class="suggestion-chip" type="button" data-prompt="Aide-moi a adapter mon CV a une offre">Adapter offre</button>
-            <button class="suggestion-chip" type="button" data-prompt="Aide-moi a rediger une lettre de motivation">Lettre</button>
-        </div>
-        <form class="assistant-input-row" id="assistant-form">
-            <input id="assistant-input" type="text" placeholder="Ecrivez votre besoin...">
-            <button class="button button-primary" type="submit">Envoyer</button>
-        </form>
-    </section>
-
-    <section class="auth-modal is-hidden" id="auth-modal" aria-hidden="true">
-        <div class="auth-modal-backdrop" data-auth-close></div>
-        <div class="auth-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
-            <button class="auth-modal-close" id="auth-close" type="button" aria-label="Fermer">×</button>
-            <h2 id="auth-modal-title">Se connecter ou creer un compte Kirby CV</h2>
-            <p class="auth-modal-text">Le site s'ouvre toujours en mode invite. Connectez-vous seulement si vous voulez retrouver votre brouillon sur cet appareil, puis deconnectez-vous apres usage.</p>
-            <div class="auth-modal-tabs" role="tablist" aria-label="Connexion ou inscription">
-                <button class="auth-tab is-active" type="button" data-auth-view="login" aria-selected="true">Se connecter</button>
-                <button class="auth-tab" type="button" data-auth-view="signup" aria-selected="false">Creer un compte</button>
-            </div>
-            <div class="auth-modal-panel" id="auth-panel-login">
-                <form class="auth-form" id="auth-login-form">
-                    <label class="field">
-                        <span>Email</span>
-                        <input type="email" name="email" placeholder="email@exemple.com" required>
-                    </label>
-                    <label class="field">
-                        <span>Mot de passe</span>
-                        <input type="password" name="password" placeholder="Votre mot de passe" required>
-                    </label>
-                    <button class="button button-primary" type="submit">Se connecter</button>
-                </form>
-            </div>
-            <div class="auth-modal-panel is-hidden" id="auth-panel-signup">
-                <form class="auth-form" id="auth-signup-form">
-                    <label class="field">
-                        <span>Nom</span>
-                        <input type="text" name="name" placeholder="Votre nom" required>
-                    </label>
-                    <label class="field">
-                        <span>Email</span>
-                        <input type="email" name="email" placeholder="email@exemple.com" required>
-                    </label>
-                    <label class="field">
-                        <span>Mot de passe</span>
-                        <input type="password" name="password" placeholder="Choisir un mot de passe" required>
-                    </label>
-                    <label class="field">
-                        <span>Confirmation</span>
-                        <input type="password" name="confirmPassword" placeholder="Retaper le mot de passe" required>
-                    </label>
-                    <button class="button button-primary" type="submit">Creer mon compte</button>
-                </form>
-            </div>
-            <p class="auth-feedback" id="auth-feedback" aria-live="polite"></p>
-        </div>
-    </section>
-
-    <script src="https://cdn.jsdelivr.net/npm/mammoth@1.11.0/mammoth.browser.min.js" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js" defer></script>
-    <script src="script.js?v=20260520-2" defer></script>
+    <script src="script.js?v=20260522-2" defer></script>
 </body>
 </html>
