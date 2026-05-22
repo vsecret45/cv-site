@@ -2317,6 +2317,12 @@ body.is-ready .skill-delay-8 {
         width: 100%;
     }
 
+    .qr-service-form .button,
+    .custom-quote-panel .button,
+    .qr-service-preview .button {
+        width: 100%;
+    }
+
     .pack-offer-card {
         width: 100%;
         border-radius: 22px;
@@ -2920,6 +2926,112 @@ body.is-ready .skill-delay-8 {
         inset 0 1px 0 rgba(255, 255, 255, 0.14),
         0 20px 48px rgba(0, 0, 0, 0.24),
         0 0 28px rgba(239, 214, 163, 0.08);
+}
+
+.small-services-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+}
+
+.small-service-card {
+    display: grid;
+    gap: 0.7rem;
+    min-height: 150px;
+    padding: 1.25rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 16px 28px rgba(58, 73, 110, 0.06);
+}
+
+.small-service-card h3 {
+    font-size: 1rem;
+    line-height: 1.25;
+}
+
+.small-service-card p {
+    align-self: end;
+    color: #2f3f7f;
+    font-size: 0.95rem;
+    font-weight: 900;
+}
+
+.small-services-support {
+    display: grid;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.qr-service-panel,
+.custom-quote-panel {
+    display: grid;
+    gap: 0.85rem;
+    padding: clamp(1.35rem, 3vw, 2rem);
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(246, 248, 255, 0.9));
+    box-shadow: var(--shadow);
+}
+
+.qr-service-panel h3,
+.custom-quote-panel h3 {
+    font-size: clamp(1.35rem, 2.6vw, 2rem);
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+}
+
+.qr-service-panel p:not(.signal-label),
+.custom-quote-panel p:not(.signal-label) {
+    color: var(--text-soft);
+}
+
+.qr-service-form {
+    display: grid;
+    gap: 0.8rem;
+    margin-top: 0.2rem;
+}
+
+.qr-service-form .button {
+    width: fit-content;
+}
+
+.qr-service-preview {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding: 1rem;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.72);
+}
+
+.qr-service-preview[hidden] {
+    display: none;
+}
+
+.qr-service-preview img {
+    width: 8rem;
+    height: 8rem;
+    padding: 0.55rem;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: #ffffff;
+}
+
+.custom-quote-panel .button {
+    width: fit-content;
+    margin-top: 0.35rem;
+}
+
+@media (max-width: 699px) {
+    .qr-service-form .button,
+    .custom-quote-panel .button,
+    .qr-service-preview .button {
+        width: 100%;
+    }
 }
 
 body.studio-home[data-theme="day"] .price-card .button {

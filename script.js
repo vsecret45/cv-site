@@ -79,6 +79,11 @@ const aiBriefInput = document.querySelector('#ai-brief-input');
 const aiBriefStyle = document.querySelector('#ai-brief-style');
 const aiBriefGoal = document.querySelector('#ai-brief-goal');
 const aiBriefOutput = document.querySelector('#ai-brief-output');
+const qrServiceForm = document.querySelector('#qr-service-form');
+const qrServiceInput = document.querySelector('#qr-service-input');
+const qrServicePreview = document.querySelector('#qr-service-preview');
+const qrServiceImage = document.querySelector('#qr-service-image');
+const qrServiceDownload = document.querySelector('#qr-service-download');
 const expandableCards = document.querySelectorAll('[data-expandable]');
 const presetChips = document.querySelectorAll('.preset-chip');
 const templatePresetChips = document.querySelectorAll('[data-template-preset]');
@@ -4050,6 +4055,23 @@ if (aiBriefForm && aiBriefInput && aiBriefOutput) {
                 <li>Action principale : ${ctaLabel}.</li>
             </ul>
         `;
+    });
+}
+
+if (qrServiceForm && qrServiceInput && qrServicePreview && qrServiceImage && qrServiceDownload) {
+    qrServiceForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+
+        const link = qrServiceInput.value.trim();
+
+        if (!link) {
+            return;
+        }
+
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(link)}`;
+        qrServiceImage.src = qrUrl;
+        qrServiceDownload.href = qrUrl;
+        qrServicePreview.hidden = false;
     });
 }
 

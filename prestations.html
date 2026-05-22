@@ -23,6 +23,7 @@
                     <div class="site-menu-links">
                         <a href="index.html">Accueil</a>
                         <a href="prestations.html">Prestations</a>
+                        <a href="#petits-services">Petits services</a>
                         <a href="methode.html">Methode</a>
                         <a href="realisations.html">Realisations</a>
                         <a href="contact.html">Contact</a>
@@ -115,6 +116,87 @@
                             <li>Preparation a une suite : paiement, CV, espace client ou outils</li>
                         </ul>
                         <a class="button button-secondary" href="https://buy.stripe.com/14A7sL1i75B136ReNZgMw05" target="_blank" rel="noopener noreferrer">Profiter de l'offre</a>
+                    </article>
+                </div>
+            </section>
+
+            <section class="section reveal-section" id="petits-services">
+                <div class="section-heading">
+                    <p class="section-kicker">Services accessibles</p>
+                    <h2>Petits services web &amp; visuels</h2>
+                    <p class="section-intro">
+                        Pour les besoins simples, rapides et accessibles : QR code, mini-page, carte, menu, formulaire,
+                        reservation, paiement en ligne ou visibilite Google.
+                    </p>
+                </div>
+
+                <div class="small-services-grid">
+                    <article class="small-service-card card">
+                        <h3>QR code personnalise</h3>
+                        <p>39 €</p>
+                    </article>
+                    <article class="small-service-card card">
+                        <h3>Creation visuelle simple</h3>
+                        <p>49 €</p>
+                    </article>
+                    <article class="small-service-card card">
+                        <h3>Mini-page professionnelle</h3>
+                        <p>149 €</p>
+                    </article>
+                    <article class="small-service-card card">
+                        <h3>Formulaire ou reservation simple</h3>
+                        <p>a partir de 79 €</p>
+                    </article>
+                    <article class="small-service-card card">
+                        <h3>Menu restaurant numerique ou imprimable</h3>
+                        <p>a partir de 49 €</p>
+                    </article>
+                    <article class="small-service-card card">
+                        <h3>Carte de visite / invitation / flyer simple</h3>
+                        <p>a partir de 49 €</p>
+                    </article>
+                    <article class="small-service-card card">
+                        <h3>Aide visibilite Google / indexation</h3>
+                        <p>a partir de 79 €</p>
+                    </article>
+                    <article class="small-service-card card">
+                        <h3>Mise en place de paiement en ligne</h3>
+                        <p>a partir de 79 €</p>
+                    </article>
+                    <article class="small-service-card card">
+                        <h3>Integration d'un QR code discret</h3>
+                        <p>Sur CV ou portfolio numerique</p>
+                    </article>
+                </div>
+
+                <div class="small-services-support">
+                    <article class="qr-service-panel card">
+                        <p class="signal-label">Bloc QR code</p>
+                        <h3>Collez votre lien &rarr; generez votre QR code &rarr; telechargez votre fichier.</h3>
+                        <p>
+                            Une solution simple pour renvoyer vers une page, un menu, un formulaire, une reservation,
+                            un paiement ou un portfolio.
+                        </p>
+                        <form class="qr-service-form" id="qr-service-form">
+                            <label class="field">
+                                <span>Lien a transformer</span>
+                                <input id="qr-service-input" type="url" placeholder="https://votre-lien.fr" required>
+                            </label>
+                            <button class="button button-primary" type="submit">Generer le QR code</button>
+                        </form>
+                        <div class="qr-service-preview" id="qr-service-preview" hidden>
+                            <img id="qr-service-image" src="" alt="QR code genere">
+                            <a class="button button-secondary" id="qr-service-download" href="#" target="_blank" rel="noopener noreferrer" download="qr-code.png">Telecharger le fichier</a>
+                        </div>
+                    </article>
+                    <article class="custom-quote-panel card">
+                        <p class="signal-label">Projet specifique ?</p>
+                        <h3>Demandez un devis personnalise.</h3>
+                        <p>
+                            Les frais externes lies au domaine, a l'hebergement, a l'impression, aux abonnements,
+                            aux outils payants ou aux services tiers restent a la charge du client.
+                        </p>
+                        <a class="button button-secondary" href="contact.html">Demander un devis</a>
                     </article>
                 </div>
             </section>
