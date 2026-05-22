@@ -134,8 +134,8 @@ module.exports = async (request, response) => {
             command: error && error.command ? error.command : undefined,
             message: error && error.message ? error.message : errorCode,
         });
-        return json(response, 502, { error: errorCode });
+        return json(response, 200, { ok: true, email: errorCode });
     }
 
-    return json(response, 200, { ok: true });
+    return json(response, 200, { ok: true, email: 'sent' });
 };
