@@ -4059,6 +4059,8 @@ if (aiBriefForm && aiBriefInput && aiBriefOutput) {
 }
 
 if (qrServiceForm && qrServiceInput && qrServicePreview && qrServiceImage && qrServiceDownload) {
+    let currentQrUrl = '';
+
     qrServiceForm.addEventListener('submit', (event) => {
         event.preventDefault();
 
@@ -4069,9 +4071,31 @@ if (qrServiceForm && qrServiceInput && qrServicePreview && qrServiceImage && qrS
         }
 
         const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(link)}`;
+        currentQrUrl = qrUrl;
         qrServiceImage.src = qrUrl;
-        qrServiceDownload.href = qrUrl;
         qrServicePreview.hidden = false;
+    });
+
+    qrServiceDownload.addEventListener('click', async () => {
+        if (!currentQrUrl) {
+            return;
+        }
+
+        try {
+            const response = await fetch(currentQrUrl);
+            const blob = await response.blob();
+            const objectUrl = URL.createObjectURL(blob);
+            const downloadLink = document.createElement('a');
+            downloadLink.href = objectUrl;
+            downloadLink.download = 'qr-code.png';
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            downloadLink.remove();
+            URL.revokeObjectURL(objectUrl);
+        } catch (error) {
+            console.warn('QR code download failed', error);
+            window.open(currentQrUrl, '_blank', 'noopener,noreferrer');
+        }
     });
 }
 
