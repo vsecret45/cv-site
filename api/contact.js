@@ -1,3 +1,5 @@
+const nodemailer = require('nodemailer');
+
 const json = (response, statusCode, payload) => {
     response.statusCode = statusCode;
     response.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -22,6 +24,49 @@ const readBody = (request) =>
     });
 
 const normalize = (value) => (typeof value === 'string' ? value.trim() : '');
+
+const sendContactEmail = async ({ firstName, lastName, email, message }) => {
+    const smtpHost = process.env.SMTP_HOST;
+    const smtpPort = Number.parseInt(process.env.SMTP_PORT || '465', 10);
+    const smtpUser = process.env.SMTP_USER;
+    const smtpPass = process.env.SMTP_PASS;
+    const contactToEmail = process.env.CONTACT_TO_EMAIL || 'contact@sacreationweb.com';
+    const contactFromEmail = process.env.CONTACT_FROM_EMAIL || smtpUser || contactToEmail;
+
+    if (!smtpHost || !smtpUser || !smtpPass) {
+        throw new Error('missing_smtp_config');
+    }
+
+    const transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpPort === 465,
+        auth: {
+            user: smtpUser,
+            pass: smtpPass,
+        },
+    });
+
+    const fullName = [firstName, lastName].filter(Boolean).join(' ') || 'Visiteur';
+    const text = [
+        'Nouvelle demande depuis sacreationweb.com',
+        '',
+        `Nom : ${lastName || '-'}`,
+        `Prenom : ${firstName || '-'}`,
+        `Email : ${email}`,
+        '',
+        'Message :',
+        message,
+    ].join('\n');
+
+    await transporter.sendMail({
+        from: `"SA Creation Web" <${contactFromEmail}>`,
+        to: contactToEmail,
+        replyTo: email,
+        subject: `Nouvelle demande de contact - ${fullName}`,
+        text,
+    });
+};
 
 module.exports = async (request, response) => {
     if (request.method !== 'POST') {
@@ -78,6 +123,12 @@ module.exports = async (request, response) => {
 
     if (!insertResponse.ok) {
         return json(response, 502, { error: 'supabase_insert_failed' });
+    }
+
+    try {
+        await sendContactEmail({ firstName, lastName, email, message });
+    } catch (error) {
+        return json(response, 502, { error: 'email_send_failed' });
     }
 
     return json(response, 200, { ok: true });
