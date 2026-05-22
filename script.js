@@ -3221,7 +3221,7 @@ if (navLinks.length > 0 && sections.length > 0) {
 }
 
 if (contactForm) {
-    contactForm.addEventListener('submit', (event) => {
+    contactForm.addEventListener('submit', async (event) => {
         event.preventDefault();
 
         const formData = new FormData(contactForm);
@@ -3242,7 +3242,31 @@ if (contactForm) {
         const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=contact@sacreationweb.com&su=${subject}&body=${body}`;
 
         if (contactFormStatus) {
-            contactFormStatus.textContent = 'Ouverture de Gmail pour envoyer votre demande.';
+            contactFormStatus.textContent = 'Envoi de votre demande...';
+        }
+
+        try {
+            const response = await fetch('/api/contact', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lastName, firstName, email, message }),
+            });
+
+            if (!response.ok) {
+                throw new Error('contact_api_failed');
+            }
+
+            contactForm.reset();
+
+            if (contactFormStatus) {
+                contactFormStatus.textContent = 'Votre demande a bien ete envoyee.';
+            }
+
+            return;
+        } catch (error) {
+            if (contactFormStatus) {
+                contactFormStatus.textContent = 'Envoi automatique indisponible. Ouverture de Gmail pour terminer votre demande.';
+            }
         }
 
         window.open(gmailUrl, '_blank', 'noopener,noreferrer');
