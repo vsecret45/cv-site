@@ -128,7 +128,13 @@ module.exports = async (request, response) => {
     try {
         await sendContactEmail({ firstName, lastName, email, message });
     } catch (error) {
-        return json(response, 502, { error: 'email_send_failed' });
+        const errorCode = error && error.message === 'missing_smtp_config' ? 'missing_smtp_config' : 'email_send_failed';
+        console.error('Contact email failed:', {
+            code: error && error.code ? error.code : errorCode,
+            command: error && error.command ? error.command : undefined,
+            message: error && error.message ? error.message : errorCode,
+        });
+        return json(response, 502, { error: errorCode });
     }
 
     return json(response, 200, { ok: true });
