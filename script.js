@@ -3239,7 +3239,7 @@ if (contactForm) {
             'Message :',
             message || '-',
         ].join('\n'));
-        const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=purvelours@proton.me&su=${subject}&body=${body}`;
+        const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=contact@sacreationweb.com&su=${subject}&body=${body}`;
 
         if (contactFormStatus) {
             contactFormStatus.textContent = 'Ouverture de Gmail pour envoyer votre demande.';
@@ -3851,7 +3851,7 @@ if (cvEmailButton) {
             ].join('\n')
         );
         await openMailClient(
-            `mailto:purvelours@proton.me?subject=${subject}&body=${body}`,
+            `mailto:contact@sacreationweb.com?subject=${subject}&body=${body}`,
             rawBody,
             'Ouverture de votre application mail'
         );
@@ -3874,7 +3874,7 @@ if (letterEmailButton) {
         const rawBody = letterBody?.textContent || '';
         const body = encodeURIComponent(rawBody);
         await openMailClient(
-            `mailto:purvelours@proton.me?subject=${subject}&body=${body}`,
+            `mailto:contact@sacreationweb.com?subject=${subject}&body=${body}`,
             rawBody,
             'Ouverture de votre application mail'
         );
