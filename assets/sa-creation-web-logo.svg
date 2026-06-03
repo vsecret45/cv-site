@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+    <title id="title">SA Création Web logo</title>
+    <desc id="desc">Premium futuristic logo for SA Création Web with a metallic SA monogram and the brand name.</desc>
+    <defs>
+        <radialGradient id="bg" cx="27%" cy="48%" r="56%">
+            <stop offset="0%" stop-color="#172033"/>
+            <stop offset="54%" stop-color="#060810"/>
+            <stop offset="100%" stop-color="#010204"/>
+        </radialGradient>
+        <linearGradient id="silver" x1="118" y1="92" x2="322" y2="294" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#ffffff"/>
+            <stop offset="24%" stop-color="#eef5ff"/>
+            <stop offset="46%" stop-color="#c8d2e0"/>
+            <stop offset="64%" stop-color="#ffffff"/>
+            <stop offset="100%" stop-color="#dce4f0"/>
+        </linearGradient>
+        <linearGradient id="word" x1="450" y1="120" x2="1030" y2="250" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#ffffff"/>
+            <stop offset="48%" stop-color="#dce7f7"/>
+            <stop offset="100%" stop-color="#efd6a3"/>
+        </linearGradient>
+        <linearGradient id="starFace" x1="6%" y1="8%" x2="92%" y2="96%">
+            <stop offset="0%" stop-color="#ffffff"/>
+            <stop offset="42%" stop-color="#dce7f7"/>
+            <stop offset="100%" stop-color="#efd6a3"/>
+        </linearGradient>
+        <filter id="lift" x="-25%" y="-35%" width="150%" height="170%">
+            <feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#000000" flood-opacity="0.76"/>
+            <feDropShadow dx="0" dy="0" stdDeviation="11" flood-color="#7aa7ff" flood-opacity="0.26"/>
+            <feDropShadow dx="0" dy="0" stdDeviation="15" flood-color="#efd6a3" flood-opacity="0.13"/>
+        </filter>
+        <filter id="starLift" x="-120%" y="-120%" width="340%" height="340%">
+            <feDropShadow dx="0" dy="3" stdDeviation="2.8" flood-color="#000000" flood-opacity="0.46"/>
+            <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#ffffff" flood-opacity="0.32"/>
+        </filter>
+    </defs>
+
+    <rect width="1200" height="420" fill="url(#bg)"/>
+    <circle cx="820" cy="68" r="180" fill="#7399ff" opacity="0.08"/>
+    <circle cx="1040" cy="332" r="210" fill="#efd6a3" opacity="0.08"/>
+    <g opacity="0.46">
+        <circle cx="178" cy="56" r="1" fill="#9fbaff"/>
+        <circle cx="372" cy="74" r="1.2" fill="#efd6a3"/>
+        <circle cx="566" cy="68" r="1.1" fill="#ffffff"/>
+        <circle cx="762" cy="304" r="1.3" fill="#9fbaff"/>
+        <circle cx="474" cy="338" r="0.9" fill="#ffffff"/>
+        <circle cx="954" cy="56" r="0.8" fill="#ffffff"/>
+    </g>
+    <g filter="url(#starLift)">
+        <g transform="translate(84 82) rotate(18) scale(0.56)">
+            <path d="M0 -17L5.2 -5.2L17 0L5.2 5.2L0 17L-5.2 5.2L-17 0L-5.2 -5.2Z" fill="url(#starFace)"/>
+            <path d="M0 -17L5.2 -5.2L0 0L-5.2 -5.2Z" fill="#ffffff"/>
+            <path d="M0 17L-5.2 5.2L0 0L5.2 5.2Z" fill="#52617f" opacity="0.74"/>
+        </g>
+        <g transform="translate(1062 112) rotate(-12) scale(0.52)">
+            <path d="M0 -17L5.2 -5.2L17 0L5.2 5.2L0 17L-5.2 5.2L-17 0L-5.2 -5.2Z" fill="url(#starFace)"/>
+            <path d="M0 -17L5.2 -5.2L0 0L-5.2 -5.2Z" fill="#ffffff"/>
+            <path d="M0 17L-5.2 5.2L0 0L5.2 5.2Z" fill="#52617f" opacity="0.74"/>
+        </g>
+        <g transform="translate(1138 284) rotate(20) scale(0.62)">
+            <path d="M0 -17L5.2 -5.2L17 0L5.2 5.2L0 17L-5.2 5.2L-17 0L-5.2 -5.2Z" fill="url(#starFace)"/>
+            <path d="M0 -17L5.2 -5.2L0 0L-5.2 -5.2Z" fill="#fff8db"/>
+            <path d="M0 17L-5.2 5.2L0 0L5.2 5.2Z" fill="#6f5429" opacity="0.72"/>
+        </g>
+    </g>
+
+    <g transform="translate(52 35)">
+        <rect width="350" height="350" rx="82" fill="#05070d"/>
+        <circle cx="245" cy="92" r="110" fill="#7aa7ff" opacity="0.13"/>
+        <circle cx="110" cy="248" r="124" fill="#efd6a3" opacity="0.11"/>
+        <ellipse cx="175" cy="175" rx="148" ry="56" fill="none" stroke="#efd6a3" stroke-width="2.4" stroke-opacity="0.46" transform="rotate(-18 175 175)"/>
+        <ellipse cx="175" cy="175" rx="132" ry="42" fill="none" stroke="#9fbaff" stroke-width="1.6" stroke-opacity="0.36" transform="rotate(34 175 175)"/>
+        <g font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="122" font-weight="900" text-anchor="middle">
+            <text x="179" y="214" fill="#121722" stroke="#030509" stroke-width="7" opacity="0.76">SA</text>
+            <text x="175" y="205" fill="url(#silver)" stroke="#ffffff" stroke-width="1.2" paint-order="stroke fill" filter="url(#lift)">SA</text>
+        </g>
+    </g>
+
+    <g font-family="Manrope, Inter, Arial, Helvetica, sans-serif">
+        <text x="456" y="190" fill="url(#word)" font-size="74" font-weight="800">SA Création Web</text>
+        <line x1="458" y1="230" x2="1046" y2="230" stroke="#efd6a3" stroke-opacity="0.38" stroke-width="1.4"/>
+        <circle cx="1070" cy="230" r="3.8" fill="#efd6a3" opacity="0.86"/>
+        <circle cx="1088" cy="230" r="2.4" fill="#9fbaff" opacity="0.76"/>
+    </g>
+</svg>

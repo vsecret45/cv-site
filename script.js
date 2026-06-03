@@ -3223,9 +3223,8 @@ if (navLinks.length > 0 && sections.length > 0) {
 if (contactForm) {
     const contactParams = new URLSearchParams(window.location.search);
     const requestedService = contactParams.get('service');
-    const requestedBudget = contactParams.get('budget');
+    const requestedMessage = contactParams.get('message');
     const serviceField = contactForm.querySelector('[name="service"]');
-    const budgetField = contactForm.querySelector('[name="budget"]');
     const messageField = contactForm.querySelector('[name="message"]');
 
     if (requestedService && serviceField) {
@@ -3237,11 +3236,9 @@ if (contactForm) {
         }
     }
 
-    if (requestedBudget && budgetField) {
-        budgetField.value = requestedBudget;
-    }
-
-    if (requestedService && messageField && !messageField.value.trim()) {
+    if (requestedMessage && messageField && !messageField.value.trim()) {
+        messageField.value = requestedMessage;
+    } else if (requestedService && messageField && !messageField.value.trim()) {
         messageField.value = `Bonjour,\n\nJe souhaite un devis pour : ${requestedService}.\n\nMon activite : \nMon objectif : \nLien existant ou outil deja utilise : \nDetails utiles : `;
     }
 
@@ -3253,30 +3250,17 @@ if (contactForm) {
         const firstName = (formData.get('firstName') || '').toString().trim();
         const email = (formData.get('email') || '').toString().trim();
         const service = (formData.get('service') || '').toString().trim();
-        const budget = (formData.get('budget') || '').toString().trim();
         const deadline = (formData.get('deadline') || '').toString().trim();
         const details = formData.getAll('details').map((item) => item.toString().trim()).filter(Boolean);
         const message = (formData.get('message') || '').toString().trim();
         const fullMessage = [
             service ? `Besoin principal : ${service}` : 'Besoin principal : non precise',
-            budget ? `Budget envisage : ${budget}` : 'Budget envisage : non precise',
             deadline ? `Delai ideal : ${deadline}` : 'Delai ideal : non precise',
             details.length > 0 ? `Infos cochees : ${details.join(', ')}` : 'Infos cochees : aucune',
             '',
             'Message :',
             message || '-',
         ].join('\n');
-
-        const subjectLabel = service ? `Demande de devis - ${service}` : 'Demande de contact';
-        const subject = encodeURIComponent(`${subjectLabel} - ${firstName} ${lastName}`.trim());
-        const body = encodeURIComponent([
-            `Nom : ${lastName || '-'}`,
-            `Prenom : ${firstName || '-'}`,
-            `Email : ${email || '-'}`,
-            '',
-            fullMessage,
-        ].join('\n'));
-        const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=contact@sacreationweb.com&su=${subject}&body=${body}`;
 
         if (contactFormStatus) {
             contactFormStatus.textContent = 'Envoi de votre demande...';
@@ -3286,7 +3270,7 @@ if (contactForm) {
             const response = await fetch('/api/contact', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lastName, firstName, email, message: fullMessage, service, budget, deadline, details }),
+                body: JSON.stringify({ lastName, firstName, email, message: fullMessage, service, deadline, details }),
             });
 
             if (!response.ok) {
@@ -3296,17 +3280,15 @@ if (contactForm) {
             contactForm.reset();
 
             if (contactFormStatus) {
-                contactFormStatus.textContent = 'Votre demande a bien ete envoyee.';
+                contactFormStatus.textContent = 'Votre demande a bien été envoyée.';
             }
 
             return;
         } catch (error) {
             if (contactFormStatus) {
-                contactFormStatus.textContent = 'Envoi automatique indisponible. Ouverture de Gmail pour terminer votre demande.';
+                contactFormStatus.textContent = "L’envoi n’a pas abouti, vous pouvez nous écrire à contact@sacreationweb.com.";
             }
         }
-
-        window.open(gmailUrl, '_blank', 'noopener,noreferrer');
     });
 }
 
@@ -4096,27 +4078,87 @@ if (aiBriefForm && aiBriefInput && aiBriefOutput) {
 
         const activity = aiBriefInput.value.trim() || 'votre activite';
         const visualStyle = aiBriefStyle?.value || 'moderne et rassurante';
-        const goal = aiBriefGoal?.value || 'recevoir des demandes de devis';
-        const cleanActivity = escapeHtml(activity);
-        const cleanVisualStyle = escapeHtml(visualStyle);
-        const cleanGoal = escapeHtml(goal);
-        const lowerActivity = activity.toLowerCase();
-        const isLocalBusiness = /restaurant|salon|coiffure|spa|institut|boutique|artisan|garage|yoga|coach|fitness|therapeute|photographe/.test(lowerActivity);
-        const isService = /consultant|coach|freelance|formation|service|agence|conseil|developpeur|designer/.test(lowerActivity);
-        const proofLabel = isLocalBusiness ? 'avis clients, photos et informations pratiques' : 'resultats, methode et exemples';
-        const ctaLabel = isService ? 'Demander un appel ou un devis' : 'Reserver, appeler ou demander un devis';
+        const goal = aiBriefGoal?.value || 'recevoir des demandes';
+        const normalizedBrief = `${activity} ${goal}`.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const isHotel = /hotel|manoir|chambre|hebergement|reservation|sejour/.test(normalizedBrief);
+        const isRestaurant = /restaurant|menu|carte|plat|table/.test(normalizedBrief);
+        const needsAppointment = /agenda|rendez-vous|rdv|creneau|coiffure|coach|consultant|bien-etre|therapeute|spa|institut|reservation/.test(normalizedBrief);
+        const needsShare = /qr|scan|partager|lien|menu|carte/.test(normalizedBrief);
+        const needsPremium = /premium|elegante|creative|audacieuse/.test(visualStyle.toLowerCase());
+        const project = {
+            label: 'Site vitrine simple',
+            promise: 'Présenter l’activité, rassurer le visiteur et faciliter le premier contact.',
+            sections: ['Accueil clair', 'Services', 'Informations utiles', 'Avis ou preuves', 'Contact'],
+            action: 'Demander un devis',
+            service: needsPremium ? 'Offre Signature' : 'Offre Essentiel',
+            note: needsPremium ? 'image plus travaillée' : 'présence simple à lancer',
+        };
+
+        if (isHotel) {
+            project.label = 'Site hôtel avec réservation';
+            project.promise = 'Présenter les chambres, rassurer les voyageurs et faciliter les réservations.';
+            project.sections = ['Accueil', 'Chambres', 'Tarifs ou disponibilités', 'Photos', 'Services', 'Localisation', 'Réservation'];
+            project.action = 'Demander une disponibilité ou réserver';
+            project.service = 'Offre Signature';
+            project.note = 'projet complet avec réservation et image de confiance';
+        } else if (isRestaurant) {
+            project.label = 'Page restaurant ou menu';
+            project.promise = 'Afficher le menu, les informations pratiques et un lien de contact ou réservation.';
+            project.sections = ['Accueil', 'Menu', 'Photos', 'Horaires', 'Adresse', 'Réservation ou appel'];
+            project.action = 'Voir le menu ou réserver';
+            project.service = needsShare ? 'Mini-page professionnelle' : 'Offre Pro';
+            project.note = 'menu ou page à partager rapidement';
+        } else if (needsAppointment) {
+            project.label = 'Site avec rendez-vous';
+            project.promise = 'Présenter les services et permettre aux clients de choisir un créneau.';
+            project.sections = ['Accueil', 'Services', 'Tarifs', 'Disponibilités', 'Avis', 'Prise de rendez-vous'];
+            project.action = 'Prendre rendez-vous';
+            project.service = 'Offre Pro';
+            project.note = 'parcours clair pour recevoir des demandes ou rendez-vous';
+        } else if (needsShare) {
+            project.label = 'Mini-page à partager';
+            project.promise = 'Créer une page courte à ouvrir avec un lien ou un QR code.';
+            project.sections = ['Titre clair', 'Offre ou menu', 'Informations pratiques', 'Contact direct'];
+            project.action = 'Ouvrir la page';
+            project.service = 'Mini-page professionnelle';
+            project.note = 'format rapide pour partager une information';
+        }
+
+        const cleanProjectLabel = escapeHtml(project.label);
+        const cleanPromise = escapeHtml(project.promise);
+        const cleanAction = escapeHtml(project.action);
+        const cleanService = escapeHtml(project.service);
+        const cleanNote = escapeHtml(project.note);
+        const cleanSections = project.sections.map((section) => escapeHtml(section)).join(', ');
+        const preparedMessage = [
+            'Bonjour,',
+            '',
+            `Je souhaite une proposition pour : ${project.label}.`,
+            `Activité / besoin saisi : ${activity}`,
+            `Objectif principal : ${goal}`,
+            `Style souhaité : ${visualStyle}`,
+            '',
+            `Structure conseillée : ${project.sections.join(', ')}`,
+            `Action principale : ${project.action}`,
+            `Offre pressentie : ${project.service}`,
+            '',
+            'Merci de me dire quel format serait le plus adapté.'
+        ].join('\n');
+        const quoteParams = new URLSearchParams({
+            service: project.service,
+            message: preparedMessage,
+        });
 
         aiBriefOutput.innerHTML = `
-            <p class="signal-label">Apercu IA</p>
-            <h3>Structure proposee pour ${cleanActivity}</h3>
+            <p class="signal-label">Projet détecté</p>
+            <h3>${cleanProjectLabel}</h3>
+            <p>${cleanPromise}</p>
             <ul>
-                <li>Direction : ambiance ${cleanVisualStyle}, avec un objectif clair : ${cleanGoal}.</li>
-                <li>Hero : une phrase claire pour comprendre l'offre en moins de 5 secondes.</li>
-                <li>Prestations : 3 offres ou services separes avec prix ou fourchettes si possible.</li>
-                <li>Confiance : ${proofLabel}.</li>
-                <li>Methode : comment se passe la demande, du premier message a la livraison.</li>
-                <li>Action principale : ${ctaLabel}.</li>
+                <li>Sections : ${cleanSections}.</li>
+                <li>Action client : ${cleanAction}.</li>
+                <li>Offre à étudier : ${cleanService}, ${cleanNote}.</li>
             </ul>
+            <a class="button button-primary" href="contact.html?${quoteParams.toString()}">Envoyer cette demande</a>
         `;
     });
 }
