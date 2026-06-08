@@ -517,23 +517,23 @@ const applyCvPreset = (preset) => {
 const assistantAnswers = [
     {
         test: /cv|resume|curriculum/i,
-        reply: "Je peux vous aider a creer un CV intelligent : remplissez le formulaire, choisissez un style, puis exportez le document en PDF.",
+        reply: "Je peux préparer une base CV, corriger le texte, reformuler les expériences et garder le document prêt à exporter.",
     },
     {
         test: /experience|expérience|projet/i,
-        reply: "Je peux restructurer une experience ou un projet : poste, contexte, date, puis missions claires. Demandez-moi d'ameliorer les experiences.",
+        reply: "Je peux restructurer les expériences en blocs propres : poste, entreprise, dates et missions claires.",
     },
     {
         test: /site|creation|plateforme/i,
-        reply: "Je peux presenter la creation digitale, les interfaces modernes, les plateformes personnalisees et les solutions sur mesure adaptees a votre projet.",
+        reply: "Pour un CV web ou digital, je peux mettre en avant les projets, les outils, l'organisation et les réalisations concrètes.",
     },
     {
         test: /automatisation|workflow|process/i,
-        reply: "Je peux orienter vers des parcours automatises, des formulaires intelligents et des integrations digitales pour structurer un service.",
+        reply: "Je peux transformer des idées courtes en formulations CV plus professionnelles, claires et directement exploitables.",
     },
     {
         test: /ia|ai|intelligence/i,
-        reply: "Je peux suggérer des usages IA pour assister un utilisateur, organiser des informations ou enrichir une plateforme digitale.",
+        reply: "Je peux agir sur le CV : remplir une base, corriger, reformuler, enrichir et adapter à une offre.",
     },
 ];
 
@@ -1022,6 +1022,9 @@ const loadCvDraft = () => {
     }
 
     applyCurrentUserDefaults();
+    if (shouldCleanCvDraftCasing()) {
+        proofreadCvTextFields({ silent: true });
+    }
     updateCvPreview();
     renderExperienceEditor();
 };
@@ -1670,8 +1673,11 @@ const cleanCvText = (value = '') =>
 
 const correctCommonCvText = (value = '') =>
     cleanCvText(value)
+        .replace(/\bcrelation\b/gi, 'relation')
         .replace(/\borganise\b/gi, 'organisée')
+        .replace(/\borganisee\b/gi, 'organisée')
         .replace(/\boriente resultat\b/gi, 'orientée résultat')
+        .replace(/\borientee\b/gi, 'orientée')
         .replace(/\bpresentation\b/gi, 'présentation')
         .replace(/\bexperience\b/gi, 'expérience')
         .replace(/\bexperiences\b/gi, 'expériences')
@@ -1680,6 +1686,10 @@ const correctCommonCvText = (value = '') =>
         .replace(/\bsecurite\b/gi, 'sécurité')
         .replace(/\bsecurisee\b/gi, 'sécurisée')
         .replace(/\bclientele\b/gi, 'clientèle')
+        .replace(/\bresultat\b/gi, 'résultat')
+        .replace(/\brealisation\b/gi, 'réalisation')
+        .replace(/\bresponsabilite\b/gi, 'responsabilité')
+        .replace(/\bcle\b/gi, 'clé')
         .replace(/\becoute\b/gi, 'écoute')
         .replace(/\bequipe\b/gi, 'équipe')
         .replace(/\bdeveloppeur\b/gi, 'développeur')
@@ -1697,30 +1707,164 @@ const restoreCvAcronyms = (value = '') =>
     String(value || '')
         .replace(/\bratp\b/gi, 'RATP')
         .replace(/\bceidf\b/gi, 'CEIDF')
+        .replace(/\bfdv\b/gi, 'FDV')
         .replace(/\bfimo\b/gi, 'FIMO')
         .replace(/\biobsp\b/gi, 'IOBSP')
         .replace(/\bhtml\b/gi, 'HTML')
         .replace(/\bcss\b/gi, 'CSS')
+        .replace(/\bpdf\b/gi, 'PDF')
+        .replace(/\bdocx\b/gi, 'DOCX')
+        .replace(/\bword\b/gi, 'Word')
+        .replace(/\bcv\b/gi, 'CV')
         .replace(/\bia\b/gi, 'IA')
         .replace(/\bats\b/gi, 'ATS');
 
+const cvLowercaseTerms = new Set([
+    'accompagnement',
+    'accueil',
+    'active',
+    'activites',
+    'activite',
+    'adaptee',
+    'adaptees',
+    'administratif',
+    'administrative',
+    'administratives',
+    'analyse',
+    'anglais',
+    'atouts',
+    'autonomie',
+    'bancaire',
+    'bancaires',
+    'banque',
+    'besoin',
+    'besoins',
+    'bureautique',
+    'certification',
+    'client',
+    'cliente',
+    'clientele',
+    'clients',
+    'code',
+    'commerce',
+    'commercial',
+    'commerciale',
+    'communication',
+    'competence',
+    'competences',
+    'conseil',
+    'conseiller',
+    'conseillere',
+    'contrats',
+    'continu',
+    'developpement',
+    'dossier',
+    'dossiers',
+    'ecoute',
+    'emploi',
+    'entreprise',
+    'equipe',
+    'evoluer',
+    'experience',
+    'experiences',
+    'formation',
+    'formations',
+    'gestion',
+    'horaires',
+    'information',
+    'intermediaire',
+    'metier',
+    'mission',
+    'missions',
+    'operations',
+    'organisee',
+    'organisation',
+    'orientation',
+    'orientee',
+    'personnes',
+    'poste',
+    'procedures',
+    'produits',
+    'professionnel',
+    'professionnelle',
+    'professionnelles',
+    'profil',
+    'proposition',
+    'public',
+    'qualite',
+    'relation',
+    'resultat',
+    'rigoureuse',
+    'satisfaction',
+    'securise',
+    'securisee',
+    'securite',
+    'service',
+    'situations',
+    'solutions',
+    'stress',
+    'suivi',
+    'titre',
+    'transport',
+    'travail',
+    'valorisant',
+    'veille',
+    'ville',
+    'voyageurs',
+    'avr',
+    'janv',
+    'fevr',
+    'mars',
+    'avr',
+    'mai',
+    'juin',
+    'juil',
+    'aout',
+    'sept',
+    'oct',
+    'nov',
+    'dec',
+]);
+
+const capitalizeFrenchWord = (value = '') =>
+    String(value || '').replace(/^(\p{L})/u, (letter) => letter.toLocaleUpperCase('fr-FR'));
+
+const fixInternalCvWordCase = (value = '') =>
+    String(value || '')
+        .replace(
+            /(?<!\p{L})([\p{Lu}])([\p{Lu}])(\p{Ll}[\p{L}]*)(?!\p{L})/gu,
+            (_, first, letter, after) => `${first}${letter.toLocaleLowerCase('fr-FR')}${after.toLocaleLowerCase('fr-FR')}`
+        )
+        .replace(
+            /(?<!\p{L})([\p{L}]*[\p{Ll}])([\p{Lu}])([\p{L}]*)(?!\p{L})/gu,
+            (_, before, letter, after) => `${before}${letter.toLocaleLowerCase('fr-FR')}${after.toLocaleLowerCase('fr-FR')}`
+        );
+
+const lowerCommonCvWordCase = (value = '') =>
+    String(value || '').replace(/(?<!\p{L})[\p{L}][\p{L}’'-]*(?!\p{L})/gu, (word, offset, source) => {
+        const normalized = normalizeForMatch(word);
+
+        if (!cvLowercaseTerms.has(normalized)) {
+            return word;
+        }
+
+        const lower = word.toLocaleLowerCase('fr-FR');
+        const before = source.slice(0, offset);
+        const startsSentence = !before.trim() || /[.!?]\s*$/.test(before) || /\n\s*$/.test(before) || /(?:^|\s)(?:[•\u2022]|→)\s*$/.test(before);
+
+        return startsSentence ? capitalizeFrenchWord(lower) : lower;
+    });
+
 const normalizeCvSentenceText = (value = '') =>
-    restoreCvAcronyms(lowerFrenchConnectorWords(correctCommonCvText(value)))
+    restoreCvAcronyms(lowerCommonCvWordCase(fixInternalCvWordCase(lowerFrenchConnectorWords(correctCommonCvText(value)))))
         .replace(/\bD[’']/g, 'd’')
         .replace(/\bL[’']/g, 'l’')
         .replace(/\bJ[’']/g, 'j’')
-        .replace(/\b([A-ZÀ-ÖØ-Ý])([a-zà-öø-ÿ]+)\b/g, (match, first, rest, offset, source) => {
-            const previous = source.slice(Math.max(0, offset - 2), offset);
-            if (!previous || /[.!?]\s*$/.test(previous) || /\n\s*$/.test(previous)) {
-                return `${first}${rest}`;
-            }
-            return match;
-        })
         .replace(/\s{2,}/g, ' ')
         .trim();
 
 const formatCvHeadline = (value = '') =>
-    restoreCvAcronyms(lowerFrenchConnectorWords(correctCommonCvText(value)))
+    restoreCvAcronyms(lowerCommonCvWordCase(fixInternalCvWordCase(lowerFrenchConnectorWords(correctCommonCvText(value)))))
         .replace(/\s*[–-]\s*/g, ' - ')
         .replace(/\s{2,}/g, ' ')
         .trim();
@@ -1840,6 +1984,328 @@ const roleMissionSuggestions = {
         'Communiquer clairement avec les interlocuteurs internes et externes',
         'Contribuer à un résultat propre, lisible et directement exploitable',
     ],
+};
+
+const readyCvTemplates = {
+    transport: {
+        headline: 'Conducteur transport de voyageurs',
+        permit: 'Permis B ou D',
+        summary: roleSummarySuggestions.transport,
+        skills: [
+            ...roleSkillSuggestions.transport,
+            'Relation clientèle',
+            'Gestion du stress',
+            'Respect des procédures',
+            'Ponctualité',
+        ],
+        experiences: [
+            {
+                title: 'Conducteur transport de voyageurs',
+                meta: 'Entreprise, Ville',
+                date: '2024 - aujourd’hui',
+                bullets: roleMissionSuggestions.transport,
+            },
+            {
+                title: 'Agent d’accueil et service client',
+                meta: 'Entreprise, Ville',
+                date: '2022 - 2024',
+                bullets: [
+                    'Accueillir et orienter les usagers avec professionnalisme',
+                    'Gérer les demandes et les situations imprévues avec calme',
+                    'Assurer un service fiable dans le respect des consignes',
+                ],
+            },
+        ],
+        education: [
+            'Titre ou formation transport voyageurs - Établissement - Année',
+            'Permis et habilitations - Centre de formation - Année',
+        ],
+        activities: ['Veille sécurité transport', 'Service public', 'Sport'],
+    },
+    client: {
+        headline: 'Conseiller relation client',
+        summary: roleSummarySuggestions.client,
+        skills: [
+            ...roleSkillSuggestions.client,
+            'Gestion administrative',
+            'Traitement des demandes',
+            'Sens de la satisfaction client',
+            'Maîtrise des outils bureautiques',
+        ],
+        experiences: [
+            {
+                title: 'Conseiller relation client',
+                meta: 'Entreprise, Ville',
+                date: '2024 - aujourd’hui',
+                bullets: roleMissionSuggestions.client,
+            },
+            {
+                title: 'Assistant commercial',
+                meta: 'Entreprise, Ville',
+                date: '2022 - 2024',
+                bullets: [
+                    'Traiter les demandes clients et assurer un suivi fiable',
+                    'Mettre à jour les dossiers et coordonner les informations',
+                    'Contribuer à la qualité de service et à la fidélisation',
+                ],
+            },
+        ],
+        education: [
+            'Formation relation client ou commerce - Établissement - Année',
+            'Certification ou formation complémentaire - Organisme - Année',
+        ],
+        activities: ['Veille professionnelle', 'Communication', 'Sport'],
+    },
+    web: {
+        headline: 'Développeur web junior',
+        summary: roleSummarySuggestions.web,
+        skills: [
+            ...roleSkillSuggestions.web,
+            'Intégration web',
+            'Accessibilité',
+            'Tests et corrections',
+            'Veille IA',
+        ],
+        experiences: [
+            {
+                title: 'Projet web principal',
+                meta: 'Projet personnel ou client',
+                date: '2024 - aujourd’hui',
+                bullets: roleMissionSuggestions.web,
+            },
+            {
+                title: 'Création de supports digitaux',
+                meta: 'Projet, Ville',
+                date: '2023 - 2024',
+                bullets: [
+                    'Organiser les contenus pour rendre l’information plus lisible',
+                    'Améliorer la présentation visuelle et l’expérience utilisateur',
+                    'Corriger les pages pour obtenir un rendu propre et responsive',
+                ],
+            },
+        ],
+        projects: [
+            'Site vitrine responsive - 2024 • Structure claire, contenus organisés et parcours utilisateur simplifié',
+            'Outil CV intelligent - 2024 • Import, édition, aperçu et export de documents professionnels',
+        ],
+        education: [
+            'Formation développement web - Établissement - Année',
+            'Autoformation HTML, CSS, JavaScript et IA - Année',
+        ],
+        activities: ['Technologie', 'Innovation numérique', 'Apprentissage continu'],
+    },
+    admin: {
+        headline: 'Assistant administratif',
+        summary: roleSummarySuggestions.admin,
+        skills: [
+            ...roleSkillSuggestions.admin,
+            'Accueil téléphonique',
+            'Rédaction de documents',
+            'Coordination interne',
+            'Fiabilité',
+        ],
+        experiences: [
+            {
+                title: 'Assistant administratif',
+                meta: 'Entreprise, Ville',
+                date: '2024 - aujourd’hui',
+                bullets: roleMissionSuggestions.admin,
+            },
+            {
+                title: 'Chargé de suivi de dossiers',
+                meta: 'Entreprise, Ville',
+                date: '2022 - 2024',
+                bullets: [
+                    'Contrôler les informations et mettre à jour les dossiers',
+                    'Assurer les relances et le suivi des demandes',
+                    'Préparer des documents clairs et conformes aux procédures',
+                ],
+            },
+        ],
+        education: [
+            'Formation administrative ou gestion - Établissement - Année',
+            'Bureautique et outils de suivi - Organisme - Année',
+        ],
+        activities: ['Organisation', 'Veille métier', 'Lecture'],
+    },
+    general: {
+        headline: 'Profil professionnel polyvalent',
+        summary: roleSummarySuggestions.general,
+        skills: [
+            ...roleSkillSuggestions.general,
+            'Analyse des besoins',
+            'Suivi de dossiers',
+            'Gestion des priorités',
+            'Qualité de service',
+        ],
+        experiences: [
+            {
+                title: 'Expérience principale',
+                meta: 'Entreprise, Ville',
+                date: '2024 - aujourd’hui',
+                bullets: roleMissionSuggestions.general,
+            },
+            {
+                title: 'Expérience précédente',
+                meta: 'Entreprise, Ville',
+                date: '2022 - 2024',
+                bullets: [
+                    'Assurer un suivi fiable des demandes et des informations',
+                    'Travailler avec méthode pour produire un résultat propre',
+                    'Communiquer clairement avec les interlocuteurs concernés',
+                ],
+            },
+        ],
+        education: [
+            'Diplôme ou formation - Établissement - Année',
+            'Formation complémentaire - Organisme - Année',
+        ],
+        activities: ['Veille professionnelle', 'Apprentissage continu', 'Sport'],
+    },
+};
+
+const normalizeLooseCvText = (value = '') =>
+    normalizeForMatch(String(value || ''))
+        .replace(/[^a-z0-9]+/g, ' ')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+
+const defaultCvFieldFragments = {
+    fullName: ['votre nom'],
+    headline: ['intitule du poste vise', 'titre du metier'],
+    location: ['ville code postal'],
+    phone: ['06 00 00 00 00', 'votre numero'],
+    email: ['email exemple com', 'votre email'],
+    permit: ['permis b'],
+    summary: ['profil clair organise et oriente resultat avec une presentation adaptee au poste vise'],
+    experience: ['entreprise poste ville 2024 mission principale ou resultat cle responsabilite complementaire'],
+    projects: ['projet principal 2024 resultat impact ou realisation'],
+    skills: ['gestion de projet communication organisation analyse suite bureautique'],
+    education: ['diplome ou formation etablissement annee'],
+    languages: ['francais anglais'],
+    activities: ['lecture veille professionnelle sport'],
+};
+
+const isDefaultCvFieldValue = (fieldName, value = '') => {
+    const text = normalizeLooseCvText(value);
+
+    if (!text) {
+        return true;
+    }
+
+    return (defaultCvFieldFragments[fieldName] || []).some((fragment) => {
+        const normalizedFragment = normalizeLooseCvText(fragment);
+        return text === normalizedFragment || text.includes(normalizedFragment);
+    });
+};
+
+const hasMeaningfulCvContent = () => {
+    if (!cvForm) {
+        return false;
+    }
+
+    return ['fullName', 'headline', 'location', 'phone', 'email', 'summary', 'skills', 'experience', 'projects', 'education'].some((fieldName) => {
+        const field = cvForm.elements[fieldName];
+        return Boolean(field?.value?.trim()) && !isDefaultCvFieldValue(fieldName, field.value);
+    });
+};
+
+const hasMeaningfulExperienceContent = () => {
+    const field = getExperienceField();
+    return Boolean(field?.value?.trim()) && !isDefaultCvFieldValue('experience', field.value);
+};
+
+const setCvFieldIfDefault = (fieldName, value) => {
+    const field = cvForm?.elements[fieldName];
+
+    if (!field || !isDefaultCvFieldValue(fieldName, field.value)) {
+        return;
+    }
+
+    field.value = value;
+};
+
+const applyReadyCvBase = (message = '') => {
+    if (!cvForm) {
+        return { mode: 'unavailable', context: 'general', experienceCount: 0 };
+    }
+
+    if (hasMeaningfulCvContent()) {
+        optimizeCvProfessionally();
+        return {
+            mode: 'optimized',
+            context: getCvRoleContext(message),
+            experienceCount: repairPreviewExperienceItems(splitLines(cvForm.elements.experience?.value || '')).length,
+        };
+    }
+
+    const context = getCvRoleContext(message);
+    const template = readyCvTemplates[context] || readyCvTemplates.general;
+
+    setCvFieldIfDefault('fullName', 'Votre nom');
+    setCvFieldIfDefault('headline', template.headline);
+    setCvFieldIfDefault('location', 'Ville / code postal');
+    setCvFieldIfDefault('phone', '06 00 00 00 00');
+    setCvFieldIfDefault('email', 'email@exemple.com');
+    setCvFieldIfDefault('permit', template.permit || 'Permis B');
+    setCvFieldIfDefault('summary', template.summary);
+    setCvFieldIfDefault('skills', dedupeImportedItems(template.skills).slice(0, 10).join('\n'));
+    setCvFieldIfDefault('experience', template.experiences.map(serializeExperienceEntry).join('\n'));
+    setCvFieldIfDefault('projects', (template.projects || []).join('\n'));
+    setCvFieldIfDefault('education', template.education.join('\n'));
+    setCvFieldIfDefault('languages', 'Français\nAnglais');
+    setCvFieldIfDefault('activities', template.activities.join('\n'));
+
+    if (cvForm.elements.cvMode) {
+        cvForm.elements.cvMode.value = 'ats';
+    }
+    if (cvForm.elements.layoutTheme) {
+        cvForm.elements.layoutTheme.value = 'ats';
+    }
+    if (cvForm.elements.fontTheme) {
+        cvForm.elements.fontTheme.value = 'inter';
+    }
+    if (cvForm.elements.colorTheme) {
+        cvForm.elements.colorTheme.value = 'graphite';
+    }
+    if (cvForm.elements.designMood) {
+        cvForm.elements.designMood.value = 'clean';
+    }
+    if (cvForm.elements.textAlign) {
+        cvForm.elements.textAlign.value = 'left';
+    }
+    if (cvForm.elements.lineSpacing) {
+        cvForm.elements.lineSpacing.value = 'tight';
+    }
+    if (cvForm.elements.fontSize) {
+        cvForm.elements.fontSize.value = 'compact';
+    }
+
+    clearEditableOverrides();
+    cleanupImportedExperienceField();
+    cleanupImportedEducationField();
+    renderExperienceEditor();
+    updateCvPreview();
+    scheduleCvDraftSave();
+    setCvStatus('Base CV prête à modifier');
+
+    return {
+        mode: 'created',
+        context,
+        experienceCount: template.experiences.length,
+    };
+};
+
+const getReadyCvAssistantReply = (result) => {
+    if (result.mode === 'optimized') {
+        return `J'ai corrigé et optimisé le CV déjà présent : accroche, compétences et ${result.experienceCount || 0} expérience(s) ont été harmonisées. Le document est prêt à ajuster puis exporter.`;
+    }
+
+    if (result.mode === 'created') {
+        return `J'ai préparé une base CV complète sans données personnelles réelles : titre métier, accroche, compétences, ${result.experienceCount} expériences, formations et activités. Vous pouvez remplacer seulement les informations exactes.`;
+    }
+
+    return "Je n'arrive pas à accéder au formulaire CV sur cette page.";
 };
 
 const serializeExperienceEntry = (entry) => {
@@ -2781,7 +3247,7 @@ const optimizeCvProfessionally = ({ fromImport = false } = {}) => {
 
 const improveExperienceLines = ({ silent = false } = {}) => {
     if (!cvForm?.elements.experience) {
-        return;
+        return 0;
     }
 
     const field = cvForm.elements.experience;
@@ -2789,16 +3255,16 @@ const improveExperienceLines = ({ silent = false } = {}) => {
 
     if (!lines.length) {
         setCvStatus('Ajoutez au moins une experience a ameliorer');
-        return;
+        return 0;
     }
 
-    field.value = lines
+    const improvedLines = lines
         .map((line) => {
             const entry = improveExperienceEntry(parseExperienceEntry(line));
             return serializeExperienceEntry(entry);
         })
         .filter(Boolean)
-        .join('\n');
+    field.value = improvedLines.join('\n');
 
     clearEditableOverride('experience');
     renderExperienceEditor();
@@ -2808,6 +3274,8 @@ const improveExperienceLines = ({ silent = false } = {}) => {
         scheduleCvDraftSave();
         setCvStatus('Experiences restructurees');
     }
+
+    return improvedLines.length;
 };
 
 const improveProjectLines = () => {
@@ -2845,6 +3313,37 @@ const normalizeForMatch = (value) =>
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase();
+
+const hasCvCaseNoise = (value = '') => {
+    const source = String(value || '');
+
+    if (/[a-zà-öø-ÿ][A-ZÀ-ÖØ-Ý]/u.test(source)) {
+        return true;
+    }
+
+    return source.split('\n').some((line) => {
+        const words = line.match(/(?<!\p{L})[\p{L}][\p{L}’'-]*(?!\p{L})/gu) || [];
+
+        return words.some((word, index) => {
+            if (index === 0 || !/^\p{Lu}/u.test(word)) {
+                return false;
+            }
+
+            return cvLowercaseTerms.has(normalizeForMatch(word));
+        });
+    });
+};
+
+const shouldCleanCvDraftCasing = () => {
+    if (!cvForm) {
+        return false;
+    }
+
+    return ['headline', 'summary', 'skills', 'experience', 'projects', 'education', 'activities', 'languages', 'permit', 'location'].some((fieldName) => {
+        const field = cvForm.elements[fieldName];
+        return Boolean(field && typeof field.value === 'string' && hasCvCaseNoise(field.value));
+    });
+};
 
 const normalizeImportedLineFragments = (line) =>
     (line || '')
@@ -4813,41 +5312,71 @@ const appendAssistantMessage = (text, role) => {
 };
 
 const getAssistantReply = (message) => {
-    if (/offre|annonce|adapter|adapte|poste/i.test(message)) {
+    const normalizedMessage = normalizeLooseCvText(message);
+
+    if (/\b(vide|pret|preparer|prepare|remplir|rempli|formulaire|temps|tout pret|base|generer|creer|zero)\b/.test(normalizedMessage)) {
+        return getReadyCvAssistantReply(applyReadyCvBase(message));
+    }
+
+    if (/\b(import|importe|ancien cv|pdf|docx)\b/.test(normalizedMessage)) {
+        document.querySelector('#cv-import-block')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        cvImportInput?.focus();
+        return "Choisissez le fichier dans le bloc Importer un CV. Dès qu'il est chargé, je reconstruis une base propre, puis vous pouvez lancer Corriger et optimiser mon CV.";
+    }
+
+    if (/offre|annonce|adapter|adapte/i.test(message)) {
         const adapted = adaptCvToJobOffer();
         return adapted
-            ? "J'ai adapte le CV a l'offre : accroche, competences, mots cles et experiences sont maintenant mieux alignes."
+            ? "J'ai adapté le CV à l'offre : titre, accroche, compétences, mots clés et expériences sont mieux alignés avec l'annonce."
             : "Collez l'offre d'emploi dans le champ Offre d'emploi, puis demandez-moi d'adapter le CV.";
     }
 
     if (/accroche|profil|resume|résumé|presentation|présentation/i.test(message) && /amelior|amélior|reformul|corrig|profession/i.test(message)) {
+        if (!hasMeaningfulCvContent()) {
+            return getReadyCvAssistantReply(applyReadyCvBase(message));
+        }
         improveSummaryText();
-        return "J'ai reformule l'accroche en version professionnelle, claire et compacte.";
+        return "J'ai reformulé l'accroche en version professionnelle, claire et compacte.";
     }
 
     if (/exp[ée]rience/i.test(message) && /amelior|amélior|reformul|restructur|clarifi/i.test(message)) {
-        improveExperienceLines();
-        return "J'ai restructure les experiences en blocs plus lisibles : poste, entreprise, date, puis missions clarifiees.";
+        if (!hasMeaningfulExperienceContent()) {
+            return getReadyCvAssistantReply(applyReadyCvBase(message));
+        }
+
+        const count = improveExperienceLines();
+        return count
+            ? `J'ai restructuré ${count} expérience(s) : poste, entreprise, dates et missions sont séparés plus proprement.`
+            : "Je n'ai pas trouvé d'expérience exploitable. Ajoutez une ligne courte ou importez un CV, puis je la reformule.";
     }
 
     if (/comp[ée]tence|atout|savoir|qualit/i.test(message) && /ajout|enrich|amelior|amélior|propos/i.test(message)) {
-        enrichCvSkills();
-        return "J'ai enrichi les competences avec des atouts adaptes au metier vise.";
+        if (!hasMeaningfulCvContent()) {
+            return getReadyCvAssistantReply(applyReadyCvBase(message));
+        }
+
+        const skills = enrichCvSkills();
+        return `J'ai enrichi les compétences avec ${skills.length} atouts adaptés au métier visé.`;
     }
 
     if (/faute|corrig|orthographe|grammaire|accent/i.test(message)) {
+        if (!hasMeaningfulCvContent()) {
+            return getReadyCvAssistantReply(applyReadyCvBase(message));
+        }
         proofreadCvTextFields();
-        return "J'ai corrige les fautes courantes, harmonise les accents et nettoye les formulations.";
+        return "J'ai corrigé les fautes courantes, harmonisé les accents et nettoyé les formulations.";
     }
 
     if (/cv/i.test(message) && /amelior|amélior|optimis|profession|pret|export/i.test(message)) {
-        improveCv();
-        return "J'ai ameliore le CV complet : accroche, experiences, competences, corrections et mise en forme compacte.";
+        return getReadyCvAssistantReply(applyReadyCvBase(message));
     }
 
     if (/projet/i.test(message) && /amelior|amélior|reformul|restructur|clarifi/i.test(message)) {
+        if (!hasMeaningfulCvContent()) {
+            return getReadyCvAssistantReply(applyReadyCvBase(message));
+        }
         improveProjectLines();
-        return "J'ai clarifie les projets avec une structure plus exploitable : contexte, action et resultat.";
+        return "J'ai clarifié les projets avec une structure plus exploitable : contexte, action et résultat.";
     }
 
     const found = assistantAnswers.find((entry) => entry.test.test(message));
@@ -4856,7 +5385,7 @@ const getAssistantReply = (message) => {
         return found.reply;
     }
 
-    return "Je peux vous aider a clarifier votre besoin, presenter les services du site, ouvrir le module CV intelligent ou suggerer une direction de projet.";
+    return "Je peux agir directement sur le CV. Essayez : « je veux un CV prêt », « reformule mes expériences », « corrige les fautes » ou « adapte mon CV à l'offre ».";
 };
 
 const handleAuthLogin = async (event) => {
@@ -5709,15 +6238,17 @@ if (cvSaveButton) {
 }
 
 if (cvImproveButton) {
-    cvImproveButton.addEventListener('click', () => optimizeCvProfessionally());
+    cvImproveButton.addEventListener('click', () => {
+        applyReadyCvBase('Corrige et optimise mon CV');
+    });
 }
 
 if (cvOptimizeMainButton) {
     cvOptimizeMainButton.addEventListener('click', () => {
-        optimizeCvProfessionally();
+        const result = applyReadyCvBase('Corrige et optimise mon CV');
         openAssistant('Corrige et optimise mon CV');
         appendAssistantMessage('Corrige et optimise mon CV', 'user');
-        appendAssistantMessage("J'ai nettoye le texte, harmonise les experiences, enrichi les competences et prepare une base recruteur plus compacte.", 'bot');
+        appendAssistantMessage(getReadyCvAssistantReply(result), 'bot');
     });
 }
 
@@ -5727,55 +6258,96 @@ if (cvFitPageButton) {
 
 if (cvAiImproveButton) {
     cvAiImproveButton.addEventListener('click', () => {
-        optimizeCvProfessionally();
+        const result = applyReadyCvBase('Ameliore mon CV');
         openAssistant('Ameliore mon CV');
         appendAssistantMessage('Ameliore mon CV', 'user');
-        appendAssistantMessage("J'ai retravaille l'accroche, les experiences, les competences et les corrections principales sans supprimer le contenu importe.", 'bot');
+        appendAssistantMessage(getReadyCvAssistantReply(result), 'bot');
     });
 }
 
 if (cvAiSummaryButton) {
     cvAiSummaryButton.addEventListener('click', () => {
-        improveSummaryText();
+        const result = hasMeaningfulCvContent()
+            ? { mode: 'summary', text: improveSummaryText() }
+            : applyReadyCvBase('Ameliore mon accroche CV');
         openAssistant('Ameliore mon accroche CV');
         appendAssistantMessage('Ameliore mon accroche CV', 'user');
-        appendAssistantMessage("J'ai transforme l'accroche en formulation professionnelle, claire et compacte.", 'bot');
+        appendAssistantMessage(
+            result.mode === 'summary'
+                ? "J'ai transformé l'accroche en formulation professionnelle, claire et compacte."
+                : getReadyCvAssistantReply(result),
+            'bot'
+        );
     });
 }
 
 if (cvAiSkillsButton) {
     cvAiSkillsButton.addEventListener('click', () => {
-        enrichCvSkills();
+        const result = hasMeaningfulCvContent()
+            ? { mode: 'skills', count: enrichCvSkills().length }
+            : applyReadyCvBase('Enrichis mes competences');
         openAssistant('Enrichis mes competences');
         appendAssistantMessage('Enrichis mes competences', 'user');
-        appendAssistantMessage("J'ai ajoute des competences et atouts adaptes au metier vise.", 'bot');
+        appendAssistantMessage(
+            result.mode === 'skills'
+                ? `J'ai ajouté et harmonisé ${result.count || 0} compétences adaptées au métier visé.`
+                : getReadyCvAssistantReply(result),
+            'bot'
+        );
     });
 }
 
 if (cvAiProofreadButton) {
     cvAiProofreadButton.addEventListener('click', () => {
-        proofreadCvTextFields();
+        const result = hasMeaningfulCvContent()
+            ? { mode: 'proofread' }
+            : applyReadyCvBase('Corrige les fautes de mon CV');
+        if (result.mode === 'proofread') {
+            proofreadCvTextFields();
+        }
         openAssistant('Corrige les fautes de mon CV');
         appendAssistantMessage('Corrige les fautes de mon CV', 'user');
-        appendAssistantMessage("J'ai corrige les fautes courantes, harmonise les espaces et nettoye les formulations.", 'bot');
+        appendAssistantMessage(
+            result.mode === 'proofread'
+                ? "J'ai corrigé les fautes courantes, harmonisé les espaces et nettoyé les formulations."
+                : getReadyCvAssistantReply(result),
+            'bot'
+        );
     });
 }
 
 if (cvImproveExperienceButton) {
     cvImproveExperienceButton.addEventListener('click', () => {
-        improveExperienceLines();
+        const result = hasMeaningfulExperienceContent()
+            ? { mode: 'experience', experienceCount: improveExperienceLines() }
+            : applyReadyCvBase('Ameliore mes experiences');
         openAssistant('Ameliore mes experiences');
         appendAssistantMessage('Ameliore mes experiences', 'user');
-        appendAssistantMessage("J'ai restructure les experiences en blocs plus lisibles : poste, entreprise, date, puis missions clarifiees.", 'bot');
+        appendAssistantMessage(
+            result.mode === 'experience'
+                ? `J'ai restructuré ${result.experienceCount || 0} expérience(s) : poste, entreprise, dates et missions sont séparés plus proprement.`
+                : getReadyCvAssistantReply(result),
+            'bot'
+        );
     });
 }
 
 if (cvImproveProjectsButton) {
     cvImproveProjectsButton.addEventListener('click', () => {
-        improveProjectLines();
+        const result = hasMeaningfulCvContent()
+            ? { mode: 'projects' }
+            : applyReadyCvBase('Ameliore mes projets');
+        if (result.mode === 'projects') {
+            improveProjectLines();
+        }
         openAssistant('Ameliore mes projets');
         appendAssistantMessage('Ameliore mes projets', 'user');
-        appendAssistantMessage("J'ai clarifie les projets avec une structure plus exploitable : contexte, action et resultat.", 'bot');
+        appendAssistantMessage(
+            result.mode === 'projects'
+                ? "J'ai clarifié les projets avec une structure plus exploitable : contexte, action et résultat."
+                : getReadyCvAssistantReply(result),
+            'bot'
+        );
     });
 }
 

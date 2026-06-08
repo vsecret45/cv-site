@@ -15,7 +15,7 @@
         rel="stylesheet"
     >
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-    <link rel="stylesheet" href="style.css?v=20260608-cv-product1">
+    <link rel="stylesheet" href="style.css?v=20260608-cv-assistant2">
 </head>
 <body class="is-preload cv-workspace-page">
     <div class="page-shell">
@@ -59,10 +59,6 @@
                 <p class="hero-text hero-reveal hero-reveal-delay-4">
                     L'aperçu reste ouvert pendant l'édition pour travailler plus naturellement, comme dans un vrai plan de travail.
                 </p>
-                <div class="hero-actions hero-reveal hero-reveal-delay-6">
-                    <a class="button button-primary" href="#cv-intelligent">Ouvrir l'éditeur</a>
-                    <a class="button button-secondary" href="#cv-import-block">Importer un CV</a>
-                </div>
             </div>
         </header>
 
@@ -225,7 +221,7 @@ Sport</textarea>
                                     <button class="button button-secondary" type="button" id="cv-autofill">Auto-organiser</button>
                                     <button class="button button-secondary" type="button" id="cv-improve">Corriger et optimiser mon CV</button>
                                     <button class="button button-secondary" type="button" id="cv-fit-page">Compacter 1 page</button>
-                                    <button class="button button-secondary" type="button" id="cv-ai-improve">Assistant IA</button>
+                                    <button class="button button-secondary" type="button" id="cv-ai-improve">Assistant CV</button>
                                 </div>
                             </div>
                             <div class="cv-action-group">
@@ -539,29 +535,30 @@ Sport</textarea>
     </div>
 
     <button class="assistant-toggle" id="assistant-toggle" type="button" aria-expanded="false">
-        Assistant IA
+        Assistant CV
     </button>
-    <section class="assistant-chat" id="assistant-chat" aria-label="Assistant IA">
+    <section class="assistant-chat" id="assistant-chat" aria-label="Assistant CV">
         <div class="assistant-chat-header">
             <div>
-                <strong>Assistant IA</strong>
-                <p>Bonjour, comment puis-je vous aider aujourd'hui ?</p>
+                <strong>Assistant CV</strong>
+                <p>Je remplis, corrige et adapte le CV directement.</p>
             </div>
             <button class="assistant-close" id="assistant-close" type="button" aria-label="Fermer">×</button>
         </div>
         <div class="assistant-messages" id="assistant-messages">
             <article class="assistant-bubble assistant-bubble-bot">
-                Bonjour, comment puis-je vous aider aujourd'hui ?
+                Bonjour, je peux préparer un CV prêt à modifier, reformuler les expériences ou adapter le CV à une offre.
             </article>
         </div>
         <div class="assistant-quick-actions">
+            <button class="suggestion-chip" type="button" data-prompt="Je veux un CV prêt sans remplir le formulaire">CV prêt</button>
             <button class="suggestion-chip" type="button" data-prompt="Ameliore mon accroche CV">Accroche</button>
             <button class="suggestion-chip" type="button" data-prompt="Reformule mes experiences">Experiences</button>
             <button class="suggestion-chip" type="button" data-prompt="Enrichis mes competences">Competences</button>
             <button class="suggestion-chip" type="button" data-prompt="Adapte mon CV a l'offre">Offre</button>
         </div>
         <form class="assistant-input-row" id="assistant-form">
-            <input id="assistant-input" type="text" placeholder="Ex. reformule mon experience ou adapte a l'offre...">
+            <input id="assistant-input" type="text" placeholder="Ex. je veux un CV prêt, reformule mes expériences...">
             <button class="button button-primary" type="submit">Envoyer</button>
         </form>
     </section>
@@ -617,6 +614,6 @@ Sport</textarea>
     <script src="https://cdn.jsdelivr.net/npm/mammoth@1.11.0/mammoth.browser.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js" defer></script>
-    <script src="script.js?v=20260608-cv-product1" defer></script>
+    <script src="script.js?v=20260608-cv-assistant2" defer></script>
 </body>
 </html>
