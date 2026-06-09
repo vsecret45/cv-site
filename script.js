@@ -112,6 +112,7 @@ const authLoginPanel = document.querySelector('#auth-panel-login');
 const authSignupPanel = document.querySelector('#auth-panel-signup');
 const authLoginForm = document.querySelector('#auth-login-form');
 const authSignupForm = document.querySelector('#auth-signup-form');
+const passwordToggleButtons = document.querySelectorAll('[data-password-toggle]');
 const PDFJS_MODULE_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/legacy/build/pdf.min.mjs';
 const PDFJS_WORKER_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/legacy/build/pdf.worker.min.mjs';
 
@@ -701,7 +702,7 @@ const updateAuthUi = () => {
 
     if (authCurrentUserLabel) {
         authCurrentUserLabel.classList.toggle('is-hidden', !currentUser);
-        authCurrentUserLabel.textContent = currentUser ? `Espace privé : ${currentUser.name || currentUser.email}` : '';
+        authCurrentUserLabel.textContent = currentUser ? `Acces local : ${currentUser.name || currentUser.email}` : '';
     }
 
 };
@@ -5608,7 +5609,7 @@ const handleAuthLogin = async (event) => {
     closeSiteMenu();
     authLoginForm.reset();
     closeAuthModal();
-    setCvStatus('Compte charge');
+    setCvStatus('Acces local charge');
 };
 
 const handleAuthSignup = async (event) => {
@@ -5660,7 +5661,7 @@ const handleAuthSignup = async (event) => {
     closeSiteMenu();
     authSignupForm.reset();
     closeAuthModal();
-    setCvStatus('Compte cree');
+    setCvStatus('Acces local cree sur ce navigateur');
 };
 
 const handleAuthLogout = () => {
@@ -5718,6 +5719,20 @@ authTabs.forEach((tab) => {
 });
 authLoginForm?.addEventListener('submit', handleAuthLogin);
 authSignupForm?.addEventListener('submit', handleAuthSignup);
+passwordToggleButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+        const field = button.closest('.password-field')?.querySelector('input');
+
+        if (!field) {
+            return;
+        }
+
+        const shouldShow = field.type === 'password';
+        field.type = shouldShow ? 'text' : 'password';
+        button.textContent = shouldShow ? 'Masquer' : 'Afficher';
+        button.setAttribute('aria-label', shouldShow ? 'Masquer le mot de passe' : 'Afficher le mot de passe');
+    });
+});
 
 siteMenuToggle?.addEventListener('click', () => {
     const isOpen = siteMenuToggle.getAttribute('aria-expanded') === 'true';

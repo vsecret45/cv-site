@@ -3645,6 +3645,38 @@ body.is-exporting-pdf .cv-label {
     box-shadow: 0 0 0 4px rgba(47, 63, 127, 0.08);
 }
 
+.password-field {
+    position: relative;
+    display: block;
+}
+
+.field .password-field input {
+    padding-right: 6.2rem;
+}
+
+.password-field button {
+    position: absolute;
+    top: 50%;
+    right: 0.48rem;
+    min-height: 2.25rem;
+    padding: 0.35rem 0.68rem;
+    border: 1px solid rgba(47, 63, 127, 0.12);
+    border-radius: 999px;
+    background: rgba(248, 250, 255, 0.96);
+    color: #2f3f7f;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 800;
+    cursor: pointer;
+    transform: translateY(-50%);
+}
+
+.password-field button:hover,
+.password-field button:focus-visible {
+    border-color: rgba(47, 63, 127, 0.28);
+    outline: none;
+}
+
 .contact-form-row {
     display: grid;
     grid-template-columns: 1fr;
