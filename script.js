@@ -56,6 +56,9 @@ const cvInlineItalicButton = document.querySelector('#cv-inline-italic');
 const cvInlineUnderlineButton = document.querySelector('#cv-inline-underline');
 const cvInlineAlignButtons = document.querySelectorAll('[data-align]');
 const cvInlineListButton = document.querySelector('#cv-inline-list');
+const cvInlineIndentButton = document.querySelector('#cv-inline-indent');
+const cvInlineOutdentButton = document.querySelector('#cv-inline-outdent');
+const cvInlineClearButton = document.querySelector('#cv-inline-clear');
 const cvInlineLineHeight = document.querySelector('#cv-inline-line-height');
 const previewSectionsRoot = document.querySelector('#cv-preview-sections');
 const letterCompanyField = document.querySelector('#letter-company');
@@ -100,6 +103,7 @@ const templatePresetChips = document.querySelectorAll('[data-template-preset]');
 const authOpenLoginButton = document.querySelector('#auth-open-login');
 const authOpenSignupButton = document.querySelector('#auth-open-signup');
 const authLogoutButton = document.querySelector('#auth-logout');
+const authCurrentUserLabel = document.querySelector('#auth-current-user');
 const authModal = document.querySelector('#auth-modal');
 const authCloseButton = document.querySelector('#auth-close');
 const authFeedback = document.querySelector('#auth-feedback');
@@ -121,6 +125,7 @@ let activeEditableNode = null;
 let cvEditableContent = {};
 let isRenderingExperienceEditor = false;
 let isSyncingExperienceEditor = false;
+let lastAssistantAction = null;
 
 const previewNodes = {
     fullName: document.querySelector('#preview-name'),
@@ -588,9 +593,9 @@ const escapeHtml = (value = '') =>
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#39;');
 
-const getAuthAccountsStorageKey = () => 'cv-site-builder-accounts-v1';
+const getAuthAccountsStorageKey = () => 'sa-cv-private-accounts-v1';
 
-const getAuthSessionStorageKey = () => 'cv-site-builder-session-v1';
+const getAuthSessionStorageKey = () => 'sa-cv-private-session-v1';
 
 const normalizeAccountEmail = (value = '') => value.trim().toLowerCase();
 
@@ -693,6 +698,12 @@ const updateAuthUi = () => {
     authOpenLoginButton?.classList.toggle('is-hidden', Boolean(currentUser));
     authOpenSignupButton?.classList.toggle('is-hidden', Boolean(currentUser));
     authLogoutButton?.classList.toggle('is-hidden', !currentUser);
+
+    if (authCurrentUserLabel) {
+        authCurrentUserLabel.classList.toggle('is-hidden', !currentUser);
+        authCurrentUserLabel.textContent = currentUser ? `Espace privé : ${currentUser.name || currentUser.email}` : '';
+    }
+
 };
 
 const resetCvFormToDefaults = () => {
@@ -728,7 +739,9 @@ const applyCurrentUserDefaults = () => {
     }
 };
 
-const getCvDraftStorageKey = () => `cv-site-builder-draft-v3-${currentUser ? normalizeAccountEmail(currentUser.email) : 'guest'}`;
+const getCvDraftStorageKey = () => `sa-cv-private-draft-v4-${currentUser ? normalizeAccountEmail(currentUser.email) : 'guest-session'}`;
+
+const getCvDraftStorage = () => currentUser ? window.localStorage : window.sessionStorage;
 
 const extractEditableNodeStyleState = (node) => ({
     fontFamily: node?.style.fontFamily || '',
@@ -975,7 +988,7 @@ const saveCvDraft = (silent = false) => {
         savedAt: new Date().toISOString(),
         user: currentUser?.email || null,
     };
-    window.localStorage.setItem(getCvDraftStorageKey(), JSON.stringify(payload));
+    getCvDraftStorage().setItem(getCvDraftStorageKey(), JSON.stringify(payload));
     setCvStatus(silent ? 'Brouillon enregistre' : 'CV sauvegarde localement');
 };
 
@@ -988,7 +1001,7 @@ const loadCvDraft = () => {
     applyCurrentUserDefaults();
     cvEditableContent = {};
 
-    const raw = window.localStorage.getItem(getCvDraftStorageKey());
+    const raw = getCvDraftStorage().getItem(getCvDraftStorageKey());
     if (!raw) {
         updateCvPreview();
         renderExperienceEditor();
@@ -1949,7 +1962,7 @@ const roleSummarySuggestions = {
     transport:
         'Professionnelle du transport de voyageurs, rigoureuse et autonome, attentive à la sécurité, au respect des horaires et à la qualité du service rendu. Capable d’accueillir, informer et accompagner les voyageurs avec calme et sens des responsabilités.',
     client:
-        'Professionnelle de la relation client, organisée et à l’écoute, avec une expérience en accueil, conseil, analyse des besoins et suivi de dossiers. À l’aise dans les échanges, elle apporte un service clair, fiable et orienté satisfaction client.',
+        'Professionnelle de la relation client, organisée et rigoureuse, avec une expérience en écoute, conseil, analyse des besoins et suivi de dossiers. À l’aise dans les échanges avec la clientèle, elle apporte un service clair, fiable et orienté satisfaction client.',
     web:
         'Profil web organisé, créatif et rigoureux, capable de structurer des contenus, améliorer l’expérience utilisateur et produire des supports digitaux clairs, modernes et adaptés aux objectifs du projet.',
     admin:
@@ -3110,6 +3123,14 @@ const autoOrganizeCv = () => {
     setCvStatus('Sections auto-organisees');
 };
 
+const hasRepeatedCvTerm = (value = '', terms = ['accueil', 'client', 'accompagnement', 'conseil']) => {
+    const source = normalizeForMatch(value);
+    return terms.some((term) => {
+        const matches = source.match(new RegExp(`\\b${normalizeForMatch(term)}\\b`, 'g')) || [];
+        return matches.length > 1;
+    });
+};
+
 const improveSummaryText = ({ silent = false } = {}) => {
     if (!cvForm?.elements.summary) {
         return '';
@@ -3118,7 +3139,8 @@ const improveSummaryText = ({ silent = false } = {}) => {
     const context = getCvRoleContext();
     const current = normalizeCvSentenceText(cvForm.elements.summary.value || '');
     const defaultLike = !current || /profil clair|organise|poste vise|optionnel/i.test(current);
-    const improved = defaultLike || current.length < 90
+    const shouldRewrite = defaultLike || current.length < 90 || hasRepeatedCvTerm(current);
+    const improved = shouldRewrite
         ? roleSummarySuggestions[context]
         : current
             .replace(/\bje souhaite mettre mes$/i, 'je souhaite mettre mes compétences au service du poste visé')
@@ -4769,18 +4791,89 @@ const buildLetterWordHtml = () => {
 </html>`;
 };
 
-const exportWord = () => {
-    if (currentPreviewMode === 'letter') {
-        downloadFile('lettre-motivation.doc', buildLetterWordHtml(), 'application/msword');
-        setCvStatus('Word telecharge');
+const normalizeExportCssValue = (value = '') =>
+    String(value || '').replace(
+        /color\(srgb\s+([0-9.]+)\s+([0-9.]+)\s+([0-9.]+)(?:\s*\/\s*([0-9.]+))?\)/g,
+        (_, red, green, blue, alpha) => {
+            const channels = [red, green, blue].map((channel) => Math.round(Math.max(0, Math.min(1, Number.parseFloat(channel))) * 255));
+            const opacity = alpha === undefined ? 1 : Math.max(0, Math.min(1, Number.parseFloat(alpha)));
+            return opacity < 1
+                ? `rgba(${channels[0]}, ${channels[1]}, ${channels[2]}, ${Math.round(opacity * 1000) / 1000})`
+                : `rgb(${channels[0]}, ${channels[1]}, ${channels[2]})`;
+        }
+    );
+
+const copyComputedStylesForExport = (source, clone) => {
+    if (!source || !clone || source.nodeType !== Node.ELEMENT_NODE || clone.nodeType !== Node.ELEMENT_NODE) {
         return;
     }
 
-    prepareCvForExport();
-    const data = getCvExportData();
+    const computed = window.getComputedStyle(source);
+    [...computed].forEach((property) => {
+        clone.style.setProperty(property, normalizeExportCssValue(computed.getPropertyValue(property)), computed.getPropertyPriority(property));
+    });
 
-    downloadFile('cv-intelligent.doc', buildWordCvHtml(data), 'application/msword');
-    setCvStatus('Word telecharge avec mise en page professionnelle');
+    [...source.children].forEach((child, index) => {
+        copyComputedStylesForExport(child, clone.children[index]);
+    });
+};
+
+const getPreviewCloneForOfficeExport = () => {
+    const sourcePreview = currentPreviewMode === 'letter' ? letterPagePreview : previewNodes.preview;
+
+    if (!sourcePreview) {
+        return null;
+    }
+
+    const clone = sourcePreview.cloneNode(true);
+    copyComputedStylesForExport(sourcePreview, clone);
+    clone.classList.remove('is-hidden-preview');
+    clone.removeAttribute('aria-hidden');
+    clone.querySelectorAll('.cv-section-actions, .cv-page-guide, .cv-label').forEach((node) => node.remove());
+    clone.querySelectorAll('[contenteditable]').forEach((node) => node.removeAttribute('contenteditable'));
+    clone.querySelectorAll('[spellcheck]').forEach((node) => node.removeAttribute('spellcheck'));
+    clone.querySelectorAll('section[hidden]').forEach((node) => node.remove());
+    clone.style.width = '190mm';
+    clone.style.minHeight = 'auto';
+    clone.style.margin = '0 auto';
+    clone.style.boxShadow = 'none';
+
+    return clone;
+};
+
+const buildPreviewWordHtml = () => {
+    const clone = getPreviewCloneForOfficeExport();
+    const title = currentPreviewMode === 'letter' ? 'Lettre de motivation' : 'CV';
+
+    if (!clone) {
+        return currentPreviewMode === 'letter' ? buildLetterWordHtml() : buildWordCvHtml(getCvExportData());
+    }
+
+    return `
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>${escapeHtml(title)}</title>
+  <style>
+    @page { size: A4; margin: 10mm; }
+    body { margin: 0; background: #ffffff; }
+    * { box-sizing: border-box; }
+    ul { margin-top: 0; margin-bottom: 0; }
+  </style>
+</head>
+<body>
+  ${clone.outerHTML}
+</body>
+</html>`;
+};
+
+const exportWord = () => {
+    persistAllEditableNodes({ refreshPreview: true });
+    updateCvPreview();
+    const filename = currentPreviewMode === 'letter' ? 'lettre-motivation.doc' : 'cv-intelligent.doc';
+    downloadFile(filename, buildPreviewWordHtml(), 'application/msword');
+    setCvStatus('Word telecharge avec le rendu de l apercu');
 };
 
 const printCurrentDocument = () => {
@@ -4803,21 +4896,24 @@ const buildStaticExportNode = (mode = currentPreviewMode) => {
     const wrapper = document.createElement('div');
     wrapper.className = 'pdf-export-root';
     wrapper.style.position = 'fixed';
-    wrapper.style.left = '-99999px';
+    wrapper.style.left = '0';
     wrapper.style.top = '0';
     wrapper.style.width = '210mm';
     wrapper.style.background = '#ffffff';
     wrapper.style.padding = '0';
     wrapper.style.margin = '0';
-    wrapper.style.zIndex = '-1';
+    wrapper.style.zIndex = '2147483000';
+    wrapper.style.pointerEvents = 'none';
 
     const clone = sourcePreview.cloneNode(true);
+    copyComputedStylesForExport(sourcePreview, clone);
     clone.classList.remove('is-hidden-preview');
     clone.removeAttribute('aria-hidden');
     clone.style.transform = 'none';
     clone.style.boxShadow = 'none';
     clone.style.margin = '0';
-    clone.style.background = '#ffffff';
+    clone.style.background = normalizeExportCssValue(window.getComputedStyle(sourcePreview).background || '#ffffff');
+    clone.style.borderRadius = '0';
 
     clone.querySelectorAll('.cv-section-actions, .cv-page-guide, .cv-label').forEach((node) => node.remove());
     clone.querySelectorAll('[contenteditable]').forEach((node) => node.removeAttribute('contenteditable'));
@@ -4874,13 +4970,64 @@ const exportPdf = async (options = {}) => {
         return;
     }
 
-    setPreviewMode('cv');
-    currentPreviewPage = 1;
-    if (cvPreviewViewport) {
-        cvPreviewViewport.scrollTop = 0;
-    }
-
     setCvStatus(action === 'print' ? 'Preparation du PDF pour impression...' : 'Generation du PDF...');
+
+    persistAllEditableNodes({ refreshPreview: true });
+    updateCvPreview();
+
+    const exportMode = currentPreviewMode;
+    const domExportSource = exportMode === 'letter' ? letterPagePreview : previewNodes.preview;
+
+    if (window.html2canvas && domExportSource) {
+        const filename = exportMode === 'letter' ? 'lettre-motivation.pdf' : 'cv-intelligent.pdf';
+
+        try {
+            document.body.classList.add('is-exporting-pdf');
+            await document.fonts?.ready;
+            const canvas = await window.html2canvas(domExportSource, {
+                scale: Math.min(2.4, window.devicePixelRatio || 2),
+                useCORS: true,
+                backgroundColor: '#ffffff',
+                scrollX: 0,
+                scrollY: 0,
+            });
+
+            if (!canvas.width || !canvas.height) {
+                throw new Error('empty_canvas');
+            }
+
+            const doc = new JsPdf({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+            const pageWidth = 210;
+            const pageHeight = 297;
+            const imageHeight = (canvas.height * pageWidth) / canvas.width;
+            const imageData = canvas.toDataURL('image/jpeg', 0.98);
+
+            let positionY = 0;
+            let remainingHeight = imageHeight;
+            doc.addImage(imageData, 'JPEG', 0, positionY, pageWidth, imageHeight);
+            remainingHeight -= pageHeight;
+
+            while (remainingHeight > 2) {
+                positionY -= pageHeight;
+                doc.addPage();
+                doc.addImage(imageData, 'JPEG', 0, positionY, pageWidth, imageHeight);
+                remainingHeight -= pageHeight;
+            }
+
+            if (action === 'print') {
+                finishPdfExport(doc, filename, action, options?.printWindow);
+            } else {
+                doc.save(filename);
+                setCvStatus('PDF telecharge avec le rendu de l apercu');
+            }
+            return;
+        } catch (error) {
+            console.error(error);
+            setCvStatus('Export apercu indisponible, generation PDF classique...');
+        } finally {
+            document.body.classList.remove('is-exporting-pdf');
+        }
+    }
 
     try {
         const doc = new JsPdf({ unit: 'mm', format: 'a4', orientation: 'portrait' });
@@ -5311,72 +5458,116 @@ const appendAssistantMessage = (text, role) => {
     assistantMessages.scrollTop = assistantMessages.scrollHeight;
 };
 
+const runAssistantAction = (action, message = '') => {
+    lastAssistantAction = { action, message };
+
+    if (action === 'ready') {
+        const result = applyReadyCvBase(message);
+        return result.mode === 'optimized'
+            ? `CV corrigé : accroche, compétences et ${result.experienceCount || 0} expérience(s) harmonisées.`
+            : `Base CV créée : titre, accroche, compétences, ${result.experienceCount || 0} expériences et formations prêts à modifier.`;
+    }
+
+    if (action === 'import') {
+        document.querySelector('#cv-import-block')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        cvImportInput?.focus();
+        return "Import ouvert. Choisissez un PDF ou DOCX, puis l'éditeur reconstruit le CV.";
+    }
+
+    if (action === 'offer') {
+        const adapted = adaptCvToJobOffer();
+        return adapted
+            ? "CV adapté à l'offre : titre, accroche, mots-clés, compétences et expériences mis à jour."
+            : "Collez l'offre dans le champ Offre d'emploi, puis relancez l'action.";
+    }
+
+    if (action === 'summary') {
+        if (!hasMeaningfulCvContent()) {
+            return runAssistantAction('ready', message);
+        }
+        const improved = improveSummaryText();
+        return improved
+            ? "Accroche remplacée directement dans le CV."
+            : "Accroche inchangée : ajoutez un texte à reformuler.";
+    }
+
+    if (action === 'experience') {
+        if (!hasMeaningfulExperienceContent()) {
+            return runAssistantAction('ready', message);
+        }
+        const count = improveExperienceLines();
+        return count
+            ? `${count} expérience(s) restructurée(s) directement dans le CV.`
+            : "Aucune expérience exploitable trouvée.";
+    }
+
+    if (action === 'skills') {
+        if (!hasMeaningfulCvContent()) {
+            return runAssistantAction('ready', message);
+        }
+        const skills = enrichCvSkills();
+        return `${skills.length} compétence(s) prêtes et dédupliquées dans le CV.`;
+    }
+
+    if (action === 'proofread') {
+        if (!hasMeaningfulCvContent()) {
+            return runAssistantAction('ready', message);
+        }
+        proofreadCvTextFields();
+        return "Fautes courantes, accents et casse corrigés dans le CV.";
+    }
+
+    if (action === 'projects') {
+        if (!hasMeaningfulCvContent()) {
+            return runAssistantAction('ready', message);
+        }
+        improveProjectLines();
+        return "Projets reformulés directement dans le CV.";
+    }
+
+    return "Action non reconnue.";
+};
+
 const getAssistantReply = (message) => {
     const normalizedMessage = normalizeLooseCvText(message);
+    const hasExplicitAssistantTopic = /\b(accroche|profil|resume|presentation|experience|experiences|mission|missions|competence|competences|faute|fautes|orthographe|grammaire|projet|projets|offre|annonce|import|pdf|docx|cv)\b/.test(normalizedMessage);
 
-    if (/\b(vide|pret|preparer|prepare|remplir|rempli|formulaire|temps|tout pret|base|generer|creer|zero)\b/.test(normalizedMessage)) {
-        return getReadyCvAssistantReply(applyReadyCvBase(message));
+    if (!hasExplicitAssistantTopic && /\b(oui|ok|d accord|vas y|fait|fais|remplace|directement|applique|continue)\b/i.test(normalizedMessage)) {
+        return lastAssistantAction
+            ? runAssistantAction(lastAssistantAction.action, lastAssistantAction.message)
+            : "Choisissez d'abord une action : accroche, expériences, compétences, fautes ou offre.";
     }
 
     if (/\b(import|importe|ancien cv|pdf|docx)\b/.test(normalizedMessage)) {
-        document.querySelector('#cv-import-block')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        cvImportInput?.focus();
-        return "Choisissez le fichier dans le bloc Importer un CV. Dès qu'il est chargé, je reconstruis une base propre, puis vous pouvez lancer Corriger et optimiser mon CV.";
+        return runAssistantAction('import', message);
     }
 
-    if (/offre|annonce|adapter|adapte/i.test(message)) {
-        const adapted = adaptCvToJobOffer();
-        return adapted
-            ? "J'ai adapté le CV à l'offre : titre, accroche, compétences, mots clés et expériences sont mieux alignés avec l'annonce."
-            : "Collez l'offre d'emploi dans le champ Offre d'emploi, puis demandez-moi d'adapter le CV.";
+    if (/\b(offre|annonce|adapter|adapte|mots cles|mot cle)\b/.test(normalizedMessage)) {
+        return runAssistantAction('offer', message);
     }
 
-    if (/accroche|profil|resume|résumé|presentation|présentation/i.test(message) && /amelior|amélior|reformul|corrig|profession/i.test(message)) {
-        if (!hasMeaningfulCvContent()) {
-            return getReadyCvAssistantReply(applyReadyCvBase(message));
-        }
-        improveSummaryText();
-        return "J'ai reformulé l'accroche en version professionnelle, claire et compacte.";
+    if (/\b(accroche|profil|resume|presentation)\b/.test(normalizedMessage)) {
+        return runAssistantAction('summary', message);
     }
 
-    if (/exp[ée]rience/i.test(message) && /amelior|amélior|reformul|restructur|clarifi/i.test(message)) {
-        if (!hasMeaningfulExperienceContent()) {
-            return getReadyCvAssistantReply(applyReadyCvBase(message));
-        }
-
-        const count = improveExperienceLines();
-        return count
-            ? `J'ai restructuré ${count} expérience(s) : poste, entreprise, dates et missions sont séparés plus proprement.`
-            : "Je n'ai pas trouvé d'expérience exploitable. Ajoutez une ligne courte ou importez un CV, puis je la reformule.";
+    if (/\b(experience|experiences|mission|missions)\b/.test(normalizedMessage)) {
+        return runAssistantAction('experience', message);
     }
 
-    if (/comp[ée]tence|atout|savoir|qualit/i.test(message) && /ajout|enrich|amelior|amélior|propos/i.test(message)) {
-        if (!hasMeaningfulCvContent()) {
-            return getReadyCvAssistantReply(applyReadyCvBase(message));
-        }
-
-        const skills = enrichCvSkills();
-        return `J'ai enrichi les compétences avec ${skills.length} atouts adaptés au métier visé.`;
+    if (/\b(competence|competences|atout|atouts|savoir|qualite|qualites)\b/.test(normalizedMessage)) {
+        return runAssistantAction('skills', message);
     }
 
-    if (/faute|corrig|orthographe|grammaire|accent/i.test(message)) {
-        if (!hasMeaningfulCvContent()) {
-            return getReadyCvAssistantReply(applyReadyCvBase(message));
-        }
-        proofreadCvTextFields();
-        return "J'ai corrigé les fautes courantes, harmonisé les accents et nettoyé les formulations.";
+    if (/\b(faute|fautes|corrige|corriger|orthographe|grammaire|accent|accents)\b/.test(normalizedMessage)) {
+        return runAssistantAction('proofread', message);
     }
 
-    if (/cv/i.test(message) && /amelior|amélior|optimis|profession|pret|export/i.test(message)) {
-        return getReadyCvAssistantReply(applyReadyCvBase(message));
+    if (/\b(projet|projets)\b/.test(normalizedMessage)) {
+        return runAssistantAction('projects', message);
     }
 
-    if (/projet/i.test(message) && /amelior|amélior|reformul|restructur|clarifi/i.test(message)) {
-        if (!hasMeaningfulCvContent()) {
-            return getReadyCvAssistantReply(applyReadyCvBase(message));
-        }
-        improveProjectLines();
-        return "J'ai clarifié les projets avec une structure plus exploitable : contexte, action et résultat.";
+    if (/\b(cv|pret|preparer|prepare|remplir|formulaire|base|generer|creer|optimise|ameliorer|ameliore)\b/.test(normalizedMessage)) {
+        return runAssistantAction('ready', message);
     }
 
     const found = assistantAnswers.find((entry) => entry.test.test(message));
@@ -5385,7 +5576,7 @@ const getAssistantReply = (message) => {
         return found.reply;
     }
 
-    return "Je peux agir directement sur le CV. Essayez : « je veux un CV prêt », « reformule mes expériences », « corrige les fautes » ou « adapte mon CV à l'offre ».";
+    return "Action disponible : accroche, expériences, compétences, fautes, projets, offre ou CV prêt.";
 };
 
 const handleAuthLogin = async (event) => {
@@ -5414,6 +5605,7 @@ const handleAuthLogin = async (event) => {
     updateAuthUi();
     loadCvDraft();
     refreshCvModule();
+    closeSiteMenu();
     authLoginForm.reset();
     closeAuthModal();
     setCvStatus('Compte charge');
@@ -5462,8 +5654,10 @@ const handleAuthSignup = async (event) => {
     persistAuthSession(account);
     activeEditableNode = null;
     updateAuthUi();
-    loadCvDraft();
+    applyCurrentUserDefaults();
+    saveCvDraft(true);
     refreshCvModule();
+    closeSiteMenu();
     authSignupForm.reset();
     closeAuthModal();
     setCvStatus('Compte cree');
@@ -5472,9 +5666,13 @@ const handleAuthSignup = async (event) => {
 const handleAuthLogout = () => {
     persistAuthSession(null);
     activeEditableNode = null;
+    cvEditableContent = {};
+    resetCvFormToDefaults();
     updateAuthUi();
-    loadCvDraft();
+    updateCvPreview();
+    renderExperienceEditor();
     refreshCvModule();
+    closeSiteMenu();
     setPreviewMode('cv');
     setCvStatus('Mode invite actif');
 };
@@ -5483,7 +5681,7 @@ window.addEventListener('load', () => {
     document.body.classList.remove('is-preload');
     document.body.classList.add('is-ready');
     initSiteTheme();
-    persistAuthSession(null);
+    loadAuthSession();
     updateAuthUi();
     try {
         loadCvDraft();
@@ -6188,6 +6386,16 @@ cvInlineBoldButton?.addEventListener('click', () => applyInlineCommand('bold'));
 cvInlineItalicButton?.addEventListener('click', () => applyInlineCommand('italic'));
 cvInlineUnderlineButton?.addEventListener('click', () => applyInlineCommand('underline'));
 cvInlineListButton?.addEventListener('click', () => applyInlineCommand('insertUnorderedList'));
+cvInlineIndentButton?.addEventListener('click', () => applyInlineCommand('indent'));
+cvInlineOutdentButton?.addEventListener('click', () => applyInlineCommand('outdent'));
+cvInlineClearButton?.addEventListener('click', () => {
+    applyInlineCommand('removeFormat');
+    const node = getActiveEditableNode();
+    if (node) {
+        applyEditableNodeStyleState(node, { lineHeight: '1.2' });
+        syncPreviewEditableNode(node, { refreshPreview: false });
+    }
+});
 cvInlineAlignButtons.forEach((button) => {
     button.addEventListener('click', () => {
         applyEditableRootStyle('textAlign', button.dataset.align || 'left');
@@ -6245,10 +6453,10 @@ if (cvImproveButton) {
 
 if (cvOptimizeMainButton) {
     cvOptimizeMainButton.addEventListener('click', () => {
-        const result = applyReadyCvBase('Corrige et optimise mon CV');
-        openAssistant('Corrige et optimise mon CV');
-        appendAssistantMessage('Corrige et optimise mon CV', 'user');
-        appendAssistantMessage(getReadyCvAssistantReply(result), 'bot');
+        const prompt = 'Corrige et optimise mon CV';
+        openAssistant(prompt);
+        appendAssistantMessage(prompt, 'user');
+        appendAssistantMessage(getAssistantReply(prompt), 'bot');
     });
 }
 
@@ -6258,96 +6466,55 @@ if (cvFitPageButton) {
 
 if (cvAiImproveButton) {
     cvAiImproveButton.addEventListener('click', () => {
-        const result = applyReadyCvBase('Ameliore mon CV');
-        openAssistant('Ameliore mon CV');
-        appendAssistantMessage('Ameliore mon CV', 'user');
-        appendAssistantMessage(getReadyCvAssistantReply(result), 'bot');
+        const prompt = 'Ameliore mon CV';
+        openAssistant(prompt);
+        appendAssistantMessage(prompt, 'user');
+        appendAssistantMessage(getAssistantReply(prompt), 'bot');
     });
 }
 
 if (cvAiSummaryButton) {
     cvAiSummaryButton.addEventListener('click', () => {
-        const result = hasMeaningfulCvContent()
-            ? { mode: 'summary', text: improveSummaryText() }
-            : applyReadyCvBase('Ameliore mon accroche CV');
-        openAssistant('Ameliore mon accroche CV');
-        appendAssistantMessage('Ameliore mon accroche CV', 'user');
-        appendAssistantMessage(
-            result.mode === 'summary'
-                ? "J'ai transformé l'accroche en formulation professionnelle, claire et compacte."
-                : getReadyCvAssistantReply(result),
-            'bot'
-        );
+        const prompt = "Remplace l'accroche directement";
+        openAssistant(prompt);
+        appendAssistantMessage(prompt, 'user');
+        appendAssistantMessage(getAssistantReply(prompt), 'bot');
     });
 }
 
 if (cvAiSkillsButton) {
     cvAiSkillsButton.addEventListener('click', () => {
-        const result = hasMeaningfulCvContent()
-            ? { mode: 'skills', count: enrichCvSkills().length }
-            : applyReadyCvBase('Enrichis mes competences');
-        openAssistant('Enrichis mes competences');
-        appendAssistantMessage('Enrichis mes competences', 'user');
-        appendAssistantMessage(
-            result.mode === 'skills'
-                ? `J'ai ajouté et harmonisé ${result.count || 0} compétences adaptées au métier visé.`
-                : getReadyCvAssistantReply(result),
-            'bot'
-        );
+        const prompt = 'Enrichis mes competences directement';
+        openAssistant(prompt);
+        appendAssistantMessage(prompt, 'user');
+        appendAssistantMessage(getAssistantReply(prompt), 'bot');
     });
 }
 
 if (cvAiProofreadButton) {
     cvAiProofreadButton.addEventListener('click', () => {
-        const result = hasMeaningfulCvContent()
-            ? { mode: 'proofread' }
-            : applyReadyCvBase('Corrige les fautes de mon CV');
-        if (result.mode === 'proofread') {
-            proofreadCvTextFields();
-        }
-        openAssistant('Corrige les fautes de mon CV');
-        appendAssistantMessage('Corrige les fautes de mon CV', 'user');
-        appendAssistantMessage(
-            result.mode === 'proofread'
-                ? "J'ai corrigé les fautes courantes, harmonisé les espaces et nettoyé les formulations."
-                : getReadyCvAssistantReply(result),
-            'bot'
-        );
+        const prompt = 'Corrige les fautes de mon CV';
+        openAssistant(prompt);
+        appendAssistantMessage(prompt, 'user');
+        appendAssistantMessage(getAssistantReply(prompt), 'bot');
     });
 }
 
 if (cvImproveExperienceButton) {
     cvImproveExperienceButton.addEventListener('click', () => {
-        const result = hasMeaningfulExperienceContent()
-            ? { mode: 'experience', experienceCount: improveExperienceLines() }
-            : applyReadyCvBase('Ameliore mes experiences');
-        openAssistant('Ameliore mes experiences');
-        appendAssistantMessage('Ameliore mes experiences', 'user');
-        appendAssistantMessage(
-            result.mode === 'experience'
-                ? `J'ai restructuré ${result.experienceCount || 0} expérience(s) : poste, entreprise, dates et missions sont séparés plus proprement.`
-                : getReadyCvAssistantReply(result),
-            'bot'
-        );
+        const prompt = 'Reformule mes experiences directement';
+        openAssistant(prompt);
+        appendAssistantMessage(prompt, 'user');
+        appendAssistantMessage(getAssistantReply(prompt), 'bot');
     });
 }
 
 if (cvImproveProjectsButton) {
     cvImproveProjectsButton.addEventListener('click', () => {
-        const result = hasMeaningfulCvContent()
-            ? { mode: 'projects' }
-            : applyReadyCvBase('Ameliore mes projets');
-        if (result.mode === 'projects') {
-            improveProjectLines();
-        }
-        openAssistant('Ameliore mes projets');
-        appendAssistantMessage('Ameliore mes projets', 'user');
-        appendAssistantMessage(
-            result.mode === 'projects'
-                ? "J'ai clarifié les projets avec une structure plus exploitable : contexte, action et résultat."
-                : getReadyCvAssistantReply(result),
-            'bot'
-        );
+        const prompt = 'Ameliore mes projets directement';
+        openAssistant(prompt);
+        appendAssistantMessage(prompt, 'user');
+        appendAssistantMessage(getAssistantReply(prompt), 'bot');
     });
 }
 
@@ -6360,15 +6527,10 @@ if (cvAnalyzeButton) {
 
 if (cvMatchJobButton) {
     cvMatchJobButton.addEventListener('click', () => {
-        const adapted = adaptCvToJobOffer();
-        openAssistant('Adapte mon CV a l offre');
-        appendAssistantMessage('Adapte mon CV a l offre', 'user');
-        appendAssistantMessage(
-            adapted
-                ? "J'ai analyse l'offre collee, ajuste l'accroche, enrichi les competences et ajoute les mots cles pertinents."
-                : "Collez d'abord l'offre d'emploi dans le champ prevu, puis je pourrai adapter le CV au poste.",
-            'bot'
-        );
+        const prompt = 'Adapte mon CV a l offre';
+        openAssistant(prompt);
+        appendAssistantMessage(prompt, 'user');
+        appendAssistantMessage(getAssistantReply(prompt), 'bot');
     });
 }
 

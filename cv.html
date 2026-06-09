@@ -7,7 +7,7 @@
         name="description"
         content="Projet CV intelligent de SA Création Web : import, edition, apercu, export et optimisation de CV dans un espace dedie."
     >
-    <title>SA Création Web | Projet CV intelligent</title>
+    <title>SA Création Web | Espace CV privé</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -15,7 +15,7 @@
         rel="stylesheet"
     >
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-    <link rel="stylesheet" href="style.css?v=20260608-cv-assistant2">
+    <link rel="stylesheet" href="style.css?v=20260609-private-cv-tools">
 </head>
 <body class="is-preload cv-workspace-page">
     <div class="page-shell">
@@ -34,10 +34,11 @@
                         <a href="methode.html">Methode</a>
                         <a href="realisations.html">Realisations</a>
                         <a href="contact.html">Contact</a>
-                        <a href="#top">Projet CV</a>
-                        <a href="#cv-intelligent">CV intelligent</a>
+                        <a href="index.html">Vitrine publique</a>
+                        <a href="#cv-intelligent">Espace CV privé</a>
                     </div>
                     <div class="site-menu-actions auth-actions" id="auth-actions">
+                        <span class="auth-badge is-hidden" id="auth-current-user"></span>
                         <button type="button" id="auth-open-login">Se connecter</button>
                         <button type="button" id="auth-open-signup">Creer un compte</button>
                         <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Basculer entre mode nuit et mode jour" aria-pressed="false">
@@ -51,13 +52,13 @@
             </nav>
 
             <div class="hero-content">
-                <p class="eyebrow hero-reveal hero-reveal-delay-1">CV intelligent</p>
+                <p class="eyebrow hero-reveal hero-reveal-delay-1">Espace privé CV</p>
                 <h1 class="hero-title hero-reveal-delay-2">
-                    <span class="title-line">Générer un CV moderne, organisé et personnalisable</span>
+                    <span class="title-line">Créer, corriger et exporter un CV sans mélanger vos données avec la vitrine</span>
                 </h1>
-                <p class="hero-role hero-reveal hero-reveal-delay-3">Importez votre CV, l'IA le corrige, le remet en page et l'optimise pour les recruteurs.</p>
+                <p class="hero-role hero-reveal hero-reveal-delay-3">La vitrine publique reste séparée. L'éditeur CV fonctionne dans un espace de travail dédié, avec connexion, brouillon privé et exports.</p>
                 <p class="hero-text hero-reveal hero-reveal-delay-4">
-                    L'aperçu reste ouvert pendant l'édition pour travailler plus naturellement, comme dans un vrai plan de travail.
+                    L'aperçu reste ouvert pendant l'édition pour travailler naturellement, avec des outils proches de Word et un assistant qui applique les corrections directement.
                 </p>
             </div>
         </header>
@@ -65,7 +66,7 @@
         <main>
             <section class="section section-cv reveal-section" id="cv-intelligent">
                 <div class="section-heading">
-                    <p class="section-kicker">Plan de travail</p>
+                    <p class="section-kicker">Plan de travail privé</p>
                     <h2>Modifier le CV sans quitter l'aperçu</h2>
                 </div>
                 <div class="cv-import-strip" id="cv-import-block">
@@ -243,8 +244,8 @@ Sport</textarea>
                         </div>
                         <div class="cv-analysis-panel cv-ai-panel cv-assist-panel">
                             <div class="analysis-block analysis-block-header">
-                                <h4>Assistant CV</h4>
-                                <p>Reformuler, corriger, enrichir et adapter le CV au poste vise.</p>
+                                <h4>Outils IA CV</h4>
+                                <p>Actions directes sur le document : le texte est remplacé dans le CV, puis l'aperçu se met à jour.</p>
                             </div>
                             <div class="cv-actions">
                                 <button class="button button-secondary" type="button" id="cv-ai-summary">Ameliorer l'accroche</button>
@@ -407,6 +408,56 @@ Sport</textarea>
                                 <span class="preview-status" id="cv-status">CV synchronise</span>
                             </div>
                         </div>
+                        <div class="cv-word-toolbar-shell" id="cv-word-toolbar-shell" aria-label="Barre de mise en forme du CV">
+                            <div class="cv-word-toolbar">
+                                <div class="word-toolbar-row">
+                                    <label class="word-toolbar-field">
+                                        <span>Police</span>
+                                        <select id="cv-inline-font">
+                                            <option value="Arial, sans-serif">Arial</option>
+                                            <option value="Roboto, sans-serif">Roboto</option>
+                                            <option value="'Times New Roman', serif">Times</option>
+                                        </select>
+                                    </label>
+                                    <label class="word-toolbar-field word-toolbar-field-size">
+                                        <span>Taille</span>
+                                        <select id="cv-inline-size">
+                                            <option value="12px">12</option>
+                                            <option value="14px" selected>14</option>
+                                            <option value="16px">16</option>
+                                            <option value="18px">18</option>
+                                            <option value="24px">24</option>
+                                        </select>
+                                    </label>
+                                    <label class="word-toolbar-field word-toolbar-field-line-height">
+                                        <span>Ligne</span>
+                                        <select id="cv-inline-line-height">
+                                            <option value="1">1</option>
+                                            <option value="1.15">1.15</option>
+                                            <option value="1.5">1.5</option>
+                                            <option value="2">2</option>
+                                        </select>
+                                    </label>
+                                    <div class="word-toolbar-segment" aria-label="Style">
+                                        <button class="word-toolbar-button" id="cv-inline-bold" type="button" aria-label="Gras" title="Gras">B</button>
+                                        <button class="word-toolbar-button" id="cv-inline-italic" type="button" aria-label="Italique" title="Italique">I</button>
+                                        <button class="word-toolbar-button" id="cv-inline-underline" type="button" aria-label="Souligner" title="Souligner">U</button>
+                                    </div>
+                                    <div class="word-toolbar-segment" aria-label="Alignement">
+                                        <button class="word-toolbar-button" type="button" data-align="left" aria-label="Aligner a gauche" title="Aligner a gauche">←</button>
+                                        <button class="word-toolbar-button" type="button" data-align="center" aria-label="Centrer" title="Centrer">↔</button>
+                                        <button class="word-toolbar-button" type="button" data-align="right" aria-label="Aligner a droite" title="Aligner a droite">→</button>
+                                    </div>
+                                </div>
+                                <div class="word-toolbar-row word-toolbar-row-actions">
+                                    <button class="word-toolbar-button word-toolbar-button-list" id="cv-inline-list" type="button" aria-label="Liste a puces" title="Liste a puces">• liste</button>
+                                    <button class="word-toolbar-button" id="cv-inline-outdent" type="button" aria-label="Diminuer le retrait" title="Diminuer le retrait">⇤</button>
+                                    <button class="word-toolbar-button" id="cv-inline-indent" type="button" aria-label="Augmenter le retrait" title="Augmenter le retrait">⇥</button>
+                                    <button class="word-toolbar-button" id="cv-inline-clear" type="button" aria-label="Effacer la mise en forme" title="Effacer la mise en forme">Tx</button>
+                                    <button class="word-toolbar-button word-toolbar-button-list" id="preview-fit-inline" type="button" aria-label="Compacter sur une page" title="Compacter sur une page">1 page</button>
+                                </div>
+                            </div>
+                        </div>
                         <div class="cv-preview-viewport" id="cv-preview-viewport">
                             <div class="cv-preview-stage" id="cv-preview-stage">
                                 <article class="cv-preview theme-executive font-manrope template-wordpro" id="cv-preview" data-preview-doc="cv">
@@ -421,42 +472,77 @@ Sport</textarea>
                                         <section data-section-key="summary">
                                             <div class="cv-section-head">
                                                 <h4>Profil</h4>
+                                                <div class="cv-section-actions" aria-label="Actions Profil">
+                                                    <button class="cv-section-action" type="button" data-section-key="summary" data-section-action="up" aria-label="Monter Profil">↑</button>
+                                                    <button class="cv-section-action" type="button" data-section-key="summary" data-section-action="down" aria-label="Descendre Profil">↓</button>
+                                                    <button class="cv-section-action" type="button" data-section-key="summary" data-section-action="delete" aria-label="Supprimer Profil">×</button>
+                                                </div>
                                             </div>
                                             <p id="preview-summary" data-edit-target="summary" contenteditable="true" spellcheck="true">Profil clair, organise et oriente resultat, avec une presentation adaptee au poste vise.</p>
                                         </section>
                                         <section data-section-key="skills">
                                             <div class="cv-section-head">
                                                 <h4>Competences</h4>
+                                                <div class="cv-section-actions" aria-label="Actions Competences">
+                                                    <button class="cv-section-action" type="button" data-section-key="skills" data-section-action="up" aria-label="Monter Competences">↑</button>
+                                                    <button class="cv-section-action" type="button" data-section-key="skills" data-section-action="down" aria-label="Descendre Competences">↓</button>
+                                                    <button class="cv-section-action" type="button" data-section-key="skills" data-section-action="delete" aria-label="Supprimer Competences">×</button>
+                                                </div>
                                             </div>
                                             <ul id="preview-skills" class="cv-list-compact" data-edit-target="skills" contenteditable="true" spellcheck="true"></ul>
                                         </section>
                                         <section data-section-key="experience">
                                             <div class="cv-section-head">
                                                 <h4>Experiences professionnelles</h4>
+                                                <div class="cv-section-actions" aria-label="Actions Experiences">
+                                                    <button class="cv-section-action" type="button" data-section-key="experience" data-section-action="up" aria-label="Monter Experiences">↑</button>
+                                                    <button class="cv-section-action" type="button" data-section-key="experience" data-section-action="down" aria-label="Descendre Experiences">↓</button>
+                                                    <button class="cv-section-action" type="button" data-section-key="experience" data-section-action="delete" aria-label="Supprimer Experiences">×</button>
+                                                </div>
                                             </div>
                                             <ul id="preview-experience" data-edit-target="experience" contenteditable="true" spellcheck="true"></ul>
                                         </section>
                                         <section data-section-key="projects">
                                             <div class="cv-section-head">
                                                 <h4>Projets</h4>
+                                                <div class="cv-section-actions" aria-label="Actions Projets">
+                                                    <button class="cv-section-action" type="button" data-section-key="projects" data-section-action="up" aria-label="Monter Projets">↑</button>
+                                                    <button class="cv-section-action" type="button" data-section-key="projects" data-section-action="down" aria-label="Descendre Projets">↓</button>
+                                                    <button class="cv-section-action" type="button" data-section-key="projects" data-section-action="delete" aria-label="Supprimer Projets">×</button>
+                                                </div>
                                             </div>
                                             <ul id="preview-projects" data-edit-target="projects" contenteditable="true" spellcheck="true"></ul>
                                         </section>
                                         <section data-section-key="education">
                                             <div class="cv-section-head">
                                                 <h4>Formations</h4>
+                                                <div class="cv-section-actions" aria-label="Actions Formations">
+                                                    <button class="cv-section-action" type="button" data-section-key="education" data-section-action="up" aria-label="Monter Formations">↑</button>
+                                                    <button class="cv-section-action" type="button" data-section-key="education" data-section-action="down" aria-label="Descendre Formations">↓</button>
+                                                    <button class="cv-section-action" type="button" data-section-key="education" data-section-action="delete" aria-label="Supprimer Formations">×</button>
+                                                </div>
                                             </div>
                                             <ul id="preview-education" data-edit-target="education" contenteditable="true" spellcheck="true"></ul>
                                         </section>
                                         <section data-section-key="activities">
                                             <div class="cv-section-head">
                                                 <h4>Activites</h4>
+                                                <div class="cv-section-actions" aria-label="Actions Activites">
+                                                    <button class="cv-section-action" type="button" data-section-key="activities" data-section-action="up" aria-label="Monter Activites">↑</button>
+                                                    <button class="cv-section-action" type="button" data-section-key="activities" data-section-action="down" aria-label="Descendre Activites">↓</button>
+                                                    <button class="cv-section-action" type="button" data-section-key="activities" data-section-action="delete" aria-label="Supprimer Activites">×</button>
+                                                </div>
                                             </div>
                                             <ul id="preview-activities" class="cv-list-compact" data-edit-target="activities" contenteditable="true" spellcheck="true"></ul>
                                         </section>
                                         <section data-section-key="languages">
                                             <div class="cv-section-head">
                                                 <h4>Langues</h4>
+                                                <div class="cv-section-actions" aria-label="Actions Langues">
+                                                    <button class="cv-section-action" type="button" data-section-key="languages" data-section-action="up" aria-label="Monter Langues">↑</button>
+                                                    <button class="cv-section-action" type="button" data-section-key="languages" data-section-action="down" aria-label="Descendre Langues">↓</button>
+                                                    <button class="cv-section-action" type="button" data-section-key="languages" data-section-action="delete" aria-label="Supprimer Langues">×</button>
+                                                </div>
                                             </div>
                                             <ul id="preview-languages" class="cv-list-compact" data-edit-target="languages" contenteditable="true" spellcheck="true"></ul>
                                         </section>
@@ -540,26 +626,26 @@ Sport</textarea>
     <section class="assistant-chat" id="assistant-chat" aria-label="Assistant CV">
         <div class="assistant-chat-header">
             <div>
-                <strong>Assistant CV</strong>
-                <p>Je remplis, corrige et adapte le CV directement.</p>
+                <strong>Assistant outil</strong>
+                <p>Choisissez une action ou écrivez une consigne courte.</p>
             </div>
             <button class="assistant-close" id="assistant-close" type="button" aria-label="Fermer">×</button>
         </div>
         <div class="assistant-messages" id="assistant-messages">
             <article class="assistant-bubble assistant-bubble-bot">
-                Bonjour, je peux préparer un CV prêt à modifier, reformuler les expériences ou adapter le CV à une offre.
+                Prêt. Les corrections sont appliquées directement dans le CV.
             </article>
         </div>
         <div class="assistant-quick-actions">
-            <button class="suggestion-chip" type="button" data-prompt="Je veux un CV prêt sans remplir le formulaire">CV prêt</button>
-            <button class="suggestion-chip" type="button" data-prompt="Ameliore mon accroche CV">Accroche</button>
-            <button class="suggestion-chip" type="button" data-prompt="Reformule mes experiences">Experiences</button>
-            <button class="suggestion-chip" type="button" data-prompt="Enrichis mes competences">Competences</button>
+            <button class="suggestion-chip" type="button" data-prompt="Corrige et optimise mon CV">Corriger tout</button>
+            <button class="suggestion-chip" type="button" data-prompt="Remplace l'accroche directement">Accroche</button>
+            <button class="suggestion-chip" type="button" data-prompt="Reformule mes experiences directement">Experiences</button>
+            <button class="suggestion-chip" type="button" data-prompt="Enrichis mes competences directement">Competences</button>
             <button class="suggestion-chip" type="button" data-prompt="Adapte mon CV a l'offre">Offre</button>
         </div>
         <form class="assistant-input-row" id="assistant-form">
-            <input id="assistant-input" type="text" placeholder="Ex. je veux un CV prêt, reformule mes expériences...">
-            <button class="button button-primary" type="submit">Envoyer</button>
+            <input id="assistant-input" type="text" placeholder="Ex. remplace l'accroche, corrige les fautes...">
+            <button class="button button-primary" type="submit">Appliquer</button>
         </form>
     </section>
 
@@ -567,8 +653,8 @@ Sport</textarea>
         <div class="auth-modal-backdrop" data-auth-close></div>
         <div class="auth-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
             <button class="auth-modal-close" id="auth-close" type="button" aria-label="Fermer">×</button>
-            <h2 id="auth-modal-title">Se connecter ou creer un compte</h2>
-            <p class="auth-modal-text">Le site s'ouvre toujours en mode invite. Connectez-vous seulement si vous voulez retrouver votre brouillon sur cet appareil, puis deconnectez-vous apres usage.</p>
+            <h2 id="auth-modal-title">Acces a l'espace CV privé</h2>
+            <p class="auth-modal-text">La vitrine reste publique. Le brouillon CV est isolé dans cet éditeur : en invité il reste temporaire, connecté il est rattaché à votre compte local sur cet appareil.</p>
             <div class="auth-modal-tabs" role="tablist" aria-label="Connexion ou inscription">
                 <button class="auth-tab is-active" type="button" data-auth-view="login" aria-selected="true">Se connecter</button>
                 <button class="auth-tab" type="button" data-auth-view="signup" aria-selected="false">Creer un compte</button>
@@ -614,6 +700,6 @@ Sport</textarea>
     <script src="https://cdn.jsdelivr.net/npm/mammoth@1.11.0/mammoth.browser.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js" defer></script>
-    <script src="script.js?v=20260608-cv-assistant2" defer></script>
+    <script src="script.js?v=20260609-private-cv-tools" defer></script>
 </body>
 </html>
