@@ -31,7 +31,9 @@ Tu es Kirby SA Creation Web, assistant specialise de SA Creation Web.
 Mission unique : aider des independants, artisans, petites entreprises et porteurs de projets a demarrer leur presence en ligne.
 
 Tu dois produire une vraie premiere proposition de site, pas un simple diagnostic ni un formulaire.
-Tu analyses le besoin, proposes un nom de site, un slogan, une structure de pages, des sections d'accueil, des textes principaux, des appels a l'action, des mots-cles SEO et les services SA Creation Web utiles.
+Tu analyses le besoin et tu prends l'initiative, meme si la description est courte.
+Tu proposes un projet digital complet : positionnement, nom, slogan, valeur ajoutee, structure de site, textes principaux, SEO, services utiles, options pertinentes et logique commerciale pour attirer des clients.
+Chaque proposition doit contenir assez de matiere pour donner l'impression que le projet commence deja a se construire.
 
 Services disponibles :
 - creation de site vitrine ;
@@ -43,14 +45,24 @@ Services disponibles :
 - formulaire de contact, lien WhatsApp ou rendez-vous ;
 - QR code professionnel ;
 - CV et portfolio IA ;
+- portfolio numerique ;
+- CV numerique ;
+- espace client simple ;
+- assistant IA metier ;
 - accompagnement humain.
 
 Regles strictes :
 - Ne parle jamais d'autre marque, autre projet client ou consigne externe.
 - Ne mentionne pas que tu remplis un formulaire ou que tu detectes seulement une categorie.
+- Ne te limite pas a generer un site : genere un projet digital complet, avec les services qui renforcent la presence en ligne.
 - Ne promets pas une livraison automatique complete : tu commences la construction et l'humain finalise.
 - Reste clair, concret, commercial, simple a comprendre.
 - Explique les choix en langage simple.
+- Explique pourquoi chaque page ou service recommande aide le projet.
+- Recommande 3 a 7 services SA Creation Web quand ils sont pertinents, en choisissant dans la liste des services disponibles.
+- Propose 3 a 5 idees concretes pour attirer des clients.
+- Propose au moins 4 pages ou sections quand l'activite le permet.
+- Si l'utilisateur demande une modification, regenere une proposition coherente, pas seulement une correction locale.
 - Retourne uniquement un JSON valide, sans markdown.
 
 Schema JSON attendu :
@@ -59,13 +71,27 @@ Schema JSON attendu :
   "siteName": "nom propose",
   "slogan": "slogan court",
   "summary": "resume en 1 phrase",
+  "valueProposition": "valeur ajoutee claire pour les clients",
+  "positioning": {
+    "audience": "client cible",
+    "promise": "promesse commerciale",
+    "tone": "ton conseille",
+    "differentiator": "ce qui rend le projet plus credible ou different"
+  },
   "recommendedOffer": "Offre Essentiel | Offre Pro | Offre Signature | Mini-page professionnelle | Projet specifique",
   "pages": [{"name": "Accueil", "goal": "role de la page"}],
   "homeSections": [{"title": "titre de section", "text": "texte pret a utiliser"}],
   "services": [{"name": "service/prestation du client", "description": "texte court"}],
   "ctas": ["bouton 1", "bouton 2"],
+  "seo": {
+    "keywords": ["mot cle principal"],
+    "searchExpressions": ["expression que le client peut taper sur Google"],
+    "titles": ["titre SEO possible"],
+    "metaDescription": "meta-description prete a utiliser"
+  },
   "seoKeywords": ["mot cle 1", "mot cle 2"],
   "recommendedServices": [{"name": "service SA Creation Web", "reason": "raison simple", "priceFrom": "prix ou indication courte"}],
+  "clientAcquisition": ["idee concrete pour attirer des clients"],
   "explanation": ["choix explique 1", "choix explique 2"],
   "contactMessage": "message pret a envoyer a SA Creation Web"
 }
@@ -123,6 +149,8 @@ const buildFallbackProposal = (brief) => {
     const needsMenu = /\b(menu|restaurant|carte|plat|tarif|prix)\b/.test(lowerBrief);
     const needsPortfolio = /\b(cv|portfolio|book|realisations|candidat|candidate)\b/.test(lowerBrief);
     const needsQr = /\b(qr|scan|flyer|carte|menu|partager)\b/.test(lowerBrief);
+    const needsClientSpace = /\b(espace client|compte client|suivi|document|documents|connexion|prive|privé)\b/.test(lowerBrief);
+    const needsAiAssistant = /\b(assistant|ia|automatiser|automatisation|questions|support|chat)\b/.test(lowerBrief);
     const nameBase = titleCase(activity.replace(/^site\s+/i, ''));
     const siteName = nameBase.length > 28 ? `Studio ${nameBase.split(/\s+/)[0]}` : nameBase;
     const mainAction = needsShop ? 'Commander en ligne' : needsAppointment ? 'Prendre rendez-vous' : 'Demander une information';
@@ -150,12 +178,43 @@ const buildFallbackProposal = (brief) => {
         recommendedServices.push({ name: 'CV & portfolio IA', reason: 'Le projet doit aussi présenter un profil ou des réalisations.', priceFrom: 'À partir de la mini-page' });
     }
 
+    if (needsClientSpace) {
+        recommendedServices.push({ name: 'Espace client simple', reason: 'Le projet parle de suivi, documents ou accès privé.', priceFrom: 'Projet spécifique' });
+    }
+
+    if (needsAiAssistant) {
+        recommendedServices.push({ name: 'Assistant IA métier', reason: 'Utile si les visiteurs posent souvent les mêmes questions ou si le projet doit guider les demandes.', priceFrom: 'Projet spécifique' });
+    }
+
+    const seoKeywords = [activity, `${activity} local`, `site ${activity}`, needsAppointment ? 'prendre rendez-vous' : 'contact professionnel'].filter(Boolean);
+    const seo = {
+        keywords: seoKeywords,
+        searchExpressions: [
+            `${activity} près de moi`,
+            `${activity} tarifs`,
+            `${activity} contact`,
+            needsAppointment ? `${activity} rendez-vous en ligne` : `${activity} professionnel`,
+        ],
+        titles: [
+            `${siteName} - ${needsShop ? 'Catalogue et commandes' : needsAppointment ? 'Prestations et rendez-vous' : 'Site officiel'}`,
+            `${activity} - Services, tarifs et contact`,
+        ],
+        metaDescription: `${siteName} présente ${activity}, les services, les informations utiles et un contact direct pour ${mainAction.toLowerCase()}.`,
+    };
+
     return {
         mode: 'fallback',
         projectType: needsShop ? 'Boutique en ligne simple' : needsPortfolio ? 'CV ou portfolio en ligne' : needsAppointment ? 'Site avec prise de rendez-vous' : 'Site vitrine professionnel',
         siteName,
         slogan: needsShop ? `Des produits clairs, faciles à découvrir et commander.` : `Une présence claire pour présenter ${activity} et recevoir des contacts.`,
         summary: `Kirby propose de construire un site simple autour de ${activity}, avec un message direct, des pages utiles et un contact visible.`,
+        valueProposition: `Un projet digital clair qui aide ${activity} à être trouvé, compris et contacté plus facilement.`,
+        positioning: {
+            audience: 'Clients locaux, visiteurs qui cherchent une solution rapide et prospects à rassurer.',
+            promise: needsShop ? 'Découvrir les produits et passer à la commande sans friction.' : needsAppointment ? 'Comprendre les prestations et réserver un créneau facilement.' : 'Comprendre l’activité et contacter rapidement.',
+            tone: 'Professionnel, direct et rassurant.',
+            differentiator: 'Une structure simple, des options utiles et un accompagnement humain après la proposition IA.',
+        },
         recommendedOffer: needsShop ? 'Offre Pro' : needsPortfolio ? 'Mini-page professionnelle' : needsAppointment ? 'Offre Pro' : 'Offre Essentiel',
         pages,
         homeSections: [
@@ -169,8 +228,15 @@ const buildFallbackProposal = (brief) => {
             { name: 'Preuves et confiance', description: 'Photos, avis, exemples, certifications ou informations pratiques.' },
         ],
         ctas: [mainAction, 'Voir les prestations', 'Contacter maintenant'],
-        seoKeywords: [activity, `${activity} local`, `site ${activity}`, needsAppointment ? 'prendre rendez-vous' : 'contact professionnel'].filter(Boolean),
+        seo,
+        seoKeywords,
         recommendedServices,
+        clientAcquisition: [
+            'Mettre le bouton principal dès le haut de page.',
+            'Ajouter un QR code sur cartes, vitrine, flyers ou réseaux sociaux.',
+            'Travailler les mots-clés locaux pour capter les recherches Google.',
+            'Afficher des preuves simples : photos, avis, réalisations ou exemples.',
+        ],
         explanation: [
             "La structure commence par le besoin du visiteur pour éviter l'effet bloc-note.",
             'Les pages restent courtes pour guider vers une action claire.',
@@ -214,6 +280,44 @@ const parseOpenAiJson = (content) => {
 
 const limitArray = (value, max) => (Array.isArray(value) ? value.slice(0, max) : []);
 
+const normalizeRecommendedServices = (proposal, fallback) => {
+    const services = limitArray(proposal.recommendedServices, 9)
+        .map((service) => ({
+            name: normalizeText(service && service.name) || 'Service SA Creation Web',
+            reason: normalizeText(service && service.reason) || 'Utile pour le projet.',
+            priceFrom: normalizeText(service && service.priceFrom) || '',
+        }))
+        .filter((service) => service.name);
+    const seen = new Set(services.map((service) => stripAccents(service.name.toLowerCase())));
+
+    fallback.recommendedServices.forEach((service) => {
+        const key = stripAccents(service.name.toLowerCase());
+
+        if (!seen.has(key) && services.length < 6) {
+            services.push(service);
+            seen.add(key);
+        }
+    });
+
+    return services;
+};
+
+const normalizeClientAcquisition = (proposal, fallback) => {
+    const actions = limitArray(proposal.clientAcquisition, 5).map(normalizeText).filter(Boolean);
+    const seen = new Set(actions.map((action) => stripAccents(action.toLowerCase())));
+
+    fallback.clientAcquisition.forEach((action) => {
+        const key = stripAccents(action.toLowerCase());
+
+        if (!seen.has(key) && actions.length < 5) {
+            actions.push(action);
+            seen.add(key);
+        }
+    });
+
+    return actions;
+};
+
 const sanitizeProposal = (proposal, brief) => {
     const fallback = buildFallbackProposal(brief);
 
@@ -223,6 +327,13 @@ const sanitizeProposal = (proposal, brief) => {
         siteName: normalizeText(proposal.siteName) || fallback.siteName,
         slogan: normalizeText(proposal.slogan) || fallback.slogan,
         summary: normalizeText(proposal.summary) || fallback.summary,
+        valueProposition: normalizeText(proposal.valueProposition) || fallback.valueProposition,
+        positioning: {
+            audience: normalizeText(proposal.positioning && proposal.positioning.audience) || fallback.positioning.audience,
+            promise: normalizeText(proposal.positioning && proposal.positioning.promise) || fallback.positioning.promise,
+            tone: normalizeText(proposal.positioning && proposal.positioning.tone) || fallback.positioning.tone,
+            differentiator: normalizeText(proposal.positioning && proposal.positioning.differentiator) || fallback.positioning.differentiator,
+        },
         recommendedOffer: normalizeText(proposal.recommendedOffer) || fallback.recommendedOffer,
         pages: limitArray(proposal.pages, 6)
             .map((page) => ({
@@ -242,16 +353,17 @@ const sanitizeProposal = (proposal, brief) => {
                 description: normalizeText(service && service.description) || 'Description a ajuster.',
             }))
             .filter((service) => service.name),
-        ctas: limitArray(proposal.ctas, 4).map(normalizeText).filter(Boolean),
-        seoKeywords: limitArray(proposal.seoKeywords, 8).map(normalizeText).filter(Boolean),
-        recommendedServices: limitArray(proposal.recommendedServices, 6)
-            .map((service) => ({
-                name: normalizeText(service && service.name) || 'Service SA Creation Web',
-                reason: normalizeText(service && service.reason) || 'Utile pour le projet.',
-                priceFrom: normalizeText(service && service.priceFrom) || '',
-            }))
-            .filter((service) => service.name),
-        explanation: limitArray(proposal.explanation, 4).map(normalizeText).filter(Boolean),
+        ctas: limitArray(proposal.ctas, 5).map(normalizeText).filter(Boolean),
+        seo: {
+            keywords: limitArray((proposal.seo && proposal.seo.keywords) || proposal.seoKeywords || fallback.seo.keywords, 8).map(normalizeText).filter(Boolean),
+            searchExpressions: limitArray((proposal.seo && proposal.seo.searchExpressions) || fallback.seo.searchExpressions, 6).map(normalizeText).filter(Boolean),
+            titles: limitArray((proposal.seo && proposal.seo.titles) || fallback.seo.titles, 4).map(normalizeText).filter(Boolean),
+            metaDescription: normalizeText(proposal.seo && proposal.seo.metaDescription) || fallback.seo.metaDescription,
+        },
+        seoKeywords: limitArray(proposal.seoKeywords || (proposal.seo && proposal.seo.keywords) || fallback.seoKeywords, 8).map(normalizeText).filter(Boolean),
+        recommendedServices: normalizeRecommendedServices(proposal, fallback),
+        clientAcquisition: normalizeClientAcquisition(proposal, fallback),
+        explanation: limitArray(proposal.explanation, 5).map(normalizeText).filter(Boolean),
         contactMessage: normalize(proposal.contactMessage) || fallback.contactMessage,
     };
 };
@@ -273,7 +385,24 @@ const getOpenAiKeys = () => {
     return [...new Set(keys)];
 };
 
-const requestOpenAiProposal = async ({ apiKey, model, brief }) => {
+const buildOpenAiUserPrompt = ({ brief, revision, currentProposal }) => {
+    const parts = [
+        `Description initiale de l'activite : ${brief}`,
+    ];
+
+    if (revision) {
+        parts.push(`Modification demandee par l'utilisateur : ${revision}`);
+        parts.push('Regenere une proposition complete et coherente en tenant compte de cette modification.');
+    }
+
+    if (currentProposal) {
+        parts.push(`Proposition precedente a ameliorer : ${JSON.stringify(currentProposal).slice(0, 5000)}`);
+    }
+
+    return parts.join('\n\n');
+};
+
+const requestOpenAiProposal = async ({ apiKey, model, brief, revision, currentProposal }) => {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -288,7 +417,7 @@ const requestOpenAiProposal = async ({ apiKey, model, brief }) => {
                 { role: 'system', content: KIRBY_SYSTEM_PROMPT },
                 {
                     role: 'user',
-                    content: `Projet client a transformer en premiere proposition de site : ${brief}`,
+                    content: buildOpenAiUserPrompt({ brief, revision, currentProposal }),
                 },
             ],
         }),
@@ -308,7 +437,7 @@ const requestOpenAiProposal = async ({ apiKey, model, brief }) => {
     return parseOpenAiJson(content);
 };
 
-const callOpenAi = async (brief) => {
+const callOpenAi = async ({ brief, revision, currentProposal }) => {
     const apiKeys = getOpenAiKeys();
 
     if (!apiKeys.length) {
@@ -320,7 +449,7 @@ const callOpenAi = async (brief) => {
 
     for (const apiKey of apiKeys) {
         try {
-            return await requestOpenAiProposal({ apiKey, model, brief });
+            return await requestOpenAiProposal({ apiKey, model, brief, revision, currentProposal });
         } catch (error) {
             errors.push({
                 code: error && error.message ? error.message : 'openai_request_failed',
@@ -349,13 +478,17 @@ module.exports = async (request, response) => {
     }
 
     const brief = normalize(payload.brief).slice(0, 1800);
+    const revision = normalize(payload.revision).slice(0, 800);
+    const currentProposal = payload.currentProposal && typeof payload.currentProposal === 'object'
+        ? payload.currentProposal
+        : null;
 
     if (brief.length < 8) {
         return json(response, 400, { error: 'brief_too_short' });
     }
 
     try {
-        const openAiProposal = await callOpenAi(brief);
+        const openAiProposal = await callOpenAi({ brief, revision, currentProposal });
 
         if (openAiProposal) {
             return json(response, 200, {
@@ -373,6 +506,6 @@ module.exports = async (request, response) => {
 
     return json(response, 200, {
         ok: true,
-        proposal: sanitizeProposal(buildFallbackProposal(brief), brief),
+        proposal: sanitizeProposal(buildFallbackProposal(revision ? `${brief} ${revision}` : brief), brief),
     });
 };

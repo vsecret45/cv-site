@@ -6826,6 +6826,8 @@ const buildBrowserKirbyProposal = (brief) => {
     const needsAppointment = /rdv|rendez|reservation|agenda|coiff|coach|consultation/.test(normalizedBrief);
     const needsShop = /boutique|vendre|produit|commande|paiement|catalogue/.test(normalizedBrief);
     const needsQr = /qr|scan|menu|carte|flyer|partager/.test(normalizedBrief);
+    const needsClientSpace = /espace client|compte client|suivi|document|connexion|prive|privé/.test(normalizedBrief);
+    const needsAiAssistant = /assistant|ia|automatiser|questions|support|chat/.test(normalizedBrief);
     const siteName = activity === 'projet professionnel'
         ? 'Votre Présence Pro'
         : activity.split(/\s+/).map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`).join(' ');
@@ -6841,6 +6843,13 @@ const buildBrowserKirbyProposal = (brief) => {
         siteName,
         slogan: `Une présence claire pour présenter ${activity} et recevoir des contacts.`,
         summary: `Kirby prépare une base de site centrée sur ${activity}, avec des pages courtes et une action visible.`,
+        valueProposition: `Un projet digital complet pour rendre ${activity} plus visible, plus crédible et plus facile à contacter.`,
+        positioning: {
+            audience: 'Clients locaux, prospects qui cherchent vite une solution et visiteurs à rassurer.',
+            promise: needsShop ? 'Découvrir les produits et passer à la commande facilement.' : needsAppointment ? 'Comprendre les offres et réserver sans friction.' : 'Comprendre l’activité et contacter rapidement.',
+            tone: 'Professionnel, simple et rassurant.',
+            differentiator: 'Une proposition IA structurée, puis un accompagnement humain pour finaliser.',
+        },
         recommendedOffer: needsShop || needsAppointment ? 'Offre Pro' : 'Offre Essentiel',
         pages,
         homeSections: [
@@ -6853,11 +6862,25 @@ const buildBrowserKirbyProposal = (brief) => {
             { name: needsAppointment ? 'Rendez-vous' : 'Contact direct', description: needsAppointment ? 'Ajouter un lien de réservation, téléphone ou WhatsApp.' : 'Ajouter un formulaire, e-mail pro ou lien WhatsApp.' },
         ],
         ctas: [mainCta, 'Voir les prestations', 'Contacter maintenant'],
+        seo: {
+            keywords: [activity, `${activity} professionnel`, `${activity} local`, 'site web professionnel'],
+            searchExpressions: [`${activity} près de moi`, `${activity} tarifs`, `${activity} contact`, needsAppointment ? `${activity} rendez-vous` : `${activity} professionnel`],
+            titles: [`${siteName} - ${needsAppointment ? 'Prestations et rendez-vous' : needsShop ? 'Catalogue et commandes' : 'Site officiel'}`, `${activity} - Services et contact`],
+            metaDescription: `${siteName} présente ${activity}, ses services, ses informations utiles et un contact direct pour ${mainCta.toLowerCase()}.`,
+        },
         seoKeywords: [activity, `${activity} professionnel`, `${activity} local`, 'site web professionnel'],
         recommendedServices: [
             { name: needsShop ? 'Boutique en ligne simple' : 'Site vitrine', reason: 'Le projet a besoin d’une page claire et partageable.', priceFrom: needsShop ? 'À partir de 712 € selon le catalogue' : 'À partir de 392 €' },
             { name: 'Adresse e-mail professionnelle', reason: 'Une adresse contact@ renforce la confiance.', priceFrom: 'À partir de 49 €' },
             { name: 'QR code professionnel', reason: needsQr ? 'Le besoin parle déjà de partage ou de support imprimé.' : 'Utile pour partager le site après mise en ligne.', priceFrom: '39 €' },
+            ...(needsClientSpace ? [{ name: 'Espace client simple', reason: 'Utile pour centraliser suivi, documents ou informations privées.', priceFrom: 'Projet spécifique' }] : []),
+            ...(needsAiAssistant ? [{ name: 'Assistant IA métier', reason: 'Utile pour guider les visiteurs et répondre aux questions fréquentes.', priceFrom: 'Projet spécifique' }] : []),
+        ],
+        clientAcquisition: [
+            'Mettre un bouton d’action visible dès le premier écran.',
+            'Ajouter un QR code sur carte, vitrine, flyer ou réseaux sociaux.',
+            'Travailler les mots-clés locaux pour les recherches Google.',
+            'Afficher des preuves simples : photos, avis, réalisations ou exemples.',
         ],
         explanation: [
             'La structure commence par ce que le visiteur cherche.',
@@ -6888,11 +6911,39 @@ const renderKirbyList = (items, renderItem, emptyText = 'A compléter ensemble.'
     return safeItems.map(renderItem).join('');
 };
 
+const getKirbySeo = (proposal = {}) => {
+    const seo = proposal.seo && typeof proposal.seo === 'object' ? proposal.seo : {};
+
+    return {
+        keywords: getKirbyArray(seo.keywords || proposal.seoKeywords, 8),
+        searchExpressions: getKirbyArray(seo.searchExpressions, 6),
+        titles: getKirbyArray(seo.titles, 4),
+        metaDescription: seo.metaDescription || '',
+    };
+};
+
+const requestKirbyProposal = async ({ brief, revision = '', currentProposal = null }) => {
+    const response = await fetch('/api/kirby', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ brief, revision, currentProposal }),
+    });
+
+    if (!response.ok) {
+        throw new Error('kirby_request_failed');
+    }
+
+    return response.json();
+};
+
 const renderKirbyProposal = (proposal, brief) => {
     if (!aiBriefOutput) {
         return;
     }
 
+    const seo = getKirbySeo(proposal);
     const contactMessage = proposal.contactMessage || buildBrowserKirbyProposal(brief).contactMessage;
     const quoteParams = new URLSearchParams({
         service: proposal.recommendedOffer || 'Projet site web',
@@ -6909,6 +6960,26 @@ const renderKirbyProposal = (proposal, brief) => {
         <h3>${cleanHtml(proposal.siteName || 'Nom de site à valider')}</h3>
         <p class="kirby-slogan">${cleanHtml(proposal.slogan || '')}</p>
         <p>${cleanHtml(proposal.summary || '')}</p>
+        <p class="kirby-value">${cleanHtml(proposal.valueProposition || '')}</p>
+
+        <div class="kirby-positioning">
+            <section>
+                <h4>Cible</h4>
+                <p>${cleanHtml(proposal.positioning?.audience || 'Client cible à préciser.')}</p>
+            </section>
+            <section>
+                <h4>Promesse</h4>
+                <p>${cleanHtml(proposal.positioning?.promise || 'Promesse commerciale à préciser.')}</p>
+            </section>
+            <section>
+                <h4>Ton</h4>
+                <p>${cleanHtml(proposal.positioning?.tone || 'Ton professionnel et clair.')}</p>
+            </section>
+            <section>
+                <h4>Valeur ajoutée</h4>
+                <p>${cleanHtml(proposal.positioning?.differentiator || 'Différenciation à préciser.')}</p>
+            </section>
+        </div>
 
         <div class="kirby-result-grid">
             <section>
@@ -6935,13 +7006,27 @@ const renderKirbyProposal = (proposal, brief) => {
                     ${renderKirbyList(proposal.recommendedServices, (service) => `<li><strong>${cleanHtml(service.name)}</strong><span>${cleanHtml(service.reason)} ${service.priceFrom ? `- ${cleanHtml(service.priceFrom)}` : ''}</span></li>`)}
                 </ul>
             </section>
+            <section>
+                <h4>SEO</h4>
+                <ul>
+                    ${renderKirbyList(seo.titles, (title) => `<li><strong>Titre</strong><span>${cleanHtml(title)}</span></li>`, 'Titre SEO à préciser.')}
+                    ${seo.metaDescription ? `<li><strong>Méta-description</strong><span>${cleanHtml(seo.metaDescription)}</span></li>` : ''}
+                    ${renderKirbyList(seo.searchExpressions, (expression) => `<li><strong>Recherche</strong><span>${cleanHtml(expression)}</span></li>`, 'Expressions de recherche à préciser.')}
+                </ul>
+            </section>
+            <section>
+                <h4>Attirer des clients</h4>
+                <ul>
+                    ${renderKirbyList(proposal.clientAcquisition, (item) => `<li><span>${cleanHtml(item)}</span></li>`, 'Actions commerciales à préciser.')}
+                </ul>
+            </section>
         </div>
 
         <div class="kirby-tags" aria-label="Boutons proposes">
             ${getKirbyArray(proposal.ctas, 4).map((cta) => `<span>${cleanHtml(cta)}</span>`).join('')}
         </div>
         <div class="kirby-tags kirby-tags-seo" aria-label="Mots cles SEO proposes">
-            ${getKirbyArray(proposal.seoKeywords, 8).map((keyword) => `<span>${cleanHtml(keyword)}</span>`).join('')}
+            ${seo.keywords.map((keyword) => `<span>${cleanHtml(keyword)}</span>`).join('')}
         </div>
         <div class="kirby-explanation">
             <h4>Pourquoi ces choix ?</h4>
@@ -6949,8 +7034,37 @@ const renderKirbyProposal = (proposal, brief) => {
                 ${renderKirbyList(proposal.explanation, (item) => `<li>${cleanHtml(item)}</li>`)}
             </ul>
         </div>
+        <form class="kirby-revision-form">
+            <label class="field">
+                <span>Modifier la proposition</span>
+                <textarea rows="3" name="revision" placeholder="Ex. Ajoute une boutique, rends le ton plus premium, change le nom, ajoute un espace client..."></textarea>
+            </label>
+            <button class="button button-secondary" type="submit">Mettre à jour la proposition</button>
+        </form>
         <a class="button button-primary" href="contact.html?${quoteParams.toString()}">Envoyer cette proposition</a>
     `;
+
+    const revisionForm = aiBriefOutput.querySelector('.kirby-revision-form');
+
+    revisionForm?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+
+        const revision = new FormData(revisionForm).get('revision')?.toString().trim() || '';
+
+        if (!revision) {
+            return;
+        }
+
+        setKirbyLoading();
+
+        try {
+            const payload = await requestKirbyProposal({ brief, revision, currentProposal: proposal });
+            renderKirbyProposal(payload.proposal || buildBrowserKirbyProposal(`${brief} ${revision}`), brief);
+        } catch (error) {
+            console.warn('Kirby revision fallback:', error);
+            renderKirbyProposal(buildBrowserKirbyProposal(`${brief} ${revision}`), brief);
+        }
+    });
 };
 
 const setKirbyLoading = () => {
@@ -6962,7 +7076,7 @@ const setKirbyLoading = () => {
     aiBriefOutput.innerHTML = `
         <p class="signal-label">Kirby construit</p>
         <h3>Préparation de la première proposition...</h3>
-        <p>Analyse du projet, nom, slogan, pages, textes, CTA, SEO et options utiles.</p>
+        <p>Analyse du projet, positionnement, structure, textes, SEO, acquisition client et services utiles.</p>
     `;
 };
 
@@ -6995,19 +7109,7 @@ if (aiBriefForm && aiBriefInput && aiBriefOutput) {
         setKirbyLoading();
 
         try {
-            const response = await fetch('/api/kirby', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ brief }),
-            });
-
-            if (!response.ok) {
-                throw new Error('kirby_request_failed');
-            }
-
-            const payload = await response.json();
+            const payload = await requestKirbyProposal({ brief });
             renderKirbyProposal(payload.proposal || buildBrowserKirbyProposal(brief), brief);
         } catch (error) {
             console.warn('Kirby assistant fallback:', error);

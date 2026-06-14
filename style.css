@@ -6360,6 +6360,36 @@ body.studio-home .section:first-child {
     font-weight: 800;
 }
 
+.kirby-value {
+    padding: 0.85rem 0.95rem;
+    border: 1px solid rgba(239, 214, 163, 0.12);
+    border-radius: 14px;
+    background: rgba(239, 214, 163, 0.07);
+    color: rgba(248, 246, 238, 0.84);
+    font-weight: 700;
+}
+
+.kirby-positioning {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.7rem;
+}
+
+.kirby-positioning section {
+    display: grid;
+    gap: 0.35rem;
+    padding: 0.8rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.kirby-positioning p {
+    color: rgba(248, 246, 238, 0.72);
+    font-size: 0.88rem;
+    line-height: 1.45;
+}
+
 .kirby-result-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -6403,6 +6433,20 @@ body.studio-home .section:first-child {
     color: rgba(223, 230, 255, 0.9);
 }
 
+.kirby-revision-form {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 0.2rem;
+    padding: 0.95rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.kirby-revision-form .button {
+    width: fit-content;
+}
+
 body.studio-home[data-theme="day"] .kirby-examples button {
     border-color: rgba(42, 45, 58, 0.1);
     background: rgba(255, 255, 255, 0.6);
@@ -6412,6 +6456,8 @@ body.studio-home[data-theme="day"] .kirby-examples button {
 body.studio-home[data-theme="day"] .kirby-proposal-head span,
 body.studio-home[data-theme="day"] .kirby-tags span,
 body.studio-home[data-theme="day"] .kirby-result-grid section,
+body.studio-home[data-theme="day"] .kirby-positioning section,
+body.studio-home[data-theme="day"] .kirby-revision-form,
 body.studio-home[data-theme="day"] .kirby-explanation {
     border-color: rgba(42, 45, 58, 0.1);
     background: rgba(255, 255, 255, 0.45);
@@ -6419,11 +6465,13 @@ body.studio-home[data-theme="day"] .kirby-explanation {
 }
 
 body.studio-home[data-theme="day"] .kirby-slogan,
+body.studio-home[data-theme="day"] .kirby-value,
 body.studio-home[data-theme="day"] .kirby-result-grid strong {
     color: #171923;
 }
 
 body.studio-home[data-theme="day"] .kirby-result-grid span,
+body.studio-home[data-theme="day"] .kirby-positioning p,
 body.studio-home[data-theme="day"] .kirby-proposal-head span,
 body.studio-home[data-theme="day"] .kirby-tags span {
     color: rgba(42, 45, 58, 0.74);
@@ -6452,6 +6500,10 @@ body.studio-home[data-theme="day"] .kirby-tags span {
     }
 
     .kirby-result-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .kirby-positioning {
         grid-template-columns: 1fr;
     }
 }
