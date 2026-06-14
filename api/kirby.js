@@ -77,8 +77,6 @@ Regles strictes :
 - Propose un modele de site concret : type de mise en page, sections visibles, style conseille et logique de navigation.
 - Pour un hotel, une chambre d'hote, un gite ou un hebergement, propose systematiquement : Accueil, Chambres, Tarifs, Reservation, Galerie, Localisation, Contact.
 - Pour un hotel ou un hebergement, recommande les fonctionnalites utiles : formulaire de reservation, calendrier de disponibilites, Google Maps, avis clients, paiement ou acompte, QR code.
-- Pour un projet luxe, mobilier, decoration, design, architecture ou marque premium : propose une direction visuelle haut de gamme, peu de texte, un nom elegant et memorisable, un menu comme Collection, Univers, Sur mesure, Contact.
-- Pour ces projets premium, evite les noms descriptifs ou generiques comme "LuxuryCircle", "LuxeDesign", "Mobilier Premium", "Luxury Furniture". Prefere des noms de marque comme "Maison Oria", "Atelier Velin", "Ligne Astrale", "Noble Forme".
 - N'envoie jamais directement vers un formulaire de contact dans la reponse : la proposition complete vient d'abord, l'envoi arrive seulement en etape suivante dans l'interface.
 - Si l'utilisateur demande une modification, regenere une proposition coherente, pas seulement une correction locale.
 - Retourne uniquement un JSON valide, sans markdown.
@@ -149,12 +147,6 @@ const getActivityWords = (brief) => {
         ['location', 'location'],
         ['association', 'association'],
         ['boutique', 'boutique'],
-        ['mobilier', 'marque de mobilier'],
-        ['meuble', 'marque de mobilier'],
-        ['design', 'studio design'],
-        ['decoration', 'studio decoration'],
-        ['décoration', 'studio decoration'],
-        ['luxe', 'marque premium'],
         ['cv', 'CV et portfolio'],
         ['portfolio', 'portfolio'],
     ];
@@ -188,13 +180,12 @@ const buildFallbackProposal = (brief) => {
     const needsShop = /\b(boutique|vendre|vente|commande|produit|panier|paiement|catalogue)\b/.test(lowerBrief);
     const needsMenu = /\b(menu|restaurant|carte|plat|tarif|prix)\b/.test(lowerBrief);
     const needsPortfolio = /\b(cv|portfolio|book|realisations|candidat|candidate)\b/.test(lowerBrief);
-    const needsLuxuryDesign = /\b(luxe|premium|haut de gamme|mobilier|meuble|design|decoration|architecture|palace|sur mesure)\b/.test(lowerBrief);
     const needsQr = /\b(qr|scan|flyer|carte|menu|partager)\b/.test(lowerBrief);
     const needsClientSpace = /\b(espace client|compte client|suivi|document|documents|connexion|prive|privé)\b/.test(lowerBrief);
     const needsAiAssistant = /\b(assistant|ia|automatiser|automatisation|questions|support|chat)\b/.test(lowerBrief);
     const nameBase = titleCase(activity.replace(/^site\s+/i, ''));
-    const siteName = needsLuxuryDesign ? 'Maison Oria' : nameBase.length > 28 ? `Studio ${nameBase.split(/\s+/)[0]}` : nameBase;
-    const mainAction = needsLuxuryDesign ? 'Découvrir la collection' : needsHotel ? 'Réserver une chambre' : needsShop ? 'Commander en ligne' : needsAppointment ? 'Prendre rendez-vous' : 'Demander une information';
+    const siteName = nameBase.length > 28 ? `Studio ${nameBase.split(/\s+/)[0]}` : nameBase;
+    const mainAction = needsHotel ? 'Réserver une chambre' : needsShop ? 'Commander en ligne' : needsAppointment ? 'Prendre rendez-vous' : 'Demander une information';
     const pages = needsHotel ? [
         { name: 'Accueil', goal: "Présenter l'hôtel, l'ambiance et le bouton de réservation." },
         { name: 'Chambres', goal: 'Montrer les chambres, équipements, photos et capacités.' },
@@ -205,9 +196,8 @@ const buildFallbackProposal = (brief) => {
         { name: 'Contact', goal: 'Donner téléphone, e-mail et formulaire.' },
     ] : [
         { name: 'Accueil', goal: "Faire comprendre l'activité et donner envie de continuer." },
-        { name: needsLuxuryDesign ? 'Collection' : needsShop ? 'Boutique' : needsMenu ? 'Tarifs' : 'Prestations', goal: needsLuxuryDesign ? 'Présenter les pièces, les matières et la gamme.' : needsShop ? 'Présenter les produits et guider vers la commande.' : 'Présenter clairement ce que le client peut acheter.' },
-        { name: needsLuxuryDesign ? 'Univers' : needsPortfolio ? 'Portfolio' : 'A propos', goal: needsLuxuryDesign ? 'Installer l’ambiance de marque et rassurer par l’image.' : needsPortfolio ? 'Montrer les réalisations, le parcours ou les preuves.' : 'Rassurer avec une présentation humaine et professionnelle.' },
-        ...(needsLuxuryDesign ? [{ name: 'Sur mesure', goal: 'Montrer les options, finitions et demandes personnalisées.' }] : []),
+        { name: needsShop ? 'Boutique' : needsMenu ? 'Tarifs' : 'Prestations', goal: needsShop ? 'Présenter les produits et guider vers la commande.' : 'Présenter clairement ce que le client peut acheter.' },
+        { name: needsPortfolio ? 'Portfolio' : 'A propos', goal: needsPortfolio ? 'Montrer les réalisations, le parcours ou les preuves.' : 'Rassurer avec une présentation humaine et professionnelle.' },
         { name: 'Contact', goal: 'Donner un moyen direct de demander une information.' },
     ];
     const recommendedServices = [
@@ -270,10 +260,10 @@ const buildFallbackProposal = (brief) => {
 
     return {
         mode: 'fallback',
-        projectType: needsLuxuryDesign ? 'Site marque premium' : needsHotel ? 'Site hôtel avec réservation' : needsShop ? 'Boutique en ligne simple' : needsPortfolio ? 'CV ou portfolio en ligne' : needsAppointment ? 'Site avec prise de rendez-vous' : needsWordPress ? 'Site WordPress professionnel' : 'Site vitrine professionnel',
+        projectType: needsHotel ? 'Site hôtel avec réservation' : needsShop ? 'Boutique en ligne simple' : needsPortfolio ? 'CV ou portfolio en ligne' : needsAppointment ? 'Site avec prise de rendez-vous' : needsWordPress ? 'Site WordPress professionnel' : 'Site vitrine professionnel',
         siteName,
-        slogan: needsLuxuryDesign ? 'Le confort prend une signature.' : needsShop ? `Des produits clairs, faciles à découvrir et commander.` : `Une présence claire pour présenter ${activity} et recevoir des contacts.`,
-        summary: needsLuxuryDesign ? 'Une page premium centrée sur l’image, la collection et la prise de contact.' : `Kirby propose de construire un site simple autour de ${activity}, avec un message direct, des pages utiles et un contact visible.`,
+        slogan: needsShop ? `Des produits clairs, faciles à découvrir et commander.` : `Une présence claire pour présenter ${activity} et recevoir des contacts.`,
+        summary: `Kirby propose de construire un site simple autour de ${activity}, avec un message direct, des pages utiles et un contact visible.`,
         valueProposition: `Un projet digital clair qui aide ${activity} à être trouvé, compris et contacté plus facilement.`,
         positioning: {
             audience: 'Clients locaux, visiteurs qui cherchent une solution rapide et prospects à rassurer.',
@@ -282,34 +272,34 @@ const buildFallbackProposal = (brief) => {
             differentiator: 'Une structure simple, des options utiles et un accompagnement humain après la proposition IA.',
         },
         styleGuide: {
-            direction: needsLuxuryDesign ? 'Page immersive, haut de gamme, centrée sur un grand visuel et peu de texte.' : needsHotel ? 'Site immersif avec photos, chambres, disponibilité et réservation visible.' : needsShop ? 'Catalogue clair avec produits visibles et parcours de commande court.' : needsAppointment ? 'Site élégant avec agenda ou contact visible dès le premier écran.' : 'Vitrine moderne, lisible et rassurante.',
-            colors: needsLuxuryDesign ? 'Noir profond, ivoire, doré discret, visuels matière.' : 'Fond sobre, contraste fort, une couleur d’accent pour les boutons et les informations importantes.',
-            typography: needsLuxuryDesign ? 'Grand titre élégant, textes courts, rythme éditorial.' : 'Titres francs, textes courts, lecture facile sur mobile.',
-            layout: needsLuxuryDesign ? 'Hero pleine largeur, Collection, Univers, Sur mesure, Contact.' : needsHotel ? 'Hero photo, chambres, tarifs, galerie, localisation, avis, réservation.' : 'Accueil direct, blocs courts, grille de prestations, preuves, puis contact.',
+            direction: needsHotel ? 'Site immersif avec photos, chambres, disponibilité et réservation visible.' : needsShop ? 'Catalogue clair avec produits visibles et parcours de commande court.' : needsAppointment ? 'Site élégant avec agenda ou contact visible dès le premier écran.' : 'Vitrine moderne, lisible et rassurante.',
+            colors: 'Fond sobre, contraste fort, une couleur d’accent pour les boutons et les informations importantes.',
+            typography: 'Titres francs, textes courts, lecture facile sur mobile.',
+            layout: needsHotel ? 'Hero photo, chambres, tarifs, galerie, localisation, avis, réservation.' : 'Accueil direct, blocs courts, grille de prestations, preuves, puis contact.',
         },
         siteModel: {
-            name: needsLuxuryDesign ? 'Modèle marque premium' : needsHotel ? 'Modèle hôtel + réservation' : needsShop ? 'Modèle catalogue + commande' : needsAppointment ? 'Modèle rendez-vous local' : 'Modèle vitrine professionnelle',
-            description: needsLuxuryDesign ? 'Une structure visuelle pour vendre l’univers, les pièces et le sur mesure.' : needsHotel ? 'Une structure pensée pour montrer les chambres, rassurer, localiser et convertir vers la réservation.' : needsShop ? 'Une page d’accueil qui mène vite vers le catalogue, les produits et la commande.' : needsAppointment ? 'Une page d’accueil centrée sur les prestations, les preuves et la prise de rendez-vous.' : 'Une vitrine claire pour expliquer l’activité, rassurer et obtenir une demande.',
+            name: needsHotel ? 'Modèle hôtel + réservation' : needsShop ? 'Modèle catalogue + commande' : needsAppointment ? 'Modèle rendez-vous local' : 'Modèle vitrine professionnelle',
+            description: needsHotel ? 'Une structure pensée pour montrer les chambres, rassurer, localiser et convertir vers la réservation.' : needsShop ? 'Une page d’accueil qui mène vite vers le catalogue, les produits et la commande.' : needsAppointment ? 'Une page d’accueil centrée sur les prestations, les preuves et la prise de rendez-vous.' : 'Une vitrine claire pour expliquer l’activité, rassurer et obtenir une demande.',
             sections: [
-                needsLuxuryDesign ? 'Hero marque avec visuel fort' : needsHotel ? 'Hero hôtel avec bouton Réserver' : 'Hero avec promesse et bouton principal',
-                needsLuxuryDesign ? 'Collection' : needsHotel ? 'Chambres et équipements' : needsShop ? 'Produits ou catégories' : 'Prestations principales',
-                needsLuxuryDesign ? 'Univers et matières' : needsHotel ? 'Tarifs ou disponibilités' : needsPortfolio ? 'Réalisations ou portfolio' : 'Preuves de confiance',
-                needsLuxuryDesign ? 'Sur mesure et contact' : needsHotel ? 'Galerie et localisation' : needsAppointment ? 'Prise de rendez-vous' : 'Contact rapide',
+                needsHotel ? 'Hero hôtel avec bouton Réserver' : 'Hero avec promesse et bouton principal',
+                needsHotel ? 'Chambres et équipements' : needsShop ? 'Produits ou catégories' : 'Prestations principales',
+                needsHotel ? 'Tarifs ou disponibilités' : needsPortfolio ? 'Réalisations ou portfolio' : 'Preuves de confiance',
+                needsHotel ? 'Galerie et localisation' : needsAppointment ? 'Prise de rendez-vous' : 'Contact rapide',
             ],
         },
         recommendedOffer: needsHotel ? 'Offre Signature' : needsShop ? 'Offre Pro' : needsPortfolio ? 'Mini-page professionnelle' : needsAppointment ? 'Offre Pro' : needsWordPress ? 'Projet spécifique' : 'Offre Essentiel',
         pages,
         homeSections: [
-            { title: needsLuxuryDesign ? 'Collection' : `Bienvenue chez ${siteName}`, text: needsLuxuryDesign ? 'Une sélection courte, visuelle et désirable.' : needsHotel ? `Un accueil visuel présente l'hôtel, l'ambiance, la ville et le bouton ${mainAction}.` : `Une page d'accueil claire pour expliquer l'activité, rassurer le visiteur et l'orienter vers ${mainAction.toLowerCase()}.` },
-            { title: needsLuxuryDesign ? 'Univers' : needsHotel ? 'Chambres et services' : needsShop ? 'Produits ou catalogue' : 'Prestations principales', text: needsLuxuryDesign ? 'Matières, formes, ambiance et promesse de marque.' : needsHotel ? 'Les chambres, équipements et services sont présentés avec photos, tarifs ou indications pratiques.' : needsShop ? 'Les produits sont présentés par catégorie, avec un chemin simple vers la commande.' : 'Les services sont présentés avec des mots simples, des tarifs ou indications pratiques.' },
-            { title: needsLuxuryDesign ? 'Sur mesure' : 'Contact rapide', text: needsLuxuryDesign ? 'Demandes personnalisées, finitions et accompagnement.' : `Un bouton ${mainAction} reste visible pour transformer la visite en demande concrète.` },
+            { title: `Bienvenue chez ${siteName}`, text: needsHotel ? `Un accueil visuel présente l'hôtel, l'ambiance, la ville et le bouton ${mainAction}.` : `Une page d'accueil claire pour expliquer l'activité, rassurer le visiteur et l'orienter vers ${mainAction.toLowerCase()}.` },
+            { title: needsHotel ? 'Chambres et services' : needsShop ? 'Produits ou catalogue' : 'Prestations principales', text: needsHotel ? 'Les chambres, équipements et services sont présentés avec photos, tarifs ou indications pratiques.' : needsShop ? 'Les produits sont présentés par catégorie, avec un chemin simple vers la commande.' : 'Les services sont présentés avec des mots simples, des tarifs ou indications pratiques.' },
+            { title: 'Contact rapide', text: `Un bouton ${mainAction} reste visible pour transformer la visite en demande concrète.` },
         ],
         services: [
             { name: needsHotel ? 'Chambres' : needsShop ? 'Catalogue en ligne' : "Présentation de l'activité", description: needsHotel ? 'Présenter chaque chambre avec photos, équipements, capacité et ambiance.' : 'Un bloc court pour dire ce qui est proposé, pour qui et dans quelle zone.' },
             { name: needsHotel ? 'Réservation' : needsAppointment ? 'Rendez-vous' : 'Contact direct', description: needsHotel ? 'Formulaire de disponibilité, téléphone, e-mail et éventuellement acompte.' : needsAppointment ? 'Un lien de réservation, téléphone ou WhatsApp pour choisir un créneau.' : 'Un formulaire simple, un e-mail professionnel ou un lien WhatsApp.' },
             { name: needsHotel ? 'Localisation et galerie' : 'Preuves et confiance', description: needsHotel ? 'Google Maps, photos, points d’intérêt et avis clients.' : 'Photos, avis, exemples, certifications ou informations pratiques.' },
         ],
-        ctas: [mainAction, needsLuxuryDesign ? 'Demander du sur mesure' : needsHotel ? 'Demander une disponibilité' : 'Voir les prestations', 'Contacter maintenant'],
+        ctas: [mainAction, needsHotel ? 'Demander une disponibilité' : 'Voir les prestations', 'Contacter maintenant'],
         seo,
         seoKeywords,
         recommendedServices,

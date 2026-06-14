@@ -87,8 +87,6 @@ const suggestionChips = document.querySelectorAll('.suggestion-chip');
 const themeToggles = document.querySelectorAll('.theme-toggle');
 const aiBriefForm = document.querySelector('#ai-brief-form');
 const aiBriefInput = document.querySelector('#ai-brief-input');
-const aiBriefStyle = document.querySelector('#ai-brief-style');
-const aiBriefGoal = document.querySelector('#ai-brief-goal');
 const aiBriefOutput = document.querySelector('#ai-brief-output');
 const kirbyExampleButtons = document.querySelectorAll('[data-kirby-example]');
 const qrServiceForm = document.querySelector('#qr-service-form');
@@ -6814,11 +6812,6 @@ const guessKirbyActivity = (brief) => {
         ['artisan', 'artisan'],
         ['wordpress', 'site WordPress'],
         ['boutique', 'boutique'],
-        ['mobilier', 'marque de mobilier'],
-        ['meuble', 'marque de mobilier'],
-        ['design', 'studio design'],
-        ['decoration', 'studio decoration'],
-        ['luxe', 'marque premium'],
         ['cv', 'CV et portfolio'],
         ['portfolio', 'portfolio'],
     ];
@@ -6838,16 +6831,13 @@ const buildBrowserKirbyProposal = (brief) => {
     const needsHotel = /hotel|hôtel|chambre|hebergement|hébergement|gite|gîte|sejour|séjour|touristique/.test(normalizedBrief);
     const needsWordPress = /wordpress|wp|cms|refonte/.test(normalizedBrief);
     const needsShop = /boutique|vendre|produit|commande|paiement|catalogue/.test(normalizedBrief);
-    const needsLuxuryDesign = /luxe|premium|haut de gamme|mobilier|meuble|design|decoration|architecture|palace|sur mesure/.test(normalizedBrief);
     const needsQr = /qr|scan|menu|carte|flyer|partager/.test(normalizedBrief);
     const needsClientSpace = /espace client|compte client|suivi|document|connexion|prive|privé/.test(normalizedBrief);
     const needsAiAssistant = /assistant|ia|automatiser|questions|support|chat/.test(normalizedBrief);
-    const siteName = needsLuxuryDesign
-        ? 'Maison Oria'
-        : activity === 'projet professionnel'
+    const siteName = activity === 'projet professionnel'
         ? 'Votre Présence Pro'
         : activity.split(/\s+/).map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`).join(' ');
-    const mainCta = needsLuxuryDesign ? 'Découvrir la collection' : needsHotel ? 'Réserver une chambre' : needsShop ? 'Commander en ligne' : needsAppointment ? 'Prendre rendez-vous' : 'Voir le projet';
+    const mainCta = needsHotel ? 'Réserver une chambre' : needsShop ? 'Commander en ligne' : needsAppointment ? 'Prendre rendez-vous' : 'Voir le projet';
     const pages = needsHotel ? [
         { name: 'Accueil', goal: 'Présenter l’hôtel, l’ambiance et le bouton de réservation.' },
         { name: 'Chambres', goal: 'Montrer chambres, équipements, photos et capacités.' },
@@ -6858,16 +6848,15 @@ const buildBrowserKirbyProposal = (brief) => {
         { name: 'Contact', goal: 'Donner téléphone, e-mail professionnel et accès direct.' },
     ] : [
         { name: 'Accueil', goal: 'Présenter l’activité et donner une raison de continuer.' },
-        { name: needsLuxuryDesign ? 'Collection' : needsShop ? 'Boutique' : 'Prestations', goal: needsLuxuryDesign ? 'Présenter les pièces, matières et finitions.' : needsShop ? 'Présenter les produits et guider vers la commande.' : 'Afficher les services, tarifs ou informations utiles.' },
-        ...(needsLuxuryDesign ? [{ name: 'Univers', goal: 'Installer l’ambiance de marque.' }, { name: 'Sur mesure', goal: 'Montrer les demandes personnalisées.' }] : []),
+        { name: needsShop ? 'Boutique' : 'Prestations', goal: needsShop ? 'Présenter les produits et guider vers la commande.' : 'Afficher les services, tarifs ou informations utiles.' },
         { name: 'Contact', goal: 'Permettre au visiteur d’écrire, appeler ou réserver.' },
     ];
 
     return {
-        projectType: needsLuxuryDesign ? 'Site marque premium' : needsHotel ? 'Site hôtel avec réservation' : needsShop ? 'Boutique en ligne simple' : needsWordPress ? 'Site WordPress professionnel' : needsAppointment ? 'Site avec rendez-vous' : 'Site vitrine professionnel',
+        projectType: needsHotel ? 'Site hôtel avec réservation' : needsShop ? 'Boutique en ligne simple' : needsWordPress ? 'Site WordPress professionnel' : needsAppointment ? 'Site avec rendez-vous' : 'Site vitrine professionnel',
         siteName,
-        slogan: needsLuxuryDesign ? 'Le confort prend une signature.' : `Une présence claire pour présenter ${activity} et recevoir des contacts.`,
-        summary: needsLuxuryDesign ? 'Une base premium centrée sur l’image, la collection et la prise de contact.' : `Kirby prépare une base de site centrée sur ${activity}, avec des pages courtes et une action visible.`,
+        slogan: `Une présence claire pour présenter ${activity} et recevoir des contacts.`,
+        summary: `Kirby prépare une base de site centrée sur ${activity}, avec des pages courtes et une action visible.`,
         valueProposition: `Un projet digital complet pour rendre ${activity} plus visible, plus crédible et plus facile à contacter.`,
         positioning: {
             audience: 'Clients locaux, prospects qui cherchent vite une solution et visiteurs à rassurer.',
@@ -6876,27 +6865,27 @@ const buildBrowserKirbyProposal = (brief) => {
             differentiator: 'Une proposition IA structurée, puis un accompagnement humain pour finaliser.',
         },
         styleGuide: {
-            direction: needsLuxuryDesign ? 'Page immersive haut de gamme, grand visuel, peu de texte.' : needsHotel ? 'Site immersif avec chambres, galerie, localisation et réservation visible.' : needsShop ? 'Catalogue clair avec produits visibles et commande directe.' : needsAppointment ? 'Site élégant orienté réservation et preuves visuelles.' : 'Vitrine moderne, lisible et rassurante.',
-            colors: needsLuxuryDesign ? 'Noir profond, ivoire, doré discret.' : 'Fond sobre, contraste fort, accent lumineux pour les boutons.',
-            typography: needsLuxuryDesign ? 'Grand titre élégant, textes très courts.' : 'Titres nets, textes courts, lecture facile sur mobile.',
-            layout: needsLuxuryDesign ? 'Hero, Collection, Univers, Sur mesure, Contact.' : needsHotel ? 'Hero photo, chambres, tarifs, galerie, localisation, avis, réservation.' : 'Hero direct, prestations, preuves, galerie ou avis, puis contact.',
+            direction: needsHotel ? 'Site immersif avec chambres, galerie, localisation et réservation visible.' : needsShop ? 'Catalogue clair avec produits visibles et commande directe.' : needsAppointment ? 'Site élégant orienté réservation et preuves visuelles.' : 'Vitrine moderne, lisible et rassurante.',
+            colors: 'Fond sobre, contraste fort, accent lumineux pour les boutons.',
+            typography: 'Titres nets, textes courts, lecture facile sur mobile.',
+            layout: needsHotel ? 'Hero photo, chambres, tarifs, galerie, localisation, avis, réservation.' : 'Hero direct, prestations, preuves, galerie ou avis, puis contact.',
         },
         siteModel: {
-            name: needsLuxuryDesign ? 'Modèle marque premium' : needsHotel ? 'Modèle hôtel + réservation' : needsShop ? 'Modèle catalogue + commande' : needsAppointment ? 'Modèle rendez-vous local' : 'Modèle vitrine professionnelle',
-            description: needsLuxuryDesign ? 'Une structure visuelle pour vendre l’univers, les pièces et le sur mesure.' : needsHotel ? 'Une structure qui montre les chambres, rassure, localise et mène vers la réservation.' : needsShop ? 'Une structure qui présente vite les produits et conduit vers la commande.' : needsAppointment ? 'Une structure qui montre les prestations, rassure et mène vers la réservation.' : 'Une structure pour expliquer l’activité, rassurer et déclencher une action claire.',
+            name: needsHotel ? 'Modèle hôtel + réservation' : needsShop ? 'Modèle catalogue + commande' : needsAppointment ? 'Modèle rendez-vous local' : 'Modèle vitrine professionnelle',
+            description: needsHotel ? 'Une structure qui montre les chambres, rassure, localise et mène vers la réservation.' : needsShop ? 'Une structure qui présente vite les produits et conduit vers la commande.' : needsAppointment ? 'Une structure qui montre les prestations, rassure et mène vers la réservation.' : 'Une structure pour expliquer l’activité, rassurer et déclencher une action claire.',
             sections: [
-                needsLuxuryDesign ? 'Hero marque avec visuel fort' : needsHotel ? 'Hero hôtel avec bouton Réserver' : 'Hero avec promesse et bouton principal',
-                needsLuxuryDesign ? 'Collection' : needsHotel ? 'Chambres et équipements' : needsShop ? 'Catalogue ou produits' : 'Prestations principales',
-                needsLuxuryDesign ? 'Univers et matières' : needsHotel ? 'Tarifs ou disponibilités' : 'Galerie, avis ou preuves',
-                needsLuxuryDesign ? 'Sur mesure et contact' : needsHotel ? 'Galerie, localisation et contact' : needsAppointment ? 'Prise de rendez-vous' : 'Contact rapide',
+                needsHotel ? 'Hero hôtel avec bouton Réserver' : 'Hero avec promesse et bouton principal',
+                needsHotel ? 'Chambres et équipements' : needsShop ? 'Catalogue ou produits' : 'Prestations principales',
+                needsHotel ? 'Tarifs ou disponibilités' : 'Galerie, avis ou preuves',
+                needsHotel ? 'Galerie, localisation et contact' : needsAppointment ? 'Prise de rendez-vous' : 'Contact rapide',
             ],
         },
         recommendedOffer: needsHotel ? 'Offre Signature' : needsWordPress ? 'Projet spécifique' : needsShop || needsAppointment ? 'Offre Pro' : 'Offre Essentiel',
         pages,
         homeSections: [
-            { title: needsLuxuryDesign ? 'Collection' : `Bienvenue chez ${siteName}`, text: needsLuxuryDesign ? 'Une sélection courte, visuelle et désirable.' : needsHotel ? `Un accueil visuel présente l’hôtel, l’ambiance, la ville et le bouton ${mainCta}.` : `Un bloc d’accueil direct explique l’activité, la zone et ce que le visiteur peut faire.` },
-            { title: needsLuxuryDesign ? 'Univers' : needsHotel ? 'Chambres et services' : needsShop ? 'Produits ou catalogue' : 'Services principaux', text: needsLuxuryDesign ? 'Matières, formes, ambiance et promesse de marque.' : needsHotel ? 'Les chambres, équipements et services sont présentés avec photos, tarifs ou disponibilités.' : needsShop ? 'Les produits sont organisés pour faciliter la commande.' : 'Les prestations sont présentées sans texte inutile, avec une phrase claire par service.' },
-            { title: needsLuxuryDesign ? 'Sur mesure' : 'Action principale', text: needsLuxuryDesign ? 'Demandes personnalisées, finitions et accompagnement.' : `Le bouton ${mainCta} reste visible pour guider le visiteur vers l’étape suivante.` },
+            { title: `Bienvenue chez ${siteName}`, text: needsHotel ? `Un accueil visuel présente l’hôtel, l’ambiance, la ville et le bouton ${mainCta}.` : `Un bloc d’accueil direct explique l’activité, la zone et ce que le visiteur peut faire.` },
+            { title: needsHotel ? 'Chambres et services' : needsShop ? 'Produits ou catalogue' : 'Services principaux', text: needsHotel ? 'Les chambres, équipements et services sont présentés avec photos, tarifs ou disponibilités.' : needsShop ? 'Les produits sont organisés pour faciliter la commande.' : 'Les prestations sont présentées sans texte inutile, avec une phrase claire par service.' },
+            { title: 'Action principale', text: `Le bouton ${mainCta} reste visible pour guider le visiteur vers l’étape suivante.` },
         ],
         services: [
             { name: needsHotel ? 'Chambres' : 'Présentation claire', description: needsHotel ? 'Présenter chaque chambre avec photos, équipements, capacité et ambiance.' : 'Dire quoi, pour qui, dans quelle zone et avec quel résultat.' },
@@ -7035,26 +7024,7 @@ const buildKirbyBriefFromForm = () => {
         return '';
     }
 
-    const formData = new FormData(aiBriefForm);
-    const baseBrief = aiBriefInput.value.trim();
-    const goal = formData.get('goal')?.toString().trim();
-    const style = formData.get('style')?.toString().trim();
-    const features = formData.getAll('features').map((feature) => feature.toString().trim()).filter(Boolean);
-    const details = [baseBrief];
-
-    if (goal) {
-        details.push(`Objectif principal : ${goal}.`);
-    }
-
-    if (style) {
-        details.push(`Style souhaité : ${style}.`);
-    }
-
-    if (features.length) {
-        details.push(`Options à préparer si pertinent : ${features.join(', ')}.`);
-    }
-
-    return details.filter(Boolean).join('\n');
+    return aiBriefInput.value.trim();
 };
 
 const requestKirbyProposal = async ({ brief, revision = '', currentProposal = null }) => {
