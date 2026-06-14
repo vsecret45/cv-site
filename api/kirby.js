@@ -39,6 +39,7 @@ Services disponibles :
 - creation de site vitrine ;
 - site web assiste par IA ;
 - mini-page professionnelle ;
+- installation, configuration, refonte ou accompagnement WordPress ;
 - boutique en ligne simple ;
 - adresse e-mail professionnelle ;
 - nom de domaine ;
@@ -48,6 +49,9 @@ Services disponibles :
 - portfolio numerique ;
 - CV numerique ;
 - espace client simple ;
+- reservation en ligne ;
+- galerie photos ;
+- fiche activite ;
 - assistant IA metier ;
 - accompagnement humain.
 
@@ -63,6 +67,9 @@ Regles strictes :
 - Propose 3 a 5 idees concretes pour attirer des clients.
 - Propose au moins 4 pages ou sections quand l'activite le permet.
 - Propose un modele de site concret : type de mise en page, sections visibles, style conseille et logique de navigation.
+- Pour un hotel, une chambre d'hote, un gite ou un hebergement, propose systematiquement : Accueil, Chambres, Tarifs, Reservation, Galerie, Localisation, Contact.
+- Pour un hotel ou un hebergement, recommande les fonctionnalites utiles : formulaire de reservation, calendrier de disponibilites, Google Maps, avis clients, paiement ou acompte, QR code.
+- N'envoie jamais directement vers un formulaire de contact dans la reponse : la proposition complete vient d'abord, l'envoi arrive seulement en etape suivante dans l'interface.
 - Si l'utilisateur demande une modification, regenere une proposition coherente, pas seulement une correction locale.
 - Retourne uniquement un JSON valide, sans markdown.
 
@@ -125,6 +132,9 @@ const getActivityWords = (brief) => {
         ['institut', 'institut'],
         ['estheticienne', 'institut de beaute'],
         ['hotel', 'hotel'],
+        ['hôtel', 'hotel'],
+        ['gite', 'hebergement'],
+        ['gîte', 'hebergement'],
         ['chambre', 'hebergement'],
         ['location', 'location'],
         ['association', 'association'],
@@ -157,6 +167,8 @@ const buildFallbackProposal = (brief) => {
     const activity = getActivityWords(brief);
     const lowerBrief = stripAccents(brief.toLowerCase());
     const needsAppointment = /\b(rdv|rendez|reservation|creneau|agenda|coiff|coach|institut|beaute|consultation)\b/.test(lowerBrief);
+    const needsHotel = /\b(hotel|hôtel|chambre|hebergement|hébergement|gite|gîte|sejour|séjour|touristique)\b/.test(lowerBrief);
+    const needsWordPress = /\b(wordpress|wp|cms|refonte)\b/.test(lowerBrief);
     const needsShop = /\b(boutique|vendre|vente|commande|produit|panier|paiement|catalogue)\b/.test(lowerBrief);
     const needsMenu = /\b(menu|restaurant|carte|plat|tarif|prix)\b/.test(lowerBrief);
     const needsPortfolio = /\b(cv|portfolio|book|realisations|candidat|candidate)\b/.test(lowerBrief);
@@ -165,8 +177,16 @@ const buildFallbackProposal = (brief) => {
     const needsAiAssistant = /\b(assistant|ia|automatiser|automatisation|questions|support|chat)\b/.test(lowerBrief);
     const nameBase = titleCase(activity.replace(/^site\s+/i, ''));
     const siteName = nameBase.length > 28 ? `Studio ${nameBase.split(/\s+/)[0]}` : nameBase;
-    const mainAction = needsShop ? 'Commander en ligne' : needsAppointment ? 'Prendre rendez-vous' : 'Demander une information';
-    const pages = [
+    const mainAction = needsHotel ? 'Réserver une chambre' : needsShop ? 'Commander en ligne' : needsAppointment ? 'Prendre rendez-vous' : 'Demander une information';
+    const pages = needsHotel ? [
+        { name: 'Accueil', goal: "Présenter l'hôtel, l'ambiance et le bouton de réservation." },
+        { name: 'Chambres', goal: 'Montrer les chambres, équipements, photos et capacités.' },
+        { name: 'Tarifs', goal: 'Clarifier les prix, périodes, conditions ou disponibilités.' },
+        { name: 'Réservation', goal: 'Permettre une demande de disponibilité ou une réservation.' },
+        { name: 'Galerie', goal: "Rassurer avec les photos de l'hôtel, des chambres et des espaces." },
+        { name: 'Localisation', goal: 'Afficher la ville, l’accès, Google Maps et les points d’intérêt.' },
+        { name: 'Contact', goal: 'Donner téléphone, e-mail et formulaire.' },
+    ] : [
         { name: 'Accueil', goal: "Faire comprendre l'activité et donner envie de continuer." },
         { name: needsShop ? 'Boutique' : needsMenu ? 'Tarifs' : 'Prestations', goal: needsShop ? 'Présenter les produits et guider vers la commande.' : 'Présenter clairement ce que le client peut acheter.' },
         { name: needsPortfolio ? 'Portfolio' : 'A propos', goal: needsPortfolio ? 'Montrer les réalisations, le parcours ou les preuves.' : 'Rassurer avec une présentation humaine et professionnelle.' },
@@ -180,6 +200,19 @@ const buildFallbackProposal = (brief) => {
 
     if (needsAppointment) {
         recommendedServices.push({ name: 'Lien rendez-vous ou WhatsApp', reason: 'Le visiteur doit pouvoir agir sans chercher.', priceFrom: 'Inclus selon offre' });
+    }
+
+    if (needsHotel) {
+        recommendedServices.push(
+            { name: 'Réservation en ligne', reason: 'Les visiteurs doivent pouvoir demander une disponibilité sans chercher.', priceFrom: 'Projet spécifique' },
+            { name: 'Galerie photos', reason: "Les photos rassurent avant une réservation d'hôtel.", priceFrom: 'Inclus selon offre' },
+            { name: 'Google Maps et avis clients', reason: "La localisation et les preuves aident à choisir l'hébergement.", priceFrom: 'Inclus selon offre' },
+            { name: 'Paiement ou acompte', reason: 'Utile si la réservation doit être confirmée en ligne.', priceFrom: 'Projet spécifique' },
+        );
+    }
+
+    if (needsWordPress) {
+        recommendedServices.push({ name: 'WordPress', reason: 'Le projet demande un CMS, une refonte ou une installation WordPress.', priceFrom: 'Projet spécifique' });
     }
 
     if (needsQr) {
@@ -202,10 +235,11 @@ const buildFallbackProposal = (brief) => {
     const seo = {
         keywords: seoKeywords,
         searchExpressions: [
-            `${activity} près de moi`,
+            needsHotel ? `${activity} + ville` : `${activity} près de moi`,
             `${activity} tarifs`,
             `${activity} contact`,
-            needsAppointment ? `${activity} rendez-vous en ligne` : `${activity} professionnel`,
+            needsHotel ? 'réservation hôtel' : needsAppointment ? `${activity} rendez-vous en ligne` : `${activity} professionnel`,
+            needsHotel ? 'chambre + ville' : '',
         ],
         titles: [
             `${siteName} - ${needsShop ? 'Catalogue et commandes' : needsAppointment ? 'Prestations et rendez-vous' : 'Site officiel'}`,
@@ -216,7 +250,7 @@ const buildFallbackProposal = (brief) => {
 
     return {
         mode: 'fallback',
-        projectType: needsShop ? 'Boutique en ligne simple' : needsPortfolio ? 'CV ou portfolio en ligne' : needsAppointment ? 'Site avec prise de rendez-vous' : 'Site vitrine professionnel',
+        projectType: needsHotel ? 'Site hôtel avec réservation' : needsShop ? 'Boutique en ligne simple' : needsPortfolio ? 'CV ou portfolio en ligne' : needsAppointment ? 'Site avec prise de rendez-vous' : needsWordPress ? 'Site WordPress professionnel' : 'Site vitrine professionnel',
         siteName,
         slogan: needsShop ? `Des produits clairs, faciles à découvrir et commander.` : `Une présence claire pour présenter ${activity} et recevoir des contacts.`,
         summary: `Kirby propose de construire un site simple autour de ${activity}, avec un message direct, des pages utiles et un contact visible.`,
@@ -228,34 +262,34 @@ const buildFallbackProposal = (brief) => {
             differentiator: 'Une structure simple, des options utiles et un accompagnement humain après la proposition IA.',
         },
         styleGuide: {
-            direction: needsShop ? 'Catalogue clair avec produits visibles et parcours de commande court.' : needsAppointment ? 'Site élégant avec agenda ou contact visible dès le premier écran.' : 'Vitrine moderne, lisible et rassurante.',
+            direction: needsHotel ? 'Site immersif avec photos, chambres, disponibilité et réservation visible.' : needsShop ? 'Catalogue clair avec produits visibles et parcours de commande court.' : needsAppointment ? 'Site élégant avec agenda ou contact visible dès le premier écran.' : 'Vitrine moderne, lisible et rassurante.',
             colors: 'Fond sobre, contraste fort, une couleur d’accent pour les boutons et les informations importantes.',
             typography: 'Titres francs, textes courts, lecture facile sur mobile.',
-            layout: 'Accueil direct, blocs courts, grille de prestations, preuves, puis contact.',
+            layout: needsHotel ? 'Hero photo, chambres, tarifs, galerie, localisation, avis, réservation.' : 'Accueil direct, blocs courts, grille de prestations, preuves, puis contact.',
         },
         siteModel: {
-            name: needsShop ? 'Modèle catalogue + commande' : needsAppointment ? 'Modèle rendez-vous local' : 'Modèle vitrine professionnelle',
-            description: needsShop ? 'Une page d’accueil qui mène vite vers le catalogue, les produits et la commande.' : needsAppointment ? 'Une page d’accueil centrée sur les prestations, les preuves et la prise de rendez-vous.' : 'Une vitrine claire pour expliquer l’activité, rassurer et obtenir une demande.',
+            name: needsHotel ? 'Modèle hôtel + réservation' : needsShop ? 'Modèle catalogue + commande' : needsAppointment ? 'Modèle rendez-vous local' : 'Modèle vitrine professionnelle',
+            description: needsHotel ? 'Une structure pensée pour montrer les chambres, rassurer, localiser et convertir vers la réservation.' : needsShop ? 'Une page d’accueil qui mène vite vers le catalogue, les produits et la commande.' : needsAppointment ? 'Une page d’accueil centrée sur les prestations, les preuves et la prise de rendez-vous.' : 'Une vitrine claire pour expliquer l’activité, rassurer et obtenir une demande.',
             sections: [
-                'Hero avec promesse et bouton principal',
-                needsShop ? 'Produits ou catégories' : 'Prestations principales',
-                needsPortfolio ? 'Réalisations ou portfolio' : 'Preuves de confiance',
-                needsAppointment ? 'Prise de rendez-vous' : 'Contact rapide',
+                needsHotel ? 'Hero hôtel avec bouton Réserver' : 'Hero avec promesse et bouton principal',
+                needsHotel ? 'Chambres et équipements' : needsShop ? 'Produits ou catégories' : 'Prestations principales',
+                needsHotel ? 'Tarifs ou disponibilités' : needsPortfolio ? 'Réalisations ou portfolio' : 'Preuves de confiance',
+                needsHotel ? 'Galerie et localisation' : needsAppointment ? 'Prise de rendez-vous' : 'Contact rapide',
             ],
         },
-        recommendedOffer: needsShop ? 'Offre Pro' : needsPortfolio ? 'Mini-page professionnelle' : needsAppointment ? 'Offre Pro' : 'Offre Essentiel',
+        recommendedOffer: needsHotel ? 'Offre Signature' : needsShop ? 'Offre Pro' : needsPortfolio ? 'Mini-page professionnelle' : needsAppointment ? 'Offre Pro' : needsWordPress ? 'Projet spécifique' : 'Offre Essentiel',
         pages,
         homeSections: [
-            { title: `Bienvenue chez ${siteName}`, text: `Une page d'accueil claire pour expliquer l'activité, rassurer le visiteur et l'orienter vers ${mainAction.toLowerCase()}.` },
-            { title: needsShop ? 'Produits ou catalogue' : 'Prestations principales', text: needsShop ? 'Les produits sont présentés par catégorie, avec un chemin simple vers la commande.' : 'Les services sont présentés avec des mots simples, des tarifs ou indications pratiques.' },
+            { title: `Bienvenue chez ${siteName}`, text: needsHotel ? `Un accueil visuel présente l'hôtel, l'ambiance, la ville et le bouton ${mainAction}.` : `Une page d'accueil claire pour expliquer l'activité, rassurer le visiteur et l'orienter vers ${mainAction.toLowerCase()}.` },
+            { title: needsHotel ? 'Chambres et services' : needsShop ? 'Produits ou catalogue' : 'Prestations principales', text: needsHotel ? 'Les chambres, équipements et services sont présentés avec photos, tarifs ou indications pratiques.' : needsShop ? 'Les produits sont présentés par catégorie, avec un chemin simple vers la commande.' : 'Les services sont présentés avec des mots simples, des tarifs ou indications pratiques.' },
             { title: 'Contact rapide', text: `Un bouton ${mainAction} reste visible pour transformer la visite en demande concrète.` },
         ],
         services: [
-            { name: needsShop ? 'Catalogue en ligne' : "Présentation de l'activité", description: 'Un bloc court pour dire ce qui est proposé, pour qui et dans quelle zone.' },
-            { name: needsAppointment ? 'Rendez-vous' : 'Contact direct', description: needsAppointment ? 'Un lien de réservation, téléphone ou WhatsApp pour choisir un créneau.' : 'Un formulaire simple, un e-mail professionnel ou un lien WhatsApp.' },
-            { name: 'Preuves et confiance', description: 'Photos, avis, exemples, certifications ou informations pratiques.' },
+            { name: needsHotel ? 'Chambres' : needsShop ? 'Catalogue en ligne' : "Présentation de l'activité", description: needsHotel ? 'Présenter chaque chambre avec photos, équipements, capacité et ambiance.' : 'Un bloc court pour dire ce qui est proposé, pour qui et dans quelle zone.' },
+            { name: needsHotel ? 'Réservation' : needsAppointment ? 'Rendez-vous' : 'Contact direct', description: needsHotel ? 'Formulaire de disponibilité, téléphone, e-mail et éventuellement acompte.' : needsAppointment ? 'Un lien de réservation, téléphone ou WhatsApp pour choisir un créneau.' : 'Un formulaire simple, un e-mail professionnel ou un lien WhatsApp.' },
+            { name: needsHotel ? 'Localisation et galerie' : 'Preuves et confiance', description: needsHotel ? 'Google Maps, photos, points d’intérêt et avis clients.' : 'Photos, avis, exemples, certifications ou informations pratiques.' },
         ],
-        ctas: [mainAction, 'Voir les prestations', 'Contacter maintenant'],
+        ctas: [mainAction, needsHotel ? 'Demander une disponibilité' : 'Voir les prestations', 'Contacter maintenant'],
         seo,
         seoKeywords,
         recommendedServices,
@@ -321,7 +355,7 @@ const normalizeRecommendedServices = (proposal, fallback) => {
     fallback.recommendedServices.forEach((service) => {
         const key = stripAccents(service.name.toLowerCase());
 
-        if (!seen.has(key) && services.length < 6) {
+        if (!seen.has(key) && services.length < 9) {
             services.push(service);
             seen.add(key);
         }
@@ -374,7 +408,7 @@ const sanitizeProposal = (proposal, brief) => {
             sections: limitArray((proposal.siteModel && proposal.siteModel.sections) || fallback.siteModel.sections, 6).map(normalizeText).filter(Boolean),
         },
         recommendedOffer: normalizeText(proposal.recommendedOffer) || fallback.recommendedOffer,
-        pages: limitArray(proposal.pages, 6)
+        pages: limitArray(proposal.pages, 8)
             .map((page) => ({
                 name: normalizeText(page && page.name) || 'Page',
                 goal: normalizeText(page && page.goal) || 'Clarifier une information importante.',

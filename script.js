@@ -6804,9 +6804,15 @@ const guessKirbyActivity = (brief) => {
         ['coiff', 'salon de coiffure'],
         ['fleur', 'fleuriste'],
         ['restaurant', 'restaurant'],
+        ['hotel', 'hôtel'],
+        ['hôtel', 'hôtel'],
+        ['chambre', 'hébergement'],
+        ['gite', 'hébergement'],
+        ['plombier', 'plombier'],
         ['coach', 'coach'],
         ['photographe', 'photographe'],
         ['artisan', 'artisan'],
+        ['wordpress', 'site WordPress'],
         ['boutique', 'boutique'],
         ['cv', 'CV et portfolio'],
         ['portfolio', 'portfolio'],
@@ -6824,6 +6830,8 @@ const buildBrowserKirbyProposal = (brief) => {
     const activity = guessKirbyActivity(brief);
     const normalizedBrief = brief.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
     const needsAppointment = /rdv|rendez|reservation|agenda|coiff|coach|consultation/.test(normalizedBrief);
+    const needsHotel = /hotel|hôtel|chambre|hebergement|hébergement|gite|gîte|sejour|séjour|touristique/.test(normalizedBrief);
+    const needsWordPress = /wordpress|wp|cms|refonte/.test(normalizedBrief);
     const needsShop = /boutique|vendre|produit|commande|paiement|catalogue/.test(normalizedBrief);
     const needsQr = /qr|scan|menu|carte|flyer|partager/.test(normalizedBrief);
     const needsClientSpace = /espace client|compte client|suivi|document|connexion|prive|privé/.test(normalizedBrief);
@@ -6831,15 +6839,23 @@ const buildBrowserKirbyProposal = (brief) => {
     const siteName = activity === 'projet professionnel'
         ? 'Votre Présence Pro'
         : activity.split(/\s+/).map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`).join(' ');
-    const mainCta = needsShop ? 'Commander en ligne' : needsAppointment ? 'Prendre rendez-vous' : 'Demander une information';
-    const pages = [
+    const mainCta = needsHotel ? 'Réserver une chambre' : needsShop ? 'Commander en ligne' : needsAppointment ? 'Prendre rendez-vous' : 'Demander une information';
+    const pages = needsHotel ? [
+        { name: 'Accueil', goal: 'Présenter l’hôtel, l’ambiance et le bouton de réservation.' },
+        { name: 'Chambres', goal: 'Montrer chambres, équipements, photos et capacités.' },
+        { name: 'Tarifs', goal: 'Clarifier prix, périodes, conditions ou disponibilités.' },
+        { name: 'Réservation', goal: 'Permettre une demande de disponibilité ou une réservation.' },
+        { name: 'Galerie', goal: 'Rassurer avec les photos de l’hôtel et des espaces.' },
+        { name: 'Localisation', goal: 'Afficher la ville, Google Maps et les points d’intérêt.' },
+        { name: 'Contact', goal: 'Donner téléphone, e-mail et formulaire.' },
+    ] : [
         { name: 'Accueil', goal: 'Présenter l’activité et donner une raison de continuer.' },
         { name: needsShop ? 'Boutique' : 'Prestations', goal: needsShop ? 'Présenter les produits et guider vers la commande.' : 'Afficher les services, tarifs ou informations utiles.' },
         { name: 'Contact', goal: 'Permettre au visiteur d’écrire, appeler ou réserver.' },
     ];
 
     return {
-        projectType: needsShop ? 'Boutique en ligne simple' : needsAppointment ? 'Site avec rendez-vous' : 'Site vitrine professionnel',
+        projectType: needsHotel ? 'Site hôtel avec réservation' : needsShop ? 'Boutique en ligne simple' : needsWordPress ? 'Site WordPress professionnel' : needsAppointment ? 'Site avec rendez-vous' : 'Site vitrine professionnel',
         siteName,
         slogan: `Une présence claire pour présenter ${activity} et recevoir des contacts.`,
         summary: `Kirby prépare une base de site centrée sur ${activity}, avec des pages courtes et une action visible.`,
@@ -6851,36 +6867,37 @@ const buildBrowserKirbyProposal = (brief) => {
             differentiator: 'Une proposition IA structurée, puis un accompagnement humain pour finaliser.',
         },
         styleGuide: {
-            direction: needsShop ? 'Catalogue clair avec produits visibles et commande directe.' : needsAppointment ? 'Site élégant orienté réservation et preuves visuelles.' : 'Vitrine moderne, lisible et rassurante.',
+            direction: needsHotel ? 'Site immersif avec chambres, galerie, localisation et réservation visible.' : needsShop ? 'Catalogue clair avec produits visibles et commande directe.' : needsAppointment ? 'Site élégant orienté réservation et preuves visuelles.' : 'Vitrine moderne, lisible et rassurante.',
             colors: 'Fond sobre, contraste fort, accent lumineux pour les boutons.',
             typography: 'Titres nets, textes courts, lecture facile sur mobile.',
-            layout: 'Hero direct, prestations, preuves, galerie ou avis, puis contact.',
+            layout: needsHotel ? 'Hero photo, chambres, tarifs, galerie, localisation, avis, réservation.' : 'Hero direct, prestations, preuves, galerie ou avis, puis contact.',
         },
         siteModel: {
-            name: needsShop ? 'Modèle catalogue + commande' : needsAppointment ? 'Modèle rendez-vous local' : 'Modèle vitrine professionnelle',
-            description: needsShop ? 'Une structure qui présente vite les produits et conduit vers la commande.' : needsAppointment ? 'Une structure qui montre les prestations, rassure et mène vers la réservation.' : 'Une structure pour expliquer l’activité, rassurer et obtenir une demande.',
+            name: needsHotel ? 'Modèle hôtel + réservation' : needsShop ? 'Modèle catalogue + commande' : needsAppointment ? 'Modèle rendez-vous local' : 'Modèle vitrine professionnelle',
+            description: needsHotel ? 'Une structure qui montre les chambres, rassure, localise et mène vers la réservation.' : needsShop ? 'Une structure qui présente vite les produits et conduit vers la commande.' : needsAppointment ? 'Une structure qui montre les prestations, rassure et mène vers la réservation.' : 'Une structure pour expliquer l’activité, rassurer et obtenir une demande.',
             sections: [
-                'Hero avec promesse et bouton principal',
-                needsShop ? 'Catalogue ou produits' : 'Prestations principales',
-                'Galerie, avis ou preuves',
-                needsAppointment ? 'Prise de rendez-vous' : 'Contact rapide',
+                needsHotel ? 'Hero hôtel avec bouton Réserver' : 'Hero avec promesse et bouton principal',
+                needsHotel ? 'Chambres et équipements' : needsShop ? 'Catalogue ou produits' : 'Prestations principales',
+                needsHotel ? 'Tarifs ou disponibilités' : 'Galerie, avis ou preuves',
+                needsHotel ? 'Galerie, localisation et contact' : needsAppointment ? 'Prise de rendez-vous' : 'Contact rapide',
             ],
         },
-        recommendedOffer: needsShop || needsAppointment ? 'Offre Pro' : 'Offre Essentiel',
+        recommendedOffer: needsHotel ? 'Offre Signature' : needsWordPress ? 'Projet spécifique' : needsShop || needsAppointment ? 'Offre Pro' : 'Offre Essentiel',
         pages,
         homeSections: [
-            { title: `Bienvenue chez ${siteName}`, text: `Un bloc d’accueil direct explique l’activité, la zone et ce que le visiteur peut faire.` },
-            { title: needsShop ? 'Produits ou catalogue' : 'Services principaux', text: needsShop ? 'Les produits sont organisés pour faciliter la commande.' : 'Les prestations sont présentées sans texte inutile, avec une phrase claire par service.' },
+            { title: `Bienvenue chez ${siteName}`, text: needsHotel ? `Un accueil visuel présente l’hôtel, l’ambiance, la ville et le bouton ${mainCta}.` : `Un bloc d’accueil direct explique l’activité, la zone et ce que le visiteur peut faire.` },
+            { title: needsHotel ? 'Chambres et services' : needsShop ? 'Produits ou catalogue' : 'Services principaux', text: needsHotel ? 'Les chambres, équipements et services sont présentés avec photos, tarifs ou disponibilités.' : needsShop ? 'Les produits sont organisés pour faciliter la commande.' : 'Les prestations sont présentées sans texte inutile, avec une phrase claire par service.' },
             { title: 'Contact rapide', text: `Le bouton ${mainCta} reste visible pour transformer la visite en demande.` },
         ],
         services: [
-            { name: 'Présentation claire', description: 'Dire quoi, pour qui, dans quelle zone et avec quel résultat.' },
-            { name: needsAppointment ? 'Rendez-vous' : 'Contact direct', description: needsAppointment ? 'Ajouter un lien de réservation, téléphone ou WhatsApp.' : 'Ajouter un formulaire, e-mail pro ou lien WhatsApp.' },
+            { name: needsHotel ? 'Chambres' : 'Présentation claire', description: needsHotel ? 'Présenter chaque chambre avec photos, équipements, capacité et ambiance.' : 'Dire quoi, pour qui, dans quelle zone et avec quel résultat.' },
+            { name: needsHotel ? 'Réservation' : needsAppointment ? 'Rendez-vous' : 'Contact direct', description: needsHotel ? 'Ajouter demande de disponibilité, téléphone, e-mail et acompte si besoin.' : needsAppointment ? 'Ajouter un lien de réservation, téléphone ou WhatsApp.' : 'Ajouter un formulaire, e-mail pro ou lien WhatsApp.' },
+            ...(needsHotel ? [{ name: 'Localisation et avis', description: 'Google Maps, accès, points d’intérêt, galerie et avis clients.' }] : []),
         ],
-        ctas: [mainCta, 'Voir les prestations', 'Contacter maintenant'],
+        ctas: [mainCta, needsHotel ? 'Demander une disponibilité' : 'Voir les prestations', 'Contacter maintenant'],
         seo: {
             keywords: [activity, `${activity} professionnel`, `${activity} local`, 'site web professionnel'],
-            searchExpressions: [`${activity} près de moi`, `${activity} tarifs`, `${activity} contact`, needsAppointment ? `${activity} rendez-vous` : `${activity} professionnel`],
+            searchExpressions: needsHotel ? [`${activity} + ville`, 'chambre + ville', 'réservation hôtel', 'séjour touristique'] : [`${activity} près de moi`, `${activity} tarifs`, `${activity} contact`, needsAppointment ? `${activity} rendez-vous` : `${activity} professionnel`],
             titles: [`${siteName} - ${needsAppointment ? 'Prestations et rendez-vous' : needsShop ? 'Catalogue et commandes' : 'Site officiel'}`, `${activity} - Services et contact`],
             metaDescription: `${siteName} présente ${activity}, ses services, ses informations utiles et un contact direct pour ${mainCta.toLowerCase()}.`,
         },
@@ -6889,6 +6906,12 @@ const buildBrowserKirbyProposal = (brief) => {
             { name: needsShop ? 'Boutique en ligne simple' : 'Site vitrine', reason: 'Le projet a besoin d’une page claire et partageable.', priceFrom: needsShop ? 'À partir de 712 € selon le catalogue' : 'À partir de 392 €' },
             { name: 'Adresse e-mail professionnelle', reason: 'Une adresse contact@ renforce la confiance.', priceFrom: 'À partir de 49 €' },
             { name: 'QR code professionnel', reason: needsQr ? 'Le besoin parle déjà de partage ou de support imprimé.' : 'Utile pour partager le site après mise en ligne.', priceFrom: '39 €' },
+            ...(needsHotel ? [
+                { name: 'Réservation en ligne', reason: 'Pour recevoir des demandes de disponibilité directement.', priceFrom: 'Projet spécifique' },
+                { name: 'Google Maps et avis clients', reason: 'Pour rassurer et aider le visiteur à choisir.', priceFrom: 'Inclus selon offre' },
+                { name: 'Paiement ou acompte', reason: 'Pour confirmer une réservation en ligne si nécessaire.', priceFrom: 'Projet spécifique' },
+            ] : []),
+            ...(needsWordPress ? [{ name: 'WordPress', reason: 'Installation, configuration, refonte ou accompagnement.', priceFrom: 'Projet spécifique' }] : []),
             ...(needsClientSpace ? [{ name: 'Espace client simple', reason: 'Utile pour centraliser suivi, documents ou informations privées.', priceFrom: 'Projet spécifique' }] : []),
             ...(needsAiAssistant ? [{ name: 'Assistant IA métier', reason: 'Utile pour guider les visiteurs et répondre aux questions fréquentes.', priceFrom: 'Projet spécifique' }] : []),
         ],
@@ -7010,10 +7033,10 @@ const renderKirbyProposal = (proposal, brief) => {
     const seo = getKirbySeo(proposal);
     const styleGuide = getKirbyStyleGuide(proposal);
     const siteModel = getKirbySiteModel(proposal);
-    const pages = getKirbyArray(proposal.pages, 6);
+    const pages = getKirbyArray(proposal.pages, 8);
     const homeSections = getKirbyArray(proposal.homeSections, 4);
     const services = getKirbyArray(proposal.services, 5);
-    const recommendedServices = getKirbyArray(proposal.recommendedServices, 6);
+    const recommendedServices = getKirbyArray(proposal.recommendedServices, 9);
     const ctas = getKirbyArray(proposal.ctas, 4);
     const contactMessage = proposal.contactMessage || buildBrowserKirbyProposal(brief).contactMessage;
     const quoteParams = new URLSearchParams({
@@ -7034,7 +7057,6 @@ const renderKirbyProposal = (proposal, brief) => {
                         <span>${cleanHtml(proposal.recommendedOffer || 'Offre à confirmer')}</span>
                     </div>
                 </div>
-                <a class="button button-primary" href="contact.html?${quoteParams.toString()}">Transformer en projet client</a>
             </div>
 
             <div class="kirby-site-preview">
@@ -7152,6 +7174,12 @@ const renderKirbyProposal = (proposal, brief) => {
             </label>
             <button class="button button-secondary" type="submit">Mettre à jour la proposition</button>
         </form>
+        <div class="kirby-next-step">
+            <p class="signal-label">Étape suivante</p>
+            <h4>La proposition vous convient ?</h4>
+            <p>Envoyez-la seulement après avoir lu ou modifié la base générée.</p>
+            <a class="button button-primary" href="contact.html?${quoteParams.toString()}">Envoyer / transformer en projet</a>
+        </div>
     `;
 
     const revisionForm = aiBriefOutput.querySelector('.kirby-revision-form');

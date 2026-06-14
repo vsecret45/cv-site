@@ -5861,6 +5861,7 @@ body.studio-home .page-intro p:not(.eyebrow),
 body.studio-home .content-card p,
 body.studio-home .feature-link-card p,
 body.studio-home .journey-card p,
+body.studio-home .platform-product-card p,
 body.studio-home .journey-card ul,
 body.studio-home .price-card p,
 body.studio-home .price-card ul,
@@ -5874,6 +5875,7 @@ body.studio-home .contact-panel p {
 body.studio-home .content-card,
 body.studio-home .feature-link-card,
 body.studio-home .journey-card,
+body.studio-home .platform-product-card,
 body.studio-home .service-pill-card,
 body.studio-home .ai-brief-form,
 body.studio-home .ai-brief-panel,
@@ -5897,6 +5899,7 @@ body.studio-home .contact-form {
 body.studio-home .content-card::before,
 body.studio-home .feature-link-card::before,
 body.studio-home .journey-card::before,
+body.studio-home .platform-product-card::before,
 body.studio-home .service-pill-card::before,
 body.studio-home .ai-brief-form::before,
 body.studio-home .ai-brief-panel::before,
@@ -5920,6 +5923,7 @@ body.studio-home .contact-form::before {
 body.studio-home .content-card::after,
 body.studio-home .feature-link-card::after,
 body.studio-home .journey-card::after,
+body.studio-home .platform-product-card::after,
 body.studio-home .service-pill-card::after,
 body.studio-home .price-card::after,
 body.studio-home .method-card::after,
@@ -5941,6 +5945,7 @@ body.studio-home .project-card::after {
 body.studio-home .content-card > *,
 body.studio-home .feature-link-card > *,
 body.studio-home .journey-card > *,
+body.studio-home .platform-product-card > *,
 body.studio-home .service-pill-card > *,
 body.studio-home .ai-brief-form > *,
 body.studio-home .ai-brief-panel > *,
@@ -5982,6 +5987,7 @@ body.studio-home[data-theme="day"] main {
 body.studio-home[data-theme="day"] .content-card,
 body.studio-home[data-theme="day"] .feature-link-card,
 body.studio-home[data-theme="day"] .journey-card,
+body.studio-home[data-theme="day"] .platform-product-card,
 body.studio-home[data-theme="day"] .service-pill-card,
 body.studio-home[data-theme="day"] .ai-brief-form,
 body.studio-home[data-theme="day"] .ai-brief-panel,
@@ -6022,6 +6028,8 @@ body.studio-home .content-card:hover,
 body.studio-home .feature-link-card:hover,
 body.studio-home .journey-card:hover,
 body.studio-home .journey-card:focus-visible,
+body.studio-home .platform-product-card:hover,
+body.studio-home .platform-product-card:focus-visible,
 body.studio-home .service-pill-card:hover,
 body.studio-home .service-pill-card:focus-visible {
     box-shadow:
@@ -6248,6 +6256,73 @@ body.studio-home .section:first-child {
     background:
         radial-gradient(circle at 15% 85%, rgba(239, 214, 163, 0.22), transparent 18rem),
         var(--studio-panel);
+}
+
+.platform-tools-section {
+    padding-top: 3.2rem;
+}
+
+.platform-product-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.85rem;
+}
+
+.platform-product-card {
+    display: grid;
+    align-content: start;
+    gap: 0.75rem;
+    min-height: 15rem;
+    padding: clamp(1rem, 2vw, 1.3rem);
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.92);
+    transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+}
+
+.platform-product-card:hover,
+.platform-product-card:focus-visible {
+    transform: translateY(-4px);
+    border-color: rgba(239, 214, 163, 0.22);
+    outline: none;
+}
+
+.platform-product-card.is-featured {
+    border-color: rgba(239, 214, 163, 0.28);
+    background:
+        radial-gradient(circle at 82% 10%, rgba(239, 214, 163, 0.2), transparent 13rem),
+        radial-gradient(circle at 10% 100%, rgba(114, 150, 255, 0.14), transparent 12rem),
+        var(--studio-panel);
+}
+
+.product-icon {
+    display: inline-grid;
+    place-items: center;
+    width: 3rem;
+    height: 3rem;
+    border: 1px solid rgba(239, 214, 163, 0.16);
+    border-radius: 16px;
+    background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.035)),
+        rgba(239, 214, 163, 0.08);
+    color: #f3dfb4;
+    font-size: 0.78rem;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.platform-product-card strong {
+    color: var(--studio-text);
+    font-size: clamp(1.15rem, 2vw, 1.55rem);
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+}
+
+.platform-product-card p {
+    color: var(--studio-muted);
+    font-size: 0.94rem;
+    line-height: 1.48;
 }
 
 .service-pill-grid {
@@ -6852,6 +6927,31 @@ body.studio-home .section:first-child {
     width: fit-content;
 }
 
+.kirby-next-step {
+    display: grid;
+    gap: 0.55rem;
+    padding: 1rem;
+    border: 1px solid rgba(239, 214, 163, 0.14);
+    border-radius: 18px;
+    background:
+        radial-gradient(circle at 88% 12%, rgba(239, 214, 163, 0.12), transparent 14rem),
+        rgba(255, 255, 255, 0.045);
+}
+
+.kirby-next-step h4 {
+    color: #f8f6ee;
+    font-size: 1rem;
+}
+
+.kirby-next-step p:not(.signal-label) {
+    color: rgba(248, 246, 238, 0.72);
+    font-size: 0.9rem;
+}
+
+.kirby-next-step .button {
+    width: fit-content;
+}
+
 body.studio-home[data-theme="day"] .kirby-examples button {
     border-color: rgba(42, 45, 58, 0.1);
     background: rgba(255, 255, 255, 0.6);
@@ -6860,6 +6960,7 @@ body.studio-home[data-theme="day"] .kirby-examples button {
 
 body.studio-home[data-theme="day"] .builder-step,
 body.studio-home[data-theme="day"] .project-option-grid label,
+body.studio-home[data-theme="day"] .product-icon,
 body.studio-home[data-theme="day"] .site-wireframe,
 body.studio-home[data-theme="day"] .kirby-preview-browser,
 body.studio-home[data-theme="day"] .kirby-preview-main,
@@ -6870,7 +6971,8 @@ body.studio-home[data-theme="day"] .kirby-site-brief,
 body.studio-home[data-theme="day"] .kirby-style-strip section,
 body.studio-home[data-theme="day"] .kirby-blueprint-grid section,
 body.studio-home[data-theme="day"] .kirby-detail-block,
-body.studio-home[data-theme="day"] .kirby-detail-grid section {
+body.studio-home[data-theme="day"] .kirby-detail-grid section,
+body.studio-home[data-theme="day"] .kirby-next-step {
     border-color: rgba(42, 45, 58, 0.1);
     background: rgba(255, 255, 255, 0.48);
     color: #171923;
@@ -6894,6 +6996,8 @@ body.studio-home[data-theme="day"] .kirby-blueprint-grid strong,
 body.studio-home[data-theme="day"] .kirby-detail-grid strong,
 body.studio-home[data-theme="day"] .kirby-detail-block summary,
 body.studio-home[data-theme="day"] .service-pill-card strong,
+body.studio-home[data-theme="day"] .platform-product-card strong,
+body.studio-home[data-theme="day"] .kirby-next-step h4,
 body.studio-home[data-theme="day"] .builder-step strong {
     color: #171923;
 }
@@ -6907,10 +7011,18 @@ body.studio-home[data-theme="day"] .kirby-blueprint-grid span,
 body.studio-home[data-theme="day"] .kirby-detail-grid span,
 body.studio-home[data-theme="day"] .kirby-detail-grid li,
 body.studio-home[data-theme="day"] .builder-step p,
+body.studio-home[data-theme="day"] .platform-product-card p,
+body.studio-home[data-theme="day"] .kirby-next-step p:not(.signal-label),
 body.studio-home[data-theme="day"] .creator-form-head p:not(.signal-label),
 body.studio-home[data-theme="day"] .kirby-proposal-head span,
 body.studio-home[data-theme="day"] .kirby-tags span {
     color: rgba(42, 45, 58, 0.74);
+}
+
+@media (max-width: 1120px) {
+    .platform-product-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
 }
 
 @media (max-width: 840px) {
@@ -6938,6 +7050,7 @@ body.studio-home[data-theme="day"] .kirby-tags span {
     .ai-brief-panel.has-proposal,
     .creator-form-grid,
     .builder-steps,
+    .platform-product-grid,
     .service-pill-grid,
     .kirby-site-preview,
     .kirby-style-strip,
@@ -6955,7 +7068,8 @@ body.studio-home[data-theme="day"] .kirby-tags span {
     }
 
     .kirby-result-top .button,
-    .kirby-revision-form .button {
+    .kirby-revision-form .button,
+    .kirby-next-step .button {
         width: 100%;
     }
 
@@ -6965,6 +7079,16 @@ body.studio-home[data-theme="day"] .kirby-tags span {
 
     .kirby-positioning {
         grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 560px) {
+    .platform-product-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .platform-product-card {
+        min-height: 12rem;
     }
 }
 
