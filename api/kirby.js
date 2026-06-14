@@ -25,6 +25,12 @@ const normalize = (value) => (typeof value === 'string' ? value.trim() : '');
 const normalizeText = (value) => normalize(value).replace(/\s+/g, ' ');
 const stripAccents = (value) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 const pickFirst = (values, fallback = '') => values.find((value) => normalize(value)) || fallback;
+const getServiceKey = (value) =>
+    stripAccents(normalizeText(value).toLowerCase())
+        .replace(/\b(creation de|création de|installation et configuration|installation)\b/g, '')
+        .replace(/\b(simple|professionnel|professionnelle)\b/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
 
 const KIRBY_SYSTEM_PROMPT = `
 Tu es Kirby SA Creation Web, assistant specialise de SA Creation Web.
@@ -203,7 +209,9 @@ const buildFallbackProposal = (brief) => {
     }
 
     if (needsHotel) {
-        recommendedServices.push(
+        recommendedServices.splice(
+            1,
+            0,
             { name: 'Réservation en ligne', reason: 'Les visiteurs doivent pouvoir demander une disponibilité sans chercher.', priceFrom: 'Projet spécifique' },
             { name: 'Galerie photos', reason: "Les photos rassurent avant une réservation d'hôtel.", priceFrom: 'Inclus selon offre' },
             { name: 'Google Maps et avis clients', reason: "La localisation et les preuves aident à choisir l'hébergement.", priceFrom: 'Inclus selon offre' },
@@ -350,10 +358,10 @@ const normalizeRecommendedServices = (proposal, fallback) => {
             priceFrom: normalizeText(service && service.priceFrom) || '',
         }))
         .filter((service) => service.name);
-    const seen = new Set(services.map((service) => stripAccents(service.name.toLowerCase())));
+    const seen = new Set(services.map((service) => getServiceKey(service.name)));
 
     fallback.recommendedServices.forEach((service) => {
-        const key = stripAccents(service.name.toLowerCase());
+        const key = getServiceKey(service.name);
 
         if (!seen.has(key) && services.length < 9) {
             services.push(service);
