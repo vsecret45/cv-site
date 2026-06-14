@@ -90,6 +90,7 @@ const aiBriefInput = document.querySelector('#ai-brief-input');
 const aiBriefStyle = document.querySelector('#ai-brief-style');
 const aiBriefGoal = document.querySelector('#ai-brief-goal');
 const aiBriefOutput = document.querySelector('#ai-brief-output');
+const kirbyExampleButtons = document.querySelectorAll('[data-kirby-example]');
 const qrServiceForm = document.querySelector('#qr-service-form');
 const qrServiceInput = document.querySelector('#qr-service-input');
 const qrServicePreview = document.querySelector('#qr-service-preview');
@@ -5809,7 +5810,7 @@ if (contactForm) {
     if (requestedMessage && messageField && !messageField.value.trim()) {
         messageField.value = requestedMessage;
     } else if (requestedService && messageField && !messageField.value.trim()) {
-        messageField.value = `Bonjour,\n\nJe souhaite un devis pour : ${requestedService}.\n\nMon activite : \nMon objectif : \nLien existant ou outil deja utilise : \nDetails utiles : `;
+        messageField.value = `Bonjour,\n\nJe souhaite une proposition pour : ${requestedService}.\n\nMon activite : \nMon objectif : \nLien existant ou outil deja utilise : \nDetails utiles : `;
     }
 
     contactForm.addEventListener('submit', async (event) => {
@@ -6793,94 +6794,225 @@ if (assistantForm) {
     });
 }
 
-if (aiBriefForm && aiBriefInput && aiBriefOutput) {
-    aiBriefForm.addEventListener('submit', (event) => {
-        event.preventDefault();
+const cleanHtml = (value = '') => escapeHtml(String(value || ''));
 
-        const activity = aiBriefInput.value.trim() || 'votre activite';
-        const visualStyle = aiBriefStyle?.value || 'moderne et rassurante';
-        const goal = aiBriefGoal?.value || 'recevoir des demandes';
-        const normalizedBrief = `${activity} ${goal}`.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        const isHotel = /hotel|manoir|chambre|hebergement|reservation|sejour/.test(normalizedBrief);
-        const isRestaurant = /restaurant|menu|carte|plat|table/.test(normalizedBrief);
-        const needsAppointment = /agenda|rendez-vous|rdv|creneau|coiffure|coach|consultant|bien-etre|therapeute|spa|institut|reservation/.test(normalizedBrief);
-        const needsShare = /qr|scan|partager|lien|menu|carte/.test(normalizedBrief);
-        const needsPremium = /premium|elegante|creative|audacieuse/.test(visualStyle.toLowerCase());
-        const project = {
-            label: 'Site vitrine simple',
-            promise: 'Présenter l’activité, rassurer le visiteur et faciliter le premier contact.',
-            sections: ['Accueil clair', 'Services', 'Informations utiles', 'Avis ou preuves', 'Contact'],
-            action: 'Demander un devis',
-            service: needsPremium ? 'Offre Signature' : 'Offre Essentiel',
-            note: needsPremium ? 'image plus travaillée' : 'présence simple à lancer',
-        };
+const getKirbyArray = (value, max = 8) => (Array.isArray(value) ? value.slice(0, max) : []);
 
-        if (isHotel) {
-            project.label = 'Site hôtel avec réservation';
-            project.promise = 'Présenter les chambres, rassurer les voyageurs et faciliter les réservations.';
-            project.sections = ['Accueil', 'Chambres', 'Tarifs ou disponibilités', 'Photos', 'Services', 'Localisation', 'Réservation'];
-            project.action = 'Demander une disponibilité ou réserver';
-            project.service = 'Offre Signature';
-            project.note = 'projet complet avec réservation et image de confiance';
-        } else if (isRestaurant) {
-            project.label = 'Page restaurant ou menu';
-            project.promise = 'Afficher le menu, les informations pratiques et un lien de contact ou réservation.';
-            project.sections = ['Accueil', 'Menu', 'Photos', 'Horaires', 'Adresse', 'Réservation ou appel'];
-            project.action = 'Voir le menu ou réserver';
-            project.service = needsShare ? 'Mini-page professionnelle' : 'Offre Pro';
-            project.note = 'menu ou page à partager rapidement';
-        } else if (needsAppointment) {
-            project.label = 'Site avec rendez-vous';
-            project.promise = 'Présenter les services et permettre aux clients de choisir un créneau.';
-            project.sections = ['Accueil', 'Services', 'Tarifs', 'Disponibilités', 'Avis', 'Prise de rendez-vous'];
-            project.action = 'Prendre rendez-vous';
-            project.service = 'Offre Pro';
-            project.note = 'parcours clair pour recevoir des demandes ou rendez-vous';
-        } else if (needsShare) {
-            project.label = 'Mini-page à partager';
-            project.promise = 'Créer une page courte à ouvrir avec un lien ou un QR code.';
-            project.sections = ['Titre clair', 'Offre ou menu', 'Informations pratiques', 'Contact direct'];
-            project.action = 'Ouvrir la page';
-            project.service = 'Mini-page professionnelle';
-            project.note = 'format rapide pour partager une information';
-        }
+const guessKirbyActivity = (brief) => {
+    const normalizedBrief = brief.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const activities = [
+        ['coiff', 'salon de coiffure'],
+        ['fleur', 'fleuriste'],
+        ['restaurant', 'restaurant'],
+        ['coach', 'coach'],
+        ['photographe', 'photographe'],
+        ['artisan', 'artisan'],
+        ['boutique', 'boutique'],
+        ['cv', 'CV et portfolio'],
+        ['portfolio', 'portfolio'],
+    ];
+    const found = activities.find(([keyword]) => normalizedBrief.includes(keyword));
 
-        const cleanProjectLabel = escapeHtml(project.label);
-        const cleanPromise = escapeHtml(project.promise);
-        const cleanAction = escapeHtml(project.action);
-        const cleanService = escapeHtml(project.service);
-        const cleanNote = escapeHtml(project.note);
-        const cleanSections = project.sections.map((section) => escapeHtml(section)).join(', ');
-        const preparedMessage = [
+    if (found) {
+        return found[1];
+    }
+
+    return 'projet professionnel';
+};
+
+const buildBrowserKirbyProposal = (brief) => {
+    const activity = guessKirbyActivity(brief);
+    const normalizedBrief = brief.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const needsAppointment = /rdv|rendez|reservation|agenda|coiff|coach|consultation/.test(normalizedBrief);
+    const needsShop = /boutique|vendre|produit|commande|paiement|catalogue/.test(normalizedBrief);
+    const needsQr = /qr|scan|menu|carte|flyer|partager/.test(normalizedBrief);
+    const siteName = activity === 'projet professionnel'
+        ? 'Votre Présence Pro'
+        : activity.split(/\s+/).map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`).join(' ');
+    const mainCta = needsShop ? 'Commander en ligne' : needsAppointment ? 'Prendre rendez-vous' : 'Demander une information';
+    const pages = [
+        { name: 'Accueil', goal: 'Présenter l’activité et donner une raison de continuer.' },
+        { name: needsShop ? 'Boutique' : 'Prestations', goal: needsShop ? 'Présenter les produits et guider vers la commande.' : 'Afficher les services, tarifs ou informations utiles.' },
+        { name: 'Contact', goal: 'Permettre au visiteur d’écrire, appeler ou réserver.' },
+    ];
+
+    return {
+        projectType: needsShop ? 'Boutique en ligne simple' : needsAppointment ? 'Site avec rendez-vous' : 'Site vitrine professionnel',
+        siteName,
+        slogan: `Une présence claire pour présenter ${activity} et recevoir des contacts.`,
+        summary: `Kirby prépare une base de site centrée sur ${activity}, avec des pages courtes et une action visible.`,
+        recommendedOffer: needsShop || needsAppointment ? 'Offre Pro' : 'Offre Essentiel',
+        pages,
+        homeSections: [
+            { title: `Bienvenue chez ${siteName}`, text: `Un bloc d’accueil direct explique l’activité, la zone et ce que le visiteur peut faire.` },
+            { title: needsShop ? 'Produits ou catalogue' : 'Services principaux', text: needsShop ? 'Les produits sont organisés pour faciliter la commande.' : 'Les prestations sont présentées sans texte inutile, avec une phrase claire par service.' },
+            { title: 'Contact rapide', text: `Le bouton ${mainCta} reste visible pour transformer la visite en demande.` },
+        ],
+        services: [
+            { name: 'Présentation claire', description: 'Dire quoi, pour qui, dans quelle zone et avec quel résultat.' },
+            { name: needsAppointment ? 'Rendez-vous' : 'Contact direct', description: needsAppointment ? 'Ajouter un lien de réservation, téléphone ou WhatsApp.' : 'Ajouter un formulaire, e-mail pro ou lien WhatsApp.' },
+        ],
+        ctas: [mainCta, 'Voir les prestations', 'Contacter maintenant'],
+        seoKeywords: [activity, `${activity} professionnel`, `${activity} local`, 'site web professionnel'],
+        recommendedServices: [
+            { name: needsShop ? 'Boutique en ligne simple' : 'Site vitrine', reason: 'Le projet a besoin d’une page claire et partageable.', priceFrom: needsShop ? 'À partir de 712 € selon le catalogue' : 'À partir de 392 €' },
+            { name: 'Adresse e-mail professionnelle', reason: 'Une adresse contact@ renforce la confiance.', priceFrom: 'À partir de 49 €' },
+            { name: 'QR code professionnel', reason: needsQr ? 'Le besoin parle déjà de partage ou de support imprimé.' : 'Utile pour partager le site après mise en ligne.', priceFrom: '39 €' },
+        ],
+        explanation: [
+            'La structure commence par ce que le visiteur cherche.',
+            'Les boutons sont choisis pour pousser vers une action réelle.',
+            'Les options sont ajoutées seulement quand elles rendent le projet plus simple à utiliser.',
+        ],
+        contactMessage: [
             'Bonjour,',
             '',
-            `Je souhaite une proposition pour : ${project.label}.`,
-            `Activité / besoin saisi : ${activity}`,
-            `Objectif principal : ${goal}`,
-            `Style souhaité : ${visualStyle}`,
+            `Kirby a préparé une première proposition pour : ${siteName}.`,
+            `Besoin de départ : ${brief}`,
+            `Type de projet : ${needsShop ? 'boutique en ligne simple' : needsAppointment ? 'site avec rendez-vous' : 'site vitrine professionnel'}`,
+            `Pages proposées : ${pages.map((page) => page.name).join(', ')}`,
+            `Actions conseillées : ${[mainCta, 'Voir les prestations', 'Contacter maintenant'].join(', ')}`,
             '',
-            `Structure conseillée : ${project.sections.join(', ')}`,
-            `Action principale : ${project.action}`,
-            `Offre pressentie : ${project.service}`,
-            '',
-            'Merci de me dire quel format serait le plus adapté.'
-        ].join('\n');
-        const quoteParams = new URLSearchParams({
-            service: project.service,
-            message: preparedMessage,
-        });
+            'Merci de me dire ce qu’il faut ajuster pour lancer le projet.'
+        ].join('\n'),
+    };
+};
 
-        aiBriefOutput.innerHTML = `
-            <p class="signal-label">Projet détecté</p>
-            <h3>${cleanProjectLabel}</h3>
-            <p>${cleanPromise}</p>
+const renderKirbyList = (items, renderItem, emptyText = 'A compléter ensemble.') => {
+    const safeItems = getKirbyArray(items, 8);
+
+    if (!safeItems.length) {
+        return `<li>${cleanHtml(emptyText)}</li>`;
+    }
+
+    return safeItems.map(renderItem).join('');
+};
+
+const renderKirbyProposal = (proposal, brief) => {
+    if (!aiBriefOutput) {
+        return;
+    }
+
+    const contactMessage = proposal.contactMessage || buildBrowserKirbyProposal(brief).contactMessage;
+    const quoteParams = new URLSearchParams({
+        service: proposal.recommendedOffer || 'Projet site web',
+        message: contactMessage,
+    });
+
+    aiBriefOutput.classList.remove('is-loading');
+    aiBriefOutput.innerHTML = `
+        <p class="signal-label">Proposition Kirby</p>
+        <div class="kirby-proposal-head">
+            <span>${cleanHtml(proposal.projectType || 'Projet web')}</span>
+            <span>${cleanHtml(proposal.recommendedOffer || 'Offre à confirmer')}</span>
+        </div>
+        <h3>${cleanHtml(proposal.siteName || 'Nom de site à valider')}</h3>
+        <p class="kirby-slogan">${cleanHtml(proposal.slogan || '')}</p>
+        <p>${cleanHtml(proposal.summary || '')}</p>
+
+        <div class="kirby-result-grid">
+            <section>
+                <h4>Pages proposées</h4>
+                <ul>
+                    ${renderKirbyList(proposal.pages, (page) => `<li><strong>${cleanHtml(page.name)}</strong><span>${cleanHtml(page.goal)}</span></li>`)}
+                </ul>
+            </section>
+            <section>
+                <h4>Textes d'accueil</h4>
+                <ul>
+                    ${renderKirbyList(proposal.homeSections, (section) => `<li><strong>${cleanHtml(section.title)}</strong><span>${cleanHtml(section.text)}</span></li>`)}
+                </ul>
+            </section>
+            <section>
+                <h4>Prestations à présenter</h4>
+                <ul>
+                    ${renderKirbyList(proposal.services, (service) => `<li><strong>${cleanHtml(service.name)}</strong><span>${cleanHtml(service.description)}</span></li>`)}
+                </ul>
+            </section>
+            <section>
+                <h4>Options utiles</h4>
+                <ul>
+                    ${renderKirbyList(proposal.recommendedServices, (service) => `<li><strong>${cleanHtml(service.name)}</strong><span>${cleanHtml(service.reason)} ${service.priceFrom ? `- ${cleanHtml(service.priceFrom)}` : ''}</span></li>`)}
+                </ul>
+            </section>
+        </div>
+
+        <div class="kirby-tags" aria-label="Boutons proposes">
+            ${getKirbyArray(proposal.ctas, 4).map((cta) => `<span>${cleanHtml(cta)}</span>`).join('')}
+        </div>
+        <div class="kirby-tags kirby-tags-seo" aria-label="Mots cles SEO proposes">
+            ${getKirbyArray(proposal.seoKeywords, 8).map((keyword) => `<span>${cleanHtml(keyword)}</span>`).join('')}
+        </div>
+        <div class="kirby-explanation">
+            <h4>Pourquoi ces choix ?</h4>
             <ul>
-                <li>Sections : ${cleanSections}.</li>
-                <li>Action client : ${cleanAction}.</li>
-                <li>Offre à étudier : ${cleanService}, ${cleanNote}.</li>
+                ${renderKirbyList(proposal.explanation, (item) => `<li>${cleanHtml(item)}</li>`)}
             </ul>
-            <a class="button button-primary" href="contact.html?${quoteParams.toString()}">Envoyer cette demande</a>
-        `;
+        </div>
+        <a class="button button-primary" href="contact.html?${quoteParams.toString()}">Envoyer cette proposition</a>
+    `;
+};
+
+const setKirbyLoading = () => {
+    if (!aiBriefOutput) {
+        return;
+    }
+
+    aiBriefOutput.classList.add('is-loading');
+    aiBriefOutput.innerHTML = `
+        <p class="signal-label">Kirby construit</p>
+        <h3>Préparation de la première proposition...</h3>
+        <p>Analyse du projet, nom, slogan, pages, textes, CTA, SEO et options utiles.</p>
+    `;
+};
+
+kirbyExampleButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+        if (!aiBriefInput) {
+            return;
+        }
+
+        aiBriefInput.value = button.dataset.kirbyExample || '';
+        aiBriefInput.focus();
+    });
+});
+
+if (aiBriefForm && aiBriefInput && aiBriefOutput) {
+    aiBriefForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+
+        const brief = aiBriefInput.value.trim();
+
+        if (brief.length < 8) {
+            aiBriefOutput.innerHTML = `
+                <p class="signal-label">Projet trop court</p>
+                <h3>Ajoutez au moins votre activité et l'objectif.</h3>
+                <p>Exemple : Je suis coiffeuse à Rueil, je veux présenter mes tarifs et recevoir des rendez-vous.</p>
+            `;
+            return;
+        }
+
+        setKirbyLoading();
+
+        try {
+            const response = await fetch('/api/kirby', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ brief }),
+            });
+
+            if (!response.ok) {
+                throw new Error('kirby_request_failed');
+            }
+
+            const payload = await response.json();
+            renderKirbyProposal(payload.proposal || buildBrowserKirbyProposal(brief), brief);
+        } catch (error) {
+            console.warn('Kirby assistant fallback:', error);
+            renderKirbyProposal(buildBrowserKirbyProposal(brief), brief);
+        }
     });
 }
 

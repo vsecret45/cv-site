@@ -43,7 +43,7 @@ const buildEmailContent = ({ firstName, lastName, email, message, service, deadl
     const fullName = [firstName, lastName].filter(Boolean).join(' ') || 'Visiteur';
     const detailsText = details.length > 0 ? details.join(', ') : '-';
     const subject = service
-        ? `Nouvelle demande de devis - ${service} - ${fullName}`
+        ? `Nouvelle demande de projet - ${service} - ${fullName}`
         : `Nouvelle demande de contact - ${fullName}`;
     const text = [
         'Nouvelle demande depuis sacreationweb.com',
