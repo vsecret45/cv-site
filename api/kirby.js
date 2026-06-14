@@ -388,8 +388,76 @@ const normalizeClientAcquisition = (proposal, fallback) => {
     return actions;
 };
 
+const isHotelProject = (brief, proposal = {}) => {
+    const source = [
+        brief,
+        proposal.projectType,
+        proposal.siteName,
+        proposal.summary,
+        proposal.siteModel && proposal.siteModel.name,
+        proposal.siteModel && proposal.siteModel.description,
+    ]
+        .map((value) => stripAccents(normalizeText(value || '').toLowerCase()))
+        .join(' ');
+
+    return /\b(hotel|chambre|hebergement|gite|sejour|touristique)\b/.test(source);
+};
+
+const mergeRequiredPages = (pages, requiredPages, max = 8) => {
+    const normalizedPages = limitArray(pages, max)
+        .map((page) => ({
+            name: normalizeText(page && page.name) || 'Page',
+            goal: normalizeText(page && page.goal) || 'Clarifier une information importante.',
+        }))
+        .filter((page) => page.name);
+    const seen = new Set(normalizedPages.map((page) => stripAccents(page.name.toLowerCase())));
+
+    requiredPages.forEach((page) => {
+        const key = stripAccents(page.name.toLowerCase());
+
+        if (!seen.has(key) && normalizedPages.length < max) {
+            normalizedPages.push(page);
+            seen.add(key);
+        }
+    });
+
+    return normalizedPages;
+};
+
+const mergeRequiredSections = (sections, requiredSections, max = 8) => {
+    const normalizedSections = limitArray(sections, max).map(normalizeText).filter(Boolean);
+    const seen = new Set(normalizedSections.map((section) => stripAccents(section.toLowerCase())));
+
+    requiredSections.forEach((section) => {
+        const key = stripAccents(section.toLowerCase());
+
+        if (!seen.has(key) && normalizedSections.length < max) {
+            normalizedSections.push(section);
+            seen.add(key);
+        }
+    });
+
+    return normalizedSections;
+};
+
 const sanitizeProposal = (proposal, brief) => {
     const fallback = buildFallbackProposal(brief);
+    const hotelProject = isHotelProject(brief, proposal);
+    const requiredHotelPages = [
+        { name: 'Accueil', goal: "Présenter l'hôtel, l'ambiance et le bouton de réservation." },
+        { name: 'Chambres', goal: 'Montrer les chambres, équipements, photos et capacités.' },
+        { name: 'Tarifs', goal: 'Clarifier les prix, périodes, conditions ou disponibilités.' },
+        { name: 'Réservation', goal: 'Permettre une demande de disponibilité ou une réservation.' },
+        { name: 'Galerie', goal: "Rassurer avec les photos de l'hôtel, des chambres et des espaces." },
+        { name: 'Localisation', goal: 'Afficher la ville, l’accès, Google Maps et les points d’intérêt.' },
+        { name: 'Contact', goal: 'Donner téléphone, e-mail et formulaire.' },
+    ];
+    const pages = hotelProject
+        ? mergeRequiredPages(proposal.pages || fallback.pages, requiredHotelPages, 8)
+        : mergeRequiredPages(proposal.pages || fallback.pages, [], 8);
+    const siteSections = hotelProject
+        ? mergeRequiredSections((proposal.siteModel && proposal.siteModel.sections) || fallback.siteModel.sections, requiredHotelPages.map((page) => page.name), 8)
+        : mergeRequiredSections((proposal.siteModel && proposal.siteModel.sections) || fallback.siteModel.sections, [], 6);
 
     return {
         mode: proposal.mode || 'openai',
@@ -413,15 +481,10 @@ const sanitizeProposal = (proposal, brief) => {
         siteModel: {
             name: normalizeText(proposal.siteModel && proposal.siteModel.name) || fallback.siteModel.name,
             description: normalizeText(proposal.siteModel && proposal.siteModel.description) || fallback.siteModel.description,
-            sections: limitArray((proposal.siteModel && proposal.siteModel.sections) || fallback.siteModel.sections, 6).map(normalizeText).filter(Boolean),
+            sections: siteSections,
         },
         recommendedOffer: normalizeText(proposal.recommendedOffer) || fallback.recommendedOffer,
-        pages: limitArray(proposal.pages, 8)
-            .map((page) => ({
-                name: normalizeText(page && page.name) || 'Page',
-                goal: normalizeText(page && page.goal) || 'Clarifier une information importante.',
-            }))
-            .filter((page) => page.name),
+        pages,
         homeSections: limitArray(proposal.homeSections, 5)
             .map((section) => ({
                 title: normalizeText(section && section.title) || 'Section',
