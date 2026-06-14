@@ -77,7 +77,8 @@ Regles strictes :
 - Propose un modele de site concret : type de mise en page, sections visibles, style conseille et logique de navigation.
 - Pour un hotel, une chambre d'hote, un gite ou un hebergement, propose systematiquement : Accueil, Chambres, Tarifs, Reservation, Galerie, Localisation, Contact.
 - Pour un hotel ou un hebergement, recommande les fonctionnalites utiles : formulaire de reservation, calendrier de disponibilites, Google Maps, avis clients, paiement ou acompte, QR code.
-- Pour un projet luxe, mobilier, decoration, design, architecture ou marque premium : propose une direction visuelle haut de gamme, peu de texte, un nom elegant, un menu comme Collection, Univers, Sur mesure, Contact, et evite les noms generiques comme "LuxuryCircle".
+- Pour un projet luxe, mobilier, decoration, design, architecture ou marque premium : propose une direction visuelle haut de gamme, peu de texte, un nom elegant et memorisable, un menu comme Collection, Univers, Sur mesure, Contact.
+- Pour ces projets premium, evite les noms descriptifs ou generiques comme "LuxuryCircle", "LuxeDesign", "Mobilier Premium", "Luxury Furniture". Prefere des noms de marque comme "Maison Oria", "Atelier Velin", "Ligne Astrale", "Noble Forme".
 - N'envoie jamais directement vers un formulaire de contact dans la reponse : la proposition complete vient d'abord, l'envoi arrive seulement en etape suivante dans l'interface.
 - Si l'utilisateur demande une modification, regenere une proposition coherente, pas seulement une correction locale.
 - Retourne uniquement un JSON valide, sans markdown.
