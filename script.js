@@ -6839,15 +6839,15 @@ const buildBrowserKirbyProposal = (brief) => {
     const siteName = activity === 'projet professionnel'
         ? 'Votre Présence Pro'
         : activity.split(/\s+/).map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`).join(' ');
-    const mainCta = needsHotel ? 'Réserver une chambre' : needsShop ? 'Commander en ligne' : needsAppointment ? 'Prendre rendez-vous' : 'Demander une information';
+    const mainCta = needsHotel ? 'Réserver une chambre' : needsShop ? 'Commander en ligne' : needsAppointment ? 'Prendre rendez-vous' : 'Voir le projet';
     const pages = needsHotel ? [
         { name: 'Accueil', goal: 'Présenter l’hôtel, l’ambiance et le bouton de réservation.' },
         { name: 'Chambres', goal: 'Montrer chambres, équipements, photos et capacités.' },
         { name: 'Tarifs', goal: 'Clarifier prix, périodes, conditions ou disponibilités.' },
-        { name: 'Réservation', goal: 'Permettre une demande de disponibilité ou une réservation.' },
+        { name: 'Réservation', goal: 'Afficher le parcours de réservation et les disponibilités.' },
         { name: 'Galerie', goal: 'Rassurer avec les photos de l’hôtel et des espaces.' },
         { name: 'Localisation', goal: 'Afficher la ville, Google Maps et les points d’intérêt.' },
-        { name: 'Contact', goal: 'Donner téléphone, e-mail et formulaire.' },
+        { name: 'Contact', goal: 'Donner téléphone, e-mail professionnel et accès direct.' },
     ] : [
         { name: 'Accueil', goal: 'Présenter l’activité et donner une raison de continuer.' },
         { name: needsShop ? 'Boutique' : 'Prestations', goal: needsShop ? 'Présenter les produits et guider vers la commande.' : 'Afficher les services, tarifs ou informations utiles.' },
@@ -6874,7 +6874,7 @@ const buildBrowserKirbyProposal = (brief) => {
         },
         siteModel: {
             name: needsHotel ? 'Modèle hôtel + réservation' : needsShop ? 'Modèle catalogue + commande' : needsAppointment ? 'Modèle rendez-vous local' : 'Modèle vitrine professionnelle',
-            description: needsHotel ? 'Une structure qui montre les chambres, rassure, localise et mène vers la réservation.' : needsShop ? 'Une structure qui présente vite les produits et conduit vers la commande.' : needsAppointment ? 'Une structure qui montre les prestations, rassure et mène vers la réservation.' : 'Une structure pour expliquer l’activité, rassurer et obtenir une demande.',
+            description: needsHotel ? 'Une structure qui montre les chambres, rassure, localise et mène vers la réservation.' : needsShop ? 'Une structure qui présente vite les produits et conduit vers la commande.' : needsAppointment ? 'Une structure qui montre les prestations, rassure et mène vers la réservation.' : 'Une structure pour expliquer l’activité, rassurer et déclencher une action claire.',
             sections: [
                 needsHotel ? 'Hero hôtel avec bouton Réserver' : 'Hero avec promesse et bouton principal',
                 needsHotel ? 'Chambres et équipements' : needsShop ? 'Catalogue ou produits' : 'Prestations principales',
@@ -6887,14 +6887,14 @@ const buildBrowserKirbyProposal = (brief) => {
         homeSections: [
             { title: `Bienvenue chez ${siteName}`, text: needsHotel ? `Un accueil visuel présente l’hôtel, l’ambiance, la ville et le bouton ${mainCta}.` : `Un bloc d’accueil direct explique l’activité, la zone et ce que le visiteur peut faire.` },
             { title: needsHotel ? 'Chambres et services' : needsShop ? 'Produits ou catalogue' : 'Services principaux', text: needsHotel ? 'Les chambres, équipements et services sont présentés avec photos, tarifs ou disponibilités.' : needsShop ? 'Les produits sont organisés pour faciliter la commande.' : 'Les prestations sont présentées sans texte inutile, avec une phrase claire par service.' },
-            { title: 'Contact rapide', text: `Le bouton ${mainCta} reste visible pour transformer la visite en demande.` },
+            { title: 'Action principale', text: `Le bouton ${mainCta} reste visible pour guider le visiteur vers l’étape suivante.` },
         ],
         services: [
             { name: needsHotel ? 'Chambres' : 'Présentation claire', description: needsHotel ? 'Présenter chaque chambre avec photos, équipements, capacité et ambiance.' : 'Dire quoi, pour qui, dans quelle zone et avec quel résultat.' },
-            { name: needsHotel ? 'Réservation' : needsAppointment ? 'Rendez-vous' : 'Contact direct', description: needsHotel ? 'Ajouter demande de disponibilité, téléphone, e-mail et acompte si besoin.' : needsAppointment ? 'Ajouter un lien de réservation, téléphone ou WhatsApp.' : 'Ajouter un formulaire, e-mail pro ou lien WhatsApp.' },
+            { name: needsHotel ? 'Réservation' : needsAppointment ? 'Rendez-vous' : 'Contact direct', description: needsHotel ? 'Ajouter réservation, téléphone, e-mail professionnel et acompte si besoin.' : needsAppointment ? 'Ajouter un lien de réservation, téléphone ou WhatsApp.' : 'Ajouter e-mail professionnel, téléphone ou lien WhatsApp.' },
             ...(needsHotel ? [{ name: 'Localisation et avis', description: 'Google Maps, accès, points d’intérêt, galerie et avis clients.' }] : []),
         ],
-        ctas: [mainCta, needsHotel ? 'Demander une disponibilité' : 'Voir les prestations', 'Contacter maintenant'],
+        ctas: [mainCta, needsHotel ? 'Voir les disponibilités' : 'Voir les prestations', 'Contacter maintenant'],
         seo: {
             keywords: [activity, `${activity} professionnel`, `${activity} local`, 'site web professionnel'],
             searchExpressions: needsHotel ? [`${activity} + ville`, 'chambre + ville', 'réservation hôtel', 'séjour touristique'] : [`${activity} près de moi`, `${activity} tarifs`, `${activity} contact`, needsAppointment ? `${activity} rendez-vous` : `${activity} professionnel`],
@@ -6907,7 +6907,7 @@ const buildBrowserKirbyProposal = (brief) => {
             { name: 'Adresse e-mail professionnelle', reason: 'Une adresse contact@ renforce la confiance.', priceFrom: 'À partir de 49 €' },
             { name: 'QR code professionnel', reason: needsQr ? 'Le besoin parle déjà de partage ou de support imprimé.' : 'Utile pour partager le site après mise en ligne.', priceFrom: '39 €' },
             ...(needsHotel ? [
-                { name: 'Réservation en ligne', reason: 'Pour recevoir des demandes de disponibilité directement.', priceFrom: 'Projet spécifique' },
+                { name: 'Réservation en ligne', reason: 'Pour afficher disponibilités, dates et réservation directement.', priceFrom: 'Projet spécifique' },
                 { name: 'Google Maps et avis clients', reason: 'Pour rassurer et aider le visiteur à choisir.', priceFrom: 'Inclus selon offre' },
                 { name: 'Paiement ou acompte', reason: 'Pour confirmer une réservation en ligne si nécessaire.', priceFrom: 'Projet spécifique' },
             ] : []),
@@ -7051,7 +7051,7 @@ const renderKirbyProposal = (proposal, brief) => {
         <div class="kirby-builder-result">
             <div class="kirby-result-top">
                 <div>
-                    <p class="signal-label">Proposition générée avant le formulaire</p>
+                    <p class="signal-label">Site généré par Kirby</p>
                     <div class="kirby-proposal-head">
                         <span>${cleanHtml(proposal.projectType || 'Projet web')}</span>
                         <span>${cleanHtml(proposal.recommendedOffer || 'Offre à confirmer')}</span>
@@ -7079,7 +7079,7 @@ const renderKirbyProposal = (proposal, brief) => {
                     </div>
                 </div>
                 <div class="kirby-site-brief">
-                    <p class="signal-label">Modèle conseillé</p>
+                    <p class="signal-label">Structure du futur site</p>
                     <h4>${cleanHtml(siteModel.name)}</h4>
                     <p>${cleanHtml(siteModel.description)}</p>
                     <div class="kirby-model-chips">
@@ -7096,25 +7096,25 @@ const renderKirbyProposal = (proposal, brief) => {
 
             <div class="kirby-blueprint-grid">
                 <section>
-                    <h4>Plan du site</h4>
+                    <h4>Menu proposé</h4>
                     <ul>
                         ${renderKirbyList(pages, (page) => `<li><strong>${cleanHtml(page.name)}</strong><span>${cleanHtml(page.goal)}</span></li>`)}
                     </ul>
                 </section>
                 <section>
-                    <h4>Textes prêts à utiliser</h4>
+                    <h4>Sections de page</h4>
                     <ul>
                         ${renderKirbyList(homeSections, (section) => `<li><strong>${cleanHtml(section.title)}</strong><span>${cleanHtml(section.text)}</span></li>`)}
                     </ul>
                 </section>
                 <section>
-                    <h4>Prestations à afficher</h4>
+                    <h4>Services à présenter</h4>
                     <ul>
                         ${renderKirbyList(services, (service) => `<li><strong>${cleanHtml(service.name)}</strong><span>${cleanHtml(service.description)}</span></li>`)}
                     </ul>
                 </section>
                 <section>
-                    <h4>Modules utiles</h4>
+                    <h4>Options recommandées</h4>
                     <ul>
                         ${renderKirbyList(recommendedServices, (service) => `<li><strong>${cleanHtml(service.name)}</strong><span>${cleanHtml(service.reason)} ${service.priceFrom ? `- ${cleanHtml(service.priceFrom)}` : ''}</span></li>`)}
                     </ul>
@@ -7122,7 +7122,7 @@ const renderKirbyProposal = (proposal, brief) => {
             </div>
 
             <details class="kirby-detail-block">
-                <summary>SEO, acquisition et logique commerciale</summary>
+                <summary>SEO, visibilité et logique de création</summary>
                 <div class="kirby-detail-grid">
                     <section>
                         <h4>SEO</h4>
@@ -7157,16 +7157,16 @@ const renderKirbyProposal = (proposal, brief) => {
 
         <form class="kirby-revision-form">
             <label class="field">
-                <span>Modifier la proposition</span>
-                <textarea rows="3" name="revision" placeholder="Ex. Ajoute une boutique, rends le ton plus premium, change le nom, ajoute un espace client..."></textarea>
+                <span>Ajuster le site généré</span>
+                <textarea rows="3" name="revision" placeholder="Ex. Ajoute une page Tarifs, rends le style plus premium, ajoute une boutique, change le nom..."></textarea>
             </label>
-            <button class="button button-secondary" type="submit">Mettre à jour la proposition</button>
+            <button class="button button-secondary" type="submit">Regénérer la version</button>
         </form>
         <div class="kirby-next-step">
-            <p class="signal-label">Formulaire après validation</p>
-            <h4>La proposition vous convient ?</h4>
-            <p>Envoyez-la seulement après avoir lu ou modifié la base générée.</p>
-            <a class="button button-primary" href="contact.html?${quoteParams.toString()}">Envoyer / transformer en projet</a>
+            <p class="signal-label">Après validation</p>
+            <h4>Cette base est prête à devenir un projet client.</h4>
+            <p>Le contact arrive seulement maintenant, quand le nom, les pages, les textes et les options sont clairs.</p>
+            <a class="button button-primary" href="contact.html?${quoteParams.toString()}">Valider et envoyer le projet</a>
         </div>
     `;
 
@@ -7202,8 +7202,8 @@ const setKirbyLoading = () => {
     aiBriefOutput.classList.add('is-loading');
     aiBriefOutput.innerHTML = `
         <p class="signal-label">Kirby construit</p>
-        <h3>Préparation de la première proposition...</h3>
-        <p>Analyse du métier, modèle de site, style conseillé, pages, textes, SEO, acquisition client et modules utiles.</p>
+        <h3>Votre première version prend forme...</h3>
+        <p>Analyse du métier, nom, slogan, menu, sections, textes, SEO, domaine, e-mail pro et options utiles.</p>
     `;
 };
 
@@ -7228,8 +7228,8 @@ if (aiBriefForm && aiBriefInput && aiBriefOutput) {
         if (baseBrief.length < 8) {
             aiBriefOutput.closest('.ai-brief-panel')?.classList.remove('has-proposal');
             aiBriefOutput.innerHTML = `
-                <p class="signal-label">Projet trop court</p>
-                <h3>Ajoutez au moins votre activité et l'objectif.</h3>
+                <p class="signal-label">Idée trop courte</p>
+                <h3>Écrivez simplement votre activité.</h3>
                 <p>Exemple : Je suis coiffeuse à Rueil, je veux présenter mes tarifs et recevoir des rendez-vous.</p>
             `;
             return;
@@ -7425,4 +7425,85 @@ const initHeroParticles = () => {
     }, { passive: true });
 };
 
+const initPageCosmicField = () => {
+    const canvas = document.querySelector('#cosmic-page-field');
+
+    if (!canvas || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        return;
+    }
+
+    const context = canvas.getContext('2d');
+    let stars = [];
+    let width = 0;
+    let height = 0;
+    let animationFrame;
+    let time = 0;
+    let scrollY = window.scrollY || 0;
+
+    const resize = () => {
+        const ratio = Math.min(window.devicePixelRatio || 1, 2);
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width * ratio;
+        canvas.height = height * ratio;
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+        context.setTransform(ratio, 0, 0, ratio, 0, 0);
+
+        const starCount = width < 720 ? 90 : 150;
+        stars = Array.from({ length: starCount }, () => ({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            depth: Math.random() * 0.85 + 0.15,
+            size: Math.random() * 1.4 + 0.35,
+            phase: Math.random() * Math.PI * 2,
+            warm: Math.random() > 0.78,
+        }));
+    };
+
+    const draw = () => {
+        time += 0.006;
+        context.clearRect(0, 0, width, height);
+
+        stars.forEach((star) => {
+            const driftX = Math.sin(time + star.phase) * 18 * star.depth;
+            const driftY = ((scrollY * 0.025 * star.depth) + Math.cos(time * 0.65 + star.phase) * 10) % height;
+            const x = (star.x + driftX + width) % width;
+            const y = (star.y + driftY + height) % height;
+            const pulse = 0.56 + Math.sin(time * 2.4 + star.phase) * 0.22;
+            const alpha = Math.max(0.12, pulse * star.depth * 0.58);
+
+            context.beginPath();
+            context.arc(x, y, star.size * star.depth, 0, Math.PI * 2);
+            context.fillStyle = star.warm
+                ? `rgba(239, 214, 163, ${alpha})`
+                : `rgba(255, 255, 255, ${alpha})`;
+            context.fill();
+
+            if (star.depth > 0.7 && star.size > 1.2) {
+                context.beginPath();
+                context.arc(x, y, star.size * 4.2, 0, Math.PI * 2);
+                context.fillStyle = `rgba(114, 150, 255, ${alpha * 0.08})`;
+                context.fill();
+            }
+        });
+
+        animationFrame = window.requestAnimationFrame(draw);
+    };
+
+    resize();
+    draw();
+
+    window.addEventListener('resize', () => {
+        window.cancelAnimationFrame(animationFrame);
+        resize();
+        draw();
+    }, { passive: true });
+
+    window.addEventListener('scroll', () => {
+        scrollY = window.scrollY || 0;
+    }, { passive: true });
+};
+
+initPageCosmicField();
 initHeroParticles();

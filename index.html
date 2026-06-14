@@ -17,9 +17,11 @@
     >
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <link rel="preload" href="assets/sa-creation-web-mark.svg" as="image" type="image/svg+xml">
-    <link rel="stylesheet" href="style.css?v=20260614-platform-v5">
+    <link rel="stylesheet" href="style.css?v=20260614-platform-v6">
 </head>
 <body class="is-preload studio-home">
+    <canvas class="cosmic-page-field" id="cosmic-page-field" aria-hidden="true"></canvas>
+    <div class="cosmic-page-glow" aria-hidden="true"></div>
     <div class="page-shell">
         <header class="hero hero-studio hero-immersive" id="top">
             <canvas class="hero-particles" id="hero-particles" aria-hidden="true"></canvas>
@@ -55,14 +57,13 @@
                 <div class="hero-content">
                     <p class="eyebrow hero-reveal hero-reveal-delay-1">Créateur de site assisté par IA</p>
                     <h1 class="hero-title hero-reveal-delay-2">
-                        <span class="title-line">Créez votre présence en ligne avec l'IA.</span>
+                        <span class="title-line">Votre projet web prend forme avec l'IA.</span>
                     </h1>
                     <p class="hero-role hero-reveal hero-reveal-delay-3">
-                        Site web, boutique, WordPress, e-mail professionnel, QR code, CV/portfolio et réservation :
-                        décrivez votre projet, l'IA prépare la première version.
+                        Décrivez votre activité. Kirby imagine le nom, les pages, les textes, le SEO et les options utiles.
                     </p>
                     <p class="hero-text hero-reveal hero-reveal-delay-4">
-                        Décrivez votre activité. L'IA prépare votre projet digital. Vous gardez la main.
+                        Site web, boutique, WordPress, e-mail pro, QR code, CV/portfolio et réservation dans une même expérience.
                     </p>
                     <div class="hero-actions hero-reveal hero-reveal-delay-6">
                         <a class="button button-primary" href="#kirby-assistant">Créer mon projet avec Kirby</a>
@@ -93,159 +94,75 @@
         </header>
 
         <main>
-            <section class="section reveal-section platform-tools-section" id="outils-digitaux">
+            <section class="section reveal-section ai-brief-section ai-builder-section creator-focus-section" id="kirby-assistant">
                 <div class="section-heading">
-                    <p class="section-kicker">Plateforme digitale</p>
-                    <h2>Tous vos outils digitaux au même endroit.</h2>
+                    <p class="section-kicker">Créateur de site IA</p>
+                    <h2>Décrivez votre activité. Kirby construit la première version.</h2>
                     <p class="section-intro">
-                        Créez votre site, préparez vos textes, lancez une boutique, installez WordPress,
-                        générez un QR code ou construisez votre portfolio avec l'aide de l'IA.
-                    </p>
-                </div>
-
-                <div class="platform-product-grid" aria-label="Outils digitaux SA Création Web">
-                    <a class="platform-product-card card" href="#kirby-assistant">
-                        <span class="product-icon" aria-hidden="true">SW</span>
-                        <strong>Créer un site vitrine</strong>
-                        <p>Présenter une activité, des services, des tarifs et un contact.</p>
-                    </a>
-                    <a class="platform-product-card card is-featured" href="#kirby-assistant">
-                        <span class="product-icon" aria-hidden="true">IA</span>
-                        <strong>Générateur de site IA</strong>
-                        <p>L'IA prépare la structure, les pages, les textes, le SEO et les options utiles.</p>
-                    </a>
-                    <a class="platform-product-card card" href="prestations.html#sites-web">
-                        <span class="product-icon" aria-hidden="true">WP</span>
-                        <strong>WordPress</strong>
-                        <p>Installation, configuration, refonte ou accompagnement WordPress.</p>
-                    </a>
-                    <a class="platform-product-card card" href="prestations.html#sites-web">
-                        <span class="product-icon" aria-hidden="true">BK</span>
-                        <strong>Boutique en ligne</strong>
-                        <p>Catalogue, produits, paiements, offres ou prise de commande.</p>
-                    </a>
-                    <a class="platform-product-card card" href="cv.html">
-                        <span class="product-icon" aria-hidden="true">CV</span>
-                        <strong>CV & Portfolio</strong>
-                        <p>Créer un CV moderne, un portfolio numérique et une page partageable.</p>
-                    </a>
-                    <a class="platform-product-card card" href="prestations.html#petits-services">
-                        <span class="product-icon" aria-hidden="true">QR</span>
-                        <strong>QR Code</strong>
-                        <p>Pointer vers un site, une carte digitale, un menu, un portfolio ou un contact.</p>
-                    </a>
-                    <a class="platform-product-card card" href="prestations.html#petits-services">
-                        <span class="product-icon" aria-hidden="true">@</span>
-                        <strong>E-mail professionnel</strong>
-                        <p>Créer une adresse professionnelle type contact@domaine.fr.</p>
-                    </a>
-                    <a class="platform-product-card card" href="#kirby-assistant">
-                        <span class="product-icon" aria-hidden="true">RDV</span>
-                        <strong>Réservation / rendez-vous</strong>
-                        <p>Ajouter une prise de rendez-vous, un formulaire ou un lien de réservation.</p>
-                    </a>
-                </div>
-
-                <div class="platform-flow-band" aria-label="Parcours SA Création Web">
-                    <span>Je décris mon activité</span>
-                    <i aria-hidden="true"></i>
-                    <span>Kirby prépare le site</span>
-                    <i aria-hidden="true"></i>
-                    <span>Je valide les options</span>
-                    <i aria-hidden="true"></i>
-                    <span>Le projet devient client</span>
-                </div>
-            </section>
-
-            <section class="section reveal-section ai-brief-section ai-builder-section" id="kirby-assistant">
-                <div class="section-heading">
-                    <p class="section-kicker">Studio de création IA</p>
-                    <h2>Décrivez votre activité. L'IA prépare votre projet digital. Vous gardez la main.</h2>
-                    <p class="section-intro">
-                        Exemple : hôtel avec réservation, coiffeuse avec rendez-vous, plombier avec demande de devis,
-                        boutique en ligne ou portfolio avec QR code.
+                        Titre, sous-titre, menu, sections, services, galerie, contact, SEO, e-mail professionnel,
+                        nom de domaine et options utiles apparaissent avant toute prise de contact.
                     </p>
                 </div>
 
                 <div class="builder-steps builder-steps-compact" aria-label="Parcours de création">
                     <span class="builder-step is-active">1. Décrire</span>
-                    <span class="builder-step">2. Générer</span>
+                    <span class="builder-step">2. Voir le site</span>
                     <span class="builder-step">3. Modifier</span>
-                    <span class="builder-step">4. Envoyer</span>
+                    <span class="builder-step">4. Valider</span>
                 </div>
 
-                <div class="ai-brief-panel builder-workspace">
-                    <form class="ai-brief-form" id="ai-brief-form">
+                <div class="ai-brief-panel builder-workspace creator-studio">
+                    <form class="ai-brief-form creator-prompt-console" id="ai-brief-form">
                         <div class="creator-form-head">
-                            <p class="signal-label">Créateur IA</p>
-                            <h3>Lancez une première version</h3>
-                            <p>Décrivez le métier, la ville et ce que le client doit pouvoir faire.</p>
+                            <p class="signal-label">Studio Kirby</p>
+                            <h3>Écrivez votre idée. Kirby génère le site.</h3>
+                            <p>Aucun contact envoyé ici : Kirby construit d'abord la proposition visible.</p>
                         </div>
                         <label class="field field-message">
-                            <span>Votre activité</span>
+                            <span class="sr-only">Décrivez votre activité</span>
                             <textarea
                                 id="ai-brief-input"
-                                rows="6"
+                                rows="5"
                                 placeholder="Ex. Je veux créer un site web pour mon hôtel avec chambres, galerie, tarifs et réservation."
                             ></textarea>
                         </label>
-                        <div class="creator-form-grid creator-options-compact">
-                            <label class="field">
-                                <span>Objectif principal</span>
-                                <select id="ai-brief-goal" name="goal">
-                                    <option value="">Kirby choisit selon mon texte</option>
-                                    <option value="recevoir des contacts">Recevoir des contacts</option>
-                                    <option value="prendre des rendez-vous">Prendre des rendez-vous</option>
-                                    <option value="vendre en ligne">Vendre en ligne</option>
-                                    <option value="présenter un portfolio">Présenter un portfolio</option>
-                                </select>
-                            </label>
-                            <label class="field">
-                                <span>Style souhaité</span>
-                                <select id="ai-brief-style" name="style">
-                                    <option value="">Kirby propose le style</option>
-                                    <option value="moderne et professionnel">Moderne et professionnel</option>
-                                    <option value="premium et élégant">Premium et élégant</option>
-                                    <option value="simple et rassurant">Simple et rassurant</option>
-                                    <option value="créatif et visuel">Créatif et visuel</option>
-                                </select>
-                            </label>
-                        </div>
-                        <fieldset class="project-option-grid">
-                            <legend>À préparer si utile</legend>
-                            <label><input type="checkbox" name="features" value="galerie ou réalisations">Galerie</label>
-                            <label><input type="checkbox" name="features" value="prise de rendez-vous">RDV</label>
-                            <label><input type="checkbox" name="features" value="boutique en ligne">Boutique</label>
-                            <label><input type="checkbox" name="features" value="adresse e-mail professionnelle">E-mail pro</label>
-                            <label><input type="checkbox" name="features" value="QR code professionnel">QR code</label>
-                            <label><input type="checkbox" name="features" value="espace client simple">Espace client</label>
-                        </fieldset>
                         <div class="kirby-examples" aria-label="Exemples de projets">
                             <button type="button" data-kirby-example="Je suis coiffeuse à Rueil, je veux faire mon site avec tout dedans : tarifs, photos, rendez-vous et contact.">Coiffeuse</button>
                             <button type="button" data-kirby-example="Je veux créer un site web pour mon hôtel avec chambres, galerie, tarifs, localisation et réservation.">Hôtel</button>
-                            <button type="button" data-kirby-example="Je suis plombier et je veux recevoir des demandes de devis urgentes avec téléphone, zone d'intervention et avis clients.">Plombier</button>
+                            <button type="button" data-kirby-example="Je suis plombier et je veux créer un site avec téléphone visible, zone d'intervention, avis clients et bouton urgence.">Plombier</button>
                             <button type="button" data-kirby-example="Je suis fleuriste a Paris, je veux presenter mes bouquets, recevoir des commandes et proposer un QR code pour ma carte.">Fleuriste</button>
                             <button type="button" data-kirby-example="Je suis coach sportif, je veux presenter mes offres, recevoir des rendez-vous et avoir une adresse email professionnelle.">Coach sportif</button>
                             <button type="button" data-kirby-example="Je veux une mini-page professionnelle avec mon CV, mon portfolio et un lien de contact.">CV & portfolio</button>
                         </div>
-                        <button class="button button-primary" type="submit">Générer mon projet</button>
+                        <button class="button button-primary" type="submit">Générer mon site</button>
+                        <p class="creator-output-note">Nom, slogan, menu, sections, textes, SEO, domaine et e-mail pro seront proposés avant le contact.</p>
                     </form>
                     <article class="ai-brief-output" id="ai-brief-output" aria-live="polite">
-                        <div class="starter-preview">
+                        <div class="starter-preview creator-live-preview">
                             <div class="starter-preview-copy">
-                                <p class="signal-label">Exemple de sortie Kirby</p>
-                                <h3>Votre site commence ici.</h3>
-                                <p>Nom, slogan, pages, textes, SEO, boutons et options utiles apparaissent avant le formulaire.</p>
+                                <p class="signal-label">Aperçu généré</p>
+                                <h3>Le futur site apparaît ici.</h3>
+                                <p>Kirby affiche la proposition visible avant le contact : identité, menu, contenu, SEO et options.</p>
                             </div>
-                            <div class="site-wireframe starter-browser" aria-hidden="true">
-                                <div class="wireframe-topbar"><span></span><span></span><span></span></div>
-                                <div class="wireframe-hero">
+                            <div class="preview-mini-site" aria-hidden="true">
+                                <div class="preview-mini-topbar">
                                     <span>Hôtel Lumière</span>
-                                    <strong>Réservez votre séjour simplement</strong>
-                                    <i>Chambres, tarifs, galerie, réservation</i>
+                                    <i>Accueil</i><i>Chambres</i><i>Réservation</i><i>Contact</i>
                                 </div>
-                                <div class="wireframe-grid">
-                                    <span>Accueil</span><span>Chambres</span><span>Réserver</span>
+                                <div class="preview-mini-hero">
+                                    <strong>Réservez votre séjour simplement</strong>
+                                    <p>Chambres, tarifs, galerie, localisation et réservation.</p>
+                                    <em>Réserver une chambre</em>
+                                </div>
+                                <div class="preview-mini-grid">
+                                    <span>Chambres</span>
+                                    <span>Galerie</span>
+                                    <span>SEO local</span>
+                                </div>
+                                <div class="preview-mini-options">
+                                    <span>contact@hotel.fr</span>
+                                    <span>domaine.fr</span>
+                                    <span>QR code</span>
                                 </div>
                             </div>
                         </div>
@@ -259,6 +176,46 @@
                     </article>
                 </div>
             </section>
+
+            <section class="section reveal-section platform-tools-section" id="outils-digitaux">
+                <div class="section-heading section-heading-compact">
+                    <p class="section-kicker">Modules disponibles</p>
+                    <h2>Kirby recommande seulement ce qui sert le projet.</h2>
+                </div>
+
+                <div class="platform-product-grid platform-product-grid-compact" aria-label="Outils digitaux SA Création Web">
+                    <a class="platform-product-card card is-featured" href="#kirby-assistant">
+                        <span class="product-icon" aria-hidden="true">IA</span>
+                        <strong>Site avec IA</strong>
+                        <p>Pages, textes, menu, SEO et base visuelle.</p>
+                    </a>
+                    <a class="platform-product-card card" href="prestations.html#sites-web">
+                        <span class="product-icon" aria-hidden="true">WP</span>
+                        <strong>WordPress</strong>
+                        <p>Installation, configuration ou refonte.</p>
+                    </a>
+                    <a class="platform-product-card card" href="prestations.html#sites-web">
+                        <span class="product-icon" aria-hidden="true">BK</span>
+                        <strong>Boutique</strong>
+                        <p>Catalogue, paiement ou commande simple.</p>
+                    </a>
+                    <a class="platform-product-card card" href="prestations.html#petits-services">
+                        <span class="product-icon" aria-hidden="true">@</span>
+                        <strong>E-mail pro</strong>
+                        <p>Adresse professionnelle liée au domaine.</p>
+                    </a>
+                    <a class="platform-product-card card" href="prestations.html#petits-services">
+                        <span class="product-icon" aria-hidden="true">QR</span>
+                        <strong>QR code</strong>
+                        <p>Site, carte digitale, menu ou portfolio.</p>
+                    </a>
+                    <a class="platform-product-card card" href="cv.html">
+                        <span class="product-icon" aria-hidden="true">CV</span>
+                        <strong>CV & Portfolio</strong>
+                        <p>Page partageable pour profil ou projets.</p>
+                    </a>
+                </div>
+            </section>
         </main>
 
         <footer class="site-footer">
@@ -267,6 +224,6 @@
         </footer>
     </div>
 
-    <script src="script.js?v=20260614-platform-v5" defer></script>
+    <script src="script.js?v=20260614-platform-v6" defer></script>
 </body>
 </html>
