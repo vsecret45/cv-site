@@ -6475,7 +6475,7 @@ body.studio-home .section:first-child {
 }
 
 .ai-brief-panel.has-proposal {
-    grid-template-columns: minmax(280px, 0.42fr) minmax(0, 1fr);
+    grid-template-columns: minmax(250px, 0.26fr) minmax(0, 1fr);
 }
 
 .creator-focus-section .section-heading {
@@ -6483,7 +6483,7 @@ body.studio-home .section:first-child {
 }
 
 .creator-studio {
-    grid-template-columns: minmax(300px, 0.36fr) minmax(0, 1fr);
+    grid-template-columns: minmax(270px, 0.3fr) minmax(0, 1fr);
 }
 
 .ai-brief-form {
@@ -6536,7 +6536,7 @@ body.studio-home .section:first-child {
 }
 
 .creator-form-head h3 {
-    font-size: clamp(1.35rem, 2vw, 1.8rem);
+    font-size: clamp(1.25rem, 1.7vw, 1.55rem);
     line-height: 1.08;
 }
 
@@ -6634,7 +6634,7 @@ body.studio-home .section:first-child {
     align-content: start;
     gap: 1rem;
     min-height: 100%;
-    padding: clamp(1.2rem, 2.5vw, 1.8rem);
+    padding: clamp(0.85rem, 1.8vw, 1.2rem);
     border: 1px solid rgba(255, 255, 255, 0.18);
     border-radius: 26px;
     background:
@@ -7110,6 +7110,244 @@ body.studio-home .section:first-child {
     text-align: center;
 }
 
+.kirby-result-top-minimal {
+    align-items: center;
+}
+
+.kirby-generated-website {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(210px, 0.28fr);
+    gap: 0.85rem;
+}
+
+.kirby-live-browser {
+    min-height: clamp(520px, 58vw, 700px);
+    padding: clamp(0.85rem, 1.8vw, 1.25rem);
+    border-radius: 28px;
+    background:
+        radial-gradient(circle at 78% 18%, rgba(239, 214, 163, 0.18), transparent 20rem),
+        radial-gradient(circle at 10% 92%, rgba(114, 150, 255, 0.16), transparent 18rem),
+        linear-gradient(145deg, rgba(255, 255, 255, 0.085), rgba(255, 255, 255, 0.025));
+    overflow: hidden;
+}
+
+.kirby-live-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.2rem 0.1rem 0.55rem;
+}
+
+.kirby-live-nav strong {
+    color: #f8f6ee;
+    font-size: 0.96rem;
+    font-weight: 950;
+}
+
+.kirby-live-nav div {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.35rem;
+}
+
+.kirby-live-nav span {
+    color: rgba(248, 246, 238, 0.66);
+    font-size: 0.76rem;
+    font-weight: 850;
+}
+
+.kirby-live-hero {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(210px, 0.42fr);
+    align-items: stretch;
+    gap: clamp(0.9rem, 2vw, 1.35rem);
+    min-height: clamp(300px, 38vw, 430px);
+    padding: clamp(1.2rem, 3vw, 2rem);
+    border-radius: 25px;
+    background:
+        linear-gradient(120deg, rgba(6, 8, 14, 0.82), rgba(34, 36, 47, 0.6)),
+        radial-gradient(circle at 86% 18%, rgba(239, 214, 163, 0.16), transparent 18rem);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 26px 70px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+}
+
+.kirby-live-hero-copy {
+    display: grid;
+    align-content: center;
+    gap: 0.75rem;
+    position: relative;
+    z-index: 1;
+}
+
+.kirby-live-hero h3 {
+    max-width: 10ch;
+    color: #f8f6ee;
+    font-family: "Playfair Display", Georgia, serif;
+    font-size: clamp(3rem, 8vw, 6.7rem);
+    line-height: 0.86;
+    letter-spacing: 0;
+}
+
+.kirby-live-hero .kirby-slogan {
+    max-width: 30rem;
+    color: #f3dfb4;
+    font-size: clamp(1rem, 1.6vw, 1.35rem);
+    line-height: 1.28;
+}
+
+.kirby-hero-visual {
+    position: relative;
+    min-height: 100%;
+    border-radius: 24px;
+    background:
+        radial-gradient(circle at 50% 35%, rgba(255, 255, 255, 0.24), transparent 0.6rem),
+        radial-gradient(circle at 72% 58%, rgba(239, 214, 163, 0.24), transparent 0.7rem),
+        linear-gradient(145deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04));
+    border: 1px solid rgba(239, 214, 163, 0.14);
+    overflow: hidden;
+}
+
+.kirby-hero-visual::before,
+.kirby-hero-visual::after {
+    content: "";
+    position: absolute;
+    border-radius: 999px 999px 2.6rem 2.6rem;
+    border: 1px solid rgba(239, 214, 163, 0.18);
+    background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04)),
+        rgba(239, 214, 163, 0.055);
+}
+
+.kirby-hero-visual::before {
+    right: 12%;
+    bottom: -10%;
+    width: 42%;
+    height: 80%;
+}
+
+.kirby-hero-visual::after {
+    left: 12%;
+    bottom: -15%;
+    width: 34%;
+    height: 64%;
+    opacity: 0.72;
+}
+
+.kirby-hero-visual span {
+    position: absolute;
+    border-radius: 999px;
+    background: rgba(239, 214, 163, 0.28);
+}
+
+.kirby-hero-visual span:nth-child(1) {
+    inset: 12% auto auto 14%;
+    width: 4.2rem;
+    height: 4.2rem;
+}
+
+.kirby-hero-visual span:nth-child(2) {
+    right: 15%;
+    top: 17%;
+    width: 1.1rem;
+    height: 1.1rem;
+}
+
+.kirby-hero-visual span:nth-child(3) {
+    right: 32%;
+    bottom: 16%;
+    width: 6rem;
+    height: 0.18rem;
+}
+
+.kirby-live-sections {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.65rem;
+}
+
+.kirby-live-sections article {
+    display: grid;
+    align-content: end;
+    gap: 0.35rem;
+    min-height: 7.3rem;
+    padding: 0.9rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.045);
+}
+
+.kirby-live-sections strong {
+    color: #f8f6ee;
+    font-size: 0.98rem;
+}
+
+.kirby-live-sections span {
+    color: rgba(248, 246, 238, 0.58);
+    font-size: 0.8rem;
+    line-height: 1.35;
+}
+
+.kirby-project-dock {
+    display: grid;
+    align-content: start;
+    gap: 0.75rem;
+}
+
+.kirby-project-dock section {
+    display: grid;
+    gap: 0.55rem;
+    padding: 0.9rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.kirby-project-dock h4 {
+    color: #f8f6ee;
+    font-size: 1rem;
+    line-height: 1.15;
+}
+
+.kirby-mini-lines,
+.kirby-option-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.kirby-mini-lines span,
+.kirby-option-pills span {
+    display: inline-flex;
+    width: fit-content;
+    min-height: 1.8rem;
+    align-items: center;
+    padding: 0.34rem 0.55rem;
+    border: 1px solid rgba(239, 214, 163, 0.13);
+    border-radius: 999px;
+    background: rgba(239, 214, 163, 0.075);
+    color: rgba(248, 246, 238, 0.76);
+    font-size: 0.76rem;
+    font-weight: 850;
+}
+
+.kirby-seo-pills span {
+    border-color: rgba(114, 150, 255, 0.16);
+    background: rgba(114, 150, 255, 0.08);
+}
+
+.kirby-style-note {
+    margin: 0;
+    color: rgba(248, 246, 238, 0.58);
+    font-size: 0.84rem;
+    line-height: 1.35;
+}
+
 .kirby-site-brief,
 .kirby-blueprint-grid section,
 .kirby-detail-grid section {
@@ -7289,14 +7527,27 @@ body.studio-home .section:first-child {
     background: rgba(255, 255, 255, 0.04);
 }
 
+.kirby-revision-compact {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    margin-top: 0;
+    padding: 0.75rem;
+}
+
+.kirby-revision-compact textarea {
+    min-height: 4rem;
+}
+
 .kirby-revision-form .button {
     width: fit-content;
 }
 
 .kirby-next-step {
-    display: grid;
-    gap: 0.55rem;
-    padding: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    padding: 0.85rem;
     border: 1px solid rgba(239, 214, 163, 0.14);
     border-radius: 18px;
     background:
@@ -7339,6 +7590,13 @@ body.studio-home[data-theme="day"] .kirby-preview-main,
 body.studio-home[data-theme="day"] .kirby-preview-nav span,
 body.studio-home[data-theme="day"] .kirby-preview-actions span,
 body.studio-home[data-theme="day"] .kirby-preview-blocks span,
+body.studio-home[data-theme="day"] .kirby-live-browser,
+body.studio-home[data-theme="day"] .kirby-live-hero,
+body.studio-home[data-theme="day"] .kirby-hero-visual,
+body.studio-home[data-theme="day"] .kirby-live-sections article,
+body.studio-home[data-theme="day"] .kirby-project-dock section,
+body.studio-home[data-theme="day"] .kirby-mini-lines span,
+body.studio-home[data-theme="day"] .kirby-option-pills span,
 body.studio-home[data-theme="day"] .kirby-site-brief,
 body.studio-home[data-theme="day"] .kirby-blueprint-grid section,
 body.studio-home[data-theme="day"] .kirby-detail-block,
@@ -7367,6 +7625,10 @@ body.studio-home[data-theme="day"] .kirby-slogan,
 body.studio-home[data-theme="day"] .kirby-value,
 body.studio-home[data-theme="day"] .preview-mini-topbar span,
 body.studio-home[data-theme="day"] .preview-mini-hero strong,
+body.studio-home[data-theme="day"] .kirby-live-nav strong,
+body.studio-home[data-theme="day"] .kirby-live-hero h3,
+body.studio-home[data-theme="day"] .kirby-live-sections strong,
+body.studio-home[data-theme="day"] .kirby-project-dock h4,
 body.studio-home[data-theme="day"] .kirby-result-grid strong,
 body.studio-home[data-theme="day"] .kirby-blueprint-grid strong,
 body.studio-home[data-theme="day"] .kirby-detail-grid strong,
@@ -7389,6 +7651,11 @@ body.studio-home[data-theme="day"] .preview-mini-hero p,
 body.studio-home[data-theme="day"] .preview-mini-topbar i,
 body.studio-home[data-theme="day"] .preview-mini-grid span,
 body.studio-home[data-theme="day"] .preview-mini-options span,
+body.studio-home[data-theme="day"] .kirby-live-nav span,
+body.studio-home[data-theme="day"] .kirby-live-sections span,
+body.studio-home[data-theme="day"] .kirby-mini-lines span,
+body.studio-home[data-theme="day"] .kirby-option-pills span,
+body.studio-home[data-theme="day"] .kirby-style-note,
 body.studio-home[data-theme="day"] .builder-step p,
 body.studio-home[data-theme="day"] .platform-product-card p,
 body.studio-home[data-theme="day"] .kirby-next-step p:not(.signal-label),
@@ -7432,8 +7699,12 @@ body.studio-home[data-theme="day"] .kirby-tags span {
     .platform-product-grid,
     .service-pill-grid,
     .kirby-site-preview,
+    .kirby-generated-website,
+    .kirby-live-hero,
+    .kirby-live-sections,
     .kirby-blueprint-grid,
     .kirby-detail-grid,
+    .kirby-revision-compact,
     .starter-preview {
         grid-template-columns: 1fr;
     }
@@ -7450,6 +7721,18 @@ body.studio-home[data-theme="day"] .kirby-tags span {
     .kirby-revision-form .button,
     .kirby-next-step .button {
         width: 100%;
+    }
+
+    .kirby-live-browser {
+        min-height: auto;
+    }
+
+    .kirby-live-hero {
+        min-height: 360px;
+    }
+
+    .kirby-next-step {
+        display: grid;
     }
 
     .kirby-result-grid {
