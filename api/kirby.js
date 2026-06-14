@@ -32,7 +32,7 @@ Mission unique : aider des independants, artisans, petites entreprises et porteu
 
 Tu dois produire une vraie premiere proposition de site, pas un simple diagnostic ni un formulaire.
 Tu analyses le besoin et tu prends l'initiative, meme si la description est courte.
-Tu proposes un projet digital complet : positionnement, nom, slogan, valeur ajoutee, structure de site, textes principaux, SEO, services utiles, options pertinentes et logique commerciale pour attirer des clients.
+Tu proposes un projet digital complet : positionnement, nom, slogan, modele de site conseille, direction visuelle, structure de site, textes principaux, SEO, services utiles, options pertinentes et logique commerciale pour attirer des clients.
 Chaque proposition doit contenir assez de matiere pour donner l'impression que le projet commence deja a se construire.
 
 Services disponibles :
@@ -62,6 +62,7 @@ Regles strictes :
 - Recommande 3 a 7 services SA Creation Web quand ils sont pertinents, en choisissant dans la liste des services disponibles.
 - Propose 3 a 5 idees concretes pour attirer des clients.
 - Propose au moins 4 pages ou sections quand l'activite le permet.
+- Propose un modele de site concret : type de mise en page, sections visibles, style conseille et logique de navigation.
 - Si l'utilisateur demande une modification, regenere une proposition coherente, pas seulement une correction locale.
 - Retourne uniquement un JSON valide, sans markdown.
 
@@ -77,6 +78,17 @@ Schema JSON attendu :
     "promise": "promesse commerciale",
     "tone": "ton conseille",
     "differentiator": "ce qui rend le projet plus credible ou different"
+  },
+  "styleGuide": {
+    "direction": "style visuel conseille",
+    "colors": "palette ou ambiance couleur",
+    "typography": "type de typographie conseille",
+    "layout": "mise en page conseillee"
+  },
+  "siteModel": {
+    "name": "nom du modele de site",
+    "description": "description courte du modele",
+    "sections": ["section importante du futur site"]
   },
   "recommendedOffer": "Offre Essentiel | Offre Pro | Offre Signature | Mini-page professionnelle | Projet specifique",
   "pages": [{"name": "Accueil", "goal": "role de la page"}],
@@ -215,6 +227,22 @@ const buildFallbackProposal = (brief) => {
             tone: 'Professionnel, direct et rassurant.',
             differentiator: 'Une structure simple, des options utiles et un accompagnement humain après la proposition IA.',
         },
+        styleGuide: {
+            direction: needsShop ? 'Catalogue clair avec produits visibles et parcours de commande court.' : needsAppointment ? 'Site élégant avec agenda ou contact visible dès le premier écran.' : 'Vitrine moderne, lisible et rassurante.',
+            colors: 'Fond sobre, contraste fort, une couleur d’accent pour les boutons et les informations importantes.',
+            typography: 'Titres francs, textes courts, lecture facile sur mobile.',
+            layout: 'Accueil direct, blocs courts, grille de prestations, preuves, puis contact.',
+        },
+        siteModel: {
+            name: needsShop ? 'Modèle catalogue + commande' : needsAppointment ? 'Modèle rendez-vous local' : 'Modèle vitrine professionnelle',
+            description: needsShop ? 'Une page d’accueil qui mène vite vers le catalogue, les produits et la commande.' : needsAppointment ? 'Une page d’accueil centrée sur les prestations, les preuves et la prise de rendez-vous.' : 'Une vitrine claire pour expliquer l’activité, rassurer et obtenir une demande.',
+            sections: [
+                'Hero avec promesse et bouton principal',
+                needsShop ? 'Produits ou catégories' : 'Prestations principales',
+                needsPortfolio ? 'Réalisations ou portfolio' : 'Preuves de confiance',
+                needsAppointment ? 'Prise de rendez-vous' : 'Contact rapide',
+            ],
+        },
         recommendedOffer: needsShop ? 'Offre Pro' : needsPortfolio ? 'Mini-page professionnelle' : needsAppointment ? 'Offre Pro' : 'Offre Essentiel',
         pages,
         homeSections: [
@@ -333,6 +361,17 @@ const sanitizeProposal = (proposal, brief) => {
             promise: normalizeText(proposal.positioning && proposal.positioning.promise) || fallback.positioning.promise,
             tone: normalizeText(proposal.positioning && proposal.positioning.tone) || fallback.positioning.tone,
             differentiator: normalizeText(proposal.positioning && proposal.positioning.differentiator) || fallback.positioning.differentiator,
+        },
+        styleGuide: {
+            direction: normalizeText(proposal.styleGuide && proposal.styleGuide.direction) || fallback.styleGuide.direction,
+            colors: normalizeText(proposal.styleGuide && proposal.styleGuide.colors) || fallback.styleGuide.colors,
+            typography: normalizeText(proposal.styleGuide && proposal.styleGuide.typography) || fallback.styleGuide.typography,
+            layout: normalizeText(proposal.styleGuide && proposal.styleGuide.layout) || fallback.styleGuide.layout,
+        },
+        siteModel: {
+            name: normalizeText(proposal.siteModel && proposal.siteModel.name) || fallback.siteModel.name,
+            description: normalizeText(proposal.siteModel && proposal.siteModel.description) || fallback.siteModel.description,
+            sections: limitArray((proposal.siteModel && proposal.siteModel.sections) || fallback.siteModel.sections, 6).map(normalizeText).filter(Boolean),
         },
         recommendedOffer: normalizeText(proposal.recommendedOffer) || fallback.recommendedOffer,
         pages: limitArray(proposal.pages, 6)

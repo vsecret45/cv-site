@@ -6850,6 +6850,22 @@ const buildBrowserKirbyProposal = (brief) => {
             tone: 'Professionnel, simple et rassurant.',
             differentiator: 'Une proposition IA structurée, puis un accompagnement humain pour finaliser.',
         },
+        styleGuide: {
+            direction: needsShop ? 'Catalogue clair avec produits visibles et commande directe.' : needsAppointment ? 'Site élégant orienté réservation et preuves visuelles.' : 'Vitrine moderne, lisible et rassurante.',
+            colors: 'Fond sobre, contraste fort, accent lumineux pour les boutons.',
+            typography: 'Titres nets, textes courts, lecture facile sur mobile.',
+            layout: 'Hero direct, prestations, preuves, galerie ou avis, puis contact.',
+        },
+        siteModel: {
+            name: needsShop ? 'Modèle catalogue + commande' : needsAppointment ? 'Modèle rendez-vous local' : 'Modèle vitrine professionnelle',
+            description: needsShop ? 'Une structure qui présente vite les produits et conduit vers la commande.' : needsAppointment ? 'Une structure qui montre les prestations, rassure et mène vers la réservation.' : 'Une structure pour expliquer l’activité, rassurer et obtenir une demande.',
+            sections: [
+                'Hero avec promesse et bouton principal',
+                needsShop ? 'Catalogue ou produits' : 'Prestations principales',
+                'Galerie, avis ou preuves',
+                needsAppointment ? 'Prise de rendez-vous' : 'Contact rapide',
+            ],
+        },
         recommendedOffer: needsShop || needsAppointment ? 'Offre Pro' : 'Offre Essentiel',
         pages,
         homeSections: [
@@ -6922,6 +6938,54 @@ const getKirbySeo = (proposal = {}) => {
     };
 };
 
+const getKirbyStyleGuide = (proposal = {}) => {
+    const styleGuide = proposal.styleGuide && typeof proposal.styleGuide === 'object' ? proposal.styleGuide : {};
+
+    return {
+        direction: styleGuide.direction || 'Style professionnel, clair et rassurant.',
+        colors: styleGuide.colors || 'Palette sobre avec une couleur d’accent pour les actions.',
+        typography: styleGuide.typography || 'Titres lisibles et textes courts.',
+        layout: styleGuide.layout || 'Accueil direct, prestations, preuves, puis contact.',
+    };
+};
+
+const getKirbySiteModel = (proposal = {}) => {
+    const siteModel = proposal.siteModel && typeof proposal.siteModel === 'object' ? proposal.siteModel : {};
+
+    return {
+        name: siteModel.name || proposal.projectType || 'Modèle de site professionnel',
+        description: siteModel.description || proposal.summary || 'Une structure claire pour transformer l’idée en base de site.',
+        sections: getKirbyArray(siteModel.sections, 6),
+    };
+};
+
+const buildKirbyBriefFromForm = () => {
+    if (!aiBriefForm || !aiBriefInput) {
+        return '';
+    }
+
+    const formData = new FormData(aiBriefForm);
+    const baseBrief = aiBriefInput.value.trim();
+    const goal = formData.get('goal')?.toString().trim();
+    const style = formData.get('style')?.toString().trim();
+    const features = formData.getAll('features').map((feature) => feature.toString().trim()).filter(Boolean);
+    const details = [baseBrief];
+
+    if (goal) {
+        details.push(`Objectif principal : ${goal}.`);
+    }
+
+    if (style) {
+        details.push(`Style souhaité : ${style}.`);
+    }
+
+    if (features.length) {
+        details.push(`Options à préparer si pertinent : ${features.join(', ')}.`);
+    }
+
+    return details.filter(Boolean).join('\n');
+};
+
 const requestKirbyProposal = async ({ brief, revision = '', currentProposal = null }) => {
     const response = await fetch('/api/kirby', {
         method: 'POST',
@@ -6944,96 +7008,143 @@ const renderKirbyProposal = (proposal, brief) => {
     }
 
     const seo = getKirbySeo(proposal);
+    const styleGuide = getKirbyStyleGuide(proposal);
+    const siteModel = getKirbySiteModel(proposal);
+    const pages = getKirbyArray(proposal.pages, 6);
+    const homeSections = getKirbyArray(proposal.homeSections, 4);
+    const services = getKirbyArray(proposal.services, 5);
+    const recommendedServices = getKirbyArray(proposal.recommendedServices, 6);
+    const ctas = getKirbyArray(proposal.ctas, 4);
     const contactMessage = proposal.contactMessage || buildBrowserKirbyProposal(brief).contactMessage;
     const quoteParams = new URLSearchParams({
         service: proposal.recommendedOffer || 'Projet site web',
         message: contactMessage,
     });
+    const builderPanel = aiBriefOutput.closest('.ai-brief-panel');
 
+    builderPanel?.classList.add('has-proposal');
     aiBriefOutput.classList.remove('is-loading');
     aiBriefOutput.innerHTML = `
-        <p class="signal-label">Proposition Kirby</p>
-        <div class="kirby-proposal-head">
-            <span>${cleanHtml(proposal.projectType || 'Projet web')}</span>
-            <span>${cleanHtml(proposal.recommendedOffer || 'Offre à confirmer')}</span>
-        </div>
-        <h3>${cleanHtml(proposal.siteName || 'Nom de site à valider')}</h3>
-        <p class="kirby-slogan">${cleanHtml(proposal.slogan || '')}</p>
-        <p>${cleanHtml(proposal.summary || '')}</p>
-        <p class="kirby-value">${cleanHtml(proposal.valueProposition || '')}</p>
+        <div class="kirby-builder-result">
+            <div class="kirby-result-top">
+                <div>
+                    <p class="signal-label">Base de site générée</p>
+                    <div class="kirby-proposal-head">
+                        <span>${cleanHtml(proposal.projectType || 'Projet web')}</span>
+                        <span>${cleanHtml(proposal.recommendedOffer || 'Offre à confirmer')}</span>
+                    </div>
+                </div>
+                <a class="button button-primary" href="contact.html?${quoteParams.toString()}">Transformer en projet client</a>
+            </div>
 
-        <div class="kirby-positioning">
-            <section>
-                <h4>Cible</h4>
-                <p>${cleanHtml(proposal.positioning?.audience || 'Client cible à préciser.')}</p>
-            </section>
-            <section>
-                <h4>Promesse</h4>
-                <p>${cleanHtml(proposal.positioning?.promise || 'Promesse commerciale à préciser.')}</p>
-            </section>
-            <section>
-                <h4>Ton</h4>
-                <p>${cleanHtml(proposal.positioning?.tone || 'Ton professionnel et clair.')}</p>
-            </section>
-            <section>
-                <h4>Valeur ajoutée</h4>
-                <p>${cleanHtml(proposal.positioning?.differentiator || 'Différenciation à préciser.')}</p>
-            </section>
+            <div class="kirby-site-preview">
+                <div class="kirby-preview-browser" aria-label="Aperçu structurel du futur site">
+                    <div class="kirby-preview-chrome"><span></span><span></span><span></span></div>
+                    <nav class="kirby-preview-nav">
+                        ${pages.map((page) => `<span>${cleanHtml(page.name)}</span>`).join('')}
+                    </nav>
+                    <div class="kirby-preview-main">
+                        <p class="signal-label">${cleanHtml(siteModel.name)}</p>
+                        <h3>${cleanHtml(proposal.siteName || 'Nom de site à valider')}</h3>
+                        <p class="kirby-slogan">${cleanHtml(proposal.slogan || '')}</p>
+                        <p>${cleanHtml(proposal.summary || '')}</p>
+                        <div class="kirby-preview-actions">
+                            ${ctas.slice(0, 2).map((cta) => `<span>${cleanHtml(cta)}</span>`).join('')}
+                        </div>
+                    </div>
+                    <div class="kirby-preview-blocks">
+                        ${homeSections.slice(0, 3).map((section) => `<span>${cleanHtml(section.title)}</span>`).join('')}
+                    </div>
+                </div>
+                <div class="kirby-site-brief">
+                    <h4>Modèle conseillé</h4>
+                    <p>${cleanHtml(siteModel.description)}</p>
+                    <ul>
+                        ${renderKirbyList(siteModel.sections, (section) => `<li>${cleanHtml(section)}</li>`, 'Sections à préciser.')}
+                    </ul>
+                </div>
+            </div>
+
+            <div class="kirby-style-strip" aria-label="Style conseille">
+                <section>
+                    <h4>Style</h4>
+                    <p>${cleanHtml(styleGuide.direction)}</p>
+                </section>
+                <section>
+                    <h4>Couleurs</h4>
+                    <p>${cleanHtml(styleGuide.colors)}</p>
+                </section>
+                <section>
+                    <h4>Typographie</h4>
+                    <p>${cleanHtml(styleGuide.typography)}</p>
+                </section>
+                <section>
+                    <h4>Mise en page</h4>
+                    <p>${cleanHtml(styleGuide.layout)}</p>
+                </section>
+            </div>
+
+            <div class="kirby-blueprint-grid">
+                <section>
+                    <h4>Plan du site</h4>
+                    <ul>
+                        ${renderKirbyList(pages, (page) => `<li><strong>${cleanHtml(page.name)}</strong><span>${cleanHtml(page.goal)}</span></li>`)}
+                    </ul>
+                </section>
+                <section>
+                    <h4>Textes prêts à utiliser</h4>
+                    <ul>
+                        ${renderKirbyList(homeSections, (section) => `<li><strong>${cleanHtml(section.title)}</strong><span>${cleanHtml(section.text)}</span></li>`)}
+                    </ul>
+                </section>
+                <section>
+                    <h4>Prestations à afficher</h4>
+                    <ul>
+                        ${renderKirbyList(services, (service) => `<li><strong>${cleanHtml(service.name)}</strong><span>${cleanHtml(service.description)}</span></li>`)}
+                    </ul>
+                </section>
+                <section>
+                    <h4>Modules utiles</h4>
+                    <ul>
+                        ${renderKirbyList(recommendedServices, (service) => `<li><strong>${cleanHtml(service.name)}</strong><span>${cleanHtml(service.reason)} ${service.priceFrom ? `- ${cleanHtml(service.priceFrom)}` : ''}</span></li>`)}
+                    </ul>
+                </section>
+            </div>
+
+            <details class="kirby-detail-block" open>
+                <summary>SEO, acquisition et logique commerciale</summary>
+                <div class="kirby-detail-grid">
+                    <section>
+                        <h4>SEO</h4>
+                        <ul>
+                            ${renderKirbyList(seo.titles, (title) => `<li><strong>Titre</strong><span>${cleanHtml(title)}</span></li>`, 'Titre SEO à préciser.')}
+                            ${seo.metaDescription ? `<li><strong>Méta-description</strong><span>${cleanHtml(seo.metaDescription)}</span></li>` : ''}
+                            ${renderKirbyList(seo.searchExpressions, (expression) => `<li><strong>Recherche</strong><span>${cleanHtml(expression)}</span></li>`, 'Expressions de recherche à préciser.')}
+                        </ul>
+                    </section>
+                    <section>
+                        <h4>Attirer des clients</h4>
+                        <ul>
+                            ${renderKirbyList(proposal.clientAcquisition, (item) => `<li><span>${cleanHtml(item)}</span></li>`, 'Actions commerciales à préciser.')}
+                        </ul>
+                    </section>
+                    <section>
+                        <h4>Pourquoi ces choix ?</h4>
+                        <ul>
+                            ${renderKirbyList(proposal.explanation, (item) => `<li>${cleanHtml(item)}</li>`)}
+                        </ul>
+                    </section>
+                </div>
+            </details>
+
+            <div class="kirby-tags" aria-label="Boutons proposes">
+                ${ctas.map((cta) => `<span>${cleanHtml(cta)}</span>`).join('')}
+            </div>
+            <div class="kirby-tags kirby-tags-seo" aria-label="Mots cles SEO proposes">
+                ${seo.keywords.map((keyword) => `<span>${cleanHtml(keyword)}</span>`).join('')}
+            </div>
         </div>
 
-        <div class="kirby-result-grid">
-            <section>
-                <h4>Pages proposées</h4>
-                <ul>
-                    ${renderKirbyList(proposal.pages, (page) => `<li><strong>${cleanHtml(page.name)}</strong><span>${cleanHtml(page.goal)}</span></li>`)}
-                </ul>
-            </section>
-            <section>
-                <h4>Textes d'accueil</h4>
-                <ul>
-                    ${renderKirbyList(proposal.homeSections, (section) => `<li><strong>${cleanHtml(section.title)}</strong><span>${cleanHtml(section.text)}</span></li>`)}
-                </ul>
-            </section>
-            <section>
-                <h4>Prestations à présenter</h4>
-                <ul>
-                    ${renderKirbyList(proposal.services, (service) => `<li><strong>${cleanHtml(service.name)}</strong><span>${cleanHtml(service.description)}</span></li>`)}
-                </ul>
-            </section>
-            <section>
-                <h4>Options utiles</h4>
-                <ul>
-                    ${renderKirbyList(proposal.recommendedServices, (service) => `<li><strong>${cleanHtml(service.name)}</strong><span>${cleanHtml(service.reason)} ${service.priceFrom ? `- ${cleanHtml(service.priceFrom)}` : ''}</span></li>`)}
-                </ul>
-            </section>
-            <section>
-                <h4>SEO</h4>
-                <ul>
-                    ${renderKirbyList(seo.titles, (title) => `<li><strong>Titre</strong><span>${cleanHtml(title)}</span></li>`, 'Titre SEO à préciser.')}
-                    ${seo.metaDescription ? `<li><strong>Méta-description</strong><span>${cleanHtml(seo.metaDescription)}</span></li>` : ''}
-                    ${renderKirbyList(seo.searchExpressions, (expression) => `<li><strong>Recherche</strong><span>${cleanHtml(expression)}</span></li>`, 'Expressions de recherche à préciser.')}
-                </ul>
-            </section>
-            <section>
-                <h4>Attirer des clients</h4>
-                <ul>
-                    ${renderKirbyList(proposal.clientAcquisition, (item) => `<li><span>${cleanHtml(item)}</span></li>`, 'Actions commerciales à préciser.')}
-                </ul>
-            </section>
-        </div>
-
-        <div class="kirby-tags" aria-label="Boutons proposes">
-            ${getKirbyArray(proposal.ctas, 4).map((cta) => `<span>${cleanHtml(cta)}</span>`).join('')}
-        </div>
-        <div class="kirby-tags kirby-tags-seo" aria-label="Mots cles SEO proposes">
-            ${seo.keywords.map((keyword) => `<span>${cleanHtml(keyword)}</span>`).join('')}
-        </div>
-        <div class="kirby-explanation">
-            <h4>Pourquoi ces choix ?</h4>
-            <ul>
-                ${renderKirbyList(proposal.explanation, (item) => `<li>${cleanHtml(item)}</li>`)}
-            </ul>
-        </div>
         <form class="kirby-revision-form">
             <label class="field">
                 <span>Modifier la proposition</span>
@@ -7041,7 +7152,6 @@ const renderKirbyProposal = (proposal, brief) => {
             </label>
             <button class="button button-secondary" type="submit">Mettre à jour la proposition</button>
         </form>
-        <a class="button button-primary" href="contact.html?${quoteParams.toString()}">Envoyer cette proposition</a>
     `;
 
     const revisionForm = aiBriefOutput.querySelector('.kirby-revision-form');
@@ -7072,11 +7182,12 @@ const setKirbyLoading = () => {
         return;
     }
 
+    aiBriefOutput.closest('.ai-brief-panel')?.classList.remove('has-proposal');
     aiBriefOutput.classList.add('is-loading');
     aiBriefOutput.innerHTML = `
         <p class="signal-label">Kirby construit</p>
         <h3>Préparation de la première proposition...</h3>
-        <p>Analyse du projet, positionnement, structure, textes, SEO, acquisition client et services utiles.</p>
+        <p>Analyse du métier, modèle de site, style conseillé, pages, textes, SEO, acquisition client et modules utiles.</p>
     `;
 };
 
@@ -7095,9 +7206,11 @@ if (aiBriefForm && aiBriefInput && aiBriefOutput) {
     aiBriefForm.addEventListener('submit', async (event) => {
         event.preventDefault();
 
-        const brief = aiBriefInput.value.trim();
+        const baseBrief = aiBriefInput.value.trim();
+        const brief = buildKirbyBriefFromForm();
 
-        if (brief.length < 8) {
+        if (baseBrief.length < 8) {
+            aiBriefOutput.closest('.ai-brief-panel')?.classList.remove('has-proposal');
             aiBriefOutput.innerHTML = `
                 <p class="signal-label">Projet trop court</p>
                 <h3>Ajoutez au moins votre activité et l'objectif.</h3>

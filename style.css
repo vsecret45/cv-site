@@ -5874,6 +5874,7 @@ body.studio-home .contact-panel p {
 body.studio-home .content-card,
 body.studio-home .feature-link-card,
 body.studio-home .journey-card,
+body.studio-home .service-pill-card,
 body.studio-home .ai-brief-form,
 body.studio-home .ai-brief-panel,
 body.studio-home .ai-brief-output,
@@ -5896,6 +5897,7 @@ body.studio-home .contact-form {
 body.studio-home .content-card::before,
 body.studio-home .feature-link-card::before,
 body.studio-home .journey-card::before,
+body.studio-home .service-pill-card::before,
 body.studio-home .ai-brief-form::before,
 body.studio-home .ai-brief-panel::before,
 body.studio-home .ai-brief-output::before,
@@ -5918,6 +5920,7 @@ body.studio-home .contact-form::before {
 body.studio-home .content-card::after,
 body.studio-home .feature-link-card::after,
 body.studio-home .journey-card::after,
+body.studio-home .service-pill-card::after,
 body.studio-home .price-card::after,
 body.studio-home .method-card::after,
 body.studio-home .project-card::after {
@@ -5938,6 +5941,7 @@ body.studio-home .project-card::after {
 body.studio-home .content-card > *,
 body.studio-home .feature-link-card > *,
 body.studio-home .journey-card > *,
+body.studio-home .service-pill-card > *,
 body.studio-home .ai-brief-form > *,
 body.studio-home .ai-brief-panel > *,
 body.studio-home .ai-brief-output > *,
@@ -5978,6 +5982,7 @@ body.studio-home[data-theme="day"] main {
 body.studio-home[data-theme="day"] .content-card,
 body.studio-home[data-theme="day"] .feature-link-card,
 body.studio-home[data-theme="day"] .journey-card,
+body.studio-home[data-theme="day"] .service-pill-card,
 body.studio-home[data-theme="day"] .ai-brief-form,
 body.studio-home[data-theme="day"] .ai-brief-panel,
 body.studio-home[data-theme="day"] .ai-brief-output,
@@ -6016,7 +6021,9 @@ body.studio-home[data-theme="day"] .flow-step {
 body.studio-home .content-card:hover,
 body.studio-home .feature-link-card:hover,
 body.studio-home .journey-card:hover,
-body.studio-home .journey-card:focus-visible {
+body.studio-home .journey-card:focus-visible,
+body.studio-home .service-pill-card:hover,
+body.studio-home .service-pill-card:focus-visible {
     box-shadow:
         0 28px 70px rgba(0, 0, 0, 0.38),
         0 0 0 1px rgba(239, 214, 163, 0.1);
@@ -6243,9 +6250,40 @@ body.studio-home .section:first-child {
         var(--studio-panel);
 }
 
+.service-pill-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.service-pill-card {
+    display: grid;
+    gap: 0.35rem;
+    min-height: 7.2rem;
+    padding: 1rem;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.92);
+}
+
+.service-pill-card span {
+    color: #efd6a3;
+    font-size: 0.78rem;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.service-pill-card strong {
+    color: var(--studio-text);
+    font-size: clamp(1rem, 2vw, 1.25rem);
+    line-height: 1.12;
+}
+
 .ai-brief-panel {
     display: grid;
-    grid-template-columns: minmax(0, 0.9fr) minmax(280px, 0.8fr);
+    grid-template-columns: minmax(300px, 0.62fr) minmax(0, 1fr);
+    align-items: start;
     gap: 1rem;
     padding: clamp(1rem, 2vw, 1.4rem);
     border: 1px solid rgba(15, 23, 42, 0.1);
@@ -6256,6 +6294,10 @@ body.studio-home .section:first-child {
     box-shadow: var(--studio-shadow);
 }
 
+.ai-brief-panel.has-proposal {
+    grid-template-columns: minmax(280px, 0.42fr) minmax(0, 1fr);
+}
+
 .ai-brief-form {
     display: grid;
     gap: 1rem;
@@ -6263,6 +6305,65 @@ body.studio-home .section:first-child {
     border: 1px solid var(--line);
     border-radius: 22px;
     background: var(--studio-panel-strong);
+}
+
+.creator-form-head {
+    display: grid;
+    gap: 0.4rem;
+}
+
+.creator-form-head h3 {
+    font-size: clamp(1.35rem, 2vw, 1.8rem);
+    line-height: 1.08;
+}
+
+.creator-form-head p:not(.signal-label) {
+    color: var(--studio-muted);
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.creator-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.project-option-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.project-option-grid legend {
+    grid-column: 1 / -1;
+    margin-bottom: 0.15rem;
+    color: var(--studio-muted);
+    font-size: 0.82rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.project-option-grid label {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-height: 2.45rem;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--studio-text);
+    font-size: 0.86rem;
+    font-weight: 800;
+}
+
+.project-option-grid input {
+    accent-color: #efd6a3;
 }
 
 .kirby-examples {
@@ -6334,11 +6435,157 @@ body.studio-home .section:first-child {
     min-height: 320px;
 }
 
+.builder-steps {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.builder-step {
+    display: grid;
+    gap: 0.35rem;
+    min-height: 7rem;
+    padding: 0.9rem;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.045);
+}
+
+.builder-step span {
+    color: #efd6a3;
+    font-size: 0.78rem;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+}
+
+.builder-step strong {
+    color: var(--studio-text);
+    font-size: 1rem;
+}
+
+.builder-step p {
+    color: var(--studio-muted);
+    font-size: 0.88rem;
+    line-height: 1.4;
+}
+
+.builder-step.is-active {
+    border-color: rgba(239, 214, 163, 0.24);
+    background: rgba(239, 214, 163, 0.07);
+}
+
+.site-wireframe,
+.kirby-preview-browser {
+    display: grid;
+    gap: 0.85rem;
+    padding: 1rem;
+    border: 1px solid rgba(239, 214, 163, 0.12);
+    border-radius: 20px;
+    background:
+        radial-gradient(circle at 78% 18%, rgba(114, 150, 255, 0.14), transparent 16rem),
+        rgba(255, 255, 255, 0.05);
+}
+
+.wireframe-topbar,
+.kirby-preview-chrome {
+    display: flex;
+    gap: 0.35rem;
+}
+
+.wireframe-topbar span,
+.kirby-preview-chrome span {
+    width: 0.56rem;
+    height: 0.56rem;
+    border-radius: 999px;
+    background: rgba(239, 214, 163, 0.5);
+}
+
+.wireframe-hero {
+    display: grid;
+    gap: 0.65rem;
+    padding: 1rem;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.wireframe-hero span,
+.wireframe-hero strong,
+.wireframe-hero i,
+.wireframe-grid span {
+    display: block;
+    border-radius: 999px;
+    background: rgba(248, 246, 238, 0.24);
+}
+
+.wireframe-hero span {
+    width: 28%;
+    height: 0.55rem;
+}
+
+.wireframe-hero strong {
+    width: 74%;
+    height: 1.6rem;
+}
+
+.wireframe-hero i {
+    width: 42%;
+    height: 0.75rem;
+}
+
+.wireframe-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.65rem;
+}
+
+.wireframe-grid span {
+    min-height: 4.4rem;
+    border-radius: 14px;
+}
+
+.creator-output-list {
+    padding-left: 0 !important;
+    list-style: none;
+}
+
+.creator-output-list li {
+    padding-left: 1.15rem;
+    position: relative;
+}
+
+.creator-output-list li::before {
+    content: "";
+    position: absolute;
+    top: 0.62em;
+    left: 0;
+    width: 0.42rem;
+    height: 0.42rem;
+    border-radius: 999px;
+    background: #efd6a3;
+}
+
 .kirby-proposal-head,
 .kirby-tags {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
+}
+
+.kirby-builder-result {
+    display: grid;
+    gap: 1rem;
+}
+
+.kirby-result-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.kirby-result-top .button {
+    white-space: nowrap;
 }
 
 .kirby-proposal-head span,
@@ -6367,6 +6614,164 @@ body.studio-home .section:first-child {
     background: rgba(239, 214, 163, 0.07);
     color: rgba(248, 246, 238, 0.84);
     font-weight: 700;
+}
+
+.kirby-site-preview {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(240px, 0.8fr);
+    gap: 0.85rem;
+}
+
+.kirby-preview-browser {
+    min-height: 360px;
+}
+
+.kirby-preview-nav,
+.kirby-preview-actions,
+.kirby-preview-blocks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+}
+
+.kirby-preview-nav span,
+.kirby-preview-actions span,
+.kirby-preview-blocks span {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2rem;
+    padding: 0.45rem 0.68rem;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(248, 246, 238, 0.78);
+    font-size: 0.8rem;
+    font-weight: 800;
+}
+
+.kirby-preview-main {
+    display: grid;
+    gap: 0.65rem;
+    align-content: center;
+    min-height: 190px;
+    padding: clamp(1rem, 2.4vw, 1.5rem);
+    border-radius: 18px;
+    background:
+        radial-gradient(circle at 100% 0%, rgba(239, 214, 163, 0.15), transparent 16rem),
+        rgba(255, 255, 255, 0.055);
+}
+
+.kirby-preview-main h3 {
+    max-width: 11ch;
+    font-size: clamp(2rem, 5vw, 3.8rem);
+    letter-spacing: -0.055em;
+}
+
+.kirby-preview-main p:not(.signal-label):not(.kirby-slogan) {
+    max-width: 48rem;
+    color: rgba(248, 246, 238, 0.76);
+}
+
+.kirby-preview-actions span:first-child {
+    border-color: rgba(239, 214, 163, 0.22);
+    background: rgba(239, 214, 163, 0.12);
+    color: #f7e5bd;
+}
+
+.kirby-preview-blocks span {
+    flex: 1 1 9rem;
+    min-height: 4.2rem;
+    justify-content: center;
+    border-radius: 16px;
+    text-align: center;
+}
+
+.kirby-site-brief,
+.kirby-style-strip section,
+.kirby-blueprint-grid section,
+.kirby-detail-grid section {
+    display: grid;
+    gap: 0.55rem;
+    padding: 0.95rem;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.045);
+}
+
+.kirby-site-brief p,
+.kirby-site-brief li,
+.kirby-style-strip p,
+.kirby-detail-grid li {
+    color: rgba(248, 246, 238, 0.72);
+    font-size: 0.88rem;
+    line-height: 1.45;
+}
+
+.kirby-site-brief ul,
+.kirby-detail-grid ul {
+    padding-left: 0;
+    list-style: none;
+}
+
+.kirby-style-strip {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.7rem;
+}
+
+.kirby-blueprint-grid,
+.kirby-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+}
+
+.kirby-blueprint-grid ul {
+    display: grid;
+    gap: 0.65rem;
+    margin: 0;
+    padding-left: 0;
+    list-style: none;
+}
+
+.kirby-blueprint-grid li,
+.kirby-detail-grid li {
+    display: grid;
+    gap: 0.2rem;
+}
+
+.kirby-blueprint-grid strong,
+.kirby-detail-grid strong {
+    color: #f8f6ee;
+    font-size: 0.92rem;
+}
+
+.kirby-blueprint-grid span,
+.kirby-detail-grid span {
+    color: rgba(248, 246, 238, 0.72);
+    font-size: 0.88rem;
+    line-height: 1.45;
+}
+
+.kirby-detail-block {
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.kirby-detail-block summary {
+    cursor: pointer;
+    padding: 0.95rem;
+    color: #f8f6ee;
+    font-weight: 900;
+}
+
+.kirby-detail-block[open] summary {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.kirby-detail-grid {
+    padding: 0.95rem;
 }
 
 .kirby-positioning {
@@ -6453,6 +6858,24 @@ body.studio-home[data-theme="day"] .kirby-examples button {
     color: #171923;
 }
 
+body.studio-home[data-theme="day"] .builder-step,
+body.studio-home[data-theme="day"] .project-option-grid label,
+body.studio-home[data-theme="day"] .site-wireframe,
+body.studio-home[data-theme="day"] .kirby-preview-browser,
+body.studio-home[data-theme="day"] .kirby-preview-main,
+body.studio-home[data-theme="day"] .kirby-preview-nav span,
+body.studio-home[data-theme="day"] .kirby-preview-actions span,
+body.studio-home[data-theme="day"] .kirby-preview-blocks span,
+body.studio-home[data-theme="day"] .kirby-site-brief,
+body.studio-home[data-theme="day"] .kirby-style-strip section,
+body.studio-home[data-theme="day"] .kirby-blueprint-grid section,
+body.studio-home[data-theme="day"] .kirby-detail-block,
+body.studio-home[data-theme="day"] .kirby-detail-grid section {
+    border-color: rgba(42, 45, 58, 0.1);
+    background: rgba(255, 255, 255, 0.48);
+    color: #171923;
+}
+
 body.studio-home[data-theme="day"] .kirby-proposal-head span,
 body.studio-home[data-theme="day"] .kirby-tags span,
 body.studio-home[data-theme="day"] .kirby-result-grid section,
@@ -6466,12 +6889,25 @@ body.studio-home[data-theme="day"] .kirby-explanation {
 
 body.studio-home[data-theme="day"] .kirby-slogan,
 body.studio-home[data-theme="day"] .kirby-value,
-body.studio-home[data-theme="day"] .kirby-result-grid strong {
+body.studio-home[data-theme="day"] .kirby-result-grid strong,
+body.studio-home[data-theme="day"] .kirby-blueprint-grid strong,
+body.studio-home[data-theme="day"] .kirby-detail-grid strong,
+body.studio-home[data-theme="day"] .kirby-detail-block summary,
+body.studio-home[data-theme="day"] .service-pill-card strong,
+body.studio-home[data-theme="day"] .builder-step strong {
     color: #171923;
 }
 
 body.studio-home[data-theme="day"] .kirby-result-grid span,
 body.studio-home[data-theme="day"] .kirby-positioning p,
+body.studio-home[data-theme="day"] .kirby-site-brief p,
+body.studio-home[data-theme="day"] .kirby-site-brief li,
+body.studio-home[data-theme="day"] .kirby-style-strip p,
+body.studio-home[data-theme="day"] .kirby-blueprint-grid span,
+body.studio-home[data-theme="day"] .kirby-detail-grid span,
+body.studio-home[data-theme="day"] .kirby-detail-grid li,
+body.studio-home[data-theme="day"] .builder-step p,
+body.studio-home[data-theme="day"] .creator-form-head p:not(.signal-label),
 body.studio-home[data-theme="day"] .kirby-proposal-head span,
 body.studio-home[data-theme="day"] .kirby-tags span {
     color: rgba(42, 45, 58, 0.74);
@@ -6497,6 +6933,30 @@ body.studio-home[data-theme="day"] .kirby-tags span {
 
     .ai-brief-panel {
         grid-template-columns: 1fr;
+    }
+
+    .ai-brief-panel.has-proposal,
+    .creator-form-grid,
+    .builder-steps,
+    .service-pill-grid,
+    .kirby-site-preview,
+    .kirby-style-strip,
+    .kirby-blueprint-grid,
+    .kirby-detail-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .project-option-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .kirby-result-top {
+        display: grid;
+    }
+
+    .kirby-result-top .button,
+    .kirby-revision-form .button {
+        width: 100%;
     }
 
     .kirby-result-grid {
