@@ -7051,7 +7051,7 @@ const renderKirbyProposal = (proposal, brief) => {
         <div class="kirby-builder-result">
             <div class="kirby-result-top">
                 <div>
-                    <p class="signal-label">Base de site générée</p>
+                    <p class="signal-label">Proposition générée avant le formulaire</p>
                     <div class="kirby-proposal-head">
                         <span>${cleanHtml(proposal.projectType || 'Projet web')}</span>
                         <span>${cleanHtml(proposal.recommendedOffer || 'Offre à confirmer')}</span>
@@ -7079,31 +7079,19 @@ const renderKirbyProposal = (proposal, brief) => {
                     </div>
                 </div>
                 <div class="kirby-site-brief">
-                    <h4>Modèle conseillé</h4>
+                    <p class="signal-label">Modèle conseillé</p>
+                    <h4>${cleanHtml(siteModel.name)}</h4>
                     <p>${cleanHtml(siteModel.description)}</p>
-                    <ul>
-                        ${renderKirbyList(siteModel.sections, (section) => `<li>${cleanHtml(section)}</li>`, 'Sections à préciser.')}
-                    </ul>
+                    <div class="kirby-model-chips">
+                        ${siteModel.sections.slice(0, 6).map((section) => `<span>${cleanHtml(section)}</span>`).join('')}
+                    </div>
                 </div>
             </div>
 
-            <div class="kirby-style-strip" aria-label="Style conseille">
-                <section>
-                    <h4>Style</h4>
-                    <p>${cleanHtml(styleGuide.direction)}</p>
-                </section>
-                <section>
-                    <h4>Couleurs</h4>
-                    <p>${cleanHtml(styleGuide.colors)}</p>
-                </section>
-                <section>
-                    <h4>Typographie</h4>
-                    <p>${cleanHtml(styleGuide.typography)}</p>
-                </section>
-                <section>
-                    <h4>Mise en page</h4>
-                    <p>${cleanHtml(styleGuide.layout)}</p>
-                </section>
+            <div class="kirby-style-ribbon" aria-label="Style conseille">
+                <span>Style : ${cleanHtml(styleGuide.direction)}</span>
+                <span>Couleurs : ${cleanHtml(styleGuide.colors)}</span>
+                <span>Layout : ${cleanHtml(styleGuide.layout)}</span>
             </div>
 
             <div class="kirby-blueprint-grid">
@@ -7133,7 +7121,7 @@ const renderKirbyProposal = (proposal, brief) => {
                 </section>
             </div>
 
-            <details class="kirby-detail-block" open>
+            <details class="kirby-detail-block">
                 <summary>SEO, acquisition et logique commerciale</summary>
                 <div class="kirby-detail-grid">
                     <section>
@@ -7175,7 +7163,7 @@ const renderKirbyProposal = (proposal, brief) => {
             <button class="button button-secondary" type="submit">Mettre à jour la proposition</button>
         </form>
         <div class="kirby-next-step">
-            <p class="signal-label">Étape suivante</p>
+            <p class="signal-label">Formulaire après validation</p>
             <h4>La proposition vous convient ?</h4>
             <p>Envoyez-la seulement après avoir lu ou modifié la base générée.</p>
             <a class="button button-primary" href="contact.html?${quoteParams.toString()}">Envoyer / transformer en projet</a>
