@@ -6651,6 +6651,13 @@ body.studio-home .section:first-child {
     align-items: stretch;
 }
 
+.starter-preview-empty {
+    grid-template-columns: 1fr;
+    min-height: 330px;
+    place-items: center;
+    text-align: center;
+}
+
 .starter-preview-copy {
     display: grid;
     align-content: center;

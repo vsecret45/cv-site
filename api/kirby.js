@@ -79,6 +79,7 @@ Regles strictes :
 - Pour un hotel ou un hebergement, recommande les fonctionnalites utiles : formulaire de reservation, calendrier de disponibilites, Google Maps, avis clients, paiement ou acompte, QR code.
 - N'envoie jamais directement vers un formulaire de contact dans la reponse : la proposition complete vient d'abord, l'envoi arrive seulement en etape suivante dans l'interface.
 - Si l'utilisateur demande une modification, regenere une proposition coherente, pas seulement une correction locale.
+- N'invente jamais de prix. Pour "priceFrom", utilise uniquement : "À partir de 392 €", "À partir de 712 €", "1 032 €", "149 €", "49 €", "À partir de 49 €", "39 €", "Inclus selon offre", "Projet spécifique", ou laisse vide.
 - Retourne uniquement un JSON valide, sans markdown.
 
 Schema JSON attendu :
@@ -352,12 +353,65 @@ const parseOpenAiJson = (content) => {
 
 const limitArray = (value, max) => (Array.isArray(value) ? value.slice(0, max) : []);
 
+const getCatalogPrice = (serviceName = '', currentPrice = '') => {
+    const key = getServiceKey(serviceName);
+
+    if (/\bwordpress|wp|cms|refonte\b/.test(key)) {
+        return 'Projet spécifique';
+    }
+
+    if (/\bboutique|e commerce|ecommerce|catalogue|commande|paiement\b/.test(key)) {
+        return 'À partir de 712 €';
+    }
+
+    if (/\bsite vitrine|site web|creation site|site assiste\b/.test(key)) {
+        return 'À partir de 392 €';
+    }
+
+    if (/\bmini page|mini-page\b/.test(key)) {
+        return '149 €';
+    }
+
+    if (/\bqr|code\b/.test(key)) {
+        return '39 €';
+    }
+
+    if (/\bemail|e mail|mail|adresse\b/.test(key)) {
+        return '49 €';
+    }
+
+    if (/\bdomaine|nom de domaine\b/.test(key)) {
+        return 'À partir de 49 €';
+    }
+
+    if (/\bformulaire|whatsapp|lien|contact\b/.test(key)) {
+        return 'À partir de 49 €';
+    }
+
+    if (/\breservation|rendez|agenda|calendrier|espace client|assistant ia|ia metier|stripe|acompte|paiement\b/.test(key)) {
+        return 'Projet spécifique';
+    }
+
+    if (/\bgalerie|google maps|avis\b/.test(key)) {
+        return 'Inclus selon offre';
+    }
+
+    if (/[€$]/.test(currentPrice)) {
+        return 'Projet spécifique';
+    }
+
+    return currentPrice;
+};
+
 const normalizeRecommendedServices = (proposal, fallback) => {
     const services = limitArray(proposal.recommendedServices, 9)
         .map((service) => ({
             name: normalizeText(service && service.name) || 'Service SA Creation Web',
             reason: normalizeText(service && service.reason) || 'Utile pour le projet.',
-            priceFrom: normalizeText(service && service.priceFrom) || '',
+            priceFrom: getCatalogPrice(
+                normalizeText(service && service.name) || 'Service SA Creation Web',
+                normalizeText(service && service.priceFrom) || '',
+            ),
         }))
         .filter((service) => service.name);
     const seen = new Set(services.map((service) => getServiceKey(service.name)));

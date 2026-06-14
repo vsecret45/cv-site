@@ -17,7 +17,7 @@
     >
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <link rel="preload" href="assets/sa-creation-web-mark.svg" as="image" type="image/svg+xml">
-    <link rel="stylesheet" href="style.css?v=20260614-platform-v8">
+    <link rel="stylesheet" href="style.css?v=20260614-platform-v9">
 </head>
 <body class="is-preload studio-home">
     <canvas class="cosmic-page-field" id="cosmic-page-field" aria-hidden="true"></canvas>
@@ -97,23 +97,11 @@
             <section class="section reveal-section ai-brief-section ai-builder-section creator-focus-section" id="kirby-assistant">
                 <div class="section-heading">
                     <p class="section-kicker">Créateur de site IA</p>
-                    <h2>Écrivez votre idée. Kirby crée la base du site.</h2>
-                    <p class="section-intro">Kirby prépare une première version claire, modifiable et prête à présenter.</p>
-                </div>
-
-                <div class="builder-steps builder-steps-compact" aria-label="Parcours de création">
-                    <span class="builder-step is-active">1. Décrire</span>
-                    <span class="builder-step">2. Voir le site</span>
-                    <span class="builder-step">3. Modifier</span>
-                    <span class="builder-step">4. Valider</span>
+                    <h2>Quel site voulez-vous créer ?</h2>
                 </div>
 
                 <div class="ai-brief-panel builder-workspace creator-studio">
                     <form class="ai-brief-form creator-prompt-console" id="ai-brief-form">
-                        <div class="creator-form-head">
-                            <p class="signal-label">Studio Kirby</p>
-                            <h3>Décrivez le projet.</h3>
-                        </div>
                         <label class="field field-message">
                             <span class="sr-only">Décrivez votre activité</span>
                             <textarea
@@ -122,42 +110,12 @@
                                 placeholder="Ex. Je suis coiffeuse à Rueil et je veux un site avec tarifs, photos, rendez-vous et contact."
                             ></textarea>
                         </label>
-                        <div class="kirby-examples" aria-label="Exemples de projets">
-                            <button type="button" data-kirby-example="Je suis coiffeuse à Rueil, je veux faire mon site avec tout dedans : tarifs, photos, rendez-vous et contact.">Coiffeuse</button>
-                            <button type="button" data-kirby-example="Je veux créer un site web pour mon hôtel avec chambres, galerie, tarifs, localisation et réservation.">Hôtel</button>
-                            <button type="button" data-kirby-example="Je suis plombier et je veux créer un site avec téléphone visible, zone d'intervention, avis clients et bouton urgence.">Plombier</button>
-                            <button type="button" data-kirby-example="Je suis fleuriste a Paris, je veux presenter mes bouquets, recevoir des commandes et proposer un QR code pour ma carte.">Fleuriste</button>
-                            <button type="button" data-kirby-example="Je suis coach sportif, je veux presenter mes offres, recevoir des rendez-vous et avoir une adresse email professionnelle.">Coach sportif</button>
-                            <button type="button" data-kirby-example="Je veux une mini-page professionnelle avec mon CV, mon portfolio et un lien de contact.">CV & portfolio</button>
-                        </div>
                         <button class="button button-primary" type="submit">Créer mon site</button>
                     </form>
                     <article class="ai-brief-output" id="ai-brief-output" aria-live="polite">
-                        <div class="starter-preview creator-live-preview">
+                        <div class="starter-preview creator-live-preview starter-preview-empty">
                             <div class="starter-preview-copy">
-                                <p class="signal-label">Aperçu</p>
-                                <h3>Le site apparaît ici.</h3>
-                            </div>
-                            <div class="preview-mini-site" aria-hidden="true">
-                                <div class="preview-mini-topbar">
-                                    <span>Votre site</span>
-                                    <i>Accueil</i><i>Services</i><i>Galerie</i><i>Contact</i>
-                                </div>
-                                <div class="preview-mini-hero">
-                                    <strong>Votre projet prend forme</strong>
-                                    <p>Nom, slogan, pages, textes, SEO et options utiles.</p>
-                                    <em>Créer la première version</em>
-                                </div>
-                                <div class="preview-mini-grid">
-                                    <span>Services</span>
-                                    <span>Contact</span>
-                                    <span>SEO local</span>
-                                </div>
-                                <div class="preview-mini-options">
-                                    <span>contact@domaine.fr</span>
-                                    <span>domaine.fr</span>
-                                    <span>QR code</span>
-                                </div>
+                                <h3>Le site apparaîtra ici.</h3>
                             </div>
                         </div>
                     </article>
@@ -171,6 +129,6 @@
         </footer>
     </div>
 
-    <script src="script.js?v=20260614-platform-v8" defer></script>
+    <script src="script.js?v=20260614-platform-v9" defer></script>
 </body>
 </html>
