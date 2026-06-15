@@ -6820,6 +6820,131 @@ body.studio-home .section:first-child {
     min-height: 320px;
 }
 
+.kirby-generation-stage {
+    position: relative;
+    display: grid;
+    place-items: center;
+    min-height: clamp(380px, 48vw, 620px);
+    overflow: hidden;
+    border: 1px solid rgba(239, 214, 163, 0.12);
+    border-radius: 28px;
+    background:
+        radial-gradient(circle at 74% 18%, rgba(114, 150, 255, 0.18), transparent 19rem),
+        radial-gradient(circle at 12% 82%, rgba(239, 214, 163, 0.14), transparent 17rem),
+        rgba(255, 255, 255, 0.04);
+}
+
+.kirby-generation-preview {
+    position: absolute;
+    inset: 1.15rem;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 0.9rem;
+    padding: 1rem;
+    border-radius: 22px;
+    background:
+        linear-gradient(135deg, rgba(248, 246, 238, 0.16), rgba(255, 255, 255, 0.035)),
+        rgba(8, 10, 18, 0.58);
+    filter: blur(4px);
+    opacity: 0.54;
+    transform: scale(1.02);
+}
+
+.kirby-generation-stage::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(3, 5, 10, 0.55);
+}
+
+.kirby-generation-topbar {
+    display: flex;
+    gap: 0.45rem;
+}
+
+.kirby-generation-topbar span {
+    width: 0.62rem;
+    height: 0.62rem;
+    border-radius: 999px;
+    background: rgba(239, 214, 163, 0.7);
+}
+
+.kirby-generation-hero {
+    display: grid;
+    align-content: center;
+    gap: 0.8rem;
+    min-height: 230px;
+    padding: clamp(1rem, 3vw, 2rem);
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.075);
+}
+
+.kirby-generation-hero i,
+.kirby-generation-hero strong,
+.kirby-generation-hero em,
+.kirby-generation-grid span {
+    display: block;
+    border-radius: 999px;
+    background: rgba(248, 246, 238, 0.42);
+}
+
+.kirby-generation-hero i {
+    width: 22%;
+    height: 0.7rem;
+}
+
+.kirby-generation-hero strong {
+    width: min(70%, 34rem);
+    height: clamp(2.1rem, 5vw, 4.6rem);
+}
+
+.kirby-generation-hero em {
+    width: 38%;
+    height: 1rem;
+}
+
+.kirby-generation-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.8rem;
+}
+
+.kirby-generation-grid span {
+    min-height: 6.4rem;
+    border-radius: 18px;
+    background: rgba(248, 246, 238, 0.24);
+}
+
+.kirby-generation-overlay {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    gap: 1rem;
+    text-align: center;
+}
+
+.kirby-loader-ring {
+    width: 5.8rem;
+    aspect-ratio: 1;
+    border: 0.55rem solid rgba(248, 246, 238, 0.25);
+    border-top-color: #a78bfa;
+    border-right-color: rgba(239, 214, 163, 0.85);
+    border-radius: 999px;
+    animation: kirby-spin 1s linear infinite;
+}
+
+.kirby-generation-overlay h3 {
+    color: #c4a9ff;
+    font-size: clamp(1.35rem, 3vw, 2.1rem);
+}
+
+@keyframes kirby-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 .builder-steps {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -7008,6 +7133,34 @@ body.studio-home .section:first-child {
     gap: 1rem;
 }
 
+.kirby-editor-result {
+    gap: 0.85rem;
+}
+
+.kirby-editor-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.9rem;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid rgba(239, 214, 163, 0.12);
+    border-radius: 20px;
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.03)),
+        rgba(8, 10, 18, 0.42);
+}
+
+.kirby-editor-bar h3 {
+    margin-top: 0.12rem;
+    color: #f8f6ee;
+    font-size: clamp(1.25rem, 2vw, 1.75rem);
+}
+
+.kirby-editor-bar .button {
+    width: fit-content;
+    min-width: 7.5rem;
+}
+
 .kirby-result-top {
     display: flex;
     align-items: flex-start;
@@ -7123,12 +7276,13 @@ body.studio-home .section:first-child {
 
 .kirby-generated-website {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(210px, 0.28fr);
-    gap: 0.85rem;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 0.36fr);
+    gap: 0.9rem;
+    align-items: stretch;
 }
 
 .kirby-live-browser {
-    min-height: clamp(520px, 58vw, 700px);
+    min-height: clamp(560px, 58vw, 720px);
     padding: clamp(0.85rem, 1.8vw, 1.25rem);
     border-radius: 28px;
     background:
@@ -7136,6 +7290,12 @@ body.studio-home .section:first-child {
         radial-gradient(circle at 10% 92%, rgba(114, 150, 255, 0.16), transparent 18rem),
         linear-gradient(145deg, rgba(255, 255, 255, 0.085), rgba(255, 255, 255, 0.025));
     overflow: hidden;
+}
+
+.kirby-site-canvas {
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 28px 90px rgba(0, 0, 0, 0.28);
 }
 
 .kirby-live-nav {
@@ -7306,6 +7466,42 @@ body.studio-home .section:first-child {
     gap: 0.75rem;
 }
 
+.kirby-editor-side {
+    max-height: clamp(560px, 58vw, 720px);
+    overflow: auto;
+    padding-right: 0.15rem;
+}
+
+.kirby-dock-head {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    background:
+        linear-gradient(135deg, rgba(15, 18, 33, 0.94), rgba(25, 28, 43, 0.86)),
+        rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(16px);
+}
+
+.kirby-dock-head a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.35rem;
+    padding: 0 0.9rem;
+    border-radius: 999px;
+    background: #f8f6ee;
+    color: #06080e;
+    font-weight: 950;
+    text-decoration: none;
+}
+
 .kirby-project-dock section {
     display: grid;
     gap: 0.55rem;
@@ -7313,6 +7509,79 @@ body.studio-home .section:first-child {
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 18px;
     background: rgba(255, 255, 255, 0.04);
+}
+
+.kirby-project-dock section > p:first-child {
+    color: rgba(248, 246, 238, 0.74);
+    font-size: 0.8rem;
+    font-weight: 950;
+}
+
+.kirby-logo-card {
+    display: grid;
+    min-height: 5.6rem;
+    place-items: center;
+    padding: 0.85rem;
+    border-radius: 16px;
+    background: rgba(248, 246, 238, 0.92);
+    color: #263142;
+    font-size: clamp(1.25rem, 2.5vw, 2.2rem);
+    font-weight: 950;
+    line-height: 1.05;
+    text-align: center;
+}
+
+.kirby-swatch-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+}
+
+.kirby-swatch-row span {
+    width: 2.15rem;
+    aspect-ratio: 1;
+    border: 2px solid rgba(248, 246, 238, 0.72);
+    border-radius: 999px;
+    background: #efd6a3;
+}
+
+.kirby-swatch-row span:nth-child(2) {
+    background: #7296ff;
+}
+
+.kirby-swatch-row span:nth-child(3) {
+    background: #f8f6ee;
+}
+
+.kirby-swatch-row span:nth-child(4) {
+    background: #19202f;
+}
+
+.kirby-page-list {
+    display: grid;
+    gap: 0.45rem;
+}
+
+.kirby-page-list span {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 2.25rem;
+    padding: 0.45rem 0.62rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(248, 246, 238, 0.86);
+    font-size: 0.86rem;
+    font-weight: 850;
+}
+
+.kirby-page-list span::after {
+    content: "";
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 999px;
+    background: rgba(239, 214, 163, 0.72);
 }
 
 .kirby-project-dock h4 {
@@ -7582,6 +7851,14 @@ body.studio-home[data-theme="day"] .kirby-examples button {
     color: #171923;
 }
 
+body.studio-home[data-theme="day"] .kirby-generation-stage,
+body.studio-home[data-theme="day"] .kirby-editor-bar,
+body.studio-home[data-theme="day"] .kirby-dock-head {
+    border-color: rgba(42, 45, 58, 0.1);
+    background: rgba(255, 255, 255, 0.62);
+    color: #171923;
+}
+
 body.studio-home[data-theme="day"] .builder-step,
 body.studio-home[data-theme="day"] .project-option-grid label,
 body.studio-home[data-theme="day"] .product-icon,
@@ -7604,6 +7881,7 @@ body.studio-home[data-theme="day"] .kirby-live-sections article,
 body.studio-home[data-theme="day"] .kirby-project-dock section,
 body.studio-home[data-theme="day"] .kirby-mini-lines span,
 body.studio-home[data-theme="day"] .kirby-option-pills span,
+body.studio-home[data-theme="day"] .kirby-page-list span,
 body.studio-home[data-theme="day"] .kirby-site-brief,
 body.studio-home[data-theme="day"] .kirby-blueprint-grid section,
 body.studio-home[data-theme="day"] .kirby-detail-block,
@@ -7636,6 +7914,7 @@ body.studio-home[data-theme="day"] .kirby-live-nav strong,
 body.studio-home[data-theme="day"] .kirby-live-hero h3,
 body.studio-home[data-theme="day"] .kirby-live-sections strong,
 body.studio-home[data-theme="day"] .kirby-project-dock h4,
+body.studio-home[data-theme="day"] .kirby-editor-bar h3,
 body.studio-home[data-theme="day"] .kirby-result-grid strong,
 body.studio-home[data-theme="day"] .kirby-blueprint-grid strong,
 body.studio-home[data-theme="day"] .kirby-detail-grid strong,
@@ -7662,6 +7941,8 @@ body.studio-home[data-theme="day"] .kirby-live-nav span,
 body.studio-home[data-theme="day"] .kirby-live-sections span,
 body.studio-home[data-theme="day"] .kirby-mini-lines span,
 body.studio-home[data-theme="day"] .kirby-option-pills span,
+body.studio-home[data-theme="day"] .kirby-project-dock section > p:first-child,
+body.studio-home[data-theme="day"] .kirby-page-list span,
 body.studio-home[data-theme="day"] .kirby-style-note,
 body.studio-home[data-theme="day"] .builder-step p,
 body.studio-home[data-theme="day"] .platform-product-card p,
@@ -7724,7 +8005,12 @@ body.studio-home[data-theme="day"] .kirby-tags span {
         display: grid;
     }
 
+    .kirby-editor-bar {
+        display: grid;
+    }
+
     .kirby-result-top .button,
+    .kirby-editor-bar .button,
     .kirby-revision-form .button,
     .kirby-next-step .button {
         width: 100%;
@@ -7734,8 +8020,18 @@ body.studio-home[data-theme="day"] .kirby-tags span {
         min-height: auto;
     }
 
+    .kirby-editor-side {
+        max-height: none;
+        overflow: visible;
+        padding-right: 0;
+    }
+
     .kirby-live-hero {
         min-height: 360px;
+    }
+
+    .kirby-generation-grid {
+        grid-template-columns: 1fr;
     }
 
     .kirby-next-step {

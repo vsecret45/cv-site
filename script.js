@@ -7076,30 +7076,29 @@ const renderKirbyProposal = (proposal, brief) => {
     const keywords = (seo.keywords.length ? seo.keywords : proposal.seoKeywords || [])
         .filter(Boolean)
         .slice(0, 4);
+    const visiblePageNames = visiblePages.map((page) => getKirbyItemTitle(page)).filter(Boolean).slice(0, 6);
     const primaryCta = ctas[0] || 'Découvrir';
     const secondaryCta = ctas[1] || 'Contacter';
 
     builderPanel?.classList.add('has-proposal');
     aiBriefOutput.classList.remove('is-loading');
     aiBriefOutput.innerHTML = `
-        <div class="kirby-builder-result">
-            <div class="kirby-result-top kirby-result-top-minimal">
+        <div class="kirby-builder-result kirby-editor-result">
+            <div class="kirby-editor-bar">
                 <div>
                     <p class="signal-label">Site généré</p>
-                    <div class="kirby-proposal-head">
-                        <span>${cleanHtml(proposal.projectType || 'Projet web')}</span>
-                        <span>${cleanHtml(proposal.recommendedOffer || 'Offre à confirmer')}</span>
-                    </div>
+                    <h3>${cleanHtml(siteName)}</h3>
                 </div>
+                <a class="button button-primary" href="contact.html?${quoteParams.toString()}">Suivant</a>
             </div>
 
-            <div class="kirby-generated-website">
-                <div class="kirby-preview-browser kirby-live-browser" aria-label="Aperçu du futur site">
+            <div class="kirby-generated-website kirby-editor-workspace">
+                <div class="kirby-preview-browser kirby-live-browser kirby-site-canvas" aria-label="Aperçu du futur site">
                     <div class="kirby-preview-chrome"><span></span><span></span><span></span></div>
                     <nav class="kirby-live-nav">
                         <strong>${cleanHtml(siteName)}</strong>
                         <div>
-                            ${visiblePages.map((page) => `<span>${cleanHtml(getKirbyItemTitle(page))}</span>`).join('')}
+                            ${visiblePageNames.map((pageName) => `<span>${cleanHtml(pageName)}</span>`).join('')}
                         </div>
                     </nav>
                     <section class="kirby-live-hero">
@@ -7120,51 +7119,63 @@ const renderKirbyProposal = (proposal, brief) => {
                         ${visibleSections.slice(0, 3).map((section) => `
                             <article>
                                 <strong>${cleanHtml(getKirbyItemTitle(section))}</strong>
-                                <span>${cleanHtml(getKirbyShortText(getKirbyItemText(section), 86))}</span>
+                                <span>${cleanHtml(getKirbyShortText(getKirbyItemText(section), 68))}</span>
                             </article>
                         `).join('')}
                     </div>
                 </div>
 
-                <aside class="kirby-project-dock">
+                <aside class="kirby-project-dock kirby-editor-side">
+                    <div class="kirby-dock-head">
+                        <p class="signal-label">Personnaliser</p>
+                        <a href="contact.html?${quoteParams.toString()}">Valider</a>
+                    </div>
+                    <section class="kirby-logo-panel">
+                        <p>Logo</p>
+                        <div class="kirby-logo-card">${cleanHtml(siteName)}</div>
+                    </section>
                     <section>
-                        <p class="signal-label">Identité</p>
-                        <h4>${cleanHtml(domain)}</h4>
-                        <p class="kirby-slogan">${cleanHtml(proposal.slogan || '')}</p>
-                        <div class="kirby-mini-lines">
-                            <span>${cleanHtml(email)}</span>
+                        <p>Couleurs</p>
+                        <div class="kirby-swatch-row" aria-label="Palette proposée">
+                            <span></span><span></span><span></span><span></span>
                         </div>
                     </section>
                     <section>
-                        <p class="signal-label">Options</p>
+                        <p>Pages</p>
+                        <div class="kirby-page-list">
+                            ${visiblePageNames.map((pageName) => `<span>${cleanHtml(pageName)}</span>`).join('')}
+                        </div>
+                    </section>
+                    <section>
+                        <p>Options</p>
                         <div class="kirby-option-pills">
                             ${optionNames.map((option) => `<span>${cleanHtml(option)}</span>`).join('')}
                         </div>
                     </section>
                     <section>
-                        <p class="signal-label">SEO</p>
+                        <p>SEO</p>
                         <div class="kirby-option-pills kirby-seo-pills">
                             ${keywords.map((keyword) => `<span>${cleanHtml(keyword)}</span>`).join('')}
                         </div>
                     </section>
+                    <section>
+                        <p>Domaine</p>
+                        <div class="kirby-mini-lines">
+                            <span>${cleanHtml(domain)}</span>
+                            <span>${cleanHtml(email)}</span>
+                        </div>
+                    </section>
                 </aside>
             </div>
-
-            <p class="kirby-style-note">${cleanHtml(getKirbyShortText(styleGuide.direction, 130))}</p>
         </div>
 
         <form class="kirby-revision-form kirby-revision-compact">
             <label class="field">
                 <span class="sr-only">Modifier le site généré</span>
-                <textarea rows="2" name="revision" placeholder="Modifier : plus luxe, autre nom, ajouter boutique, changer les sections..."></textarea>
+                <textarea rows="2" name="revision" placeholder="Demandez une modification à Kirby..."></textarea>
             </label>
             <button class="button button-secondary" type="submit">Modifier</button>
         </form>
-        <div class="kirby-next-step">
-            <p class="signal-label">Après validation</p>
-            <h4>Base prête.</h4>
-            <a class="button button-primary" href="contact.html?${quoteParams.toString()}">Valider le projet</a>
-        </div>
     `;
 
     const revisionForm = aiBriefOutput.querySelector('.kirby-revision-form');
@@ -7198,9 +7209,25 @@ const setKirbyLoading = () => {
     aiBriefOutput.closest('.ai-brief-panel')?.classList.remove('has-proposal');
     aiBriefOutput.classList.add('is-loading');
     aiBriefOutput.innerHTML = `
-        <p class="signal-label">Kirby construit</p>
-        <h3>Le site prend forme...</h3>
-        <p>Nom, menu, hero, sections et options utiles.</p>
+        <div class="kirby-generation-stage" aria-label="Kirby génère le site">
+            <div class="kirby-generation-preview" aria-hidden="true">
+                <div class="kirby-generation-topbar">
+                    <span></span><span></span><span></span>
+                </div>
+                <div class="kirby-generation-hero">
+                    <i></i>
+                    <strong></strong>
+                    <em></em>
+                </div>
+                <div class="kirby-generation-grid">
+                    <span></span><span></span><span></span>
+                </div>
+            </div>
+            <div class="kirby-generation-overlay">
+                <div class="kirby-loader-ring" aria-hidden="true"></div>
+                <h3>Ajout de contenu...</h3>
+            </div>
+        </div>
     `;
 };
 
