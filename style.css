@@ -7276,13 +7276,12 @@ body.studio-home .section:first-child {
 
 .kirby-generated-website {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(280px, 0.36fr);
+    grid-template-columns: minmax(0, 1fr);
     gap: 0.9rem;
-    align-items: stretch;
 }
 
 .kirby-live-browser {
-    min-height: clamp(560px, 58vw, 720px);
+    min-height: clamp(760px, 70vw, 1040px);
     padding: clamp(0.85rem, 1.8vw, 1.25rem);
     border-radius: 28px;
     background:
@@ -7460,134 +7459,134 @@ body.studio-home .section:first-child {
     line-height: 1.35;
 }
 
-.kirby-project-dock {
+.kirby-live-services,
+.kirby-live-contact {
     display: grid;
-    align-content: start;
     gap: 0.75rem;
-}
-
-.kirby-editor-side {
-    max-height: clamp(560px, 58vw, 720px);
-    overflow: auto;
-    padding-right: 0.15rem;
-}
-
-.kirby-dock-head {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    padding: 0.75rem 0.85rem;
+    padding: clamp(1rem, 2vw, 1.25rem);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 18px;
+    border-radius: 22px;
     background:
-        linear-gradient(135deg, rgba(15, 18, 33, 0.94), rgba(25, 28, 43, 0.86)),
-        rgba(255, 255, 255, 0.04);
-    backdrop-filter: blur(16px);
+        linear-gradient(145deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.03)),
+        rgba(255, 255, 255, 0.035);
 }
 
-.kirby-dock-head a {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 2.35rem;
-    padding: 0 0.9rem;
-    border-radius: 999px;
-    background: #f8f6ee;
-    color: #06080e;
+.kirby-live-section-title {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.kirby-live-section-title span,
+.kirby-live-contact-copy span {
+    color: #efd6a3;
+    font-size: 0.78rem;
     font-weight: 950;
-    text-decoration: none;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
 }
 
-.kirby-project-dock section {
+.kirby-live-section-title strong,
+.kirby-live-contact-copy strong {
+    color: #f8f6ee;
+    font-size: clamp(1.15rem, 2.4vw, 1.65rem);
+}
+
+.kirby-live-service-grid {
     display: grid;
-    gap: 0.55rem;
-    padding: 0.9rem;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 18px;
-    background: rgba(255, 255, 255, 0.04);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.65rem;
 }
 
-.kirby-project-dock section > p:first-child {
-    color: rgba(248, 246, 238, 0.74);
-    font-size: 0.8rem;
-    font-weight: 950;
-}
-
-.kirby-logo-card {
+.kirby-live-service-grid span {
     display: grid;
-    min-height: 5.6rem;
+    min-height: 4.8rem;
     place-items: center;
-    padding: 0.85rem;
-    border-radius: 16px;
-    background: rgba(248, 246, 238, 0.92);
-    color: #263142;
-    font-size: clamp(1.25rem, 2.5vw, 2.2rem);
-    font-weight: 950;
-    line-height: 1.05;
+    padding: 0.75rem;
+    border: 1px solid rgba(239, 214, 163, 0.12);
+    border-radius: 18px;
+    background: rgba(239, 214, 163, 0.075);
+    color: rgba(248, 246, 238, 0.86);
+    font-size: 0.86rem;
+    font-weight: 900;
+    line-height: 1.2;
     text-align: center;
 }
 
-.kirby-swatch-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.45rem;
+.kirby-live-contact {
+    grid-template-columns: minmax(0, 0.9fr) minmax(260px, 1.1fr);
+    align-items: stretch;
 }
 
-.kirby-swatch-row span {
-    width: 2.15rem;
-    aspect-ratio: 1;
-    border: 2px solid rgba(248, 246, 238, 0.72);
-    border-radius: 999px;
-    background: #efd6a3;
-}
-
-.kirby-swatch-row span:nth-child(2) {
-    background: #7296ff;
-}
-
-.kirby-swatch-row span:nth-child(3) {
-    background: #f8f6ee;
-}
-
-.kirby-swatch-row span:nth-child(4) {
-    background: #19202f;
-}
-
-.kirby-page-list {
+.kirby-live-contact-copy {
     display: grid;
-    gap: 0.45rem;
+    align-content: center;
+    gap: 0.55rem;
 }
 
-.kirby-page-list span {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    min-height: 2.25rem;
-    padding: 0.45rem 0.62rem;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.04);
-    color: rgba(248, 246, 238, 0.86);
-    font-size: 0.86rem;
+.kirby-live-contact-copy p {
+    color: rgba(248, 246, 238, 0.62);
+    font-size: 0.9rem;
     font-weight: 850;
 }
 
-.kirby-page-list span::after {
-    content: "";
-    width: 0.45rem;
-    height: 0.45rem;
-    border-radius: 999px;
-    background: rgba(239, 214, 163, 0.72);
+.kirby-map-preview {
+    position: relative;
+    min-height: 12rem;
+    overflow: hidden;
+    border-radius: 20px;
+    background:
+        linear-gradient(90deg, transparent 49%, rgba(255, 255, 255, 0.08) 50%, transparent 51%),
+        linear-gradient(0deg, transparent 49%, rgba(255, 255, 255, 0.08) 50%, transparent 51%),
+        radial-gradient(circle at 50% 48%, rgba(239, 214, 163, 0.28), transparent 0.6rem),
+        rgba(255, 255, 255, 0.055);
+    background-size: 4.5rem 4.5rem, 4.5rem 4.5rem, auto, auto;
 }
 
-.kirby-project-dock h4 {
-    color: #f8f6ee;
-    font-size: 1rem;
-    line-height: 1.15;
+.kirby-map-preview::before {
+    content: "";
+    position: absolute;
+    inset: 18% 12%;
+    border: 2px solid rgba(239, 214, 163, 0.24);
+    border-right: 0;
+    border-radius: 999px 0 0 999px;
+    transform: rotate(-10deg);
+}
+
+.kirby-map-preview i {
+    position: absolute;
+    width: 0.78rem;
+    height: 0.78rem;
+    border-radius: 999px;
+    background: #efd6a3;
+    box-shadow: 0 0 0 0.4rem rgba(239, 214, 163, 0.14);
+}
+
+.kirby-map-preview i:nth-child(1) {
+    left: 22%;
+    top: 34%;
+}
+
+.kirby-map-preview i:nth-child(2) {
+    right: 28%;
+    top: 48%;
+}
+
+.kirby-map-preview i:nth-child(3) {
+    left: 48%;
+    bottom: 26%;
+}
+
+.kirby-map-preview span {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px 999px 999px 0;
+    background: #f8f6ee;
+    transform: translate(-50%, -50%) rotate(-45deg);
 }
 
 .kirby-mini-lines,
@@ -7852,8 +7851,7 @@ body.studio-home[data-theme="day"] .kirby-examples button {
 }
 
 body.studio-home[data-theme="day"] .kirby-generation-stage,
-body.studio-home[data-theme="day"] .kirby-editor-bar,
-body.studio-home[data-theme="day"] .kirby-dock-head {
+body.studio-home[data-theme="day"] .kirby-editor-bar {
     border-color: rgba(42, 45, 58, 0.1);
     background: rgba(255, 255, 255, 0.62);
     color: #171923;
@@ -7878,10 +7876,12 @@ body.studio-home[data-theme="day"] .kirby-live-browser,
 body.studio-home[data-theme="day"] .kirby-live-hero,
 body.studio-home[data-theme="day"] .kirby-hero-visual,
 body.studio-home[data-theme="day"] .kirby-live-sections article,
-body.studio-home[data-theme="day"] .kirby-project-dock section,
+body.studio-home[data-theme="day"] .kirby-live-services,
+body.studio-home[data-theme="day"] .kirby-live-contact,
+body.studio-home[data-theme="day"] .kirby-live-service-grid span,
+body.studio-home[data-theme="day"] .kirby-map-preview,
 body.studio-home[data-theme="day"] .kirby-mini-lines span,
 body.studio-home[data-theme="day"] .kirby-option-pills span,
-body.studio-home[data-theme="day"] .kirby-page-list span,
 body.studio-home[data-theme="day"] .kirby-site-brief,
 body.studio-home[data-theme="day"] .kirby-blueprint-grid section,
 body.studio-home[data-theme="day"] .kirby-detail-block,
@@ -7913,7 +7913,8 @@ body.studio-home[data-theme="day"] .preview-mini-hero strong,
 body.studio-home[data-theme="day"] .kirby-live-nav strong,
 body.studio-home[data-theme="day"] .kirby-live-hero h3,
 body.studio-home[data-theme="day"] .kirby-live-sections strong,
-body.studio-home[data-theme="day"] .kirby-project-dock h4,
+body.studio-home[data-theme="day"] .kirby-live-section-title strong,
+body.studio-home[data-theme="day"] .kirby-live-contact-copy strong,
 body.studio-home[data-theme="day"] .kirby-editor-bar h3,
 body.studio-home[data-theme="day"] .kirby-result-grid strong,
 body.studio-home[data-theme="day"] .kirby-blueprint-grid strong,
@@ -7939,10 +7940,10 @@ body.studio-home[data-theme="day"] .preview-mini-grid span,
 body.studio-home[data-theme="day"] .preview-mini-options span,
 body.studio-home[data-theme="day"] .kirby-live-nav span,
 body.studio-home[data-theme="day"] .kirby-live-sections span,
+body.studio-home[data-theme="day"] .kirby-live-service-grid span,
+body.studio-home[data-theme="day"] .kirby-live-contact-copy p,
 body.studio-home[data-theme="day"] .kirby-mini-lines span,
 body.studio-home[data-theme="day"] .kirby-option-pills span,
-body.studio-home[data-theme="day"] .kirby-project-dock section > p:first-child,
-body.studio-home[data-theme="day"] .kirby-page-list span,
 body.studio-home[data-theme="day"] .kirby-style-note,
 body.studio-home[data-theme="day"] .builder-step p,
 body.studio-home[data-theme="day"] .platform-product-card p,
@@ -8020,14 +8021,13 @@ body.studio-home[data-theme="day"] .kirby-tags span {
         min-height: auto;
     }
 
-    .kirby-editor-side {
-        max-height: none;
-        overflow: visible;
-        padding-right: 0;
-    }
-
     .kirby-live-hero {
         min-height: 360px;
+    }
+
+    .kirby-live-service-grid,
+    .kirby-live-contact {
+        grid-template-columns: 1fr;
     }
 
     .kirby-generation-grid {

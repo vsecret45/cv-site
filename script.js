@@ -7048,8 +7048,6 @@ const renderKirbyProposal = (proposal, brief) => {
         return;
     }
 
-    const seo = getKirbySeo(proposal);
-    const styleGuide = getKirbyStyleGuide(proposal);
     const siteModel = getKirbySiteModel(proposal);
     const pages = getKirbyArray(proposal.pages, 7);
     const homeSections = getKirbyArray(proposal.homeSections, 3);
@@ -7073,12 +7071,10 @@ const renderKirbyProposal = (proposal, brief) => {
     const optionNames = recommendedServices.length
         ? recommendedServices.map((service) => getKirbyItemTitle(service)).filter(Boolean).slice(0, 5)
         : ['Site vitrine', 'Domaine', 'E-mail pro', 'QR code'];
-    const keywords = (seo.keywords.length ? seo.keywords : proposal.seoKeywords || [])
-        .filter(Boolean)
-        .slice(0, 4);
     const visiblePageNames = visiblePages.map((page) => getKirbyItemTitle(page)).filter(Boolean).slice(0, 6);
     const primaryCta = ctas[0] || 'Découvrir';
     const secondaryCta = ctas[1] || 'Contacter';
+    const visibleServiceNames = optionNames.slice(0, 4);
 
     builderPanel?.classList.add('has-proposal');
     aiBriefOutput.classList.remove('is-loading');
@@ -7123,49 +7119,28 @@ const renderKirbyProposal = (proposal, brief) => {
                             </article>
                         `).join('')}
                     </div>
-                </div>
+                    <section class="kirby-live-services">
+                        <div class="kirby-live-section-title">
+                            <span>Services</span>
+                            <strong>Ce que la page met en avant</strong>
+                        </div>
+                        <div class="kirby-live-service-grid">
+                            ${visibleServiceNames.map((serviceName) => `<span>${cleanHtml(serviceName)}</span>`).join('')}
+                        </div>
+                    </section>
 
-                <aside class="kirby-project-dock kirby-editor-side">
-                    <div class="kirby-dock-head">
-                        <p class="signal-label">Personnaliser</p>
-                        <a href="contact.html?${quoteParams.toString()}">Valider</a>
-                    </div>
-                    <section class="kirby-logo-panel">
-                        <p>Logo</p>
-                        <div class="kirby-logo-card">${cleanHtml(siteName)}</div>
-                    </section>
-                    <section>
-                        <p>Couleurs</p>
-                        <div class="kirby-swatch-row" aria-label="Palette proposée">
-                            <span></span><span></span><span></span><span></span>
+                    <section class="kirby-live-contact">
+                        <div class="kirby-live-contact-copy">
+                            <span>Contact</span>
+                            <strong>Prêt à recevoir les demandes</strong>
+                            <p>${cleanHtml(email)}</p>
+                            <p>${cleanHtml(domain)}</p>
+                        </div>
+                        <div class="kirby-map-preview" aria-hidden="true">
+                            <i></i><i></i><i></i><span></span>
                         </div>
                     </section>
-                    <section>
-                        <p>Pages</p>
-                        <div class="kirby-page-list">
-                            ${visiblePageNames.map((pageName) => `<span>${cleanHtml(pageName)}</span>`).join('')}
-                        </div>
-                    </section>
-                    <section>
-                        <p>Options</p>
-                        <div class="kirby-option-pills">
-                            ${optionNames.map((option) => `<span>${cleanHtml(option)}</span>`).join('')}
-                        </div>
-                    </section>
-                    <section>
-                        <p>SEO</p>
-                        <div class="kirby-option-pills kirby-seo-pills">
-                            ${keywords.map((keyword) => `<span>${cleanHtml(keyword)}</span>`).join('')}
-                        </div>
-                    </section>
-                    <section>
-                        <p>Domaine</p>
-                        <div class="kirby-mini-lines">
-                            <span>${cleanHtml(domain)}</span>
-                            <span>${cleanHtml(email)}</span>
-                        </div>
-                    </section>
-                </aside>
+                </div>
             </div>
         </div>
 
