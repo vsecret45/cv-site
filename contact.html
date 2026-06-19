@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Lato:wght@400;700&family=Libre+Baskerville:wght@400;700&family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-    <link rel="stylesheet" href="style.css?v=20260614-platform-v4">
+    <link rel="stylesheet" href="style.css?v=20260614-platform-v17">
 </head>
 <body class="is-preload studio-home">
     <div class="page-shell">
@@ -42,87 +42,46 @@
             </nav>
             <div class="page-intro">
                 <p class="eyebrow">Contact</p>
-                <h1>Votre demande de projet.</h1>
-                <p>Expliquez le besoin, le delai souhaite et les informations deja disponibles. Aucun paiement n'est declenche ici.</p>
+                <h1>Finaliser votre demande.</h1>
+                <p>Votre proposition est deja preparee. Laissez simplement vos coordonnees pour etre recontacte.</p>
             </div>
         </header>
 
         <main>
             <section class="section section-contact reveal-section">
-                <div class="contact-layout">
-                    <div class="contact-panel contact-panel-info">
-                        <h2>Informations utiles</h2>
-                        <p>Indiquez l'activite, ce que le visiteur doit pouvoir faire, et le delai souhaite. Si vous venez de l'assistant, le message est deja prepare.</p>
-                        <div class="quote-hints" aria-label="Idees d'informations utiles">
-                            <p>Exemples de demandes claires :</p>
-                            <ul>
-                                <li>Presenter une activite et recevoir des contacts</li>
-                                <li>Afficher des chambres, services ou tarifs</li>
-                                <li>Ajouter un lien de reservation ou de rendez-vous</li>
-                                <li>Creer une mini-page ou un QR code a partager</li>
-                            </ul>
+                <div class="contact-final-layout">
+                    <article class="contact-project-summary" aria-label="Resume du projet">
+                        <p class="signal-label">Projet prepare</p>
+                        <h2 id="contact-summary-title">Base de site generee</h2>
+                        <p id="contact-summary-message">Le message de demande est prepare automatiquement avec les informations du generateur.</p>
+                        <div class="contact-summary-pills" id="contact-summary-pills">
+                            <span>Site internet</span>
+                            <span>Pages utiles</span>
+                            <span>Options adaptees</span>
                         </div>
-                        <div class="contact-details">
-                            <span class="contact-link">contact@sacreationweb.com</span>
-                            <a class="contact-link" href="tel:0777464837">07 77 46 48 37</a>
-                        </div>
-                    </div>
+                    </article>
 
-                    <form class="contact-form" id="contact-form">
+                    <form class="contact-form contact-final-form" id="contact-form">
+                        <div class="contact-final-head">
+                            <p class="signal-label">Derniere etape</p>
+                            <h2>Finaliser ma demande</h2>
+                            <p>Nous vous recontactons avec la proposition deja preparee.</p>
+                        </div>
+                        <input type="hidden" name="service" value="Projet site web">
+                        <input type="hidden" name="message" value="">
                         <label class="field">
                             <span>Nom</span>
-                            <input type="text" name="lastName" placeholder="Votre nom" required>
+                            <input type="text" name="name" placeholder="Votre nom" autocomplete="name" required>
                         </label>
                         <label class="field">
-                            <span>Prenom</span>
-                            <input type="text" name="firstName" placeholder="Votre prenom" required>
+                            <span>E-mail</span>
+                            <input type="email" name="email" placeholder="votre@email.com" autocomplete="email" required>
                         </label>
                         <label class="field">
-                            <span>Email</span>
-                            <input type="email" name="email" placeholder="votre@email.com" required>
+                            <span>Telephone facultatif</span>
+                            <input type="tel" name="phone" placeholder="07 00 00 00 00" autocomplete="tel">
                         </label>
-                        <label class="field">
-                            <span>Besoin principal</span>
-                            <select name="service">
-                                <option value="">Choisir une option</option>
-                                <option>Offre Essentiel</option>
-                                <option>Offre Pro</option>
-                                <option>Offre Signature</option>
-                                <option>Site assiste par IA</option>
-                                <option>Boutique en ligne simple</option>
-                                <option>QR code personnalise</option>
-                                <option>Creation visuelle simple</option>
-                                <option>Mini-page professionnelle</option>
-                                <option>Adresse email professionnelle</option>
-                                <option>Nom de domaine</option>
-                                <option>Formulaire ou lien WhatsApp</option>
-                                <option>CV & portfolio IA</option>
-                                <option>Textes de site et contenu IA</option>
-                                <option>Reservation et rendez-vous</option>
-                                <option>Documents pro simples</option>
-                                <option>Acompte ou prestation simple</option>
-                                <option>Espace client professionnel</option>
-                                <option>Projet specifique</option>
-                            </select>
-                        </label>
-                        <fieldset class="quote-options">
-                            <legend>Ce qui existe deja</legend>
-                            <label><input type="checkbox" name="details" value="J'ai deja un lien ou un site existant"> J'ai deja un lien ou un site existant</label>
-                            <label><input type="checkbox" name="details" value="J'ai deja un domaine"> J'ai deja un domaine</label>
-                            <label><input type="checkbox" name="details" value="J'ai deja des textes ou photos"> J'ai deja des textes ou photos</label>
-                            <label><input type="checkbox" name="details" value="Je veux une reservation ou prise de rendez-vous"> Reservation ou rendez-vous</label>
-                        </fieldset>
-                        <div class="contact-form-row">
-                            <label class="field">
-                                <span>Delai souhaite</span>
-                                <input type="text" name="deadline" placeholder="Ex : pas urgent, ce mois-ci, date precise">
-                            </label>
-                        </div>
-                        <label class="field field-message">
-                            <span>Votre besoin</span>
-                            <textarea name="message" rows="8" placeholder="Expliquez simplement : votre activite, ce que vos clients doivent faire sur le site, et ce que vous avez deja." required></textarea>
-                        </label>
-                        <button class="button button-primary contact-button" type="submit">Envoyer la demande</button>
+                        <button class="button button-primary contact-button" type="submit">Envoyer mes coordonnees</button>
                         <p class="contact-form-status" id="contact-form-status" aria-live="polite"></p>
                     </form>
                 </div>
@@ -134,6 +93,6 @@
             <p>Contact projet web</p>
         </footer>
     </div>
-    <script src="script.js?v=20260614-platform-v4" defer></script>
+    <script src="script.js?v=20260614-platform-v17" defer></script>
 </body>
 </html>

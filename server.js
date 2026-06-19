@@ -8,8 +8,8 @@ const root = __dirname;
 const port = Number.parseInt(process.env.PORT || '8000', 10);
 const host = process.env.HOST || '127.0.0.1';
 
-const loadEnv = () => {
-    const envPath = path.join(root, '.env');
+const loadEnvFile = (filename) => {
+    const envPath = path.join(root, filename);
 
     if (!fs.existsSync(envPath)) {
         return;
@@ -43,6 +43,10 @@ const loadEnv = () => {
     });
 };
 
+const loadEnv = () => {
+    ['.env', '.env.local'].forEach(loadEnvFile);
+};
+
 const mimeTypes = {
     '.css': 'text/css; charset=utf-8',
     '.html': 'text/html; charset=utf-8',
@@ -64,7 +68,7 @@ const sendStaticFile = (request, response) => {
     const filePath = path.normalize(path.join(root, relativePath));
     const fileRelativePath = path.relative(root, filePath);
 
-    if (fileRelativePath.startsWith('..') || path.isAbsolute(fileRelativePath) || fileRelativePath.startsWith('.git') || fileRelativePath === '.env') {
+    if (fileRelativePath.startsWith('..') || path.isAbsolute(fileRelativePath) || fileRelativePath.startsWith('.git') || fileRelativePath.startsWith('.env')) {
         response.writeHead(403);
         response.end('Forbidden');
         return;

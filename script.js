@@ -5793,43 +5793,70 @@ if (contactForm) {
     const contactParams = new URLSearchParams(window.location.search);
     const requestedService = contactParams.get('service');
     const requestedMessage = contactParams.get('message');
+    const requestedItems = contactParams.get('items');
     const serviceField = contactForm.querySelector('[name="service"]');
     const messageField = contactForm.querySelector('[name="message"]');
+    const summaryTitle = document.querySelector('#contact-summary-title');
+    const summaryMessage = document.querySelector('#contact-summary-message');
+    const summaryPills = document.querySelector('#contact-summary-pills');
+    const fallbackService = requestedService || 'Projet site web';
+    const fallbackMessage = requestedMessage || [
+        'Bonjour,',
+        '',
+        `Je souhaite finaliser une demande pour : ${fallbackService}.`,
+        'Le projet vient du générateur SA Création Web.',
+        'Merci de me recontacter pour valider les détails.',
+    ].join('\n');
+    const summaryItems = (requestedItems || '')
+        .split('|')
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .slice(0, 6);
 
     if (requestedService && serviceField) {
-        const matchingOption = [...serviceField.options].find((option) => option.value === requestedService || option.textContent === requestedService);
-        if (matchingOption) {
-            serviceField.value = matchingOption.value || matchingOption.textContent;
-        } else {
-            serviceField.value = 'Projet specifique';
-        }
+        serviceField.value = requestedService;
     }
 
-    if (requestedMessage && messageField && !messageField.value.trim()) {
-        messageField.value = requestedMessage;
-    } else if (requestedService && messageField && !messageField.value.trim()) {
-        messageField.value = `Bonjour,\n\nJe souhaite une proposition pour : ${requestedService}.\n\nMon activite : \nMon objectif : \nLien existant ou outil deja utilise : \nDetails utiles : `;
+    if (messageField && !messageField.value.trim()) {
+        messageField.value = fallbackMessage;
+    }
+
+    if (summaryTitle) {
+        summaryTitle.textContent = fallbackService;
+    }
+
+    if (summaryMessage) {
+        const compactMessage = requestedMessage ? requestedMessage.replace(/\s+/g, ' ').trim() : '';
+        summaryMessage.textContent = compactMessage
+            ? `${compactMessage.slice(0, 179).trim()}${compactMessage.length > 180 ? '…' : ''}`
+            : 'Votre demande est preparee automatiquement avec les informations du generateur.';
+    }
+
+    if (summaryPills && summaryItems.length) {
+        summaryPills.innerHTML = summaryItems.map((item) => `<span>${escapeHtml(item)}</span>`).join('');
     }
 
     contactForm.addEventListener('submit', async (event) => {
         event.preventDefault();
 
         const formData = new FormData(contactForm);
-        const lastName = (formData.get('lastName') || '').toString().trim();
-        const firstName = (formData.get('firstName') || '').toString().trim();
+        const fullName = (formData.get('name') || '').toString().trim();
+        const phone = (formData.get('phone') || '').toString().trim();
+        const lastName = '';
+        const firstName = fullName;
         const email = (formData.get('email') || '').toString().trim();
-        const service = (formData.get('service') || '').toString().trim();
-        const deadline = (formData.get('deadline') || '').toString().trim();
-        const details = formData.getAll('details').map((item) => item.toString().trim()).filter(Boolean);
-        const message = (formData.get('message') || '').toString().trim();
+        const service = (formData.get('service') || fallbackService).toString().trim();
+        const deadline = '';
+        const details = [];
+        const message = (formData.get('message') || fallbackMessage).toString().trim();
         const fullMessage = [
-            service ? `Besoin principal : ${service}` : 'Besoin principal : non precise',
-            deadline ? `Delai ideal : ${deadline}` : 'Delai ideal : non precise',
-            details.length > 0 ? `Infos cochees : ${details.join(', ')}` : 'Infos cochees : aucune',
+            service ? `Projet : ${service}` : 'Projet : non precise',
+            phone ? `Telephone : ${phone}` : 'Telephone : non precise',
+            summaryItems.length > 0 ? `Elements inclus : ${summaryItems.join(', ')}` : '',
             '',
-            'Message :',
+            'Message genere :',
             message || '-',
-        ].join('\n');
+        ].filter(Boolean).join('\n');
 
         if (contactFormStatus) {
             contactFormStatus.textContent = 'Envoi de votre demande...';
@@ -6831,13 +6858,14 @@ const buildBrowserKirbyProposal = (brief) => {
     const needsHotel = /hotel|hôtel|chambre|hebergement|hébergement|gite|gîte|sejour|séjour|touristique/.test(normalizedBrief);
     const needsWordPress = /wordpress|wp|cms|refonte/.test(normalizedBrief);
     const needsShop = /boutique|vendre|produit|commande|paiement|catalogue/.test(normalizedBrief);
-    const needsQr = /qr|scan|menu|carte|flyer|partager/.test(normalizedBrief);
+    const needsRestaurant = /restaurant|menu|carte|plat|cuisine|table|horaires|avis/.test(normalizedBrief);
+    const needsQr = /\b(qr|qrcode|scan|scanner|flyer|partager)\b/.test(normalizedBrief);
     const needsClientSpace = /espace client|compte client|suivi|document|connexion|prive|privé/.test(normalizedBrief);
     const needsAiAssistant = /assistant|ia|automatiser|questions|support|chat/.test(normalizedBrief);
     const siteName = activity === 'projet professionnel'
         ? 'Votre Présence Pro'
         : activity.split(/\s+/).map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`).join(' ');
-    const mainCta = needsHotel ? 'Réserver une chambre' : needsShop ? 'Commander en ligne' : needsAppointment ? 'Prendre rendez-vous' : 'Voir le projet';
+    const mainCta = needsHotel ? 'Réserver une chambre' : needsRestaurant && needsAppointment ? 'Réserver une table' : needsRestaurant ? 'Découvrir la carte' : needsShop ? 'Commander en ligne' : needsAppointment ? 'Prendre rendez-vous' : 'Voir le projet';
     const pages = needsHotel ? [
         { name: 'Accueil', goal: 'Présenter l’hôtel, l’ambiance et le bouton de réservation.' },
         { name: 'Chambres', goal: 'Montrer chambres, équipements, photos et capacités.' },
@@ -6846,6 +6874,14 @@ const buildBrowserKirbyProposal = (brief) => {
         { name: 'Galerie', goal: 'Rassurer avec les photos de l’hôtel et des espaces.' },
         { name: 'Localisation', goal: 'Afficher la ville, Google Maps et les points d’intérêt.' },
         { name: 'Contact', goal: 'Donner téléphone, e-mail professionnel et accès direct.' },
+    ] : needsRestaurant ? [
+        { name: 'Accueil', goal: 'Présenter le restaurant, l’ambiance et l’action principale.' },
+        { name: 'Menu / carte', goal: 'Afficher les plats, tarifs, formules ou carte à scanner.' },
+        { name: 'Réservation', goal: 'Permettre de réserver une table ou demander une disponibilité.' },
+        { name: 'Horaires', goal: 'Clarifier les jours d’ouverture, services midi/soir et infos pratiques.' },
+        { name: 'Photos', goal: 'Montrer la salle, les plats et l’ambiance.' },
+        { name: 'Avis clients', goal: 'Rassurer avec des preuves et retours clients.' },
+        { name: 'Contact', goal: 'Donner adresse, téléphone, accès et formulaire.' },
     ] : [
         { name: 'Accueil', goal: 'Présenter l’activité et donner une raison de continuer.' },
         { name: needsShop ? 'Boutique' : 'Prestations', goal: needsShop ? 'Présenter les produits et guider vers la commande.' : 'Afficher les services, tarifs ou informations utiles.' },
@@ -6853,49 +6889,49 @@ const buildBrowserKirbyProposal = (brief) => {
     ];
 
     return {
-        projectType: needsHotel ? 'Site hôtel avec réservation' : needsShop ? 'Boutique en ligne simple' : needsWordPress ? 'Site WordPress professionnel' : needsAppointment ? 'Site avec rendez-vous' : 'Site vitrine professionnel',
+        projectType: needsHotel ? 'Site hôtel avec réservation' : needsRestaurant ? 'Site restaurant avec carte' : needsShop ? 'Boutique en ligne simple' : needsWordPress ? 'Site WordPress professionnel' : needsAppointment ? 'Site avec rendez-vous' : 'Site vitrine professionnel',
         siteName,
         slogan: `Une présence claire pour présenter ${activity} et recevoir des contacts.`,
-        summary: `Kirby prépare une base de site centrée sur ${activity}, avec des pages courtes et une action visible.`,
+        summary: `Le générateur prépare une base de site centrée sur ${activity}, avec des pages courtes et une action visible.`,
         valueProposition: `Un projet digital complet pour rendre ${activity} plus visible, plus crédible et plus facile à contacter.`,
         positioning: {
             audience: 'Clients locaux, prospects qui cherchent vite une solution et visiteurs à rassurer.',
-            promise: needsShop ? 'Découvrir les produits et passer à la commande facilement.' : needsAppointment ? 'Comprendre les offres et réserver sans friction.' : 'Comprendre l’activité et contacter rapidement.',
+            promise: needsRestaurant ? 'Consulter la carte, vérifier les horaires et réserver facilement.' : needsShop ? 'Découvrir les produits et passer à la commande facilement.' : needsAppointment ? 'Comprendre les offres et réserver sans friction.' : 'Comprendre l’activité et contacter rapidement.',
             tone: 'Professionnel, simple et rassurant.',
             differentiator: 'Une proposition IA structurée, puis un accompagnement humain pour finaliser.',
         },
         styleGuide: {
-            direction: needsHotel ? 'Site immersif avec chambres, galerie, localisation et réservation visible.' : needsShop ? 'Catalogue clair avec produits visibles et commande directe.' : needsAppointment ? 'Site élégant orienté réservation et preuves visuelles.' : 'Vitrine moderne, lisible et rassurante.',
+            direction: needsHotel ? 'Site immersif avec chambres, galerie, localisation et réservation visible.' : needsRestaurant ? 'Site gourmand avec carte visible, photos, horaires et réservation.' : needsShop ? 'Catalogue clair avec produits visibles et commande directe.' : needsAppointment ? 'Site élégant orienté réservation et preuves visuelles.' : 'Vitrine moderne, lisible et rassurante.',
             colors: 'Fond sobre, contraste fort, accent lumineux pour les boutons.',
             typography: 'Titres nets, textes courts, lecture facile sur mobile.',
-            layout: needsHotel ? 'Hero photo, chambres, tarifs, galerie, localisation, avis, réservation.' : 'Hero direct, prestations, preuves, galerie ou avis, puis contact.',
+            layout: needsHotel ? 'Hero photo, chambres, tarifs, galerie, localisation, avis, réservation.' : needsRestaurant ? 'Hero, menu/carte, QR code si demandé, photos, avis, horaires, réservation, contact.' : 'Hero direct, prestations, preuves, galerie ou avis, puis contact.',
         },
         siteModel: {
-            name: needsHotel ? 'Modèle hôtel + réservation' : needsShop ? 'Modèle catalogue + commande' : needsAppointment ? 'Modèle rendez-vous local' : 'Modèle vitrine professionnelle',
-            description: needsHotel ? 'Une structure qui montre les chambres, rassure, localise et mène vers la réservation.' : needsShop ? 'Une structure qui présente vite les produits et conduit vers la commande.' : needsAppointment ? 'Une structure qui montre les prestations, rassure et mène vers la réservation.' : 'Une structure pour expliquer l’activité, rassurer et déclencher une action claire.',
+            name: needsHotel ? 'Modèle hôtel + réservation' : needsRestaurant ? 'Modèle restaurant + carte' : needsShop ? 'Modèle catalogue + commande' : needsAppointment ? 'Modèle rendez-vous local' : 'Modèle vitrine professionnelle',
+            description: needsHotel ? 'Une structure qui montre les chambres, rassure, localise et mène vers la réservation.' : needsRestaurant ? 'Une structure pour consulter la carte, voir les infos pratiques et réserver.' : needsShop ? 'Une structure qui présente vite les produits et conduit vers la commande.' : needsAppointment ? 'Une structure qui montre les prestations, rassure et mène vers la réservation.' : 'Une structure pour expliquer l’activité, rassurer et déclencher une action claire.',
             sections: [
-                needsHotel ? 'Hero hôtel avec bouton Réserver' : 'Hero avec promesse et bouton principal',
-                needsHotel ? 'Chambres et équipements' : needsShop ? 'Catalogue ou produits' : 'Prestations principales',
-                needsHotel ? 'Tarifs ou disponibilités' : 'Galerie, avis ou preuves',
-                needsHotel ? 'Galerie, localisation et contact' : needsAppointment ? 'Prise de rendez-vous' : 'Contact rapide',
+                needsHotel ? 'Hero hôtel avec bouton Réserver' : needsRestaurant ? 'Hero restaurant avec bouton Réserver' : 'Hero avec promesse et bouton principal',
+                needsHotel ? 'Chambres et équipements' : needsRestaurant ? 'Menu / carte' : needsShop ? 'Catalogue ou produits' : 'Prestations principales',
+                needsHotel ? 'Tarifs ou disponibilités' : needsRestaurant ? 'Horaires, photos et avis clients' : 'Galerie, avis ou preuves',
+                needsHotel ? 'Galerie, localisation et contact' : needsRestaurant ? 'Réservation et contact' : needsAppointment ? 'Prise de rendez-vous' : 'Contact rapide',
             ],
         },
-        recommendedOffer: needsHotel ? 'Offre Signature' : needsWordPress ? 'Projet spécifique' : needsShop || needsAppointment ? 'Offre Pro' : 'Offre Essentiel',
+        recommendedOffer: needsHotel ? 'Offre Signature' : needsWordPress ? 'Projet spécifique' : needsShop || needsAppointment || needsRestaurant ? 'Offre Pro' : 'Offre Essentiel',
         pages,
         homeSections: [
-            { title: `Bienvenue chez ${siteName}`, text: needsHotel ? `Un accueil visuel présente l’hôtel, l’ambiance, la ville et le bouton ${mainCta}.` : `Un bloc d’accueil direct explique l’activité, la zone et ce que le visiteur peut faire.` },
-            { title: needsHotel ? 'Chambres et services' : needsShop ? 'Produits ou catalogue' : 'Services principaux', text: needsHotel ? 'Les chambres, équipements et services sont présentés avec photos, tarifs ou disponibilités.' : needsShop ? 'Les produits sont organisés pour faciliter la commande.' : 'Les prestations sont présentées sans texte inutile, avec une phrase claire par service.' },
+            { title: `Bienvenue chez ${siteName}`, text: needsHotel ? `Un accueil visuel présente l’hôtel, l’ambiance, la ville et le bouton ${mainCta}.` : needsRestaurant ? `Un accueil direct présente le restaurant, l’ambiance, la carte et le bouton ${mainCta}.` : `Un bloc d’accueil direct explique l’activité, la zone et ce que le visiteur peut faire.` },
+            { title: needsHotel ? 'Chambres et services' : needsRestaurant ? 'Menu, horaires et photos' : needsShop ? 'Produits ou catalogue' : 'Services principaux', text: needsHotel ? 'Les chambres, équipements et services sont présentés avec photos, tarifs ou disponibilités.' : needsRestaurant ? 'La carte, les horaires, les photos et les avis rassurent avant la réservation.' : needsShop ? 'Les produits sont organisés pour faciliter la commande.' : 'Les prestations sont présentées sans texte inutile, avec une phrase claire par service.' },
             { title: 'Action principale', text: `Le bouton ${mainCta} reste visible pour guider le visiteur vers l’étape suivante.` },
         ],
         services: [
             { name: needsHotel ? 'Chambres' : 'Présentation claire', description: needsHotel ? 'Présenter chaque chambre avec photos, équipements, capacité et ambiance.' : 'Dire quoi, pour qui, dans quelle zone et avec quel résultat.' },
-            { name: needsHotel ? 'Réservation' : needsAppointment ? 'Rendez-vous' : 'Contact direct', description: needsHotel ? 'Ajouter réservation, téléphone, e-mail professionnel et acompte si besoin.' : needsAppointment ? 'Ajouter un lien de réservation, téléphone ou WhatsApp.' : 'Ajouter e-mail professionnel, téléphone ou lien WhatsApp.' },
+            { name: needsHotel ? 'Réservation' : needsRestaurant ? 'Réservation' : needsAppointment ? 'Rendez-vous' : 'Contact direct', description: needsHotel ? 'Ajouter réservation, téléphone, e-mail professionnel et acompte si besoin.' : needsRestaurant ? 'Ajouter réservation, téléphone, horaires et accès.' : needsAppointment ? 'Ajouter un lien de réservation, téléphone ou WhatsApp.' : 'Ajouter e-mail professionnel, téléphone ou lien WhatsApp.' },
             ...(needsHotel ? [{ name: 'Localisation et avis', description: 'Google Maps, accès, points d’intérêt, galerie et avis clients.' }] : []),
         ],
-        ctas: [mainCta, needsHotel ? 'Voir les disponibilités' : 'Voir les prestations', 'Contacter maintenant'],
+        ctas: [mainCta, needsHotel ? 'Voir les disponibilités' : needsRestaurant ? 'Voir le menu' : 'Voir les prestations', 'Contacter maintenant'],
         seo: {
             keywords: [activity, `${activity} professionnel`, `${activity} local`, 'site web professionnel'],
-            searchExpressions: needsHotel ? [`${activity} + ville`, 'chambre + ville', 'réservation hôtel', 'séjour touristique'] : [`${activity} près de moi`, `${activity} tarifs`, `${activity} contact`, needsAppointment ? `${activity} rendez-vous` : `${activity} professionnel`],
+            searchExpressions: needsHotel ? [`${activity} + ville`, 'chambre + ville', 'réservation hôtel', 'séjour touristique'] : needsRestaurant ? ['restaurant + ville', 'menu restaurant', 'réservation restaurant', 'horaires restaurant'] : [`${activity} près de moi`, `${activity} tarifs`, `${activity} contact`, needsAppointment ? `${activity} rendez-vous` : `${activity} professionnel`],
             titles: [`${siteName} - ${needsAppointment ? 'Prestations et rendez-vous' : needsShop ? 'Catalogue et commandes' : 'Site officiel'}`, `${activity} - Services et contact`],
             metaDescription: `${siteName} présente ${activity}, ses services, ses informations utiles et un contact direct pour ${mainCta.toLowerCase()}.`,
         },
@@ -6903,11 +6939,16 @@ const buildBrowserKirbyProposal = (brief) => {
         recommendedServices: [
             { name: needsShop ? 'Boutique en ligne simple' : 'Site vitrine', reason: 'Le projet a besoin d’une page claire et partageable.', priceFrom: needsShop ? 'À partir de 712 € selon le catalogue' : 'À partir de 392 €' },
             { name: 'Adresse e-mail professionnelle', reason: 'Une adresse contact@ renforce la confiance.', priceFrom: 'À partir de 49 €' },
-            { name: 'QR code professionnel', reason: needsQr ? 'Le besoin parle déjà de partage ou de support imprimé.' : 'Utile pour partager le site après mise en ligne.', priceFrom: '39 €' },
+            ...(needsQr ? [{ name: 'QR code professionnel', reason: 'Le besoin parle de scan, carte ou support imprimé.', priceFrom: '39 €' }] : []),
             ...(needsHotel ? [
                 { name: 'Réservation en ligne', reason: 'Pour afficher disponibilités, dates et réservation directement.', priceFrom: 'Projet spécifique' },
                 { name: 'Google Maps et avis clients', reason: 'Pour rassurer et aider le visiteur à choisir.', priceFrom: 'Inclus selon offre' },
                 { name: 'Paiement ou acompte', reason: 'Pour confirmer une réservation en ligne si nécessaire.', priceFrom: 'Projet spécifique' },
+            ] : []),
+            ...(needsRestaurant ? [
+                { name: 'Réservation en ligne', reason: 'Utile si le client doit réserver une table rapidement.', priceFrom: 'Inclus selon offre' },
+                { name: 'Galerie photos', reason: 'Les photos donnent envie avant la visite.', priceFrom: 'Inclus selon offre' },
+                { name: 'Google Maps et avis clients', reason: 'Adresse, accès et avis rassurent avant de se déplacer.', priceFrom: 'Inclus selon offre' },
             ] : []),
             ...(needsWordPress ? [{ name: 'WordPress', reason: 'Installation, configuration, refonte ou accompagnement.', priceFrom: 'Projet spécifique' }] : []),
             ...(needsClientSpace ? [{ name: 'Espace client simple', reason: 'Utile pour centraliser suivi, documents ou informations privées.', priceFrom: 'Projet spécifique' }] : []),
@@ -6927,7 +6968,7 @@ const buildBrowserKirbyProposal = (brief) => {
         contactMessage: [
             'Bonjour,',
             '',
-            `Kirby a préparé une première proposition pour : ${siteName}.`,
+            `Le générateur SA a préparé une première proposition pour : ${siteName}.`,
             `Besoin de départ : ${brief}`,
             `Type de projet : ${needsShop ? 'boutique en ligne simple' : needsAppointment ? 'site avec rendez-vous' : 'site vitrine professionnel'}`,
             `Pages proposées : ${pages.map((page) => page.name).join(', ')}`,
@@ -6981,11 +7022,14 @@ const getKirbySiteModel = (proposal = {}) => {
 };
 
 const getKirbyItemTitle = (item = {}) => {
-    if (typeof item === 'string') {
-        return item;
+    const rawTitle = typeof item === 'string' ? item : item.name || item.title || item.label || '';
+    const title = cleanKirbyGeneratedText(rawTitle);
+
+    if (isWeakKirbyGeneratedText(title)) {
+        return '';
     }
 
-    return item.name || item.title || item.label || '';
+    return title;
 };
 
 const getKirbyItemText = (item = {}) => {
@@ -6993,7 +7037,13 @@ const getKirbyItemText = (item = {}) => {
         return '';
     }
 
-    return item.text || item.goal || item.description || item.reason || '';
+    const text = cleanKirbyGeneratedText(item.text || item.goal || item.description || item.reason || '');
+
+    if (isWeakKirbyGeneratedText(text)) {
+        return '';
+    }
+
+    return text;
 };
 
 const getKirbyShortText = (value = '', max = 92) => {
@@ -7019,12 +7069,1036 @@ const getKirbyDomain = (siteName = '') => {
     return `${slug || 'mon-projet'}.fr`;
 };
 
+const formatKirbySiteName = (value = '') =>
+    String(value || '')
+        .replace(/([a-zà-ÿ])([A-ZÀ-Ý])/g, '$1 $2')
+        .replace(/([A-ZÀ-Ý]+)([A-ZÀ-Ý][a-zà-ÿ])/g, '$1 $2')
+        .replace(/\s+/g, ' ')
+        .trim();
+
 const buildKirbyBriefFromForm = () => {
     if (!aiBriefForm || !aiBriefInput) {
         return '';
     }
 
     return aiBriefInput.value.trim();
+};
+
+const normalizeKirbyText = (value = '') => String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+const cleanKirbyGeneratedText = (value = '') => String(value || '')
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<\/?[^>]+>/g, ' ')
+    .replace(/&lt;\/?[^&]+&gt;/gi, ' ')
+    .replace(/[{}]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const isWeakKirbyGeneratedText = (value = '') => {
+    const text = normalizeKirbyText(cleanKirbyGeneratedText(value));
+    const compactText = text.replace(/[.!?:;]+$/g, '').trim();
+
+    return !text ||
+        /class=|<\/|<div|<section|<article|function|const |let |var |=>/.test(text) ||
+        /^(section|page|service|texte a ajuster|description a ajuster|a ajuster|contenu a ajuster)$/.test(compactText);
+};
+
+const cloneKirbyProposal = (proposal) => {
+    try {
+        return JSON.parse(JSON.stringify(proposal || {}));
+    } catch (error) {
+        return {};
+    }
+};
+
+const getKirbyBriefSignals = (brief = '') => {
+    const source = normalizeKirbyText(brief);
+    const isBeauty = /coiff|beaute|salon|institut|estheticien|estheticienne|esthetique|massage|massages|soin|soins|epilation|ongle|ongles|spa|bien etre|bien-etre/.test(source);
+    const isRestaurant = /restaurant|menu|carte|plat|cuisine|table/.test(source);
+    const isHotel = /hotel|chambre|hebergement|gite|sejour|touristique/.test(source);
+    const isArchitecture = /architect|architecture|architecte|arquitecto|interieur|intérieur|design d interieur|design d'intérieur|decorateur|decoratrice|decoration|décoration|studio de design|maitre d oeuvre|maître d oeuvre/.test(source);
+    const isAccountingApp = /contadirect|compta|comptabilite|comptable|facture|facturation|devis|tva|revenu|revenus|depense|depenses|charge|charges|banque|transaction|transactions|tresorerie|resultat net|bilan|logiciel de compta|logiciel comptable|tableau de bord|dashboard/.test(source);
+
+    return {
+        source,
+        isAccountingApp,
+        isArchitecture,
+        isDigital: /sa creation|creation web|site web|sites web|generateur|ia|digital|agence|developpement|référencement|referencement|qr code|maintenance|support technique|logiciel|application|saas|plateforme/.test(source),
+        isHotel,
+        isRestaurant,
+        isShop: !isBeauty && !isRestaurant && !isHotel && /boutique|vendre|vente|commande|produit|panier|paiement|catalogue|mode|vetement/.test(source),
+        isBeauty,
+        isCraft: /plombier|artisan|travaux|chantier|renovation/.test(source),
+    };
+};
+
+const getKirbyHash = (value = '') => {
+    const text = String(value || '');
+    let hash = 0;
+
+    for (let index = 0; index < text.length; index += 1) {
+        hash = (hash * 31 + text.charCodeAt(index)) % 9973;
+    }
+
+    return hash;
+};
+
+const removeKirbyPages = (proposal, names = []) => {
+    const blocked = names.map((name) => normalizeKirbyText(name));
+    proposal.pages = getKirbyArray(proposal.pages, 8).filter((page) => !blocked.includes(normalizeKirbyText(getKirbyItemTitle(page))));
+};
+
+const removeKirbyServices = (proposal, patterns = []) => {
+    proposal.recommendedServices = getKirbyArray(proposal.recommendedServices, 8).filter((service) => {
+        const title = normalizeKirbyText(getKirbyItemTitle(service));
+
+        return !patterns.some((pattern) => pattern.test(title));
+    });
+};
+
+const shortenKirbySentence = (value = '', max = 86) => {
+    const text = String(value || '').replace(/\s+/g, ' ').trim();
+
+    if (text.length <= max) {
+        return text;
+    }
+
+    return `${text.slice(0, max - 1).trim()}…`;
+};
+
+const hasKirbyItem = (items = [], name = '') => {
+    const target = normalizeKirbyText(name);
+
+    return items.some((item) => normalizeKirbyText(getKirbyItemTitle(item)) === target);
+};
+
+const addKirbyPage = (proposal, page) => {
+    proposal.pages = getKirbyArray(proposal.pages, 8);
+
+    if (!hasKirbyItem(proposal.pages, page.name)) {
+        proposal.pages.push(page);
+    }
+};
+
+const addKirbySection = (proposal, section) => {
+    proposal.homeSections = getKirbyArray(proposal.homeSections, 6);
+
+    if (!hasKirbyItem(proposal.homeSections, section.title)) {
+        proposal.homeSections.push(section);
+    }
+};
+
+const addKirbyService = (proposal, service, priority = false) => {
+    proposal.recommendedServices = getKirbyArray(proposal.recommendedServices, 8);
+
+    if (!hasKirbyItem(proposal.recommendedServices, service.name)) {
+        if (priority) {
+            proposal.recommendedServices.unshift(service);
+        } else {
+            proposal.recommendedServices.push(service);
+        }
+        return;
+    }
+
+    if (priority) {
+        proposal.recommendedServices = [
+            ...proposal.recommendedServices.filter((item) => normalizeKirbyText(getKirbyItemTitle(item)) === normalizeKirbyText(service.name)),
+            ...proposal.recommendedServices.filter((item) => normalizeKirbyText(getKirbyItemTitle(item)) !== normalizeKirbyText(service.name)),
+        ];
+    }
+};
+
+const addKirbyCta = (proposal, cta) => {
+    proposal.ctas = getKirbyArray(proposal.ctas, 5);
+
+    if (!proposal.ctas.some((item) => normalizeKirbyText(item) === normalizeKirbyText(cta))) {
+        proposal.ctas.unshift(cta);
+    }
+};
+
+const addKirbyModelSection = (proposal, section) => {
+    proposal.siteModel = proposal.siteModel && typeof proposal.siteModel === 'object' ? proposal.siteModel : {};
+    proposal.siteModel.sections = getKirbyArray(proposal.siteModel.sections, 8);
+
+    if (!proposal.siteModel.sections.some((item) => normalizeKirbyText(item) === normalizeKirbyText(section))) {
+        proposal.siteModel.sections.push(section);
+    }
+};
+
+const setKirbyPreviewSummary = (proposal, title, items = []) => {
+    proposal.previewSummary = {
+        title,
+        items: items.filter(Boolean).slice(0, 6),
+    };
+};
+
+const isOpenAiKirbyProposal = (proposal = {}) => normalizeKirbyText(proposal.mode || proposal.source) === 'openai';
+
+const hasRichKirbyProposal = (proposal = {}) =>
+    getKirbyArray(proposal.pages, 8).length >= 4 &&
+    getKirbyArray(proposal.homeSections, 6).length >= 2 &&
+    Boolean(proposal.siteName || proposal.slogan || proposal.valueProposition);
+
+const getKirbyVisualConcept = (proposal = {}) =>
+    proposal.visualConcept && typeof proposal.visualConcept === 'object' ? proposal.visualConcept : {};
+
+const applyGeneratedKirbyVisualHints = (proposal, signals, brief = '') => {
+    const visualConcept = getKirbyVisualConcept(proposal);
+    const visualSource = normalizeKirbyText([
+        proposal.visualMood,
+        proposal.projectType,
+        proposal.siteModel && proposal.siteModel.name,
+        proposal.styleGuide && proposal.styleGuide.direction,
+        proposal.styleGuide && proposal.styleGuide.colors,
+        visualConcept.ambience,
+        visualConcept.heroComposition,
+        visualConcept.layoutSignature,
+        visualConcept.wowFactor,
+        getKirbyArray(visualConcept.imageKeywords, 8).join(' '),
+        brief,
+    ].filter(Boolean).join(' '));
+
+    if (!proposal.visualMood) {
+        proposal.visualMood = signals.isAccountingApp || /dashboard|logiciel|saas|comptable|facturation/.test(visualSource)
+            ? 'accounting-dashboard'
+            : signals.isDigital || /digital|ia|generateur|premium|bleu nuit|etoile|verre|halo/.test(visualSource)
+                ? 'tech-premium'
+                : signals.isBeauty || /beaute|coiff|soin|spa|bien etre|rose|beige/.test(visualSource)
+                    ? 'beauty-wellness'
+                    : signals.isRestaurant || /restaurant|menu|cuisine|chaleur|italien/.test(visualSource)
+                        ? 'warm'
+                        : /photo|galerie|image|portfolio/.test(visualSource)
+                            ? 'image-led'
+                            : /premium|signature|luxe|elegant/.test(visualSource)
+                                ? 'premium'
+                                : '';
+    }
+
+    if (proposal.designVariant === undefined || proposal.designVariant === null) {
+        proposal.designVariant = getKirbyHash(`${brief} ${proposal.siteName || ''} ${visualSource}`) % 7;
+    }
+
+    if (getKirbyArray(visualConcept.imageKeywords, 8).length || /photo|image|galerie|visuel|avant apres/.test(visualSource)) {
+        proposal.showGallery = proposal.showGallery || /galerie|portfolio|photo|avant apres/.test(visualSource);
+    }
+
+    if (!proposal.previewSummary && getKirbyArray(proposal.pages, 8).length) {
+        setKirbyPreviewSummary(
+            proposal,
+            visualConcept.wowFactor ? 'Direction proposée' : 'Ce qui est prévu',
+            [
+                visualConcept.layoutSignature,
+                visualConcept.heroComposition,
+                ...getKirbyArray(proposal.pages, 5).map((page) => getKirbyItemTitle(page)),
+            ].filter(Boolean),
+        );
+    }
+};
+
+const applyKirbyAccountingModel = (proposal, brief = '') => {
+    const source = normalizeKirbyText(`${brief} ${proposal.siteName || ''}`);
+    const appName = /contadirect/.test(source)
+        ? 'ContaDirect'
+        : formatKirbySiteName(proposal.siteName) || 'ComptaPilot';
+
+    proposal.siteName = appName;
+    proposal.projectType = 'Application SaaS de comptabilite';
+    proposal.visualMood = 'accounting-dashboard';
+    proposal.designVariant = getKirbyHash(`${brief} ${appName}`) % 3;
+    proposal.slogan = 'Pilotez vos finances sans friction.';
+    proposal.summary = `${appName} doit montrer une interface de comptabilite moderne, pas une simple vitrine marketing.`;
+    proposal.valueProposition = 'Un tableau de bord clair pour suivre revenus, depenses, TVA, factures, banque et documents au meme endroit.';
+    proposal.positioning = {
+        audience: 'Independants, freelances et petites entreprises qui veulent comprendre vite leur activite.',
+        promise: 'Voir les chiffres importants, creer des documents et anticiper la TVA sans perdre de temps.',
+        tone: 'SaaS premium, clair, fiable et operationnel.',
+        differentiator: 'Une interface produit concrete avec donnees, actions rapides et assistant IA integre.',
+    };
+    proposal.styleGuide = {
+        direction: 'Dashboard SaaS lumineux avec sidebar foncee, cartes KPI, graphiques, taches et assistant IA.',
+        colors: 'Bleu profond, blanc, gris tres clair, accents bleu, vert, rouge et violet pour les statuts.',
+        typography: 'Sans-serif moderne, chiffres forts, libelles compacts et lecture rapide.',
+        layout: 'Sidebar fixe, barre de recherche, KPI en haut, graphiques et listes metier dans une grille dense.',
+    };
+    proposal.siteModel = {
+        name: 'Dashboard comptable SaaS',
+        description: 'Une interface applicative qui donne tout de suite l’impression d’un logiciel utilisable.',
+        sections: ['Tableau de bord', 'Revenus', 'Depenses', 'Devis', 'Factures', 'Banque', 'Documents', 'TVA & Charges'],
+    };
+    proposal.pages = [
+        { name: 'Tableau de bord', goal: 'Afficher les KPI, graphiques, taches et alertes prioritaires.' },
+        { name: 'Revenus', goal: 'Suivre chiffre d’affaires, encaissements et clients.' },
+        { name: 'Depenses', goal: 'Classer achats, justificatifs et categories de charges.' },
+        { name: 'Devis', goal: 'Creer, envoyer et relancer les devis.' },
+        { name: 'Factures', goal: 'Gerer factures, statuts, paiements et exports.' },
+        { name: 'Banque', goal: 'Afficher soldes, mouvements et rapprochements.' },
+        { name: 'Documents', goal: 'Centraliser PDF, justificatifs et contrats.' },
+        { name: 'TVA & Charges', goal: 'Anticiper echeances, TVA a reverser et obligations.' },
+    ];
+    proposal.homeSections = [
+        { title: 'Vue financiere instantanee', text: 'Chiffre d’affaires, depenses, resultat net et TVA visibles en haut du dashboard.' },
+        { title: 'Documents et facturation', text: 'Devis, factures, justificatifs et PDF sont accessibles depuis une meme interface.' },
+        { title: 'Assistant IA comptable', text: 'L’utilisateur peut analyser ses depenses, prevoir son resultat et comprendre ses echeances.' },
+    ];
+    proposal.ctas = ['Nouveau document', 'Analyser mes depenses', 'Importer un justificatif'];
+    proposal.recommendedOffer = 'Projet specifique';
+    proposal.recommendedServices = [
+        { name: 'Interface SaaS sur mesure', reason: 'Le projet demande un vrai logiciel avec navigation, etats et tableaux de bord.', priceFrom: 'Projet spécifique' },
+        { name: 'Assistant IA metier', reason: 'Utile pour expliquer les depenses, la TVA et les resultats aux independants.', priceFrom: 'Projet spécifique' },
+        { name: 'Espace client simple', reason: 'Necessaire pour sauvegarder documents, donnees et preferences.', priceFrom: 'Projet spécifique' },
+        { name: 'Tableau de bord financier', reason: 'Les KPI et graphiques sont le coeur de l’experience.', priceFrom: 'Projet spécifique' },
+        { name: 'Import documents', reason: 'Factures et justificatifs doivent etre centralises.', priceFrom: 'Projet spécifique' },
+        { name: 'Connexion bancaire', reason: 'Pertinent pour rapprocher transactions et soldes.', priceFrom: 'Projet spécifique' },
+    ];
+    proposal.seo = {
+        keywords: ['logiciel de comptabilite', 'comptabilite independant', 'facturation freelance', 'suivi TVA'],
+        searchExpressions: ['logiciel comptabilite independant', 'application facturation freelance', 'suivi depenses tva', 'dashboard comptable simple'],
+        titles: [`${appName} - Comptabilite simple pour independants`, 'Dashboard comptable, factures et TVA'],
+        metaDescription: `${appName} aide les independants a suivre revenus, depenses, TVA, factures et documents depuis un tableau de bord clair.`,
+    };
+    proposal.seoKeywords = proposal.seo.keywords;
+    proposal.services = [
+        { name: 'Tableau de bord', description: 'KPI, graphiques et alertes pour comprendre l’activite.' },
+        { name: 'Facturation', description: 'Devis, factures, relances et documents recents.' },
+        { name: 'TVA & charges', description: 'Echeances, montants a prevoir et taches a traiter.' },
+    ];
+    proposal.clientAcquisition = [
+        'Montrer une capture produit des le premier ecran.',
+        'Mettre en avant les benefices concrets : temps gagne, TVA lisible, documents centralises.',
+        'Prevoir une demo interactive plutot qu’une page purement commerciale.',
+        'Ajouter des cas d’usage pour independants, freelances et TPE.',
+    ];
+    proposal.explanation = [
+        'Le brief parle d’un logiciel : il faut donc afficher une interface produit.',
+        'Les KPI et graphiques rendent la valeur visible immediatement.',
+        'La sidebar montre que le projet est une application complete, pas une vitrine.',
+    ];
+    setKirbyPreviewSummary(proposal, 'Produit a prevoir', [
+        'Dashboard financier',
+        'Factures et devis',
+        'Depenses',
+        'Banque',
+        'Documents',
+        'Assistant IA',
+    ]);
+
+    return proposal;
+};
+
+const normalizeKirbyProposalForBrief = (currentProposal, brief = '') => {
+    const proposal = cloneKirbyProposal(currentProposal);
+    const signals = getKirbyBriefSignals(brief);
+    const preserveGeneratedProposal = isOpenAiKirbyProposal(proposal) && hasRichKirbyProposal(proposal);
+
+    if (preserveGeneratedProposal) {
+        applyGeneratedKirbyVisualHints(proposal, signals, brief);
+    }
+
+    if (!signals.isHotel) {
+        removeKirbyPages(proposal, ['Chambres', 'Réservation chambres', 'Disponibilités']);
+    }
+
+    if (!signals.isRestaurant) {
+        removeKirbyPages(proposal, ['Menu / carte', 'Menu', 'Carte', 'Réservation table', 'Horaires restaurant']);
+    }
+
+    if (!signals.isShop) {
+        removeKirbyPages(proposal, ['Boutique', 'Catalogue', 'Panier', 'Mon Compte', 'Commande']);
+        removeKirbyServices(proposal, [/boutique/, /catalogue/, /panier/, /commande/, /paiement/]);
+    }
+
+    if (signals.isBeauty && !preserveGeneratedProposal) {
+        proposal.siteName = formatKirbySiteName(proposal.siteName) || 'Éclat Beauté Domicile';
+        proposal.projectType = 'Site beauté à domicile avec réservation';
+        proposal.visualMood = 'beauty-wellness';
+        proposal.designVariant = getKirbyHash(`${brief} ${proposal.siteName}`) % 3;
+        proposal.siteModel = proposal.siteModel && typeof proposal.siteModel === 'object' ? proposal.siteModel : {};
+        proposal.siteModel.name = 'Modèle beauté bien-être';
+        proposal.slogan = /domicile/.test(signals.source)
+            ? 'Beauté à domicile, bien-être assuré.'
+            : 'Des soins doux, élégants et personnalisés.';
+        proposal.pages = [
+            { name: 'Accueil', goal: 'Présenter l’ambiance, la spécialité et l’action de réservation.' },
+            { name: 'Soins du visage', goal: 'Mettre en avant les soins visage et leurs bénéfices.' },
+            { name: 'Massages', goal: 'Présenter les prestations bien-être et relaxation.' },
+            { name: 'Épilations', goal: 'Lister les prestations courantes et les informations utiles.' },
+            { name: 'Tarifs', goal: 'Prévoir une grille claire à compléter avec la cliente.' },
+            { name: 'Zone d’intervention', goal: 'Indiquer les villes, secteurs ou déplacements à domicile.' },
+            { name: 'Avis clientes', goal: 'Rassurer avec des retours et preuves de confiance.' },
+            { name: 'Contact', goal: 'Permettre une demande de rendez-vous simple.' },
+        ];
+        proposal.homeSections = [
+            { title: 'Soins du visage', text: 'Des soins personnalisés pour révéler l’éclat naturel de la peau.' },
+            { title: 'Massages bien-être', text: 'Des moments de détente à domicile, adaptés au besoin de chaque cliente.' },
+            { title: 'Épilations & tarifs', text: 'Des prestations lisibles avec une grille de prix à finaliser.' },
+        ];
+        proposal.ctas = ['Réservez votre soin', 'Voir les tarifs', 'Contactez-nous'];
+        proposal.recommendedServices = [
+            { name: 'Réservation en ligne', reason: 'Permettre aux clientes de demander un créneau facilement.', priceFrom: 'Inclus selon offre' },
+            { name: 'Tarifs clairs', reason: 'Rassurer avant la prise de rendez-vous.', priceFrom: 'Inclus selon offre' },
+            { name: 'Galerie avant / après', reason: 'Montrer le résultat des prestations quand c’est pertinent.', priceFrom: 'Option' },
+            { name: 'Avis clientes', reason: 'Renforcer la confiance avant le premier contact.', priceFrom: 'Inclus selon offre' },
+            { name: 'Zone d’intervention', reason: 'Clarifier les secteurs couverts à domicile.', priceFrom: 'Inclus selon offre' },
+        ];
+        proposal.showGallery = true;
+        setKirbyPreviewSummary(proposal, 'Ce qui est prévu', [
+            'Soins du visage',
+            'Massages',
+            'Épilations',
+            'Tarifs',
+            'Zone d’intervention',
+            'Avis clientes',
+        ]);
+    }
+
+    if (signals.isAccountingApp && !preserveGeneratedProposal) {
+        applyKirbyAccountingModel(proposal, brief);
+    }
+
+    if (signals.isDigital && !signals.isAccountingApp && !preserveGeneratedProposal) {
+        proposal.siteName = /sa creation|sacreation|création web|creation web/.test(signals.source)
+            ? 'SA Création Web'
+            : formatKirbySiteName(proposal.siteName) || 'Studio Digital IA';
+        proposal.projectType = 'Site vitrine premium pour service digital';
+        proposal.visualMood = 'tech-premium';
+        proposal.designVariant = getKirbyHash(`${brief} ${proposal.siteName}`) % 3;
+        proposal.siteModel = proposal.siteModel && typeof proposal.siteModel === 'object' ? proposal.siteModel : {};
+        proposal.siteModel.name = 'Site digital premium';
+        proposal.slogan = /premium|moderne|rassurant|confiance/.test(signals.source)
+            ? 'Une présence digitale claire, premium et rassurante.'
+            : 'Créez une présence web claire, rapide et professionnelle.';
+        proposal.pages = [
+            { name: 'Accueil', goal: 'Présenter la promesse et l’action principale.' },
+            { name: 'Générateur IA', goal: 'Montrer comment le client obtient une première base de site.' },
+            { name: 'Services', goal: 'Présenter création de site, domaine, e-mail, QR code et support.' },
+            { name: 'Exemples', goal: 'Rassurer avec des bases de sites ou démonstrations.' },
+            { name: 'Contact', goal: 'Recevoir une demande courte après la proposition générée.' },
+        ];
+        proposal.homeSections = [
+            { title: 'Générateur de site IA', text: 'Le client décrit son activité et reçoit une première base de site exploitable.' },
+            { title: 'Options utiles', text: 'Domaine, e-mail professionnel, QR code, référencement de base et support selon le projet.' },
+            { title: 'Accompagnement humain', text: 'La proposition est ensuite ajustée et finalisée avec le client.' },
+        ];
+        proposal.ctas = ['Créer mon site', 'Demander une démo', 'Finaliser ma demande'];
+        proposal.recommendedServices = [
+            { name: 'Site vitrine premium', reason: 'Présenter SA Création Web de manière claire et moderne.', priceFrom: 'Selon projet' },
+            { name: 'Domaine personnalisé', reason: 'Installer une présence professionnelle.', priceFrom: 'Selon domaine' },
+            { name: 'E-mail professionnel', reason: 'Centraliser les demandes client.', priceFrom: 'Selon configuration' },
+            { name: 'Référencement de base', reason: 'Préparer les contenus pour Google.', priceFrom: 'Selon projet' },
+            { name: 'Support technique', reason: 'Prévoir l’aide après lancement.', priceFrom: 'Option' },
+        ];
+        setKirbyPreviewSummary(proposal, 'Ce qui est prévu', [
+            'Site vitrine premium',
+            'Domaine personnalisé',
+            'E-mail professionnel',
+            'Référencement de base',
+            'Support technique',
+        ]);
+    }
+
+    if (!getKirbyArray(proposal.pages, 8).length) {
+        proposal.pages = buildBrowserKirbyProposal(brief).pages;
+    }
+
+    return proposal;
+};
+
+const applyKirbyRevision = (currentProposal, revision, brief = '') => {
+    const proposal = cloneKirbyProposal(currentProposal);
+    const source = normalizeKirbyText(`${brief} ${revision}`);
+    const requested = normalizeKirbyText(revision);
+    const revisionSignals = getKirbyBriefSignals(source);
+    const appliedChanges = [];
+
+    if (!proposal.siteName) {
+        Object.assign(proposal, buildBrowserKirbyProposal(brief));
+    }
+
+    if (revisionSignals.isAccountingApp) {
+        applyKirbyAccountingModel(proposal, brief);
+    }
+
+    const markApplied = (label) => {
+        if (!appliedChanges.includes(label)) {
+            appliedChanges.push(label);
+        }
+    };
+
+    if (/enleve|retire|supprime|simplifie|texte court|textes courts|pas de texte|moins de texte|bloc note/.test(requested)) {
+        proposal.slogan = shortenKirbySentence(proposal.slogan, 58);
+        proposal.summary = shortenKirbySentence(proposal.summary, 96);
+        proposal.valueProposition = shortenKirbySentence(proposal.valueProposition, 110);
+        proposal.pages = getKirbyArray(proposal.pages, 8).map((page) => ({
+            ...page,
+            goal: shortenKirbySentence(getKirbyItemText(page), 72),
+        }));
+        proposal.homeSections = getKirbyArray(proposal.homeSections, 6).map((section) => ({
+            ...section,
+            text: shortenKirbySentence(getKirbyItemText(section), 76),
+        })).slice(0, /simplifie/.test(requested) ? 3 : 6);
+        markApplied('Textes raccourcis');
+    }
+
+    if (/image|photo|galerie|visuel|portfolio/.test(requested)) {
+        const beauty = getKirbyBriefSignals(source).isBeauty;
+        addKirbyPage(proposal, { name: beauty ? 'Galerie avant / après' : 'Photos', goal: beauty ? 'Montrer les résultats ou l’ambiance des soins avec sobriété.' : 'Montrer des images fortes du lieu, des produits ou des réalisations.' });
+        addKirbySection(proposal, { title: beauty ? 'Galerie soins' : 'Galerie visuelle', text: beauty ? 'Des visuels doux montrent l’univers, les accessoires et les résultats.' : 'Une section image met en avant les preuves visuelles du projet.' });
+        addKirbyService(proposal, { name: beauty ? 'Galerie avant / après' : 'Galerie photos', reason: beauty ? 'Utile pour rendre les prestations plus concrètes et rassurantes.' : 'Utile pour rendre la proposition plus concrète et rassurante.', priceFrom: 'Inclus selon offre' });
+        addKirbyModelSection(proposal, beauty ? 'Galerie avant / après' : 'Galerie photos');
+        proposal.visualMood = beauty ? 'beauty-wellness' : 'image-led';
+        proposal.showGallery = true;
+        markApplied('Galerie ajoutée');
+    }
+
+    if (/premium|luxe|elegant|elegance|signature|haut de gamme|plus beau|moderne/.test(requested)) {
+        proposal.recommendedOffer = 'Offre Signature';
+        proposal.siteModel = proposal.siteModel && typeof proposal.siteModel === 'object' ? proposal.siteModel : {};
+        proposal.siteModel.name = /premium|signature|luxe|elegant|elegance/.test(normalizeKirbyText(proposal.siteModel.name || ''))
+            ? proposal.siteModel.name
+            : `Version premium - ${proposal.siteModel.name || proposal.projectType || 'site professionnel'}`;
+        proposal.slogan = /restaurant|menu|carte/.test(source)
+            ? 'Une expérience élégante à chaque visite.'
+            : 'Une présence élégante, claire et mémorable.';
+        addKirbySection(proposal, { title: 'Preuves de confiance', text: 'Avis, photos ou réalisations rassurent avant la prise de contact.' });
+        addKirbyModelSection(proposal, 'Preuves premium');
+        proposal.visualMood = revisionSignals.isAccountingApp
+            ? 'accounting-dashboard'
+            : /sa creation|creation web|generateur|ia|digital|site web/.test(source) ? 'tech-premium' : revisionSignals.isBeauty ? 'beauty-wellness' : 'premium';
+        proposal.designVariant = (Number(proposal.designVariant) || 0) + 1;
+        markApplied('Version premium');
+    }
+
+    if (/rassurant|confiance|clair|claire|professionnel|professionnelle/.test(requested)) {
+        proposal.slogan = revisionSignals.isAccountingApp
+            ? 'Pilotez vos finances sans friction.'
+            : /sa creation|creation web|generateur|ia|digital|site web/.test(source)
+            ? 'Une présence digitale claire, premium et rassurante.'
+            : 'Une présentation claire qui rassure dès le premier écran.';
+        addKirbySection(proposal, { title: 'Pourquoi nous choisir ?', text: 'Une section courte rassure avec les bénéfices, les preuves et le contact.' });
+        proposal.visualMood = revisionSignals.isAccountingApp
+            ? 'accounting-dashboard'
+            : /sa creation|creation web|generateur|ia|digital|site web/.test(source) ? 'tech-premium' : proposal.visualMood;
+        markApplied('Message clarifié');
+    }
+
+    if (/italien|italienne|chaleureuse|chaleureux|chaud|terroir|dolce|trattoria|ambiance/.test(requested)) {
+        proposal.styleGuide = proposal.styleGuide && typeof proposal.styleGuide === 'object' ? proposal.styleGuide : {};
+        proposal.styleGuide.direction = 'Ambiance chaleureuse, premium et expressive.';
+        proposal.styleGuide.colors = 'Tons chauds, crème, brun profond et accent doré.';
+        proposal.siteModel = proposal.siteModel && typeof proposal.siteModel === 'object' ? proposal.siteModel : {};
+        proposal.siteModel.name = /restaurant|menu|carte/.test(source) ? 'Modèle restaurant chaleureux' : 'Modèle chaleureux premium';
+        if (/restaurant|menu|carte/.test(source) && /restaurant|projet|votre presence/i.test(proposal.siteName || '')) {
+            proposal.siteName = 'Saveurs du Terroir';
+        }
+        proposal.visualMood = 'warm';
+        markApplied('Ambiance chaleureuse');
+    }
+
+    if (/qr|scan|code/.test(requested)) {
+        addKirbyService(proposal, { name: 'QR code professionnel', reason: 'Utile pour scanner la carte, une page ou une offre depuis un support imprimé.', priceFrom: '39 €' }, true);
+        addKirbySection(proposal, { title: 'QR code', text: 'Un QR code donne accès rapidement à la page utile depuis une carte, vitrine ou flyer.' });
+        if (/restaurant|menu|carte/.test(source)) {
+            addKirbyPage(proposal, { name: 'Menu / carte', goal: 'Afficher la carte consultable depuis le QR code.' });
+        }
+        markApplied('QR code ajouté');
+    }
+
+    if (/reservation|reserver|rendez|rdv|agenda/.test(requested)) {
+        addKirbyPage(proposal, { name: /restaurant|menu|carte/.test(source) ? 'Réservation' : 'Rendez-vous', goal: 'Permettre au visiteur de réserver ou demander un créneau.' });
+        addKirbyService(proposal, { name: /restaurant|menu|carte/.test(source) ? 'Réservation en ligne' : 'Lien rendez-vous ou WhatsApp', reason: 'Le visiteur doit pouvoir agir sans chercher.', priceFrom: 'Inclus selon offre' }, true);
+        addKirbyCta(proposal, /restaurant|menu|carte/.test(source) ? 'Réserver une table' : 'Prendre rendez-vous');
+        addKirbyModelSection(proposal, 'Réservation');
+        markApplied('Réservation ajoutée');
+    }
+
+    if (/horaire|heures|ouverture/.test(requested)) {
+        addKirbyPage(proposal, { name: 'Horaires', goal: 'Afficher les jours, heures et informations pratiques.' });
+        addKirbySection(proposal, { title: 'Horaires', text: 'Les horaires et informations pratiques sont visibles rapidement.' });
+        markApplied('Horaires ajoutés');
+    }
+
+    if (/avis|temoignage|preuve|rassur/.test(requested)) {
+        addKirbyPage(proposal, { name: 'Avis clients', goal: 'Rassurer avec des retours clients ou preuves concrètes.' });
+        addKirbySection(proposal, { title: 'Avis clients', text: 'Les avis renforcent la confiance avant la prise de contact.' });
+        markApplied('Avis clients ajoutés');
+    }
+
+    if (/contact|telephone|adresse|maps|localisation/.test(requested)) {
+        addKirbyPage(proposal, { name: 'Contact', goal: 'Donner adresse, téléphone, formulaire ou accès direct.' });
+        addKirbyService(proposal, { name: 'Google Maps et contact', reason: 'Utile pour être trouvé et contacté rapidement.', priceFrom: 'Inclus selon offre' });
+        markApplied('Contact renforcé');
+    }
+
+    if (getKirbyBriefSignals(source).isBeauty || /tarif|prix|massage|soin|visage|epilation|zone|domicile|intervention|avant apres|avant\/apres|cliente|clientes|douce|rose|beige|bien etre|bien-etre/.test(requested)) {
+        proposal.visualMood = 'beauty-wellness';
+
+        if (/soin|visage|esthetique|estheticien/.test(source)) {
+            addKirbyPage(proposal, { name: 'Soins du visage', goal: 'Présenter les soins visage, bénéfices et résultats attendus.' });
+            addKirbySection(proposal, { title: 'Soins du visage', text: 'Une section douce explique les soins, la peau ciblée et le résultat recherché.' });
+            markApplied('Soins visage ajoutés');
+        }
+
+        if (/massage|bien etre|bien-etre|relax/.test(source)) {
+            addKirbyPage(proposal, { name: 'Massages', goal: 'Présenter les prestations détente et bien-être.' });
+            addKirbySection(proposal, { title: 'Massages bien-être', text: 'Les massages sont présentés avec une promesse de détente claire.' });
+            markApplied('Massages ajoutés');
+        }
+
+        if (/epilation/.test(source)) {
+            addKirbyPage(proposal, { name: 'Épilations', goal: 'Lister les prestations d’épilation et informations pratiques.' });
+            addKirbySection(proposal, { title: 'Épilations', text: 'Les prestations sont organisées simplement pour faciliter la demande.' });
+            markApplied('Épilations ajoutées');
+        }
+
+        if (/tarif|prix/.test(source)) {
+            addKirbyPage(proposal, { name: 'Tarifs', goal: 'Prévoir une grille lisible à compléter.' });
+            addKirbySection(proposal, { title: 'Tarifs clairs', text: 'Une grille simple permet de comprendre les prestations avant de réserver.' });
+            addKirbyService(proposal, { name: 'Tarifs clairs', reason: 'Rassurer avant la prise de rendez-vous.', priceFrom: 'Inclus selon offre' }, true);
+            markApplied('Tarifs ajoutés');
+        }
+
+        if (/zone|domicile|intervention|ville|secteur/.test(source)) {
+            addKirbyPage(proposal, { name: 'Zone d’intervention', goal: 'Indiquer les villes ou secteurs couverts à domicile.' });
+            addKirbyService(proposal, { name: 'Zone d’intervention', reason: 'Clarifier où les soins peuvent être réalisés.', priceFrom: 'Inclus selon offre' }, true);
+            markApplied('Zone ajoutée');
+        }
+
+        if (/avis|temoignage|cliente|clientes|rassur/.test(source)) {
+            addKirbyPage(proposal, { name: 'Avis clientes', goal: 'Afficher des retours clientes et preuves de confiance.' });
+            addKirbySection(proposal, { title: 'Avis clientes', text: 'Des avis courts rassurent avant la première prise de rendez-vous.' });
+            addKirbyService(proposal, { name: 'Avis clientes', reason: 'Renforcer la confiance.', priceFrom: 'Inclus selon offre' }, true);
+            markApplied('Avis clientes ajoutés');
+        }
+
+        if (/galerie|photo|image|avant apres|avant\/apres/.test(source)) {
+            proposal.showGallery = true;
+            addKirbyPage(proposal, { name: 'Galerie avant / après', goal: 'Montrer l’ambiance, les détails ou résultats sans surcharger.' });
+            addKirbyService(proposal, { name: 'Galerie avant / après', reason: 'Montrer concrètement l’univers des soins.', priceFrom: 'Option' }, true);
+            markApplied('Galerie beauté ajoutée');
+        }
+
+        addKirbyCta(proposal, 'Réservez votre soin');
+        setKirbyPreviewSummary(proposal, 'Ce qui est prévu', [
+            'Soins du visage',
+            'Massages',
+            'Épilations',
+            'Tarifs',
+            'Zone d’intervention',
+            'Avis clientes',
+        ]);
+    }
+
+    if (/resume|résumé|recap|récap|liste|check|inclu|comprend|formulaire|referencement|référencement|domaine|email|e-mail|mail|maintenance|support|site vitrine/.test(requested)) {
+        const summaryItems = [];
+
+        if (/site vitrine|site internet|vitrine/.test(requested)) {
+            summaryItems.push('Site vitrine');
+            addKirbyService(proposal, { name: 'Site vitrine', reason: 'Base claire pour présenter l’activité.', priceFrom: 'Selon projet' }, true);
+        }
+
+        if (/domaine|nom de domaine/.test(requested)) {
+            summaryItems.push('Domaine personnalisé');
+            addKirbyService(proposal, { name: 'Domaine personnalisé', reason: 'Nom professionnel pour le site.', priceFrom: 'Selon domaine' }, true);
+        }
+
+        if (/email|e-mail|mail/.test(requested)) {
+            summaryItems.push('E-mail professionnel');
+            addKirbyService(proposal, { name: 'E-mail professionnel', reason: 'Adresse contact professionnelle.', priceFrom: 'Selon configuration' }, true);
+        }
+
+        if (/formulaire|contact/.test(requested)) {
+            summaryItems.push('Formulaire de contact');
+            addKirbyPage(proposal, { name: 'Contact', goal: 'Ajouter un formulaire simple pour recevoir les demandes.' });
+            addKirbyService(proposal, { name: 'Formulaire de contact', reason: 'Recevoir les demandes du client depuis le site.', priceFrom: 'Inclus selon offre' }, true);
+        }
+
+        if (/referencement|référencement|seo/.test(requested)) {
+            summaryItems.push('Référencement de base');
+            addKirbyService(proposal, { name: 'Référencement de base', reason: 'Préparer les titres et contenus pour la recherche locale.', priceFrom: 'Selon projet' }, true);
+        }
+
+        if (/maintenance|support/.test(requested)) {
+            summaryItems.push(/maintenance/.test(requested) ? 'Maintenance' : 'Support technique');
+            addKirbyService(proposal, { name: /maintenance/.test(requested) ? 'Maintenance' : 'Support technique', reason: 'Prévoir l’aide après mise en ligne.', priceFrom: 'Option' }, true);
+        }
+
+        if (!summaryItems.length) {
+            summaryItems.push('Structure claire', 'Textes courts', 'Contact direct');
+        }
+
+        setKirbyPreviewSummary(proposal, 'Ce qui est prévu', summaryItems);
+        addKirbySection(proposal, { title: 'Ce qui est prévu', text: summaryItems.join(' · ') });
+        markApplied('Résumé ajouté');
+    }
+
+    if (!appliedChanges.length) {
+        proposal.summary = shortenKirbySentence(`${proposal.summary || 'Proposition ajustée.'} Ajustement demandé : ${revision}`, 140);
+        markApplied('Demande prise en compte');
+    }
+
+    proposal.revisionHistory = [
+        ...getKirbyArray(proposal.revisionHistory, 4),
+        { request: revision, changes: appliedChanges },
+    ].slice(-5);
+    proposal.appliedChanges = appliedChanges;
+
+    return proposal;
+};
+
+const getKirbyPreviewStyle = (proposal = {}) => {
+    const visualConcept = getKirbyVisualConcept(proposal);
+    const source = normalizeKirbyText([
+        proposal.visualMood,
+        proposal.siteName,
+        proposal.slogan,
+        proposal.siteModel && proposal.siteModel.name,
+        proposal.styleGuide && proposal.styleGuide.direction,
+        proposal.styleGuide && proposal.styleGuide.colors,
+        visualConcept.ambience,
+        visualConcept.heroComposition,
+        visualConcept.layoutSignature,
+        visualConcept.wowFactor,
+        getKirbyArray(visualConcept.colorPalette, 6).join(' '),
+        getKirbyArray(proposal.appliedChanges, 5).join(' '),
+    ].filter(Boolean).join(' '));
+
+    if (/accounting-dashboard|comptabilite|comptable|facturation|logiciel|saas|tableau de bord/.test(source)) {
+        return {
+            canvas: 'background: #f5f7fc;',
+            hero: 'background: #ffffff;',
+            visual: '',
+        };
+    }
+
+    if (/beauty-wellness|estheticien|estheticienne|esthetique|beaute|massage|soin|epilation|spa|bien etre|bien-etre/.test(source)) {
+        const variant = Number(proposal.designVariant) || 0;
+
+        return {
+            canvas: variant % 3 === 1
+                ? 'background: linear-gradient(145deg, #fff8f4, #f4e8e1);'
+                : variant % 3 === 2
+                    ? 'background: linear-gradient(145deg, #fffaf2, #efe4da);'
+                    : 'background: linear-gradient(145deg, #fff9f5, #f3e8df);',
+            hero: variant % 3 === 1
+                ? 'background: radial-gradient(circle at 84% 12%, rgba(209, 156, 141, 0.18), transparent 16rem), linear-gradient(120deg, #fffdf9, #f6e6dd);'
+                : variant % 3 === 2
+                    ? 'background: radial-gradient(circle at 84% 18%, rgba(216, 178, 118, 0.18), transparent 16rem), linear-gradient(120deg, #fffaf2, #f2e6da);'
+                    : 'background: radial-gradient(circle at 84% 18%, rgba(203, 146, 132, 0.16), transparent 18rem), linear-gradient(120deg, #fffdf9, #f7ebe4);',
+            visual: 'background-position: center;',
+        };
+    }
+
+    if (/tech-premium|digital|generateur|ia|site web|creation web/.test(source)) {
+        const variant = Number(proposal.designVariant) || 0;
+
+        return {
+            canvas: variant % 3 === 1
+                ? 'background: linear-gradient(145deg, #f7f9ff, #e9eefb);'
+                : variant % 3 === 2
+                    ? 'background: linear-gradient(145deg, #f7fbff, #edf7f4);'
+                    : 'background: linear-gradient(145deg, #fbfbfd, #eef1f6);',
+            hero: variant % 3 === 1
+                ? 'background: radial-gradient(circle at 84% 18%, rgba(11, 99, 206, 0.12), transparent 18rem), linear-gradient(120deg, #ffffff, #edf3ff);'
+                : variant % 3 === 2
+                    ? 'background: radial-gradient(circle at 84% 18%, rgba(32, 180, 150, 0.12), transparent 18rem), linear-gradient(120deg, #ffffff, #eef9f6);'
+                    : 'background: radial-gradient(circle at 84% 18%, rgba(239, 214, 163, 0.2), transparent 18rem), linear-gradient(120deg, #ffffff, #f4f0e8);',
+            visual: '',
+        };
+    }
+
+    if (/warm|italien|italienne|chaleur|chaud|terroir|trattoria/.test(source)) {
+        return {
+            canvas: 'background: linear-gradient(145deg, #fff8ec, #f7efe3);',
+            hero: 'background: linear-gradient(120deg, #fff4df, #f3ddbc);',
+            visual: 'background: radial-gradient(circle at 50% 35%, rgba(168, 104, 43, 0.24), transparent 0.8rem), linear-gradient(145deg, rgba(255, 247, 232, 0.98), rgba(226, 193, 143, 0.42));',
+        };
+    }
+
+    if (/premium|signature|luxe|elegant|elegance/.test(source)) {
+        return {
+            canvas: 'background: linear-gradient(145deg, #fbfbfd, #f0f2f7);',
+            hero: 'background: linear-gradient(120deg, #ffffff, #f3eee3);',
+            visual: 'background: radial-gradient(circle at 50% 35%, rgba(190, 153, 86, 0.24), transparent 0.8rem), linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(220, 211, 191, 0.48));',
+        };
+    }
+
+    if (/image-led|galerie|photo|visuel/.test(source)) {
+        return {
+            canvas: 'background: linear-gradient(145deg, #f8fbff, #eef4ff);',
+            hero: 'background: linear-gradient(120deg, #ffffff, #eaf1ff);',
+            visual: 'background: radial-gradient(circle at 24% 22%, rgba(67, 105, 190, 0.18), transparent 1.4rem), radial-gradient(circle at 66% 52%, rgba(239, 214, 163, 0.32), transparent 1.8rem), linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(226, 234, 250, 0.8));',
+        };
+    }
+
+    return { canvas: '', hero: '', visual: '' };
+};
+
+const getKirbyPreviewImageStyle = (proposal = {}, brief = '') => {
+    const signals = getKirbyBriefSignals(brief);
+    const visualConcept = getKirbyVisualConcept(proposal);
+    const source = normalizeKirbyText([
+        brief,
+        proposal.projectType,
+        proposal.siteName,
+        proposal.visualMood,
+        proposal.siteModel && proposal.siteModel.name,
+        proposal.styleGuide && proposal.styleGuide.direction,
+        proposal.styleGuide && proposal.styleGuide.colors,
+        visualConcept.ambience,
+        visualConcept.heroComposition,
+        visualConcept.layoutSignature,
+        getKirbyArray(visualConcept.imageKeywords, 8).join(' '),
+        getKirbyArray(proposal.pages, 6).map((page) => getKirbyItemTitle(page)).join(' '),
+        getKirbyArray(proposal.recommendedServices, 6).map((service) => getKirbyItemTitle(service)).join(' '),
+    ].filter(Boolean).join(' '));
+    const index = getKirbyHash(`${brief} ${proposal.siteName} ${proposal.visualMood} ${source}`) % 17;
+    const imageSets = [
+        {
+            test: () => signals.isArchitecture || /architect|architecture|architecte|arquitecto|interieur|intérieur|design d interieur|design d'intérieur|decorateur|decoratrice|decoration|décoration|maitre d oeuvre|maître d oeuvre/.test(source),
+            urls: [
+                'https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1511818966892-d7d671e672a2?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=900&q=80',
+            ],
+        },
+        {
+            test: () => signals.isDigital || /tech-premium|digital|generateur|ia|site web|creation web|referencement|maintenance|support technique/.test(source),
+            urls: [
+                'https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1553877522-43269d4ea984?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1483058712412-4245e9b90334?auto=format&fit=crop&w=900&q=80',
+            ],
+        },
+        {
+            test: () => signals.isRestaurant || /restaurant|menu|carte|plat|cuisine|table/.test(source),
+            urls: [
+                'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1544148103-0773bf10d330?auto=format&fit=crop&w=900&q=80',
+            ],
+        },
+        {
+            test: () => signals.isBeauty || /coiff|beaute|salon|institut|estheticien|estheticienne|esthetique|massage|soin|epilation|spa|bien etre|bien-etre/.test(source),
+            urls: [
+                'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1515377905703-c4788e51af15?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?auto=format&fit=crop&w=900&q=80',
+            ],
+        },
+        {
+            test: () => signals.isShop || /boutique|mode|vetement|vetement|catalogue|panier|produit/.test(source),
+            urls: [
+                'https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=900&q=80',
+            ],
+        },
+        {
+            test: () => signals.isHotel || /hotel|chambre|gite|hebergement/.test(source),
+            urls: [
+                'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1564501049412-61c2a3083791?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=900&q=80',
+            ],
+        },
+        {
+            test: () => signals.isCraft || /plombier|artisan|travaux|service/.test(source),
+            urls: [
+                'https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=900&q=80',
+            ],
+        },
+    ];
+    const imageSet = imageSets.find((set) => set.test());
+    const urls = imageSet ? imageSet.urls : imageSets[0].urls;
+    const url = urls[index % urls.length];
+
+    return `background-image: linear-gradient(145deg, rgba(255, 255, 255, 0.04), rgba(15, 18, 29, 0.1)), url('${url}');`;
+};
+
+const getKirbyGalleryImageStyles = (proposal = {}, brief = '') => {
+    const signals = getKirbyBriefSignals(brief);
+    const visualConcept = getKirbyVisualConcept(proposal);
+    const source = normalizeKirbyText([
+        brief,
+        proposal.visualMood,
+        proposal.projectType,
+        proposal.siteName,
+        proposal.siteModel && proposal.siteModel.name,
+        proposal.styleGuide && proposal.styleGuide.direction,
+        proposal.styleGuide && proposal.styleGuide.colors,
+        visualConcept.ambience,
+        visualConcept.heroComposition,
+        visualConcept.layoutSignature,
+        getKirbyArray(visualConcept.imageKeywords, 8).join(' '),
+        getKirbyArray(proposal.pages, 8).map((page) => getKirbyItemTitle(page)).join(' '),
+    ].filter(Boolean).join(' '));
+    const imageSets = signals.isArchitecture || /architect|architecture|architecte|arquitecto|interieur|intérieur|design d interieur|design d'intérieur|decorateur|decoratrice|decoration|décoration|maitre d oeuvre|maître d oeuvre/.test(source)
+        ? [
+            'https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1511818966892-d7d671e672a2?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=700&q=80',
+        ]
+        : signals.isBeauty || /beauty-wellness|estheticien|estheticienne|esthetique|beaute|massage|soin|epilation|spa|bien etre|bien-etre/.test(source)
+        ? [
+            'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1515377905703-c4788e51af15?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?auto=format&fit=crop&w=700&q=80',
+        ]
+        : signals.isRestaurant || /restaurant|menu|carte|plat|cuisine/.test(source)
+            ? [
+                'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=700&q=80',
+                'https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=700&q=80',
+                'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=700&q=80',
+                'https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=700&q=80',
+                'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=700&q=80',
+                'https://images.unsplash.com/photo-1544148103-0773bf10d330?auto=format&fit=crop&w=700&q=80',
+            ]
+            : signals.isShop || /boutique|mode|vetement|catalogue|panier|produit/.test(source)
+                ? [
+                    'https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=700&q=80',
+                    'https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=700&q=80',
+                    'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=700&q=80',
+                    'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=700&q=80',
+                    'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=700&q=80',
+                    'https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=700&q=80',
+                ]
+                : signals.isHotel || /hotel|chambre|gite|hebergement/.test(source)
+                    ? [
+                        'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=700&q=80',
+                        'https://images.unsplash.com/photo-1564501049412-61c2a3083791?auto=format&fit=crop&w=700&q=80',
+                        'https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=700&q=80',
+                        'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?auto=format&fit=crop&w=700&q=80',
+                        'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=700&q=80',
+                        'https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=700&q=80',
+                    ]
+                    : signals.isCraft || /plombier|artisan|travaux|service/.test(source)
+                        ? [
+                            'https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?auto=format&fit=crop&w=700&q=80',
+                            'https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&w=700&q=80',
+                            'https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=700&q=80',
+                            'https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=700&q=80',
+                            'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=700&q=80',
+                            'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=700&q=80',
+                        ]
+                        : [
+                            'https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=700&q=80',
+                            'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=700&q=80',
+                            'https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&fit=crop&w=700&q=80',
+                            'https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=700&q=80',
+                            'https://images.unsplash.com/photo-1553877522-43269d4ea984?auto=format&fit=crop&w=700&q=80',
+                            'https://images.unsplash.com/photo-1483058712412-4245e9b90334?auto=format&fit=crop&w=700&q=80',
+                        ];
+    const offset = getKirbyHash(`${brief} ${proposal.siteName || ''} ${source}`) % imageSets.length;
+    const selectedUrls = [0, 1, 2].map((index) => imageSets[(offset + index) % imageSets.length]);
+
+    return selectedUrls.map((url) => `background-image: linear-gradient(145deg, rgba(255, 255, 255, 0.02), rgba(15, 18, 29, 0.12)), url('${url}');`);
+};
+
+const formatKirbyProposalForCopy = (proposal = {}, brief = '') => {
+    const siteModel = getKirbySiteModel(proposal);
+    const pages = getKirbyArray(proposal.pages, 8);
+    const sections = getKirbyArray(proposal.homeSections, 6);
+    const services = getKirbyArray(proposal.recommendedServices, 8);
+    const ctas = getKirbyArray(proposal.ctas, 4);
+    const seo = getKirbySeo(proposal);
+    const history = getKirbyArray(proposal.revisionHistory, 5);
+    const siteName = formatKirbySiteName(proposal.siteName) || 'Nom de site à valider';
+    const domain = getKirbyDomain(siteName);
+
+    const lines = [
+        'BASE SITE - SA Creation Web',
+        '',
+        `Besoin client : ${brief || 'A preciser'}`,
+        `Nom propose : ${siteName}`,
+        `Type de site : ${proposal.projectType || siteModel.name || 'Site professionnel'}`,
+        `Modele : ${siteModel.name || 'Base sur mesure'}`,
+        `Slogan : ${proposal.slogan || 'A ajuster'}`,
+        `Domaine possible : ${domain}`,
+        `Email possible : contact@${domain}`,
+        '',
+        'Pages a prevoir :',
+        ...(pages.length
+            ? pages.map((page) => `- ${getKirbyItemTitle(page)}${getKirbyItemText(page) ? ` : ${getKirbyItemText(page)}` : ''}`)
+            : ['- Accueil', '- Services', '- Contact']),
+        '',
+        'Sections de page d accueil :',
+        ...(sections.length
+            ? sections.map((section) => `- ${getKirbyItemTitle(section)}${getKirbyItemText(section) ? ` : ${getKirbyItemText(section)}` : ''}`)
+            : ['- Presentation', '- Services', '- Contact']),
+        '',
+        'Appels a l action :',
+        ...(ctas.length ? ctas.map((cta) => `- ${cta}`) : ['- Contacter', '- Demander un devis']),
+        '',
+        'Options utiles selon le projet :',
+        ...(services.length
+            ? services.map((service) => `- ${getKirbyItemTitle(service)}${getKirbyItemText(service) ? ` : ${getKirbyItemText(service)}` : ''}`)
+            : ['- Site internet', '- Domaine', '- Email professionnel']),
+        '',
+        'Idees SEO :',
+        ...(seo.keywords.length ? [`- Mots-cles : ${seo.keywords.join(', ')}`] : []),
+        ...(seo.searchExpressions.length ? [`- Recherches ciblees : ${seo.searchExpressions.join(', ')}`] : []),
+        '',
+        'Ajustements Kirby appliques :',
+        ...(history.length
+            ? history.map((item) => `- ${item.request || 'Ajustement'}${getKirbyArray(item.changes, 4).length ? ` (${getKirbyArray(item.changes, 4).join(', ')})` : ''}`)
+            : ['- Aucun ajustement pour le moment']),
+        '',
+        'Note production : base a finaliser manuellement avec le client.',
+    ];
+
+    return lines.join('\n');
+};
+
+const copyTextToClipboard = async (text) => {
+    if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return true;
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const copied = document.execCommand('copy');
+    textarea.remove();
+    return copied;
 };
 
 const requestKirbyProposal = async ({ brief, revision = '', currentProposal = null }) => {
@@ -7043,114 +8117,455 @@ const requestKirbyProposal = async ({ brief, revision = '', currentProposal = nu
     return response.json();
 };
 
+const normalizeKirbyLayoutVariant = (value = '') => {
+    const variant = normalizeKirbyText(value).replace(/_/g, '-').replace(/\s+/g, '-');
+    const aliases = {
+        video: 'cinematic-video',
+        cinematic: 'cinematic-video',
+        'full-video': 'cinematic-video',
+        galerie: 'gallery-focus',
+        gallery: 'gallery-focus',
+        portfolio: 'gallery-focus',
+        minimal: 'minimal-editorial',
+        minimalist: 'minimal-editorial',
+        luxe: 'luxury-asymmetric',
+        luxury: 'luxury-asymmetric',
+        asymmetric: 'luxury-asymmetric',
+        asymetrique: 'luxury-asymmetric',
+        dashboard: 'product-dashboard',
+        app: 'product-dashboard',
+        warm: 'warm-editorial',
+        editorial: 'warm-editorial',
+        classic: 'classic-conversion',
+    };
+    const allowed = ['cinematic-video', 'gallery-focus', 'minimal-editorial', 'luxury-asymmetric', 'product-dashboard', 'warm-editorial', 'classic-conversion'];
+
+    return allowed.includes(variant) ? variant : aliases[variant] || '';
+};
+
+const getKirbyLayoutVariant = (proposal = {}, brief = '', isDashboardPreview = false) => {
+    if (isDashboardPreview) {
+        return 'product-dashboard';
+    }
+
+    const signals = getKirbyBriefSignals(brief);
+    const visualConcept = getKirbyVisualConcept(proposal);
+    const source = normalizeKirbyText([
+        brief,
+        proposal.layoutVariant,
+        proposal.visualMood,
+        proposal.projectType,
+        proposal.siteModel && proposal.siteModel.name,
+        proposal.styleGuide && proposal.styleGuide.layout,
+        proposal.styleGuide && proposal.styleGuide.direction,
+        visualConcept.layoutSignature,
+        visualConcept.heroComposition,
+        visualConcept.wowFactor,
+    ].filter(Boolean).join(' '));
+    const requestedVariant = normalizeKirbyLayoutVariant(proposal.layoutVariant || visualConcept.layoutVariant || visualConcept.layoutSignature);
+
+    if (requestedVariant) {
+        return requestedVariant;
+    }
+
+    if (/video|cinematic|immersif|immersive|plein ecran|full bleed/.test(source) || signals.isHotel) {
+        return 'cinematic-video';
+    }
+
+    if (/galerie|gallery|portfolio|realisations|projets|book|photo/.test(source) || signals.isArchitecture) {
+        return 'gallery-focus';
+    }
+
+    if (/minimal|sobre|ultra simple|editorial/.test(source)) {
+        return 'minimal-editorial';
+    }
+
+    if (/luxe|luxury|signature|asymetrique|asymmetric|premium/.test(source)) {
+        return 'luxury-asymmetric';
+    }
+
+    if (signals.isRestaurant || /warm|chaleur|restaurant|terroir|italien/.test(source)) {
+        return 'warm-editorial';
+    }
+
+    const variants = ['classic-conversion', 'minimal-editorial', 'luxury-asymmetric'];
+    return variants[getKirbyHash(`${brief} ${proposal.siteName || ''} ${source}`) % variants.length];
+};
+
 const renderKirbyProposal = (proposal, brief) => {
     if (!aiBriefOutput) {
         return;
     }
 
-    const siteModel = getKirbySiteModel(proposal);
-    const pages = getKirbyArray(proposal.pages, 7);
-    const homeSections = getKirbyArray(proposal.homeSections, 3);
-    const recommendedServices = getKirbyArray(proposal.recommendedServices, 6);
-    const ctas = getKirbyArray(proposal.ctas, 3);
-    const contactMessage = proposal.contactMessage || buildBrowserKirbyProposal(brief).contactMessage;
+    const safeProposal = normalizeKirbyProposalForBrief(proposal, brief);
+    const siteModel = getKirbySiteModel(safeProposal);
+    const pages = getKirbyArray(safeProposal.pages, 7);
+    const homeSections = getKirbyArray(safeProposal.homeSections, 3);
+    const ctas = getKirbyArray(safeProposal.ctas, 3);
+    const contactMessage = safeProposal.contactMessage || buildBrowserKirbyProposal(brief).contactMessage;
     const quoteParams = new URLSearchParams({
-        service: proposal.recommendedOffer || 'Projet site web',
+        service: safeProposal.recommendedOffer || 'Projet site web',
         message: contactMessage,
     });
     const builderPanel = aiBriefOutput.closest('.ai-brief-panel');
-    const siteName = proposal.siteName || 'Nom de site à valider';
+    const siteName = formatKirbySiteName(safeProposal.siteName) || 'Nom de site à valider';
     const domain = getKirbyDomain(siteName);
     const email = `contact@${domain}`;
-    const visiblePages = pages.length
-        ? pages.slice(0, 5)
+    const cleanPages = pages.filter((page) => getKirbyItemTitle(page));
+    const cleanHomeSections = homeSections
+        .map((section) => ({
+            title: getKirbyItemTitle(section),
+            text: getKirbyItemText(section),
+        }))
+        .filter((section) => section.title && section.text);
+    const visiblePages = cleanPages.length
+        ? cleanPages.slice(0, 7)
         : [{ name: 'Accueil' }, { name: 'Offres' }, { name: 'Galerie' }, { name: 'Contact' }];
-    const visibleSections = homeSections.length
-        ? homeSections
-        : visiblePages.slice(1, 4).map((page) => ({ title: getKirbyItemTitle(page), text: getKirbyItemText(page) }));
-    const optionNames = recommendedServices.length
-        ? recommendedServices.map((service) => getKirbyItemTitle(service)).filter(Boolean).slice(0, 5)
-        : ['Site vitrine', 'Domaine', 'E-mail pro', 'QR code'];
+    const visibleSections = cleanHomeSections.length
+        ? cleanHomeSections
+        : visiblePages.slice(1, 4)
+            .map((page) => ({ title: getKirbyItemTitle(page), text: getKirbyItemText(page) || 'Une section claire présente cette partie du projet.' }))
+            .filter((section) => section.title && section.text);
+    const quoteItems = [
+        ...visiblePages.map((page) => getKirbyItemTitle(page)).filter(Boolean).slice(0, 3),
+    ].filter(Boolean).slice(0, 6);
     const visiblePageNames = visiblePages.map((page) => getKirbyItemTitle(page)).filter(Boolean).slice(0, 6);
     const primaryCta = ctas[0] || 'Découvrir';
     const secondaryCta = ctas[1] || 'Contacter';
-    const visibleServiceNames = optionNames.slice(0, 4);
+    const previewStyle = getKirbyPreviewStyle(safeProposal);
+    const previewImageStyle = getKirbyPreviewImageStyle(safeProposal, brief);
+    const galleryImageStyles = getKirbyGalleryImageStyles(safeProposal, brief);
+    const toneSource = normalizeKirbyText([
+        safeProposal.visualMood,
+        safeProposal.projectType,
+        siteModel.name,
+        brief,
+    ].filter(Boolean).join(' '));
+    const briefSignals = getKirbyBriefSignals(brief);
+    const isDashboardPreview = /accounting-dashboard|comptabilite|comptable|facturation|logiciel de compta|logiciel comptable|tableau de bord|dashboard|contadirect/.test(toneSource);
+    const layoutVariant = getKirbyLayoutVariant(safeProposal, brief, isDashboardPreview);
+    const previewTone = isDashboardPreview
+        ? 'is-dashboard'
+        : /tech-premium|digital|generateur|ia|site web|creation web/.test(toneSource)
+        ? 'is-tech'
+        : !briefSignals.isHotel && /beauty-wellness|estheticien|estheticienne|esthetique|beaute|massage|soin|epilation|spa|bien etre|bien-etre/.test(toneSource)
+            ? 'is-beauty'
+            : '';
+    const dashboardBrand = cleanHtml(safeProposal.siteName || siteName).replace(/Direct$/i, '<b>Direct</b>');
+    const dashboardMenuItems = ['Tableau de bord', 'Revenus', 'Depenses', 'Devis', 'Factures', 'Banque', 'Documents', 'TVA & Charges'];
+    const dashboardPreview = `
+        <div class="kirby-dashboard-app" aria-label="Apercu application ${cleanHtml(siteName)}">
+            <aside class="kirby-dashboard-sidebar">
+                <div class="kirby-dashboard-brand">
+                    <span aria-hidden="true">CD</span>
+                    <strong>${dashboardBrand}</strong>
+                </div>
+                <div class="kirby-dashboard-menu">
+                    ${dashboardMenuItems.map((item, index) => `
+                        <span class="${index === 0 ? 'is-active' : ''}">
+                            <i>${cleanHtml(item.split(' ').map((word) => word.charAt(0)).join('').slice(0, 2))}</i>
+                            ${cleanHtml(item)}
+                        </span>
+                    `).join('')}
+                </div>
+                <div class="kirby-dashboard-user">
+                    <span aria-hidden="true">TM</span>
+                    <div>
+                        <strong>Thomas Martin</strong>
+                        <small>Entreprise individuelle</small>
+                    </div>
+                </div>
+                <div class="kirby-dashboard-plan">
+                    <strong>Plan Premium</strong>
+                    <small>Jusqu'au 12/06/2025</small>
+                </div>
+            </aside>
+            <main class="kirby-dashboard-main">
+                <header class="kirby-dashboard-topbar">
+                    <label class="kirby-dashboard-search">
+                        <span class="sr-only">Rechercher</span>
+                        <input type="text" value="" placeholder="Rechercher..." readonly>
+                    </label>
+                    <div class="kirby-dashboard-actions">
+                        <span class="dash-new">+ ${cleanHtml(primaryCta || 'Nouveau')}</span>
+                        <span class="dash-icon">3</span>
+                        <span class="dash-avatar">TM</span>
+                    </div>
+                </header>
+                <section class="kirby-dashboard-title">
+                    <div>
+                        <h3>Bonjour Thomas</h3>
+                        <p>Voici un apercu de votre activite</p>
+                    </div>
+                    <span>1 - 30 Mai 2025</span>
+                </section>
+                <section class="kirby-dashboard-kpis">
+                    <article>
+                        <small>Chiffre d'affaires</small>
+                        <strong>12 590,00 EUR</strong>
+                        <em>+12,5% vs Avril</em>
+                        <i class="spark spark-blue"></i>
+                    </article>
+                    <article>
+                        <small>Depenses</small>
+                        <strong>4 320,50 EUR</strong>
+                        <em>-8,3% vs Avril</em>
+                        <i class="spark spark-red"></i>
+                    </article>
+                    <article>
+                        <small>Resultat net</small>
+                        <strong>8 269,50 EUR</strong>
+                        <em>+18,7% vs Avril</em>
+                        <i class="spark spark-green"></i>
+                    </article>
+                    <article>
+                        <small>TVA a reverser</small>
+                        <strong>1 250,00 EUR</strong>
+                        <em class="is-warning">Echeance 20/06/2025</em>
+                        <i class="dash-progress"></i>
+                    </article>
+                </section>
+                <section class="kirby-dashboard-content">
+                    <div class="dash-panel dash-chart-panel">
+                        <div class="dash-panel-head">
+                            <strong>Evolution du chiffre d'affaires</strong>
+                            <span>Mensuel</span>
+                        </div>
+                        <div class="dash-bars" aria-hidden="true">
+                            <i style="--h: 58%"></i><i style="--h: 68%"></i><i style="--h: 62%"></i><i style="--h: 72%"></i><i style="--h: 80%"></i><i style="--h: 92%"></i>
+                        </div>
+                    </div>
+                    <div class="dash-panel dash-donut-panel">
+                        <div class="dash-panel-head">
+                            <strong>Repartition des depenses</strong>
+                            <span>Categories</span>
+                        </div>
+                        <div class="dash-donut-wrap">
+                            <div class="dash-donut" aria-hidden="true"><strong>4 320,50</strong><small>Total</small></div>
+                            <ul>
+                                <li><i></i> Achats / Marchandises</li>
+                                <li><i></i> Charges externes</li>
+                                <li><i></i> Services</li>
+                                <li><i></i> Deplacements</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <aside class="dash-side-stack">
+                        <div class="dash-panel dash-tasks">
+                            <div class="dash-panel-head"><strong>A faire</strong></div>
+                            <p><i></i>Valider 3 factures <b>1 250,00 EUR</b></p>
+                            <p><i></i>Relancer 2 devis <b>950,00 EUR</b></p>
+                            <p><i></i>Justificatifs a classer <b class="badge">7</b></p>
+                            <a>${cleanHtml(secondaryCta || 'Voir toutes les taches')}</a>
+                        </div>
+                        <div class="dash-panel dash-bank">
+                            <div class="dash-panel-head"><strong>Comptes bancaires</strong><span>Voir tout</span></div>
+                            <p><span>Compte principal</span><b>8 240,75 EUR</b></p>
+                            <p><span>Compte epargne</span><b>12 500,00 EUR</b></p>
+                        </div>
+                    </aside>
+                    <div class="dash-panel dash-list-panel">
+                        <div class="dash-panel-head"><strong>Dernieres transactions</strong><span>Voir tout</span></div>
+                        <p><span>Facture F-2025-052</span><b>1 250,00 EUR</b></p>
+                        <p><span>Achat fournitures</span><b class="is-negative">-89,90 EUR</b></p>
+                        <p><span>Virement recu</span><b>980,00 EUR</b></p>
+                    </div>
+                    <div class="dash-panel dash-ai-panel">
+                        <strong>Assistant IA</strong>
+                        <p>Comment puis-je vous aider aujourd'hui ?</p>
+                        <span>Analyser mes depenses du mois</span>
+                        <span>Quel sera mon resultat ce mois-ci ?</span>
+                        <div>Posez votre question...</div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    `;
+    const navMarkup = `
+        <nav class="kirby-live-nav">
+            <strong>${cleanHtml(siteName)}</strong>
+            <div>
+                ${visiblePageNames.map((pageName) => `<span>${cleanHtml(pageName)}</span>`).join('')}
+            </div>
+        </nav>
+    `;
+    const actionsMarkup = `
+        <div class="kirby-preview-actions">
+            <span>${cleanHtml(primaryCta)}</span>
+            <span>${cleanHtml(secondaryCta)}</span>
+        </div>
+    `;
+    const sectionsMarkup = `
+        <div class="kirby-live-sections">
+            ${visibleSections.slice(0, 3).map((section) => `
+                <article>
+                    <strong>${cleanHtml(getKirbyItemTitle(section))}</strong>
+                    <span>${cleanHtml(getKirbyShortText(getKirbyItemText(section), 68))}</span>
+                </article>
+            `).join('')}
+        </div>
+    `;
+    const galleryMarkup = `
+        <div class="kirby-live-gallery" aria-hidden="true">
+            ${galleryImageStyles.map((style) => `<span style="${style}"></span>`).join('')}
+        </div>
+    `;
+    const footerMarkup = `
+        <footer class="kirby-live-footer">
+            <span>${cleanHtml(email)}</span>
+            <span>${cleanHtml(domain)}</span>
+        </footer>
+    `;
+    const heroCopyMarkup = `
+        <div class="kirby-live-hero-copy">
+            <p class="signal-label">${cleanHtml(siteModel.name)}</p>
+            <h3>${cleanHtml(siteName)}</h3>
+            <p class="kirby-slogan">${cleanHtml(safeProposal.slogan || '')}</p>
+            ${actionsMarkup}
+        </div>
+    `;
+    const classicPreview = `
+        ${navMarkup}
+        <section class="kirby-live-hero" style="${previewStyle.hero}">
+            ${heroCopyMarkup}
+            <div class="kirby-hero-visual kirby-hero-image" style="${previewStyle.visual} ${previewImageStyle}" aria-hidden="true">
+                <span></span><span></span><span></span>
+            </div>
+        </section>
+        ${sectionsMarkup}
+        ${safeProposal.showGallery ? galleryMarkup : ''}
+        ${footerMarkup}
+    `;
+    const cinematicPreview = `
+        ${navMarkup}
+        <section class="kirby-live-video-hero kirby-hero-image" style="${previewImageStyle}">
+            <div class="kirby-video-copy">
+                <p class="signal-label">${cleanHtml(siteModel.name)}</p>
+                <h3>${cleanHtml(siteName)}</h3>
+                <p>${cleanHtml(safeProposal.slogan || '')}</p>
+                ${actionsMarkup}
+            </div>
+            <span class="kirby-play-mark" aria-hidden="true"></span>
+        </section>
+        <div class="kirby-live-rail">
+            ${visibleSections.slice(0, 3).map((section, index) => `
+                <article>
+                    <em>${String(index + 1).padStart(2, '0')}</em>
+                    <strong>${cleanHtml(getKirbyItemTitle(section))}</strong>
+                    <span>${cleanHtml(getKirbyShortText(getKirbyItemText(section), 78))}</span>
+                </article>
+            `).join('')}
+        </div>
+        ${footerMarkup}
+    `;
+    const galleryPreview = `
+        ${navMarkup}
+        <section class="kirby-gallery-focus">
+            <div class="kirby-gallery-lead">
+                <p class="signal-label">${cleanHtml(siteModel.name)}</p>
+                <h3>${cleanHtml(siteName)}</h3>
+                <p>${cleanHtml(safeProposal.slogan || '')}</p>
+                ${actionsMarkup}
+            </div>
+            <div class="kirby-gallery-mosaic" aria-hidden="true">
+                ${galleryImageStyles.map((style) => `<span style="${style}"></span>`).join('')}
+            </div>
+        </section>
+        ${sectionsMarkup}
+        ${footerMarkup}
+    `;
+    const minimalPreview = `
+        ${navMarkup}
+        <section class="kirby-minimal-editorial">
+            <p class="signal-label">${cleanHtml(siteModel.name)}</p>
+            <h3>${cleanHtml(safeProposal.slogan || siteName)}</h3>
+            <div>
+                <strong>${cleanHtml(siteName)}</strong>
+                <p>${cleanHtml(getKirbyShortText(safeProposal.valueProposition || safeProposal.summary || '', 150))}</p>
+                ${actionsMarkup}
+            </div>
+        </section>
+        <div class="kirby-minimal-list">
+            ${visibleSections.slice(0, 4).map((section) => `
+                <article>
+                    <strong>${cleanHtml(getKirbyItemTitle(section))}</strong>
+                    <span>${cleanHtml(getKirbyShortText(getKirbyItemText(section), 92))}</span>
+                </article>
+            `).join('')}
+        </div>
+        ${footerMarkup}
+    `;
+    const asymmetricPreview = `
+        ${navMarkup}
+        <section class="kirby-asymmetric-layout">
+            <div class="kirby-asym-copy">
+                <p class="signal-label">${cleanHtml(siteModel.name)}</p>
+                <h3>${cleanHtml(siteName)}</h3>
+                <p>${cleanHtml(safeProposal.slogan || '')}</p>
+                ${actionsMarkup}
+            </div>
+            <div class="kirby-asym-image kirby-hero-image" style="${previewImageStyle}" aria-hidden="true"></div>
+            <div class="kirby-asym-stack">
+                ${visibleSections.slice(0, 2).map((section) => `
+                    <article>
+                        <strong>${cleanHtml(getKirbyItemTitle(section))}</strong>
+                        <span>${cleanHtml(getKirbyShortText(getKirbyItemText(section), 74))}</span>
+                    </article>
+                `).join('')}
+            </div>
+        </section>
+        ${safeProposal.showGallery ? galleryMarkup : ''}
+        ${footerMarkup}
+    `;
+    const warmPreview = `
+        ${navMarkup}
+        <section class="kirby-warm-editorial">
+            <div class="kirby-warm-image kirby-hero-image" style="${previewImageStyle}" aria-hidden="true"></div>
+            <div class="kirby-warm-copy">
+                <p class="signal-label">${cleanHtml(siteModel.name)}</p>
+                <h3>${cleanHtml(siteName)}</h3>
+                <p>${cleanHtml(safeProposal.slogan || '')}</p>
+                ${actionsMarkup}
+            </div>
+        </section>
+        ${sectionsMarkup}
+        ${footerMarkup}
+    `;
+    const websitePreview = isDashboardPreview ? dashboardPreview : ({
+        'cinematic-video': cinematicPreview,
+        'gallery-focus': galleryPreview,
+        'minimal-editorial': minimalPreview,
+        'luxury-asymmetric': asymmetricPreview,
+        'warm-editorial': warmPreview,
+        'classic-conversion': classicPreview,
+    }[layoutVariant] || classicPreview);
+
+    if (quoteItems.length) {
+        quoteParams.set('items', quoteItems.join('|'));
+    }
 
     builderPanel?.classList.add('has-proposal');
     aiBriefOutput.classList.remove('is-loading');
     aiBriefOutput.innerHTML = `
-        <div class="kirby-builder-result kirby-editor-result">
-            <div class="kirby-editor-bar">
-                <div>
-                    <p class="signal-label">Site généré</p>
-                    <h3>${cleanHtml(siteName)}</h3>
-                </div>
-                <a class="button button-primary" href="contact.html?${quoteParams.toString()}">Suivant</a>
-            </div>
-
+        <div class="kirby-generated-clean">
             <div class="kirby-generated-website kirby-editor-workspace">
-                <div class="kirby-preview-browser kirby-live-browser kirby-site-canvas" aria-label="Aperçu du futur site">
+                <div class="kirby-preview-browser kirby-live-browser kirby-site-canvas ${previewTone} layout-${layoutVariant}" style="${previewStyle.canvas}" aria-label="Prévisualisation du site">
                     <div class="kirby-preview-chrome"><span></span><span></span><span></span></div>
-                    <nav class="kirby-live-nav">
-                        <strong>${cleanHtml(siteName)}</strong>
-                        <div>
-                            ${visiblePageNames.map((pageName) => `<span>${cleanHtml(pageName)}</span>`).join('')}
-                        </div>
-                    </nav>
-                    <section class="kirby-live-hero">
-                        <div class="kirby-live-hero-copy">
-                            <p class="signal-label">${cleanHtml(siteModel.name)}</p>
-                            <h3>${cleanHtml(siteName)}</h3>
-                            <p class="kirby-slogan">${cleanHtml(proposal.slogan || '')}</p>
-                            <div class="kirby-preview-actions">
-                                <span>${cleanHtml(primaryCta)}</span>
-                                <span>${cleanHtml(secondaryCta)}</span>
-                            </div>
-                        </div>
-                        <div class="kirby-hero-visual" aria-hidden="true">
-                            <span></span><span></span><span></span>
-                        </div>
-                    </section>
-                    <div class="kirby-live-sections">
-                        ${visibleSections.slice(0, 3).map((section) => `
-                            <article>
-                                <strong>${cleanHtml(getKirbyItemTitle(section))}</strong>
-                                <span>${cleanHtml(getKirbyShortText(getKirbyItemText(section), 68))}</span>
-                            </article>
-                        `).join('')}
-                    </div>
-                    <section class="kirby-live-services">
-                        <div class="kirby-live-section-title">
-                            <span>Services</span>
-                            <strong>Ce que la page met en avant</strong>
-                        </div>
-                        <div class="kirby-live-service-grid">
-                            ${visibleServiceNames.map((serviceName) => `<span>${cleanHtml(serviceName)}</span>`).join('')}
-                        </div>
-                    </section>
-
-                    <section class="kirby-live-contact">
-                        <div class="kirby-live-contact-copy">
-                            <span>Contact</span>
-                            <strong>Prêt à recevoir les demandes</strong>
-                            <p>${cleanHtml(email)}</p>
-                            <p>${cleanHtml(domain)}</p>
-                        </div>
-                        <div class="kirby-map-preview" aria-hidden="true">
-                            <i></i><i></i><i></i><span></span>
-                        </div>
-                    </section>
+                    ${websitePreview}
                 </div>
             </div>
-        </div>
 
-        <form class="kirby-revision-form kirby-revision-compact">
-            <label class="field">
-                <span class="sr-only">Modifier le site généré</span>
-                <textarea rows="2" name="revision" placeholder="Demandez une modification à Kirby..."></textarea>
-            </label>
-            <button class="button button-secondary" type="submit">Modifier</button>
-        </form>
+            <form class="kirby-revision-form kirby-revision-compact">
+                <label class="field">
+                    <span class="sr-only">Demander un ajustement à Kirby</span>
+                    <textarea rows="2" name="revision" placeholder="Demander un ajustement à Kirby"></textarea>
+                </label>
+                <div class="kirby-generated-actions">
+                    <button class="button button-secondary" type="submit">Modifier</button>
+                    <a class="button button-primary" data-kirby-next-link href="contact.html?${quoteParams.toString()}">Continuer</a>
+                </div>
+            </form>
+        </div>
     `;
 
     const revisionForm = aiBriefOutput.querySelector('.kirby-revision-form');
@@ -7167,11 +8582,11 @@ const renderKirbyProposal = (proposal, brief) => {
         setKirbyLoading();
 
         try {
-            const payload = await requestKirbyProposal({ brief, revision, currentProposal: proposal });
-            renderKirbyProposal(payload.proposal || buildBrowserKirbyProposal(`${brief} ${revision}`), brief);
+            const payload = await requestKirbyProposal({ brief, revision, currentProposal: safeProposal });
+            renderKirbyProposal(applyKirbyRevision(payload.proposal || safeProposal, revision, brief), brief);
         } catch (error) {
             console.warn('Kirby revision fallback:', error);
-            renderKirbyProposal(buildBrowserKirbyProposal(`${brief} ${revision}`), brief);
+            renderKirbyProposal(applyKirbyRevision(safeProposal, revision, brief), brief);
         }
     });
 };
@@ -7185,22 +8600,9 @@ const setKirbyLoading = () => {
     aiBriefOutput.classList.add('is-loading');
     aiBriefOutput.innerHTML = `
         <div class="kirby-generation-stage" aria-label="Kirby génère le site">
-            <div class="kirby-generation-preview" aria-hidden="true">
-                <div class="kirby-generation-topbar">
-                    <span></span><span></span><span></span>
-                </div>
-                <div class="kirby-generation-hero">
-                    <i></i>
-                    <strong></strong>
-                    <em></em>
-                </div>
-                <div class="kirby-generation-grid">
-                    <span></span><span></span><span></span>
-                </div>
-            </div>
             <div class="kirby-generation-overlay">
                 <div class="kirby-loader-ring" aria-hidden="true"></div>
-                <h3>Ajout de contenu...</h3>
+                <h3>Génération du site...</h3>
             </div>
         </div>
     `;
@@ -7228,8 +8630,8 @@ if (aiBriefForm && aiBriefInput && aiBriefOutput) {
             aiBriefOutput.closest('.ai-brief-panel')?.classList.remove('has-proposal');
             aiBriefOutput.innerHTML = `
                 <p class="signal-label">Idée trop courte</p>
-                <h3>Écrivez simplement votre activité.</h3>
-                <p>Exemple : Je suis coiffeuse à Rueil, je veux un site avec rendez-vous.</p>
+                <h3>Décrivez votre activité en une phrase.</h3>
+                <p>Exemple : Je suis coiffeuse à Rueil, je veux un site avec tarifs, photos, rendez-vous et contact.</p>
             `;
             return;
         }
@@ -7321,7 +8723,7 @@ const initHeroParticles = () => {
     const resize = () => {
         const bounds = hero?.getBoundingClientRect() || { width: window.innerWidth, height: window.innerHeight };
         const ratio = Math.min(window.devicePixelRatio || 1, 2);
-        width = Math.max(bounds.width, window.innerWidth);
+        width = Math.max(1, Math.ceil(bounds.width || document.documentElement.clientWidth || window.innerWidth));
         height = Math.max(bounds.height, window.innerHeight * 0.9);
         radius = Math.min(width, height) * (width < 720 ? 0.45 : 0.39);
         particleCount = width < 720 ? 720 : 1150;
@@ -7441,7 +8843,7 @@ const initPageCosmicField = () => {
 
     const resize = () => {
         const ratio = Math.min(window.devicePixelRatio || 1, 2);
-        width = window.innerWidth;
+        width = document.documentElement.clientWidth || window.innerWidth;
         height = window.innerHeight;
         canvas.width = width * ratio;
         canvas.height = height * ratio;

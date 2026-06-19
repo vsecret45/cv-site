@@ -17,7 +17,7 @@
     >
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <link rel="preload" href="assets/sa-creation-web-mark.svg" as="image" type="image/svg+xml">
-    <link rel="stylesheet" href="style.css?v=20260614-platform-v11">
+    <link rel="stylesheet" href="style.css?v=20260618-copilot-v1">
 </head>
 <body class="is-preload studio-home">
     <canvas class="cosmic-page-field" id="cosmic-page-field" aria-hidden="true"></canvas>
@@ -60,13 +60,13 @@
                         <span class="title-line">Votre projet web prend forme avec l'IA.</span>
                     </h1>
                     <p class="hero-role hero-reveal hero-reveal-delay-3">
-                        Décrivez votre activité. Kirby imagine le nom, les pages, les textes, le SEO et les options utiles.
+                        Décrivez votre activité, le générateur prépare une première proposition de site.
                     </p>
                     <p class="hero-text hero-reveal hero-reveal-delay-4">
-                        Site web, boutique, WordPress, e-mail pro, QR code, CV/portfolio et réservation dans une même expérience.
+                        Kirby aide ensuite à ajuster avec vous.
                     </p>
                     <div class="hero-actions hero-reveal hero-reveal-delay-6">
-                        <a class="button button-primary" href="#kirby-assistant">Créer mon projet avec Kirby</a>
+                        <a class="button button-primary" href="#kirby-assistant">Créer mon projet</a>
                         <a class="button button-secondary" href="prestations.html">Voir les offres</a>
                     </div>
                 </div>
@@ -93,32 +93,92 @@
             </div>
         </header>
 
-        <main>
+        <main id="main-content">
             <section class="section reveal-section ai-brief-section ai-builder-section creator-focus-section" id="kirby-assistant">
-                <div class="section-heading">
-                    <p class="section-kicker">Créateur de site IA</p>
-                    <h2>Quel site voulez-vous créer ?</h2>
+                <div class="section-heading generator-heading-minimal">
+                    <p class="section-kicker">Générateur IA</p>
+                    <h2>Créez votre site.</h2>
                 </div>
 
-                <div class="ai-brief-panel builder-workspace creator-studio">
+                <div class="ai-brief-panel builder-workspace creator-studio copilot-workspace">
                     <form class="ai-brief-form creator-prompt-console" id="ai-brief-form">
                         <label class="field field-message">
                             <span class="sr-only">Décrivez votre activité</span>
                             <textarea
                                 id="ai-brief-input"
-                                rows="5"
-                                placeholder="Ex. Je suis coiffeuse à Rueil et je veux un site avec tarifs, photos, rendez-vous et contact."
+                                rows="7"
+                                placeholder="Décrivez le site que vous souhaitez créer…"
                             ></textarea>
                         </label>
-                        <button class="button button-primary" type="submit">Créer mon site</button>
+                        <div class="advisor-composer-actions">
+                            <button class="button button-primary" type="submit">Générer mon site</button>
+                        </div>
                     </form>
                     <article class="ai-brief-output" id="ai-brief-output" aria-live="polite">
-                        <div class="starter-preview creator-live-preview starter-preview-empty">
-                            <div class="starter-preview-copy">
-                                <h3>Le site apparaîtra ici.</h3>
-                            </div>
-                        </div>
                     </article>
+                </div>
+            </section>
+
+            <section class="section reveal-section platform-tools-section" id="services">
+                <div class="section-heading">
+                    <p class="section-kicker">Services SA Création Web</p>
+                    <h2>Des services utiles selon votre projet.</h2>
+                    <p class="section-intro">
+                        Ces options peuvent être ajoutées selon le besoin du client. Elles ne sont pas incluses automatiquement dans chaque projet.
+                    </p>
+                </div>
+
+                <div class="platform-product-grid" aria-label="Services SA Création Web">
+                    <article class="platform-product-card is-featured">
+                        <span class="product-icon" aria-hidden="true">WEB</span>
+                        <strong>Site internet</strong>
+                        <p>Un site clair pour présenter l'activité, les offres, les preuves et le contact.</p>
+                    </article>
+                    <article class="platform-product-card">
+                        <span class="product-icon" aria-hidden="true">.FR</span>
+                        <strong>Domaine</strong>
+                        <p>Un nom facile à partager pour rendre le projet identifiable et crédible.</p>
+                    </article>
+                    <article class="platform-product-card">
+                        <span class="product-icon" aria-hidden="true">@</span>
+                        <strong>Email professionnel</strong>
+                        <p>Une adresse type contact@ pour rassurer les clients et centraliser les demandes.</p>
+                    </article>
+                    <article class="platform-product-card">
+                        <span class="product-icon" aria-hidden="true">DEV</span>
+                        <strong>Développement de site web</strong>
+                        <p>Pages, sections, formulaires, galerie, réservation ou fonctionnalités utiles.</p>
+                    </article>
+                    <article class="platform-product-card">
+                        <span class="product-icon" aria-hidden="true">SEO</span>
+                        <strong>Marketing digital</strong>
+                        <p>Mots-clés, contenu local et idées utiles pour attirer des demandes.</p>
+                    </article>
+                    <article class="platform-product-card">
+                        <span class="product-icon" aria-hidden="true">PRO</span>
+                        <strong>Consultation</strong>
+                        <p>Cadrage du besoin, choix des pages, priorités et conseils avant lancement.</p>
+                    </article>
+                    <article class="platform-product-card">
+                        <span class="product-icon" aria-hidden="true">SUP</span>
+                        <strong>Support technique</strong>
+                        <p>Aide après mise en ligne pour ajuster, corriger ou faire évoluer le site.</p>
+                    </article>
+                    <article class="platform-product-card">
+                        <span class="product-icon" aria-hidden="true">LAB</span>
+                        <strong>Formation / prise en main</strong>
+                        <p>Accompagnement pour comprendre, utiliser et gérer les outils du site.</p>
+                    </article>
+                </div>
+
+                <div class="platform-flow-band" aria-label="Fonctionnement du générateur SA">
+                    <span>Décrire l'activité</span>
+                    <i></i>
+                    <span>Recevoir une proposition</span>
+                    <i></i>
+                    <span>Ajuster avec Kirby</span>
+                    <i></i>
+                    <span>Valider le projet</span>
                 </div>
             </section>
         </main>
@@ -129,6 +189,6 @@
         </footer>
     </div>
 
-    <script src="script.js?v=20260614-platform-v11" defer></script>
+    <script src="script.js?v=20260618-copilot-v1" defer></script>
 </body>
 </html>
