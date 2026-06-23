@@ -177,6 +177,79 @@ Schema JSON attendu :
 }
 `.trim();
 
+const KIRBY_CV_SYSTEM_PROMPT = `
+Tu es Kirby, l'assistant CV de SA Creation Web. Tu aides a extraire, corriger et adapter un CV francais pour une candidature.
+
+Regle de verite non negociable : le CV fourni est la seule source des faits. N'invente jamais un employeur, un poste occupe, une date, un diplome, une mission, un resultat, un permis, une langue ou un niveau de langue. Ne transforme jamais une competence attendue dans une offre en experience acquise.
+
+Tu peux :
+- extraire et normaliser les informations explicitement presentes ;
+- reformuler une accroche a partir des faits du CV ;
+- mettre en avant des competences transferables seulement lorsqu'elles sont etayees par le CV ;
+- reordonner les experiences deja presentes pour faire apparaitre les plus pertinentes en premier ;
+- relever les mots-cles de l'offre et proposer, dans "suggestedSkills", ceux que la personne peut ajouter uniquement si elle les a reellement pratiques ;
+- detecter les langues. Conserve le niveau exact fourni dans le CV ou dans la demande utilisateur, y compris une formulation informelle comme "notions professionnelles". Si le niveau manque, laisse "level" vide, sans avertissement ni texte de blocage.
+- verifier la qualite avant proposition : fautes evidentes, doublons de competences, repetitions, rubriques vides et risque de contenu trop long ;
+- ecrire une lettre de motivation courte et personnalisee uniquement a partir du CV, de l'offre et des informations de lettre fournies.
+
+Quand la consigne contient un CV colle, traite-le comme une source factuelle supplementaire et remplis "extracted" avec les coordonnees, experiences, formations, langues et activites explicitement presentes. Ne lis jamais une offre d'emploi comme un CV. Une offre sert uniquement a adapter les elements deja prouves.
+
+Pour les niveaux de langues, conserve la formulation explicite. Si elle correspond clairement a l'une de ces valeurs, normalise-la ainsi : Notions, Intermédiaire, Professionnel, Courant, Bilingue ou Langue maternelle. Ne choisis jamais un niveau a la place de la personne.
+
+Les demandes courtes sont des actions, pas des questions a faire confirmer. Comprends notamment :
+- "anglais notions professionnelles" : remplace le niveau d'anglais par "Notions professionnelles" ;
+- "plus court" : raccourcis l'accroche et conserve les faits ;
+- "enleve / pas besoin de Lifestyle" : retire Lifestyle du titre et de l'accroche, sans toucher aux experiences. Retourne toujours un titre de remplacement non vide, choisi parmi les intitulés réellement présents dans le CV ;
+- "refais correctement" : produis une version CV claire, compacte et prete a l'emploi a partir des faits existants.
+
+Pour un poste de "Vendeur Lifestyle", valorise uniquement les preuves de relation client, conseil, accueil, autonomie et sens du service deja presentes. N'ajoute jamais vente, encaissement ou mise en rayon comme experience si le CV ne les prouve pas.
+
+Selon la tache demandee :
+- "create" : transforme un CV colle ou des informations brutes en CV structure. Si les faits sont insuffisants, utilise extracted et suggestions pour indiquer exactement ce qui manque, sans creer de faux parcours.
+- "optimize" ou "assistant" : corrige, compacte et deduplique le CV existant. Renseigne quality.fixes avec les controles realises.
+- "adapt" : adapte titre, accroche, ordre des experiences et competences prouvees a l'offre. Produis aussi la lettre si la demande parle de lettre.
+- "letter" : redige letter.subject et letter.body. La lettre doit etre directement utilisable, faire 900 caracteres maximum et ne jamais affirmer un fait absent du CV.
+
+Le resultat doit rester court et tenir sur une page de CV : une accroche de 300 caracteres maximum, 10 competences appliquees maximum, 8 mots-cles et 6 suggestions maximum. Reponds uniquement avec un JSON valide, sans markdown.
+
+Schema JSON obligatoire :
+{
+  "headline": "poste cible court ou chaine vide",
+  "summary": "accroche reformulee a partir des faits ou chaine vide",
+  "skills": ["competence prouvee par le CV"],
+  "experienceOrder": ["intitule exact d'une experience existante"],
+  "languages": [{"language": "Francais", "level": "niveau exact ou chaine vide"}],
+  "extracted": {
+    "fullName": "nom explicite ou chaine vide",
+    "location": "ville explicite ou chaine vide",
+    "phone": "telephone explicite ou chaine vide",
+    "email": "email explicite ou chaine vide",
+    "permit": "permis explicite ou chaine vide",
+    "headline": "titre explicite ou chaine vide",
+    "summary": "profil explicite ou chaine vide",
+    "skills": ["competence explicitement presente"],
+    "experiences": ["poste – employeur – dates • mission factuelle"],
+    "projects": ["projet factuel explicitement present"],
+    "education": ["formation factuelle"],
+    "activities": ["activite explicitement presente"],
+    "languages": [{"language": "Francais", "level": "niveau explicite ou chaine vide"}]
+  },
+  "jobTarget": "poste vise detecte ou chaine vide",
+  "keywords": ["mot-cle de l'offre"],
+  "suggestedSkills": ["competence a confirmer avant ajout"],
+  "suggestions": ["action concrete et honnete"],
+  "notice": "resume court de ce qui a ete adapte",
+  "quality": {
+    "fixes": ["controle ou correction realisee"],
+    "warnings": ["information manquante a completer"]
+  },
+  "letter": {
+    "subject": "Objet : Candidature",
+    "body": "lettre de motivation complete ou chaine vide"
+  }
+}
+`.trim();
+
 const getActivityWords = (brief) => {
     const cleanBrief = stripAccents(brief.toLowerCase());
     const knownActivities = [
@@ -848,6 +921,330 @@ const applyFallbackRevision = (currentProposal, revision, brief) => {
     return proposal;
 };
 
+const CV_ASSISTANT_TASKS = new Set(['autofill', 'create', 'optimize', 'adapt', 'letter', 'assistant']);
+
+const limitCvText = (value, max = 360) => normalizeDisplayText(value).slice(0, max).trim();
+const limitCvMultilineText = (value, max = 1600) =>
+    normalize(value)
+        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<\/?[^>]+>/g, ' ')
+        .replace(/\r/g, '')
+        .replace(/\n{3,}/g, '\n\n')
+        .slice(0, max)
+        .trim();
+
+const toCvStringList = (value, max = 10, itemMax = 100) =>
+    (Array.isArray(value) ? value : [])
+        .map((item) => limitCvText(item, itemMax))
+        .filter(Boolean)
+        .filter((item, index, list) => list.findIndex((candidate) => stripAccents(candidate).toLowerCase() === stripAccents(item).toLowerCase()) === index)
+        .slice(0, max);
+
+const normalizeCvLanguage = (value) => {
+    if (!value) {
+        return null;
+    }
+
+    if (typeof value === 'string') {
+        const [language = '', ...levelParts] = value.split(/\s*[:–-]\s*/);
+        const normalizedLanguage = limitCvText(language, 48);
+        return normalizedLanguage
+            ? { language: normalizedLanguage, level: limitCvText(levelParts.join(' '), 72) }
+            : null;
+    }
+
+    if (typeof value === 'object') {
+        const language = limitCvText(value.language || value.name, 48);
+        return language
+            ? { language, level: limitCvText(value.level || value.niveau, 72) }
+            : null;
+    }
+
+    return null;
+};
+
+const getCvExperienceTitles = (experience = '') =>
+    normalize(experience)
+        .split(/\r?\n/)
+        .map((line) => line.split('•')[0].split('|')[0].trim())
+        .filter((line) => line.length > 2 && line.length < 110)
+        .slice(0, 8);
+
+const sanitizeCvExtraction = (value) => {
+    const extracted = value && typeof value === 'object' ? value : {};
+    const languages = (Array.isArray(extracted.languages) ? extracted.languages : [])
+        .map(normalizeCvLanguage)
+        .filter(Boolean)
+        .filter((item, index, list) => list.findIndex((candidate) => stripAccents(candidate.language).toLowerCase() === stripAccents(item.language).toLowerCase()) === index)
+        .slice(0, 5);
+
+    return {
+        fullName: limitCvText(extracted.fullName, 100),
+        location: limitCvText(extracted.location, 120),
+        phone: limitCvText(extracted.phone, 48),
+        email: limitCvText(extracted.email, 120),
+        permit: limitCvText(extracted.permit, 80),
+        headline: limitCvText(extracted.headline, 90),
+        summary: limitCvText(extracted.summary, 300),
+        skills: toCvStringList(extracted.skills, 10, 80),
+        experiences: toCvStringList(extracted.experiences, 8, 460),
+        projects: toCvStringList(extracted.projects, 6, 360),
+        education: toCvStringList(extracted.education, 6, 260),
+        activities: toCvStringList(extracted.activities, 6, 160),
+        languages,
+    };
+};
+
+const sanitizeCvQuality = (value) => {
+    const quality = value && typeof value === 'object' ? value : {};
+
+    return {
+        fixes: toCvStringList(quality.fixes, 5, 140),
+        warnings: toCvStringList(quality.warnings, 4, 140),
+    };
+};
+
+const sanitizeCvLetter = (value) => {
+    const letter = value && typeof value === 'object' ? value : {};
+
+    return {
+        subject: limitCvText(letter.subject, 130),
+        body: limitCvMultilineText(letter.body, 1100),
+    };
+};
+
+const sanitizeCvAssistantResult = (result, cv = {}) => {
+    const sourceExperienceTitles = getCvExperienceTitles(cv.experience);
+    const sourceTitlesByNormalized = new Map(
+        sourceExperienceTitles.map((title) => [stripAccents(title).toLowerCase(), title])
+    );
+    const orderedTitles = toCvStringList(result && result.experienceOrder, 8, 110)
+        .map((title) => sourceTitlesByNormalized.get(stripAccents(title).toLowerCase()))
+        .filter(Boolean);
+    const languages = (Array.isArray(result && result.languages) ? result.languages : [])
+        .map(normalizeCvLanguage)
+        .filter(Boolean)
+        .filter((item, index, list) => list.findIndex((candidate) => stripAccents(candidate.language).toLowerCase() === stripAccents(item.language).toLowerCase()) === index)
+        .slice(0, 5);
+
+    return {
+        headline: limitCvText(result && result.headline, 90),
+        summary: limitCvText(result && result.summary, 300),
+        skills: toCvStringList(result && result.skills, 10, 80),
+        experienceOrder: [...orderedTitles, ...sourceExperienceTitles.filter((title) => !orderedTitles.includes(title))],
+        languages,
+        extracted: sanitizeCvExtraction(result && result.extracted),
+        jobTarget: limitCvText(result && result.jobTarget, 90),
+        keywords: toCvStringList(result && result.keywords, 8, 60),
+        suggestedSkills: toCvStringList(result && result.suggestedSkills, 8, 80),
+        suggestions: toCvStringList(result && result.suggestions, 6, 180),
+        notice: limitCvText(result && result.notice, 260),
+        quality: sanitizeCvQuality(result && result.quality),
+        letter: sanitizeCvLetter(result && result.letter),
+    };
+};
+
+const getCvRoleFromText = (value = '') => {
+    const source = stripAccents(normalizeText(value).toLowerCase());
+
+    if (/\bvendeur|vendeuse|vente|lifestyle|boutique|magasin\b/.test(source)) {
+        return 'Vendeur Lifestyle';
+    }
+    if (/\bconseill(?:er|ere|ère)|relation client|service client\b/.test(source)) {
+        return 'Conseiller clientèle';
+    }
+    if (/\bassistante?|administratif|dossiers?\b/.test(source)) {
+        return 'Assistant administratif';
+    }
+    if (/\bconduct(?:eur|rice)|transport|machiniste|receveur\b/.test(source)) {
+        return 'Conducteur de transport';
+    }
+
+    return '';
+};
+
+const getCvLanguagesFromText = (value = '') => {
+    const knownLanguages = ['Français', 'Anglais', 'Arabe', 'Espagnol', 'Italien', 'Allemand', 'Portugais'];
+    const source = normalize(value);
+
+    return knownLanguages
+        .filter((language) => new RegExp(`\\b${stripAccents(language)}\\b`, 'i').test(stripAccents(source)))
+        .map((language) => {
+            const line = source.split(/\r?\n/).find((item) => new RegExp(`\\b${stripAccents(language)}\\b`, 'i').test(stripAccents(item))) || language;
+            const [, level = ''] = line.split(/\s*[:–-]\s*/);
+            return { language, level: limitCvText(level, 72) };
+        });
+};
+
+const buildFallbackCvLetter = ({ cv, jobOffer, instruction, letter, role }) => {
+    const company = limitCvText(letter?.company, 100) || 'votre entreprise';
+    const targetRole = limitCvText(letter?.role, 90) || role || limitCvText(cv.headline, 90) || 'poste visé';
+    const profile = limitCvText(cv.summary, 300);
+    const skills = toCvStringList(normalize(cv.skills).split(/\r?\n/), 4, 80).join(', ');
+    const motivation = limitCvText(letter?.motivation || instruction, 220)
+        || 'mettre mes compétences au service de votre équipe';
+    const body = [
+        'Madame, Monsieur,',
+        `Je vous adresse ma candidature pour le poste de ${targetRole} au sein de ${company}.`,
+        profile || 'Mon parcours m’a permis de développer une approche professionnelle, rigoureuse et orientée service.',
+        skills ? `Mes compétences en ${skills} me permettront de contribuer avec sérieux à vos besoins.` : '',
+        `Je souhaite aujourd’hui ${motivation.replace(/[.!?]+$/g, '').trim()}.`,
+        'Je serais ravie de pouvoir échanger avec vous.',
+        'Cordialement,',
+    ].filter(Boolean).join('\n\n');
+
+    return {
+        subject: `Objet : Candidature – ${targetRole}`,
+        body,
+    };
+};
+
+const buildFallbackCvAssistant = ({ task, cv, jobOffer, instruction, letter = {} }) => {
+    const source = [cv.headline, cv.summary, cv.skills, cv.experience, cv.projects, instruction, jobOffer].filter(Boolean).join(' ');
+    const normalizedSource = stripAccents(source.toLowerCase());
+    const role = getCvRoleFromText(`${jobOffer} ${instruction} ${cv.headline}`);
+    const existingSkills = normalize(cv.skills).split(/\r?\n/).map((item) => limitCvText(item, 80)).filter(Boolean);
+    const skills = [...existingSkills];
+    const suggestedSkills = [];
+    const suggestions = [];
+
+    if (/\b(client|clientele|accueil|conseil|commercial)\b/.test(normalizedSource)) {
+        ['Relation client', 'Conseil client', 'Sens du service'].forEach((skill) => {
+            if (!skills.some((item) => stripAccents(item).toLowerCase() === stripAccents(skill).toLowerCase())) {
+                skills.push(skill);
+            }
+        });
+    }
+
+    if (/\b(autonome|autonomie)\b/.test(normalizedSource) && !skills.some((item) => /autonom/i.test(item))) {
+        skills.push('Autonomie');
+    }
+
+    if (role === 'Vendeur Lifestyle') {
+        ['Vente', 'Encaissement', 'Mise en rayon'].forEach((skill) => {
+            if (!normalizedSource.includes(stripAccents(skill).toLowerCase())) {
+                suggestedSkills.push(`${skill} - à confirmer`);
+            }
+        });
+    }
+
+    const languages = getCvLanguagesFromText(cv.languages || `${cv.summary || ''}\n${cv.experience || ''}`);
+    if (!languages.length) {
+        suggestions.push('Ajoutez vos langues et un niveau exact : par exemple Français : langue maternelle, Anglais : bases professionnelles.');
+    } else if (languages.some((language) => !language.level)) {
+        suggestions.push('Précisez le niveau des langues détectées avant l’export.');
+    }
+
+    const keywords = normalize(jobOffer)
+        .split(/[^A-Za-zÀ-ÿ0-9+#.-]+/)
+        .filter((word) => word.length > 4)
+        .slice(0, 8);
+    const hasCustomerEvidence = /\b(client|clientele|accueil|conseil|commercial)\b/.test(normalizedSource);
+    const summary = role === 'Vendeur Lifestyle' && hasCustomerEvidence
+        ? 'Professionnelle de la relation client, organisée et autonome, mettant à profit son sens du service, son écoute et son conseil pour accompagner chaque client.'
+        : limitCvText(cv.summary, 300);
+    const fallbackLetter = task === 'letter' || /\blettre|motivation\b/i.test(instruction)
+        ? buildFallbackCvLetter({ cv, jobOffer, instruction, letter, role })
+        : { subject: '', body: '' };
+
+    return sanitizeCvAssistantResult({
+        headline: task === 'adapt' && role ? role : cv.headline,
+        summary,
+        skills,
+        experienceOrder: getCvExperienceTitles(cv.experience),
+        languages,
+        extracted: {
+            fullName: cv.fullName,
+            location: cv.location,
+            phone: cv.phone,
+            email: cv.email,
+            permit: cv.permit,
+            headline: cv.headline,
+            summary: cv.summary,
+            skills: existingSkills,
+            experiences: normalize(cv.experience).split(/\r?\n/).filter(Boolean),
+            projects: normalize(cv.projects).split(/\r?\n/).filter(Boolean),
+            education: normalize(cv.education).split(/\r?\n/).filter(Boolean),
+            activities: normalize(cv.activities).split(/\r?\n/).filter(Boolean),
+            languages,
+        },
+        jobTarget: role || cv.headline,
+        keywords,
+        suggestedSkills,
+        suggestions,
+        quality: {
+            fixes: ['Compétences et sections analysées avant proposition.'],
+            warnings: languages.some((language) => !language.level)
+                ? ['Un niveau de langue reste à préciser.']
+                : [],
+        },
+        letter: fallbackLetter,
+        notice: role
+            ? `Adaptation ${role} réalisée à partir des éléments présents dans le CV.`
+            : 'Informations détectées et harmonisées à partir du CV.',
+    }, cv);
+};
+
+const buildOpenAiCvPrompt = ({ task, cv, jobOffer, instruction, letter }) => [
+    `Tache : ${task === 'autofill'
+        ? 'extraire et pre-remplir le CV colle par l utilisateur'
+        : task === 'create'
+            ? 'construire un CV structure a partir des informations brutes fournies'
+            : task === 'optimize'
+                ? 'corriger, dedupliquer et optimiser ce CV avant application'
+                : task === 'adapt'
+                    ? 'adapter ce CV a un poste ou une offre'
+                    : task === 'letter'
+                        ? 'rediger une lettre de motivation exploitable avec ce CV'
+                        : 'corriger et ameliorer ce CV'}.`,
+    'Donnees du CV (faits a respecter) :',
+    JSON.stringify(cv, null, 2),
+    jobOffer ? `Offre ou poste cible :\n${jobOffer}` : '',
+    instruction ? `Consigne utilisateur :\n${instruction}` : '',
+    letter && Object.values(letter).some(Boolean) ? `Contexte de la lettre :\n${JSON.stringify(letter, null, 2)}` : '',
+    task === 'autofill'
+        ? 'La consigne peut contenir un CV brut. Remplis extracted avec les faits trouves dans ce texte, sans inventer ni completer les informations manquantes.'
+        : '',
+    task === 'adapt'
+        ? 'L offre ne doit jamais devenir une experience, une competence acquise ou un niveau de langue. Elle sert seulement a choisir les elements du CV a mettre en avant.'
+        : '',
+    task === 'letter'
+        ? 'La lettre est obligatoire dans le resultat. Reste precise, courte et honnete : aucun resultat, outil ou experience non present dans le CV.'
+        : '',
+    'Respecte strictement le schema du systeme. Les intitules dans experienceOrder doivent etre les intitules exacts du CV source.',
+].filter(Boolean).join('\n\n');
+
+const requestOpenAiCvAssistant = async ({ apiKey, model, task, cv, jobOffer, instruction, letter }) => {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            model,
+            temperature: 0.2,
+            max_tokens: 1100,
+            response_format: { type: 'json_object' },
+            messages: [
+                { role: 'system', content: KIRBY_CV_SYSTEM_PROMPT },
+                { role: 'user', content: buildOpenAiCvPrompt({ task, cv, jobOffer, instruction, letter }) },
+            ],
+        }),
+    });
+
+    if (!response.ok) {
+        const error = new Error('openai_cv_request_failed');
+        error.status = response.status;
+        throw error;
+    }
+
+    const payload = await response.json();
+    const content = payload?.choices?.[0]?.message?.content || '';
+    return parseOpenAiJson(content);
+};
+
 const getOpenAiKeys = () => {
     const keys = [
         process.env.KIRBY_OPENAI_API_KEY,
@@ -984,6 +1381,15 @@ const getOpenAiModels = () => {
     return [...new Set(models)];
 };
 
+const getOpenAiCvModels = () => {
+    const configured = normalize(process.env.KIRBY_CV_OPENAI_MODEL || process.env.KIRBY_CV_OPENAI_MODELS);
+    const models = configured
+        ? configured.split(',').map(normalize).filter(Boolean)
+        : ['gpt-4o-mini', 'gpt-4o'];
+
+    return [...new Set(models)];
+};
+
 const callOpenAi = async ({ brief, revision, currentProposal }) => {
     const apiKeys = getOpenAiKeys();
 
@@ -1014,6 +1420,32 @@ const callOpenAi = async ({ brief, revision, currentProposal }) => {
     throw finalError;
 };
 
+const callOpenAiCvAssistant = async ({ task, cv, jobOffer, instruction, letter }) => {
+    const apiKeys = getOpenAiKeys();
+
+    if (!apiKeys.length) {
+        return null;
+    }
+
+    const models = getOpenAiCvModels();
+    const errors = [];
+
+    for (const apiKey of apiKeys) {
+        for (const model of models) {
+            try {
+                return await requestOpenAiCvAssistant({ apiKey, model, task, cv, jobOffer, instruction, letter });
+            } catch (error) {
+                errors.push({ status: error && error.status, model });
+            }
+        }
+    }
+
+    const finalError = new Error('openai_cv_request_failed');
+    finalError.statuses = errors.map((error) => error.status).filter(Boolean);
+    finalError.models = errors.map((error) => error.model).filter(Boolean);
+    throw finalError;
+};
+
 module.exports = async (request, response) => {
     if (request.method !== 'POST') {
         response.setHeader('Allow', 'POST');
@@ -1026,6 +1458,62 @@ module.exports = async (request, response) => {
         payload = JSON.parse(await readBody(request));
     } catch (error) {
         return json(response, 400, { error: 'invalid_json' });
+    }
+
+    if (payload.mode === 'cv') {
+        const task = CV_ASSISTANT_TASKS.has(payload.task) ? payload.task : 'assistant';
+        const sourceCv = payload.cv && typeof payload.cv === 'object' ? payload.cv : {};
+        const cv = {
+            fullName: limitCvText(sourceCv.fullName, 100),
+            location: limitCvText(sourceCv.location, 120),
+            phone: limitCvText(sourceCv.phone, 48),
+            email: limitCvText(sourceCv.email, 120),
+            permit: limitCvText(sourceCv.permit, 80),
+            headline: limitCvText(sourceCv.headline, 120),
+            summary: limitCvMultilineText(sourceCv.summary, 700),
+            skills: limitCvMultilineText(sourceCv.skills, 1200),
+            experience: limitCvMultilineText(sourceCv.experience, 5000),
+            projects: limitCvMultilineText(sourceCv.projects, 1800),
+            education: limitCvMultilineText(sourceCv.education, 1400),
+            languages: limitCvMultilineText(sourceCv.languages, 600),
+            activities: limitCvMultilineText(sourceCv.activities, 900),
+        };
+        const jobOffer = limitCvMultilineText(payload.jobOffer, 5000);
+        const instruction = limitCvMultilineText(payload.instruction, 9000);
+        const sourceLetter = payload.letter && typeof payload.letter === 'object' ? payload.letter : {};
+        const letter = {
+            company: limitCvText(sourceLetter.company, 100),
+            role: limitCvText(sourceLetter.role, 90),
+            motivation: limitCvText(sourceLetter.motivation, 240),
+            style: limitCvText(sourceLetter.style, 24),
+        };
+
+        if (!Object.values(cv).some(Boolean) && !jobOffer && !instruction) {
+            return json(response, 400, { error: 'cv_too_short' });
+        }
+
+        try {
+            const openAiResult = await callOpenAiCvAssistant({ task, cv, jobOffer, instruction, letter });
+
+            if (openAiResult) {
+                return json(response, 200, {
+                    ok: true,
+                    source: 'openai',
+                    cv: sanitizeCvAssistantResult(openAiResult, cv),
+                });
+            }
+        } catch (error) {
+            console.error('Kirby CV OpenAI failed:', {
+                code: error && error.message ? error.message : 'openai_cv_request_failed',
+                statuses: error && error.statuses ? error.statuses : undefined,
+            });
+        }
+
+        return json(response, 200, {
+            ok: true,
+            source: 'fallback',
+            cv: buildFallbackCvAssistant({ task, cv, jobOffer, instruction, letter }),
+        });
     }
 
     const brief = normalize(payload.brief).slice(0, 1800);

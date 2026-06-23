@@ -15,7 +15,7 @@
         rel="stylesheet"
     >
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-    <link rel="stylesheet" href="style.css?v=20260614-platform-v4">
+    <link rel="stylesheet" href="style.css?v=20260623-velours-cv-v18">
 </head>
 <body class="is-preload cv-workspace-page">
     <div class="page-shell">
@@ -164,7 +164,7 @@ Responsabilite complementaire</textarea>
                                 name="projects"
                                 rows="4"
                                 placeholder="Un projet par ligne"
-                            >Projet principal - 2024 • Resultat, impact ou realisation</textarea>
+                            ></textarea>
                         </label>
 
                         <div class="form-split">
@@ -189,15 +189,37 @@ Suite bureautique</textarea>
                                 >Diplome ou formation - Etablissement - Annee</textarea>
                             </label>
                         </div>
-                        <label class="field field-message">
-                            <span>Langues</span>
-                            <textarea
-                                name="languages"
-                                rows="3"
-                                placeholder="Une langue par ligne"
-                            >Francais
-Anglais</textarea>
-                        </label>
+                        <div class="language-workbench" id="language-workbench">
+                            <div class="experience-workbench-head">
+                                <div>
+                                    <span class="field-label">Langues</span>
+                                    <p>Ajoutez chaque langue et son niveau librement. Kirby reprend vos corrections dans le CV.</p>
+                                </div>
+                                <button class="button button-secondary" type="button" id="language-add">Ajouter une langue</button>
+                            </div>
+                            <div class="language-cards" id="language-cards" aria-live="polite"></div>
+                            <datalist id="language-level-options">
+                                <option value="Notions"></option>
+                                <option value="Intermédiaire"></option>
+                                <option value="Professionnel"></option>
+                                <option value="Courant"></option>
+                                <option value="Bilingue"></option>
+                                <option value="Langue maternelle"></option>
+                            </datalist>
+                            <details class="raw-cv-details">
+                                <summary>Texte source des langues</summary>
+                                <label class="field field-message">
+                                    <span>Une langue et un niveau par ligne</span>
+                                    <textarea
+                                        name="languages"
+                                        rows="3"
+                                        placeholder="Ex. Français : langue maternelle"
+                                    >Français : langue maternelle
+Anglais : bases professionnelles
+Arabe</textarea>
+                                </label>
+                            </details>
+                        </div>
                         <label class="field field-message">
                             <span>Activites / centres d'interet</span>
                             <textarea
@@ -211,9 +233,9 @@ Sport</textarea>
 
                         <div class="cv-action-groups">
                             <div class="cv-action-group cv-action-group-single">
-                                <h4>Sauvegarde</h4>
+                                <h4>Brouillon</h4>
                                 <div class="cv-actions">
-                                    <button class="button button-secondary" type="button" id="cv-save">Sauvegarder</button>
+                                    <button class="button button-secondary" type="button" id="cv-save">Sauvegarder le brouillon</button>
                                 </div>
                             </div>
                             <div class="cv-action-group">
@@ -228,10 +250,11 @@ Sport</textarea>
                             <div class="cv-action-group">
                                 <h4>Export</h4>
                                 <div class="cv-actions">
-                                    <button class="button button-primary" type="button" id="cv-export-pdf">Exporter PDF</button>
+                                    <button class="button button-primary" type="button" id="cv-export-pdf">Aperçu PDF</button>
+                                    <button class="button button-secondary" type="button" id="cv-download-pdf">Télécharger PDF</button>
                                     <button class="button button-secondary" type="button" id="cv-export-word">Exporter Word</button>
-                                    <button class="button button-secondary" type="button" id="cv-print">Imprimer</button>
                                 </div>
+                                <p class="cv-export-hint">Commencez par « Aperçu PDF » : seul le CV s’ouvre dans un nouvel onglet. Vous pourrez alors le télécharger ou l’imprimer depuis la barre du PDF. « Fichier &gt; Enregistrer sous » sauvegarde la page web, pas le CV.</p>
                             </div>
                             <div class="cv-action-group">
                                 <h4>Partage</h4>
@@ -255,12 +278,12 @@ Sport</textarea>
                                 <button class="button button-secondary" type="button" id="cv-improve-projects">Ameliorer projets</button>
                             </div>
                             <label class="field field-message">
-                                <span>Offre d'emploi</span>
+                                <span>Poste cible ou offre d'emploi</span>
                                 <textarea
                                     id="job-offer"
                                     name="jobOffer"
                                     rows="5"
-                                    placeholder="Coller l'offre d'emploi ici pour adapter le CV."
+                                    placeholder="Ex. Vendeur Lifestyle, ou collez l'offre complète pour adapter le CV."
                                 ></textarea>
                             </label>
                             <div class="cv-actions">
@@ -374,31 +397,25 @@ Sport</textarea>
                                     </select>
                                 </label>
                                 <label class="preview-quick-control preview-color-control">
-                                    <span>Couleur</span>
+                                    <span>Accent</span>
                                     <input type="color" name="accentColor" form="cv-form" value="#2f3f7f">
+                                </label>
+                                <label class="preview-quick-control preview-color-control">
+                                    <span>Colonne</span>
+                                    <input type="color" name="sidebarColor" form="cv-form" value="#f1e9ed">
+                                </label>
+                                <label class="preview-quick-control preview-color-control">
+                                    <span>Titres</span>
+                                    <input type="color" name="headingColor" form="cv-form" value="#30282d">
                                 </label>
                                 <label class="preview-quick-control preview-color-control">
                                     <span>Fond CV</span>
                                     <input type="color" name="paperColor" form="cv-form" value="#ffffff">
                                 </label>
                                 <label class="preview-quick-control preview-color-control">
-                                    <span>Cadre</span>
+                                    <span>Séparateurs</span>
                                     <input type="color" name="frameColor" form="cv-form" value="#d9deea">
                                 </label>
-                                <div class="preview-format-toggles" aria-label="Style global">
-                                    <label class="tool-toggle">
-                                        <input type="checkbox" name="isBold" form="cv-form">
-                                        <span>B</span>
-                                    </label>
-                                    <label class="tool-toggle">
-                                        <input type="checkbox" name="isItalic" form="cv-form">
-                                        <span>I</span>
-                                    </label>
-                                    <label class="tool-toggle">
-                                        <input type="checkbox" name="isUnderline" form="cv-form">
-                                        <span>U</span>
-                                    </label>
-                                </div>
                             </div>
                             <div class="preview-toolbar-group preview-toolbar-group-mode">
                                 <div class="preview-mode-tabs" role="tablist" aria-label="Type de document">
@@ -415,8 +432,14 @@ Sport</textarea>
                                         <span>Police</span>
                                         <select id="cv-inline-font">
                                             <option value="Arial, sans-serif">Arial</option>
+                                            <option value="'Manrope', sans-serif">Manrope</option>
+                                            <option value="'Inter', sans-serif">Inter</option>
                                             <option value="Roboto, sans-serif">Roboto</option>
+                                            <option value="'Lato', sans-serif">Lato</option>
                                             <option value="'Times New Roman', serif">Times</option>
+                                            <option value="'Libre Baskerville', serif">Baskerville</option>
+                                            <option value="'Playfair Display', serif">Playfair</option>
+                                            <option value="'IBM Plex Sans', sans-serif">IBM Plex</option>
                                         </select>
                                     </label>
                                     <label class="word-toolbar-field word-toolbar-field-size">
@@ -454,6 +477,7 @@ Sport</textarea>
                                     <button class="word-toolbar-button" id="cv-inline-outdent" type="button" aria-label="Diminuer le retrait" title="Diminuer le retrait">⇤</button>
                                     <button class="word-toolbar-button" id="cv-inline-indent" type="button" aria-label="Augmenter le retrait" title="Augmenter le retrait">⇥</button>
                                     <button class="word-toolbar-button" id="cv-inline-clear" type="button" aria-label="Effacer la mise en forme" title="Effacer la mise en forme">Tx</button>
+                                    <button class="word-toolbar-button word-toolbar-button-list" id="cv-undo" type="button" disabled aria-label="Revenir à la version précédente" title="Revenir à la version précédente">↶ Retour</button>
                                     <button class="word-toolbar-button word-toolbar-button-list" id="preview-fit-inline" type="button" aria-label="Compacter sur une page" title="Compacter sur une page">1 page</button>
                                 </div>
                             </div>
@@ -465,7 +489,7 @@ Sport</textarea>
                                     <header class="cv-header">
                                         <p class="cv-label">CV intelligent</p>
                                         <h3 id="preview-name" data-edit-target="fullName" contenteditable="true" spellcheck="false">Votre nom</h3>
-                                        <p class="cv-meta" id="preview-meta" data-edit-target="location" contenteditable="true" spellcheck="false">Ville / code postal | 06 00 00 00 00 | email@exemple.com</p>
+                                        <p class="cv-meta" id="preview-meta" data-edit-target="location" contenteditable="false" spellcheck="false" title="Modifiez les coordonnées dans le formulaire situé sous le CV.">Ville / code postal | 06 00 00 00 00 | email@exemple.com</p>
                                         <p id="preview-headline" data-edit-target="headline" contenteditable="true" spellcheck="false">Intitule du poste vise</p>
                                     </header>
                                     <div class="cv-body" id="cv-preview-sections">
@@ -547,6 +571,10 @@ Sport</textarea>
                                             <ul id="preview-languages" class="cv-list-compact" data-edit-target="languages" contenteditable="true" spellcheck="true"></ul>
                                         </section>
                                     </div>
+                                    <div class="cv-modern-layout" id="cv-modern-layout" hidden aria-hidden="true">
+                                        <aside class="cv-modern-sidebar" id="cv-modern-sidebar"></aside>
+                                        <div class="cv-modern-main" id="cv-modern-main"></div>
+                                    </div>
                                 </article>
                                 <article class="cv-preview cv-letter-page theme-executive font-manrope template-wordpro is-hidden-preview" id="letter-page-preview" data-preview-doc="letter" aria-hidden="true">
                                     <header class="cv-header cv-header-letter">
@@ -626,26 +654,37 @@ Sport</textarea>
     <section class="assistant-chat" id="assistant-chat" aria-label="Assistant CV">
         <div class="assistant-chat-header">
             <div>
-                <strong>Assistant outil</strong>
-                <p>Choisissez une action ou écrivez une consigne courte.</p>
+                <strong>Kirby</strong>
+                <p>Le moteur qui construit, vérifie et adapte votre candidature.</p>
             </div>
             <button class="assistant-close" id="assistant-close" type="button" aria-label="Fermer">×</button>
         </div>
-        <div class="assistant-messages" id="assistant-messages">
-            <article class="assistant-bubble assistant-bubble-bot">
-                Prêt. Les corrections sont appliquées directement dans le CV.
-            </article>
+        <div class="kirby-mode-tabs" role="group" aria-label="Action Kirby">
+            <button class="kirby-mode is-active" type="button" data-kirby-mode="create" aria-pressed="true">
+                <strong>Construire</strong><span>CV brut ou informations</span>
+            </button>
+            <button class="kirby-mode" type="button" data-kirby-mode="optimize" aria-pressed="false">
+                <strong>Optimiser</strong><span>Fautes, doublons, clarté</span>
+            </button>
+            <button class="kirby-mode" type="button" data-kirby-mode="adapt" aria-pressed="false">
+                <strong>Adapter</strong><span>Poste ou offre d’emploi</span>
+            </button>
+            <button class="kirby-mode" type="button" data-kirby-mode="letter" aria-pressed="false">
+                <strong>Lettre</strong><span>Motivation personnalisée</span>
+            </button>
         </div>
-        <div class="assistant-quick-actions">
-            <button class="suggestion-chip" type="button" data-prompt="Corrige et optimise mon CV">Corriger tout</button>
-            <button class="suggestion-chip" type="button" data-prompt="Remplace l'accroche directement">Accroche</button>
-            <button class="suggestion-chip" type="button" data-prompt="Reformule mes experiences directement">Experiences</button>
-            <button class="suggestion-chip" type="button" data-prompt="Enrichis mes competences directement">Competences</button>
-            <button class="suggestion-chip" type="button" data-prompt="Adapte mon CV a l'offre">Offre</button>
-        </div>
+        <div class="assistant-messages assistant-activity" id="assistant-messages" role="status" aria-live="polite">Prêt : Kirby contrôle le contenu avant toute application.</div>
+        <section class="assistant-proposal is-hidden" id="assistant-proposal" aria-live="polite">
+            <div>
+                <strong id="assistant-proposal-title">Prêt à appliquer</strong>
+                <span id="assistant-proposal-summary"></span>
+            </div>
+            <button class="button button-primary" type="button" id="assistant-apply">Appliquer au CV</button>
+        </section>
         <form class="assistant-input-row" id="assistant-form">
-            <input id="assistant-input" type="text" placeholder="Ex. remplace l'accroche, corrige les fautes...">
-            <button class="button button-primary" type="submit">Appliquer</button>
+            <label class="sr-only" for="assistant-input">Votre demande pour Kirby</label>
+            <textarea id="assistant-input" rows="3" placeholder="Collez votre CV ou vos informations brutes : Kirby le structure sans inventer d’expérience."></textarea>
+            <button class="button button-primary" type="submit">Lancer Kirby</button>
         </form>
     </section>
 
@@ -709,6 +748,6 @@ Sport</textarea>
     <script src="https://cdn.jsdelivr.net/npm/mammoth@1.11.0/mammoth.browser.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js" defer></script>
-    <script src="script.js?v=20260614-platform-v4" defer></script>
+    <script src="script.js?v=20260623-velours-cv-v21" defer></script>
 </body>
 </html>
