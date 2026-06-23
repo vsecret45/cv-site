@@ -5219,26 +5219,13 @@ const prepareCvForExport = () => {
         return;
     }
 
-    const skillCount = splitExportItems(cvForm.elements.skills?.value || '').length;
-
     proofreadCvTextFields({ silent: true });
     cleanupImportedExperienceField();
     cleanupImportedEducationField();
 
-    if ((cvForm.elements.summary?.value || '').trim().length < 120) {
-        improveSummaryText({ silent: true });
-    }
-
-    if (cvForm.elements.experience?.value) {
-        improveExperienceLines({ silent: true });
-    }
-
-    if (skillCount < 6) {
-        enrichCvSkills({ silent: true });
-    }
-
     clearEditableOverrides();
     renderExperienceEditor();
+    renderLanguageEditor();
     updateCvPreview();
     scheduleCvDraftSave();
 };
@@ -5697,6 +5684,10 @@ const exportPdf = async (options = {}) => {
         const isModern = ['modern', 'creative'].includes(data?.template);
         const isExecutive = ['executive', 'premium'].includes(data?.template);
         const isMinimal = ['minimal', 'ats', 'elegant'].includes(data?.template);
+        // Le mode de secours ecrit directement dans jsPDF. Il est legerement
+        // plus dense pour garantir une page sans toucher au contenu du CV.
+        const exportDensity = currentPreviewMode === 'cv' ? 0.86 : 1;
+        const dense = (value) => value * exportDensity;
 
         const setTextColor = (hex) => {
             const [r, g, b] = hexToRgb(hex, '#172033');
@@ -5751,46 +5742,46 @@ const exportPdf = async (options = {}) => {
                 lineHeight = 4.2,
                 after = 1.5,
             } = options;
-            const lines = getWrappedLines(text, width, size, weight);
-            const blockHeight = lines.length * lineHeight;
+            const lines = getWrappedLines(text, width, dense(size), weight);
+            const blockHeight = lines.length * dense(lineHeight);
 
-            addPageIfNeeded(blockHeight + after);
+            addPageIfNeeded(blockHeight + dense(after));
             doc.setFont('helvetica', weight);
-            doc.setFontSize(size);
+            doc.setFontSize(dense(size));
             setTextColor(color);
             doc.text(lines, x, y, { align, maxWidth: width });
-            y += blockHeight + after;
+            y += blockHeight + dense(after);
 
             return blockHeight;
         };
 
         const writeSectionTitle = (title) => {
-            addPageIfNeeded(9);
-            y += 1;
+            addPageIfNeeded(dense(9));
+            y += dense(1);
             doc.setFont('helvetica', 'bold');
-            doc.setFontSize(9.4);
+            doc.setFontSize(dense(9.4));
 
             if (isMinimal) {
                 setTextColor(accent);
                 doc.text(String(title).toUpperCase(), marginX, y);
                 setDrawColor(frame);
-                doc.line(marginX + 40, y - 1.3, marginX + contentWidth, y - 1.3);
+                doc.line(marginX + 40, y - dense(1.3), marginX + contentWidth, y - dense(1.3));
             } else if (isModern) {
                 setTextColor(accent);
                 doc.text(String(title).toUpperCase(), marginX, y);
                 doc.setDrawColor(accentR, accentG, accentB);
                 doc.setLineWidth(0.25);
-                doc.line(marginX, y + 1.5, marginX + 42, y + 1.5);
+                doc.line(marginX, y + dense(1.5), marginX + 42, y + dense(1.5));
             } else {
                 doc.setFillColor(softR, softG, softB);
-                doc.rect(marginX, y - 4.7, contentWidth, 7.2, 'F');
+                doc.rect(marginX, y - dense(4.7), contentWidth, dense(7.2), 'F');
                 doc.setFillColor(accentR, accentG, accentB);
-                doc.rect(marginX, y - 4.7, 1.5, 7.2, 'F');
+                doc.rect(marginX, y - dense(4.7), 1.5, dense(7.2), 'F');
                 setTextColor('#223047');
                 doc.text(String(title).toUpperCase(), marginX + 4, y);
             }
 
-            y += 6;
+            y += dense(6);
         };
 
         const writeTwoColumnList = (items) => {
@@ -5800,20 +5791,20 @@ const exportPdf = async (options = {}) => {
 
             const columnGap = 8;
             const columnWidth = (contentWidth - columnGap) / 2;
-            const rowLineHeight = 3.9;
+            const rowLineHeight = dense(3.9);
             const leftX = marginX + 2;
             const rightX = marginX + columnWidth + columnGap + 2;
 
             for (let index = 0; index < items.length; index += 2) {
-                const leftLines = getWrappedLines(`• ${items[index]}`, columnWidth - 4, 9.6);
+                const leftLines = getWrappedLines(`• ${items[index]}`, columnWidth - 4, dense(9.6));
                 const rightLines = items[index + 1]
-                    ? getWrappedLines(`• ${items[index + 1]}`, columnWidth - 4, 9.6)
+                    ? getWrappedLines(`• ${items[index + 1]}`, columnWidth - 4, dense(9.6))
                     : [];
                 const rowHeight = Math.max(leftLines.length, rightLines.length || 1) * rowLineHeight;
 
-                addPageIfNeeded(rowHeight + 1);
+                addPageIfNeeded(rowHeight + dense(1));
                 doc.setFont('helvetica', 'normal');
-                doc.setFontSize(9.6);
+                doc.setFontSize(dense(9.6));
                 setTextColor('#3d4658');
                 doc.text(leftLines, leftX, y, { maxWidth: columnWidth - 4 });
 
@@ -5824,7 +5815,7 @@ const exportPdf = async (options = {}) => {
                 y += rowHeight;
             }
 
-            y += 1.5;
+            y += dense(1.5);
         };
 
         const writeTimelineCards = (entries, options = {}) => {
@@ -5834,14 +5825,14 @@ const exportPdf = async (options = {}) => {
 
             const compact = options.compact;
             const cardPaddingX = compact ? 3.5 : 4.2;
-            const cardPaddingY = compact ? 3.1 : 3.7;
-            const cardGap = compact ? 2.3 : 2.9;
-            const titleSize = compact ? 9.4 : 9.9;
-            const metaSize = compact ? 8.8 : 9.1;
-            const bulletSize = compact ? 8.8 : 9.1;
-            const titleLineHeight = compact ? 3.7 : 4;
-            const metaLineHeight = compact ? 3.4 : 3.6;
-            const bulletLineHeight = compact ? 3.4 : 3.6;
+            const cardPaddingY = dense(compact ? 3.1 : 3.7);
+            const cardGap = dense(compact ? 2.3 : 2.9);
+            const titleSize = dense(compact ? 9.4 : 9.9);
+            const metaSize = dense(compact ? 8.8 : 9.1);
+            const bulletSize = dense(compact ? 8.8 : 9.1);
+            const titleLineHeight = dense(compact ? 3.7 : 4);
+            const metaLineHeight = dense(compact ? 3.4 : 3.6);
+            const bulletLineHeight = dense(compact ? 3.4 : 3.6);
 
             entries.forEach((entry) => {
                 const dateWidth = entry.date ? Math.min(42, Math.max(24, doc.getTextWidth(entry.date) + 6)) : 0;
@@ -5852,9 +5843,9 @@ const exportPdf = async (options = {}) => {
                 const bulletsHeight = bulletLines.reduce((sum, lines) => sum + Math.max(lines.length, 1) * bulletLineHeight, 0);
                 const cardHeight =
                     cardPaddingY * 2 +
-                    Math.max(titleLines.length * titleLineHeight, compact ? 4 : 5) +
-                    (metaLines.length ? metaLines.length * metaLineHeight + 1.2 : 0) +
-                    (bulletLines.length ? bulletsHeight + 1.5 : 0);
+                    Math.max(titleLines.length * titleLineHeight, dense(compact ? 4 : 5)) +
+                    (metaLines.length ? metaLines.length * metaLineHeight + dense(1.2) : 0) +
+                    (bulletLines.length ? bulletsHeight + dense(1.5) : 0);
 
                 addPageIfNeeded(cardHeight + cardGap);
                 setFillColor(isModern ? mixExportHex(accent, '#ffffff', 0.95) : '#ffffff');
@@ -5863,14 +5854,14 @@ const exportPdf = async (options = {}) => {
                 if (isMinimal) {
                     doc.line(marginX, y + cardHeight, marginX + contentWidth, y + cardHeight);
                     doc.setFillColor(accentR, accentG, accentB);
-                    doc.rect(marginX, y + 1, 0.9, Math.max(5, cardHeight - 2), 'F');
+                    doc.rect(marginX, y + dense(1), 0.9, Math.max(dense(5), cardHeight - dense(2)), 'F');
                 } else {
-                    drawRoundedRect(marginX, y, contentWidth, cardHeight, 2.4, 'FD');
+                    drawRoundedRect(marginX, y, contentWidth, cardHeight, dense(2.4), 'FD');
                     doc.setFillColor(accentR, accentG, accentB);
                     doc.rect(marginX, y, isExecutive ? 2 : 1.4, cardHeight, 'F');
                 }
 
-                let textY = y + cardPaddingY + 3;
+                let textY = y + cardPaddingY + dense(3);
                 doc.setFont('helvetica', 'bold');
                 doc.setFontSize(titleSize);
                 setTextColor('#172033');
@@ -5878,11 +5869,11 @@ const exportPdf = async (options = {}) => {
 
                 if (entry.date) {
                     doc.setFillColor(softR, softG, softB);
-                    drawRoundedRect(marginX + contentWidth - dateWidth - cardPaddingX, y + cardPaddingY - 0.6, dateWidth, 5.2, 2, 'F');
+                    drawRoundedRect(marginX + contentWidth - dateWidth - cardPaddingX, y + cardPaddingY - dense(0.6), dateWidth, dense(5.2), dense(2), 'F');
                     doc.setFont('helvetica', 'bold');
-                    doc.setFontSize(8.2);
+                    doc.setFontSize(dense(8.2));
                     setTextColor(accent);
-                    doc.text(entry.date, marginX + contentWidth - cardPaddingX - dateWidth / 2, y + cardPaddingY + 3, { align: 'center' });
+                    doc.text(entry.date, marginX + contentWidth - cardPaddingX - dateWidth / 2, y + cardPaddingY + dense(3), { align: 'center' });
                 }
 
                 textY += titleLines.length * titleLineHeight;
@@ -5892,7 +5883,7 @@ const exportPdf = async (options = {}) => {
                     doc.setFontSize(metaSize);
                     setTextColor('#5a6375');
                     doc.text(metaLines, marginX + cardPaddingX, textY, { maxWidth: contentWidth - cardPaddingX * 2 });
-                    textY += metaLines.length * metaLineHeight + 1;
+                    textY += metaLines.length * metaLineHeight + dense(1);
                 }
 
                 if (bulletLines.length) {
@@ -5929,13 +5920,13 @@ const exportPdf = async (options = {}) => {
             return;
         }
 
-        const headerHeight = isModern ? 31 : isExecutive ? 29 : 27;
+        const headerHeight = dense(isModern ? 31 : isExecutive ? 29 : 27);
         if (!isMinimal) {
             setFillColor(isModern ? data.soft : '#ffffff');
             setDrawColor(frame);
-            drawRoundedRect(marginX, y - 2, contentWidth, headerHeight, 2.8, isModern ? 'FD' : 'S');
+            drawRoundedRect(marginX, y - dense(2), contentWidth, headerHeight, dense(2.8), isModern ? 'FD' : 'S');
             doc.setFillColor(accentR, accentG, accentB);
-            doc.rect(marginX, y - 2, isExecutive ? 2 : 1.5, headerHeight, 'F');
+            doc.rect(marginX, y - dense(2), isExecutive ? 2 : 1.5, headerHeight, 'F');
         }
 
         const headerX = isMinimal ? marginX : marginX + 5;
@@ -5943,30 +5934,30 @@ const exportPdf = async (options = {}) => {
         const metaLine = data.metaParts.join(' | ');
 
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(18.5);
+        doc.setFontSize(dense(18.5));
         setTextColor('#111827');
-        doc.text(getWrappedLines(data.fullName, headerWidth, 18.5, 'bold'), headerX, y + 5, { maxWidth: headerWidth });
+        doc.text(getWrappedLines(data.fullName, headerWidth, dense(18.5), 'bold'), headerX, y + dense(5), { maxWidth: headerWidth });
 
-        let headerY = y + 12;
+        let headerY = y + dense(12);
         if (metaLine) {
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(9.5);
+            doc.setFontSize(dense(9.5));
             setTextColor('#5b6475');
-            doc.text(getWrappedLines(metaLine, headerWidth, 9.5), headerX, headerY, { maxWidth: headerWidth });
-            headerY += 5;
+            doc.text(getWrappedLines(metaLine, headerWidth, dense(9.5)), headerX, headerY, { maxWidth: headerWidth });
+            headerY += dense(5);
         }
 
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11.6);
+        doc.setFontSize(dense(11.6));
         setTextColor(accent);
-        doc.text(getWrappedLines(data.headline, headerWidth, 11.6, 'bold'), headerX, headerY, { maxWidth: headerWidth });
+        doc.text(getWrappedLines(data.headline, headerWidth, dense(11.6), 'bold'), headerX, headerY, { maxWidth: headerWidth });
 
-        y += headerHeight + 4;
+        y += headerHeight + dense(4);
 
         if (isMinimal) {
             setDrawColor(frame);
             doc.setLineWidth(0.35);
-            doc.line(marginX, y - 2.5, marginX + contentWidth, y - 2.5);
+            doc.line(marginX, y - dense(2.5), marginX + contentWidth, y - dense(2.5));
         }
 
         if (data.summary) {

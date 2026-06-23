@@ -4782,6 +4782,10 @@ body.cv-workspace-page .preview-toolbar-group-tools {
         transform: none !important;
     }
 
+    .cv-preview.template-modern .cv-modern-layout {
+        min-height: 0 !important;
+    }
+
     .cv-preview-viewport {
         height: auto !important;
         overflow: visible !important;
