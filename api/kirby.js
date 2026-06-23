@@ -190,6 +190,8 @@ Tu peux :
 - relever les mots-cles de l'offre et proposer, dans "suggestedSkills", ceux que la personne peut ajouter uniquement si elle les a reellement pratiques ;
 - detecter les langues. Conserve le niveau exact fourni dans le CV ou dans la demande utilisateur, y compris une formulation informelle comme "notions professionnelles". Si le niveau manque, laisse "level" vide, sans avertissement ni texte de blocage.
 - verifier la qualite avant proposition : fautes evidentes, doublons de competences, repetitions, rubriques vides et risque de contenu trop long ;
+- comprendre les actions de structure demandees directement par l utilisateur. Exemple : « supprime Projets », « retire Activites », « enleve cette competence » ou « corrige le trou sous Competences ». Une rubrique non vide ne peut etre retiree que si la demande le dit clairement. Pour une suppression de rubrique, renseigne layout.removeSections avec une ou plusieurs de ces cles exactes : summary, skills, experience, projects, education, activities, languages. Sinon retourne une liste vide.
+- quand l utilisateur demande de retirer une competence precise ou des doublons, retourne dans skills la liste finale complete des competences restantes, sans ajouter de competence inventee. Pour un trou, un espace vide ou une demande de meilleure mise en page, mets layout.reflow a true. Ne force layout.compact a true que si l utilisateur demande explicitement un CV plus compact ou une seule page.
 - ecrire une lettre de motivation courte et personnalisee uniquement a partir du CV, de l'offre et des informations de lettre fournies.
 
 Quand la consigne contient un CV colle, traite-le comme une source factuelle supplementaire et remplis "extracted" avec les coordonnees, experiences, formations, langues et activites explicitement presentes. Ne lis jamais une offre d'emploi comme un CV. Une offre sert uniquement a adapter les elements deja prouves.
@@ -242,6 +244,11 @@ Schema JSON obligatoire :
   "quality": {
     "fixes": ["controle ou correction realisee"],
     "warnings": ["information manquante a completer"]
+  },
+  "layout": {
+    "removeSections": ["projects"],
+    "reflow": false,
+    "compact": false
   },
   "letter": {
     "subject": "Objet : Candidature",
@@ -922,6 +929,7 @@ const applyFallbackRevision = (currentProposal, revision, brief) => {
 };
 
 const CV_ASSISTANT_TASKS = new Set(['autofill', 'create', 'optimize', 'adapt', 'letter', 'assistant']);
+const CV_LAYOUT_SECTION_KEYS = new Set(['summary', 'skills', 'experience', 'projects', 'education', 'activities', 'languages']);
 
 const limitCvText = (value, max = 360) => normalizeDisplayText(value).slice(0, max).trim();
 const limitCvMultilineText = (value, max = 1600) =>
@@ -1005,6 +1013,35 @@ const sanitizeCvQuality = (value) => {
     };
 };
 
+const normalizeCvLayoutSection = (value) => {
+    const source = stripAccents(normalizeText(value).toLowerCase());
+
+    if (/^profil|^accroche|^resume/.test(source)) return 'summary';
+    if (/^competence|^skill/.test(source)) return 'skills';
+    if (/^experience|^parcours/.test(source)) return 'experience';
+    if (/^projet/.test(source)) return 'projects';
+    if (/^formation|^certification|^diplome/.test(source)) return 'education';
+    if (/^activite|^loisir|^centre.d.interet/.test(source)) return 'activities';
+    if (/^langue/.test(source)) return 'languages';
+
+    return CV_LAYOUT_SECTION_KEYS.has(source) ? source : '';
+};
+
+const sanitizeCvLayout = (value) => {
+    const layout = value && typeof value === 'object' ? value : {};
+    const removeSections = (Array.isArray(layout.removeSections) ? layout.removeSections : [])
+        .map(normalizeCvLayoutSection)
+        .filter(Boolean)
+        .filter((item, index, list) => list.indexOf(item) === index)
+        .slice(0, 4);
+
+    return {
+        removeSections,
+        reflow: Boolean(layout.reflow),
+        compact: Boolean(layout.compact),
+    };
+};
+
 const sanitizeCvLetter = (value) => {
     const letter = value && typeof value === 'object' ? value : {};
 
@@ -1041,6 +1078,7 @@ const sanitizeCvAssistantResult = (result, cv = {}) => {
         suggestions: toCvStringList(result && result.suggestions, 6, 180),
         notice: limitCvText(result && result.notice, 260),
         quality: sanitizeCvQuality(result && result.quality),
+        layout: sanitizeCvLayout(result && result.layout),
         letter: sanitizeCvLetter(result && result.letter),
     };
 };
@@ -1144,6 +1182,12 @@ const buildFallbackCvAssistant = ({ task, cv, jobOffer, instruction, letter = {}
     const summary = role === 'Vendeur Lifestyle' && hasCustomerEvidence
         ? 'Professionnelle de la relation client, organisée et autonome, mettant à profit son sens du service, son écoute et son conseil pour accompagner chaque client.'
         : limitCvText(cv.summary, 300);
+    const normalizedInstruction = stripAccents(normalize(instruction).toLowerCase());
+    const layout = {
+        removeSections: [],
+        reflow: /\b(trou|espace vide|mise en page|equilibr|reequilibr|remonter|reorganis)\b/.test(normalizedInstruction),
+        compact: /\b(compact|compacter|une page)\b/.test(normalizedInstruction),
+    };
     const fallbackLetter = task === 'letter' || /\blettre|motivation\b/i.test(instruction)
         ? buildFallbackCvLetter({ cv, jobOffer, instruction, letter, role })
         : { subject: '', body: '' };
@@ -1179,6 +1223,7 @@ const buildFallbackCvAssistant = ({ task, cv, jobOffer, instruction, letter = {}
                 ? ['Un niveau de langue reste à préciser.']
                 : [],
         },
+        layout,
         letter: fallbackLetter,
         notice: role
             ? `Adaptation ${role} réalisée à partir des éléments présents dans le CV.`

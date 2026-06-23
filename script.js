@@ -6255,14 +6255,14 @@ const setJobOfferFromAssistantMessage = (message = '') => {
     return false;
 };
 
-const showKirbyCvProposal = (result, task, snapshot) => {
+const showKirbyCvProposal = (result, task, snapshot, instruction = '') => {
     const proposal = result?.cv;
 
     if (!proposal || !assistantProposal) {
         return false;
     }
 
-    pendingKirbyCvProposal = { result, task, snapshot };
+    pendingKirbyCvProposal = { result, task, snapshot, instruction };
     const extracted = proposal.extracted || {};
     const extractedCount = (extracted.experiences?.length || 0) + (extracted.education?.length || 0);
     const target = task === 'letter'
@@ -6275,7 +6275,24 @@ const showKirbyCvProposal = (result, task, snapshot) => {
     }
     if (assistantProposalSummary) {
         const qualityFixes = Array.isArray(proposal.quality?.fixes) ? proposal.quality.fixes : [];
-        assistantProposalSummary.textContent = proposal.notice || qualityFixes.slice(0, 2).join(' · ') || 'Contrôle terminé avant application.';
+        const layoutIntent = getKirbyLayoutIntent(instruction, proposal.layout);
+        const structuralActions = [
+            layoutIntent.removeSections.length
+                ? `${layoutIntent.removeSections.map((key) => kirbySectionActions.find((section) => section.key === key)?.label || key).join(', ')} à retirer`
+                : '',
+            layoutIntent.namedSkillRemovals.length
+                ? `${layoutIntent.namedSkillRemovals.length} compétence(s) à retirer`
+                : '',
+            layoutIntent.compact
+                ? 'mise en page compacte'
+                : layoutIntent.reflow
+                    ? 'mise en page rééquilibrée'
+                    : '',
+        ].filter(Boolean).join(' · ');
+        assistantProposalSummary.textContent = [
+            proposal.notice || qualityFixes.slice(0, 2).join(' · '),
+            structuralActions,
+        ].filter(Boolean).join(' · ') || 'Contrôle terminé avant application.';
     }
     if (assistantApplyButton) {
         assistantApplyButton.textContent = task === 'letter' ? 'Appliquer la lettre' : 'Appliquer au CV';
@@ -6371,7 +6388,8 @@ const applyQuickLanguageCorrectionToProposal = (message = '') => {
     showKirbyCvProposal(
         pendingKirbyCvProposal.result,
         pendingKirbyCvProposal.task,
-        pendingKirbyCvProposal.snapshot
+        pendingKirbyCvProposal.snapshot,
+        pendingKirbyCvProposal.instruction
     );
 
     return `${correction.language} est maintenant réglé sur « ${correction.level} ». Cliquez sur « Appliquer au CV » quand la proposition vous convient.`;
@@ -6443,6 +6461,87 @@ const mergeKirbyLanguages = (languages = []) => {
 
     field.value = value;
     return true;
+};
+
+const kirbySectionActions = [
+    { key: 'summary', label: 'profil', aliases: ['profil', 'accroche', 'resume'] },
+    { key: 'skills', label: 'compétences', aliases: ['competence', 'competences', 'skill', 'skills'] },
+    { key: 'experience', label: 'expériences', aliases: ['experience', 'experiences', 'parcours'] },
+    { key: 'projects', label: 'projets', aliases: ['projet', 'projets'] },
+    { key: 'education', label: 'formations', aliases: ['formation', 'formations', 'certification', 'certifications', 'diplome', 'diplomes'] },
+    { key: 'activities', label: 'activités', aliases: ['activite', 'activites', 'loisir', 'loisirs', 'centre d interet', 'centres d interet'] },
+    { key: 'languages', label: 'langues', aliases: ['langue', 'langues'] },
+];
+
+const getKirbyLayoutIntent = (instruction = '', layout = {}) => {
+    const source = normalizeForMatch(String(instruction || '')).replace(/[’']/g, ' ');
+    const removalAsked = /\b(supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|masque|masquer)\b|pas besoin de/.test(source);
+    const sourceRemovals = removalAsked
+        ? kirbySectionActions
+            .filter((section) => section.aliases.some((alias) => source.includes(alias)))
+            .map((section) => section.key)
+        : [];
+    const modelRemovals = removalAsked && Array.isArray(layout?.removeSections)
+        ? layout.removeSections.filter((key) => kirbySectionActions.some((section) => section.key === key))
+        : [];
+    const removeSections = [...new Set([...sourceRemovals, ...modelRemovals])];
+    const existingSkills = splitLines(cvForm?.elements.skills?.value || '');
+    const namedSkillRemovals = removalAsked && !removeSections.includes('skills')
+        ? existingSkills.filter((skill) => {
+            const normalizedSkill = normalizeForMatch(skill).replace(/[^a-z0-9]+/g, ' ').trim();
+            return normalizedSkill.length > 2 && source.includes(normalizedSkill);
+        })
+        : [];
+    const reflow = Boolean(layout?.reflow) || /\b(trou|espace vide|vide sous|mise en page|equilibr|reequilibr|remonter|reorganis|aeration)\b/.test(source);
+    const compact = Boolean(layout?.compact) || /\b(compact|compacter|une page|trop long)\b/.test(source);
+
+    return {
+        removeSections,
+        namedSkillRemovals,
+        replaceSkills: removeSections.includes('skills') || namedSkillRemovals.length > 0 || (removalAsked && /\b(doublon|doublons)\b/.test(source)),
+        reflow,
+        compact,
+    };
+};
+
+const applyKirbyLayoutIntent = (intent = {}) => {
+    if (!cvForm) {
+        return [];
+    }
+
+    const changes = [];
+    (intent.removeSections || []).forEach((key) => {
+        const field = cvForm.elements[key];
+        const section = kirbySectionActions.find((item) => item.key === key);
+
+        if (!field || !field.value.trim()) {
+            return;
+        }
+
+        field.value = '';
+        clearEditableOverride(key);
+        changes.push(`${section?.label || key} retirées`);
+    });
+
+    if (intent.compact) {
+        const changed = cvForm.elements.fontSize?.value !== 'compact' || cvForm.elements.lineSpacing?.value !== 'tight';
+        if (cvForm.elements.fontSize) cvForm.elements.fontSize.value = 'compact';
+        if (cvForm.elements.lineSpacing) cvForm.elements.lineSpacing.value = 'tight';
+        if (changed) changes.push('mise en page compacte');
+    } else if (intent.reflow) {
+        let changed = false;
+        if (cvForm.elements.fontSize?.value === 'large') {
+            cvForm.elements.fontSize.value = 'normal';
+            changed = true;
+        }
+        if (cvForm.elements.lineSpacing?.value === 'airy') {
+            cvForm.elements.lineSpacing.value = 'normal';
+            changed = true;
+        }
+        if (changed || (intent.removeSections || []).length) changes.push('mise en page rééquilibrée');
+    }
+
+    return changes;
 };
 
 const applyKirbyExtractedCv = (extracted = {}) => {
@@ -6531,7 +6630,7 @@ const applyKirbyLetter = (letter = {}, fallbackRole = '') => {
     return true;
 };
 
-const applyKirbyCvResult = (result, task) => {
+const applyKirbyCvResult = (result, task, instruction = '') => {
     const proposal = result?.cv;
 
     if (!cvForm || !proposal || typeof proposal !== 'object') {
@@ -6542,6 +6641,7 @@ const applyKirbyCvResult = (result, task) => {
     const headlineField = cvForm.elements.headline;
     const summaryField = cvForm.elements.summary;
     const skillsField = cvForm.elements.skills;
+    const layoutIntent = getKirbyLayoutIntent(instruction, proposal.layout);
 
     if (proposal.jobTarget && cvForm.elements.jobTarget) {
         cvForm.elements.jobTarget.value = formatCvHeadline(proposal.jobTarget);
@@ -6560,10 +6660,15 @@ const applyKirbyCvResult = (result, task) => {
         }
     }
 
-    if (Array.isArray(proposal.skills) && proposal.skills.length && skillsField) {
+    if (skillsField && ((Array.isArray(proposal.skills) && proposal.skills.length) || layoutIntent.namedSkillRemovals.length)) {
         const existing = splitLines(skillsField.value).map(normalizeCvSentenceText);
-        const proposed = proposal.skills.map(normalizeCvSentenceText);
-        const value = dedupeCvSkillItems([...proposed, ...existing]).join('\n');
+        const proposed = Array.isArray(proposal.skills) ? proposal.skills.map(normalizeCvSentenceText) : [];
+        const removedSkills = new Set(layoutIntent.namedSkillRemovals.map((skill) => normalizeForMatch(skill)));
+        const retainedExisting = existing.filter((skill) => !removedSkills.has(normalizeForMatch(skill)));
+        const candidates = layoutIntent.replaceSkills
+            ? [...proposed, ...retainedExisting]
+            : [...proposed, ...existing];
+        const value = dedupeCvSkillItems(candidates.filter((skill) => !removedSkills.has(normalizeForMatch(skill)))).join('\n');
         if (value && value !== skillsField.value) {
             skillsField.value = value;
             changes.push('compétences');
@@ -6577,6 +6682,8 @@ const applyKirbyCvResult = (result, task) => {
     if (mergeKirbyLanguages(proposal.languages)) {
         changes.push('langues');
     }
+
+    changes.push(...applyKirbyLayoutIntent(layoutIntent));
 
     const didApplyLetter = applyKirbyLetter(proposal.letter, proposal.jobTarget || proposal.headline);
     if (didApplyLetter) {
@@ -6612,7 +6719,10 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
         return 'Kirby analyse déjà le CV.';
     }
 
-    const taskLabel = {
+    const layoutIntent = getKirbyLayoutIntent(instruction);
+    const taskLabel = layoutIntent.removeSections.length || layoutIntent.namedSkillRemovals.length || layoutIntent.reflow || layoutIntent.compact
+        ? 'Kirby prépare les suppressions et la mise en page…'
+        : {
         create: 'Kirby structure votre CV…',
         autofill: 'Kirby extrait les informations du CV…',
         optimize: 'Kirby vérifie les fautes, doublons et lisibilité…',
@@ -6628,7 +6738,7 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
 
     try {
         const result = await requestKirbyCvAssistant({ task, instruction });
-        if (!showKirbyCvProposal(result, task, snapshot)) {
+        if (!showKirbyCvProposal(result, task, snapshot, instruction)) {
             return 'Kirby n’a pas pu préparer de proposition exploitable.';
         }
         setCvStatus('Proposition Kirby prête à appliquer');
@@ -8170,7 +8280,11 @@ if (assistantApplyButton) {
             return;
         }
 
-        const reply = applyKirbyCvResult(pendingKirbyCvProposal.result, pendingKirbyCvProposal.task);
+        const reply = applyKirbyCvResult(
+            pendingKirbyCvProposal.result,
+            pendingKirbyCvProposal.task,
+            pendingKirbyCvProposal.instruction
+        );
         hideKirbyCvProposal();
         if (assistantInput) {
             assistantInput.value = '';
