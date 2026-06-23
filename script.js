@@ -6228,6 +6228,8 @@ const looksLikeJobOffer = (message = '') => {
         return false;
     }
 
+    const normalized = normalizeForMatch(source);
+
     const signals = [
         /\bnous recherchons\b/i,
         /\bposte [àa] pourvoir\b/i,
@@ -6239,7 +6241,13 @@ const looksLikeJobOffer = (message = '') => {
         /\brejoignez\b/i,
     ].filter((pattern) => pattern.test(source)).length;
 
-    return signals >= 1;
+    const hasJobTitle = /\b(vendeur|vendeuse|employe|employee|conseiller|conseillere|assistant|assistante|responsable|charge|manager|caissier|caissiere)\b/.test(normalized);
+    const hasContract = /\b(cdi|cdd|interim|alternance|stage|temps plein|temps partiel|\d{1,2}\s*h|h\s*\/\s*f|f\s*\/\s*h)\b/.test(normalized);
+    const hasOfferContext = /\b(recrutement|magasin|boutique|entreprise|poste|offre|candidature)\b/.test(normalized)
+        || /\[[^\]]+\]\(https?:\/\//i.test(source)
+        || /\b\d{2}\b/.test(normalized);
+
+    return signals >= 1 || (hasJobTitle && (hasContract || hasOfferContext));
 };
 
 const setJobOfferFromAssistantMessage = (message = '') => {

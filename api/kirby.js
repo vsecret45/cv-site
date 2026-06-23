@@ -204,7 +204,9 @@ Les demandes courtes sont des actions, pas des questions a faire confirmer. Comp
 - "enleve / pas besoin de Lifestyle" : retire Lifestyle du titre et de l'accroche, sans toucher aux experiences. Retourne toujours un titre de remplacement non vide, choisi parmi les intitulés réellement présents dans le CV ;
 - "refais correctement" : produis une version CV claire, compacte et prete a l'emploi a partir des faits existants.
 
-Pour un poste de "Vendeur Lifestyle", valorise uniquement les preuves de relation client, conseil, accueil, autonomie et sens du service deja presentes. N'ajoute jamais vente, encaissement ou mise en rayon comme experience si le CV ne les prouve pas.
+Pour l'adaptation a une offre, le titre exact de l'offre collee est prioritaire sur tout ancien titre du CV ou toute ancienne offre. Ne reutilise jamais un ancien intitulé : par exemple, une offre « Vendeur Polyvalent » doit produire « Vendeur polyvalent », et non « Vendeur Lifestyle ».
+
+Pour un poste de vente ou de magasin (Vendeur Lifestyle, Vendeur polyvalent, etc.), valorise uniquement les preuves de relation client, conseil, accueil, autonomie et sens du service deja presentes. N'ajoute jamais vente, encaissement ou mise en rayon comme experience si le CV ne les prouve pas. Ces elements peuvent seulement etre proposes dans suggestedSkills avec la mention « a confirmer ».
 
 Selon la tache demandee :
 - "create" : transforme un CV colle ou des informations brutes en CV structure. Si les faits sont insuffisants, utilise extracted et suggestions pour indiquer exactement ce qui manque, sans creer de faux parcours.
@@ -1086,8 +1088,26 @@ const sanitizeCvAssistantResult = (result, cv = {}) => {
 const getCvRoleFromText = (value = '') => {
     const source = stripAccents(normalizeText(value).toLowerCase());
 
-    if (/\bvendeur|vendeuse|vente|lifestyle|boutique|magasin\b/.test(source)) {
+    if (/\bvendeuse?\s+lifestyle\b/.test(source)) {
         return 'Vendeur Lifestyle';
+    }
+    if (/\bvendeuse\s+polyvalente\b/.test(source)) {
+        return 'Vendeuse polyvalente';
+    }
+    if (/\bvendeur\s+polyvalent\b/.test(source)) {
+        return 'Vendeur polyvalent';
+    }
+    if (/\bvendeuse\b/.test(source)) {
+        return 'Vendeuse';
+    }
+    if (/\bvendeur\b/.test(source)) {
+        return 'Vendeur';
+    }
+    if (/\bemploye\s+polyvalent\b/.test(source)) {
+        return 'Employé polyvalent';
+    }
+    if (/\bemploye\b/.test(source) && /\bmagasin|boutique|rayon\b/.test(source)) {
+        return 'Employé de magasin';
     }
     if (/\bconseill(?:er|ere|ère)|relation client|service client\b/.test(source)) {
         return 'Conseiller clientèle';
@@ -1100,6 +1120,35 @@ const getCvRoleFromText = (value = '') => {
     }
 
     return '';
+};
+
+const getRequestedCvRole = ({ task, jobOffer = '', instruction = '' } = {}) => {
+    if (task !== 'adapt') {
+        return '';
+    }
+
+    const normalizedInstruction = stripAccents(normalize(instruction).toLowerCase());
+    const isRemovalRequest = /\b(supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer)\b|pas besoin de/.test(normalizedInstruction);
+    if (isRemovalRequest) {
+        return '';
+    }
+
+    return getCvRoleFromText(instruction) || getCvRoleFromText(jobOffer);
+};
+
+const finalizeCvAssistantResult = ({ result, cv, task, jobOffer, instruction }) => {
+    const assistantResult = sanitizeCvAssistantResult(result, cv);
+    const requestedRole = getRequestedCvRole({ task, jobOffer, instruction });
+
+    if (!requestedRole) {
+        return assistantResult;
+    }
+
+    return {
+        ...assistantResult,
+        headline: requestedRole,
+        jobTarget: requestedRole,
+    };
 };
 
 const getCvLanguagesFromText = (value = '') => {
@@ -1141,7 +1190,8 @@ const buildFallbackCvLetter = ({ cv, jobOffer, instruction, letter, role }) => {
 const buildFallbackCvAssistant = ({ task, cv, jobOffer, instruction, letter = {} }) => {
     const source = [cv.headline, cv.summary, cv.skills, cv.experience, cv.projects, instruction, jobOffer].filter(Boolean).join(' ');
     const normalizedSource = stripAccents(source.toLowerCase());
-    const role = getCvRoleFromText(`${jobOffer} ${instruction} ${cv.headline}`);
+    const role = getCvRoleFromText(jobOffer) || getCvRoleFromText(instruction) || getCvRoleFromText(cv.headline);
+    const isRetailRole = /^(Vendeur|Vendeuse|Employé|Employée)/.test(role);
     const existingSkills = normalize(cv.skills).split(/\r?\n/).map((item) => limitCvText(item, 80)).filter(Boolean);
     const skills = [...existingSkills];
     const suggestedSkills = [];
@@ -1159,7 +1209,7 @@ const buildFallbackCvAssistant = ({ task, cv, jobOffer, instruction, letter = {}
         skills.push('Autonomie');
     }
 
-    if (role === 'Vendeur Lifestyle') {
+    if (isRetailRole) {
         ['Vente', 'Encaissement', 'Mise en rayon'].forEach((skill) => {
             if (!normalizedSource.includes(stripAccents(skill).toLowerCase())) {
                 suggestedSkills.push(`${skill} - à confirmer`);
@@ -1179,7 +1229,7 @@ const buildFallbackCvAssistant = ({ task, cv, jobOffer, instruction, letter = {}
         .filter((word) => word.length > 4)
         .slice(0, 8);
     const hasCustomerEvidence = /\b(client|clientele|accueil|conseil|commercial)\b/.test(normalizedSource);
-    const summary = role === 'Vendeur Lifestyle' && hasCustomerEvidence
+    const summary = isRetailRole && hasCustomerEvidence
         ? 'Professionnelle de la relation client, organisée et autonome, mettant à profit son sens du service, son écoute et son conseil pour accompagner chaque client.'
         : limitCvText(cv.summary, 300);
     const normalizedInstruction = stripAccents(normalize(instruction).toLowerCase());
@@ -1544,7 +1594,13 @@ module.exports = async (request, response) => {
                 return json(response, 200, {
                     ok: true,
                     source: 'openai',
-                    cv: sanitizeCvAssistantResult(openAiResult, cv),
+                    cv: finalizeCvAssistantResult({
+                        result: openAiResult,
+                        cv,
+                        task,
+                        jobOffer,
+                        instruction,
+                    }),
                 });
             }
         } catch (error) {
