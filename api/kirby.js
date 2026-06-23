@@ -200,6 +200,7 @@ Pour les niveaux de langues, conserve la formulation explicite. Si elle correspo
 
 Les demandes courtes sont des actions, pas des questions a faire confirmer. Comprends notamment :
 - "anglais notions professionnelles" : remplace le niveau d'anglais par "Notions professionnelles" ;
+- "remplace vendeur par vendeuse" : remplace le titre cible par « Vendeuse » et adapte la forme associee si elle est presente (ex. « Vendeur polyvalent » devient « Vendeuse polyvalente »), sans modifier les faits des experiences ;
 - "plus court" : raccourcis l'accroche et conserve les faits ;
 - "enleve / pas besoin de Lifestyle" : retire Lifestyle du titre et de l'accroche, sans toucher aux experiences. Retourne toujours un titre de remplacement non vide, choisi parmi les intitulés réellement présents dans le CV ;
 - "refais correctement" : produis une version CV claire, compacte et prete a l'emploi a partir des faits existants.

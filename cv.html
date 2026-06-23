@@ -15,7 +15,7 @@
         rel="stylesheet"
     >
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-    <link rel="stylesheet" href="style.css?v=20260624-velours-cv-v19">
+    <link rel="stylesheet" href="style.css?v=20260624-velours-cv-v20">
 </head>
 <body class="is-preload cv-workspace-page">
     <div class="page-shell">
@@ -653,27 +653,24 @@ Sport</textarea>
     </button>
     <section class="assistant-chat" id="assistant-chat" aria-label="Assistant CV">
         <div class="assistant-chat-header">
-            <div>
-                <strong>Kirby</strong>
-                <p>Le moteur qui construit, vérifie et adapte votre candidature.</p>
-            </div>
+            <strong>Kirby</strong>
             <button class="assistant-close" id="assistant-close" type="button" aria-label="Fermer">×</button>
         </div>
         <div class="kirby-mode-tabs" role="group" aria-label="Action Kirby">
-            <button class="kirby-mode is-active" type="button" data-kirby-mode="create" aria-pressed="true">
-                <strong>Construire</strong><span>CV brut ou informations</span>
+            <button class="kirby-mode" type="button" data-kirby-mode="create" aria-pressed="false" title="Construire un CV">
+                <strong>Créer</strong>
             </button>
-            <button class="kirby-mode" type="button" data-kirby-mode="optimize" aria-pressed="false">
-                <strong>Optimiser</strong><span>Fautes, doublons, clarté</span>
+            <button class="kirby-mode is-active" type="button" data-kirby-mode="optimize" aria-pressed="true" title="Corriger et optimiser">
+                <strong>Corriger</strong>
             </button>
-            <button class="kirby-mode" type="button" data-kirby-mode="adapt" aria-pressed="false">
-                <strong>Adapter</strong><span>Poste ou offre d’emploi</span>
+            <button class="kirby-mode" type="button" data-kirby-mode="adapt" aria-pressed="false" title="Adapter à une offre">
+                <strong>Adapter</strong>
             </button>
-            <button class="kirby-mode" type="button" data-kirby-mode="letter" aria-pressed="false">
-                <strong>Lettre</strong><span>Motivation personnalisée</span>
+            <button class="kirby-mode" type="button" data-kirby-mode="letter" aria-pressed="false" title="Créer une lettre de motivation">
+                <strong>Lettre</strong>
             </button>
         </div>
-        <div class="assistant-messages assistant-activity" id="assistant-messages" role="status" aria-live="polite">Prêt : Kirby contrôle le contenu avant toute application.</div>
+        <div class="assistant-messages assistant-activity" id="assistant-messages" role="status" aria-live="polite">Prêt.</div>
         <section class="assistant-proposal is-hidden" id="assistant-proposal" aria-live="polite">
             <div>
                 <strong id="assistant-proposal-title">Prêt à appliquer</strong>
@@ -683,8 +680,8 @@ Sport</textarea>
         </section>
         <form class="assistant-input-row" id="assistant-form">
             <label class="sr-only" for="assistant-input">Votre demande pour Kirby</label>
-            <textarea id="assistant-input" rows="3" placeholder="Collez votre CV ou vos informations brutes : Kirby le structure sans inventer d’expérience."></textarea>
-            <button class="button button-primary" type="submit">Lancer Kirby</button>
+            <textarea id="assistant-input" rows="2" placeholder="Écrivez une demande ou collez un CV / une offre."></textarea>
+            <button class="button button-primary" id="assistant-submit" type="submit">Analyser</button>
         </form>
     </section>
 
@@ -749,6 +746,6 @@ Sport</textarea>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js" defer></script>
-    <script src="script.js?v=20260624-velours-cv-v25" defer></script>
+    <script src="script.js?v=20260624-velours-cv-v26" defer></script>
 </body>
 </html>

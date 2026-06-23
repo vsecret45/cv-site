@@ -90,6 +90,7 @@ const assistantClose = document.querySelector('#assistant-close');
 const assistantChat = document.querySelector('#assistant-chat');
 const assistantForm = document.querySelector('#assistant-form');
 const assistantInput = document.querySelector('#assistant-input');
+const assistantSubmitButton = document.querySelector('#assistant-submit');
 const assistantMessages = document.querySelector('#assistant-messages');
 const assistantProposal = document.querySelector('#assistant-proposal');
 const assistantProposalTitle = document.querySelector('#assistant-proposal-title');
@@ -144,7 +145,7 @@ let isKirbyCvRequestInFlight = false;
 let lastAssistantAction = null;
 let pendingKirbyCvProposal = null;
 let queuedAssistantPrompt = '';
-let activeKirbyMode = 'create';
+let activeKirbyMode = 'optimize';
 
 const previewNodes = {
     fullName: document.querySelector('#preview-name'),
@@ -6060,20 +6061,20 @@ const openMailClient = async (mailtoUrl, fallbackText, statusMessage) => {
 
 const kirbyModeCopy = {
     create: {
-        placeholder: 'Collez votre CV ou vos informations brutes : Kirby le structure sans inventer d’expérience.',
-        ready: 'Prêt : Kirby extrait les informations et construit un CV propre.',
+        placeholder: 'Collez un CV ou des informations brutes.',
+        ready: 'Prêt à construire un CV.',
     },
     optimize: {
-        placeholder: 'Ex. Corrige tout, raccourcis le profil et supprime les répétitions.',
-        ready: 'Prêt : Kirby vérifie les fautes, doublons, sections et lisibilité.',
+        placeholder: 'Ex. Remplace vendeur par vendeuse, corrige les fautes.',
+        ready: 'Prêt à corriger le CV.',
     },
     adapt: {
-        placeholder: 'Indiquez le poste visé ou collez l’offre complète.',
-        ready: 'Prêt : Kirby adapte le CV au poste sans inventer d’expérience.',
+        placeholder: 'Indiquez le poste ou collez l’offre.',
+        ready: 'Prêt à adapter le CV.',
     },
     letter: {
-        placeholder: 'Indiquez l’entreprise, le poste ou collez l’offre pour préparer la lettre.',
-        ready: 'Prêt : Kirby prépare une lettre cohérente avec le CV et l’offre.',
+        placeholder: 'Indiquez l’entreprise, le poste ou collez l’offre.',
+        ready: 'Prêt à préparer la lettre.',
     },
 };
 
@@ -6084,10 +6085,15 @@ const setAssistantActivity = (text = '', working = false) => {
 
     assistantMessages.textContent = text;
     assistantMessages.classList.toggle('is-working', working);
+    assistantChat?.classList.toggle('is-working', working);
+    if (assistantSubmitButton) {
+        assistantSubmitButton.disabled = working;
+        assistantSubmitButton.textContent = working ? 'Analyse…' : 'Analyser';
+    }
 };
 
-const setKirbyMode = (mode = 'create', { focus = false } = {}) => {
-    activeKirbyMode = kirbyModeCopy[mode] ? mode : 'create';
+const setKirbyMode = (mode = 'optimize', { focus = false } = {}) => {
+    activeKirbyMode = kirbyModeCopy[mode] ? mode : 'optimize';
     kirbyModeButtons.forEach((button) => {
         const isActive = button.dataset.kirbyMode === activeKirbyMode;
         button.classList.toggle('is-active', isActive);
@@ -6357,42 +6363,100 @@ const getQuickLanguageCorrection = (message = '') => {
     return level ? { language, level } : null;
 };
 
-const applyQuickLanguageCorrectionToProposal = (message = '') => {
+const applyQuickLanguageCorrection = (message = '') => {
     const correction = getQuickLanguageCorrection(message);
-    const proposal = pendingKirbyCvProposal?.result?.cv;
-
-    if (!correction || !proposal) {
+    if (!correction || !cvForm) {
         return '';
     }
 
-    const sourceLanguages = Array.isArray(proposal.languages) && proposal.languages.length
-        ? proposal.languages
-        : getLanguageSourceEntries();
-    const languages = sourceLanguages
-        .map((entry) => ({
-            language: normalizeCvSentenceText(entry.language || '').replace(/\.$/, ''),
-            level: entry.level || '',
-        }))
-        .filter((entry) => entry.language);
-    const index = languages.findIndex((entry) => normalizeForMatch(entry.language) === normalizeForMatch(correction.language));
-
-    if (index === -1) {
-        languages.push(correction);
-    } else {
-        languages[index] = correction;
+    const beforeState = getCvHistoryState();
+    if (!mergeKirbyLanguages([correction])) {
+        return `${correction.language} est déjà réglé sur « ${correction.level} ». `;
     }
 
-    proposal.languages = languages;
-    proposal.notice = `${correction.language} : ${correction.level} pris en compte dans la proposition.`;
-    showKirbyCvProposal(
-        pendingKirbyCvProposal.result,
-        pendingKirbyCvProposal.task,
-        pendingKirbyCvProposal.snapshot,
-        pendingKirbyCvProposal.instruction
+    clearEditableOverride('languages');
+    renderLanguageEditor();
+    updateCvPreview();
+    commitCvHistoryTransition(beforeState);
+    setCvStatus(`Kirby a mis à jour la langue : ${correction.language}`);
+    return `${correction.language} : « ${correction.level} » appliqué au CV.`;
+};
+
+const getQuickTitleGenderCorrection = (message = '') => {
+    const source = normalizeForMatch(message);
+    if (!/\b(remplace|remplacer|modifie|modifier|change|changer|mets|mettre|passe|passer|corrige|corriger)\b/.test(source)) {
+        return null;
+    }
+
+    const match = source.match(/\b(vendeur|vendeuse|conseiller|conseillere|charge|chargee)\b(?:\s+(?:polyvalent|polyvalente|lifestyle|clientele|client))?\s+(?:par|en)\s+\b(vendeur|vendeuse|conseiller|conseillere|charge|chargee)\b/);
+    if (!match || match[1] === match[2]) {
+        return null;
+    }
+
+    return { from: match[1], to: match[2] };
+};
+
+const replaceGenderedCvTitle = (value = '', target = '') => {
+    const source = String(value || '');
+    const normalizedTarget = normalizeForMatch(target);
+    const replacements = {
+        vendeuse: [
+            [/\bvendeur\b/gi, 'Vendeuse'],
+            [/\bpolyvalent\b/gi, 'polyvalente'],
+        ],
+        vendeur: [
+            [/\bvendeuse\b/gi, 'Vendeur'],
+            [/\bpolyvalente\b/gi, 'polyvalent'],
+        ],
+        conseillere: [[/\bconseiller\b/gi, 'Conseillère']],
+        conseiller: [[/\bconseill[eè]re\b/gi, 'Conseiller']],
+        chargee: [[/\bcharg[eé]\b/gi, 'Chargée']],
+        charge: [[/\bcharg[eé]e\b/gi, 'Chargé']],
+    };
+
+    const next = (replacements[normalizedTarget] || []).reduce(
+        (title, [pattern, replacement]) => title.replace(pattern, replacement),
+        source
     );
 
-    return `${correction.language} est maintenant réglé sur « ${correction.level} ». Cliquez sur « Appliquer au CV » quand la proposition vous convient.`;
+    return formatCvHeadline(next);
 };
+
+const applyQuickTitleGenderCorrection = (message = '') => {
+    const correction = getQuickTitleGenderCorrection(message);
+    const headlineField = cvForm?.elements.headline;
+    if (!correction || !headlineField) {
+        return '';
+    }
+
+    const currentHeadline = headlineField.value || '';
+    if (!new RegExp(`\\b${correction.from}\\b`, 'i').test(normalizeForMatch(currentHeadline))) {
+        return '';
+    }
+
+    const nextHeadline = replaceGenderedCvTitle(currentHeadline, correction.to);
+    if (!nextHeadline || nextHeadline === currentHeadline) {
+        return '';
+    }
+
+    const beforeState = getCvHistoryState();
+    headlineField.value = nextHeadline;
+    if (cvForm.elements.jobTarget) {
+        const currentTarget = cvForm.elements.jobTarget.value || '';
+        cvForm.elements.jobTarget.value = new RegExp(`\\b${correction.from}\\b`, 'i').test(normalizeForMatch(currentTarget))
+            ? replaceGenderedCvTitle(currentTarget, correction.to)
+            : nextHeadline;
+    }
+
+    clearEditableOverride('headline');
+    updateCvPreview();
+    commitCvHistoryTransition(beforeState);
+    setCvStatus('Kirby a mis à jour le titre');
+    return `Titre appliqué : « ${nextHeadline} ». Vous pouvez revenir en arrière avec Retour.`;
+};
+
+const applyQuickKirbyCorrection = (message = '') =>
+    applyQuickTitleGenderCorrection(message) || applyQuickLanguageCorrection(message);
 
 const reorderExistingExperiences = (order = []) => {
     const field = getExperienceField();
@@ -6641,12 +6705,13 @@ const applyKirbyCvResult = (result, task, instruction = '') => {
     const summaryField = cvForm.elements.summary;
     const skillsField = cvForm.elements.skills;
     const layoutIntent = getKirbyLayoutIntent(instruction, proposal.layout);
+    const headlineCorrectionAsked = /\b(titre|intitule|poste vise|vendeur|vendeuse|conseiller|conseillere|charge|chargee)\b/.test(normalizeForMatch(instruction));
 
     if (proposal.jobTarget && cvForm.elements.jobTarget) {
         cvForm.elements.jobTarget.value = formatCvHeadline(proposal.jobTarget);
     }
 
-    if (proposal.headline && headlineField && (task === 'adapt' || !headlineField.value || /intitule du poste vise/i.test(headlineField.value))) {
+    if (proposal.headline && headlineField && (task === 'adapt' || headlineCorrectionAsked || !headlineField.value || /intitule du poste vise/i.test(headlineField.value))) {
         headlineField.value = formatCvHeadline(proposal.headline);
         changes.push('titre');
     }
@@ -6709,6 +6774,17 @@ const applyKirbyCvResult = (result, task, instruction = '') => {
     return changes.length ? `CV mis à jour : ${changes.join(', ')}.` : 'Le CV est déjà aligné avec votre demande.';
 };
 
+const shouldApplyKirbyResultDirectly = ({ task = '', instruction = '' } = {}) => {
+    if (task !== 'optimize') {
+        return false;
+    }
+
+    const source = normalizeForMatch(instruction);
+    return /\b(corrige|corriger|optimise|optimiser|remplace|remplacer|modifie|modifier|change|changer|supprime|supprimer|retire|retirer|enleve|enlever|ajoute|ajouter|reformule|reformuler|compacte|compacter)\b/.test(source)
+        && !looksLikePastedCv(instruction)
+        && !looksLikeJobOffer(instruction);
+};
+
 const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}) => {
     if (!cvForm) {
         return 'Le formulaire CV est indisponible.';
@@ -6737,6 +6813,16 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
 
     try {
         const result = await requestKirbyCvAssistant({ task, instruction });
+        const canApplyDirectly = shouldApplyKirbyResultDirectly({ task, instruction })
+            && snapshot === getKirbyCvSnapshot();
+
+        if (canApplyDirectly) {
+            const reply = applyKirbyCvResult(result, task, instruction);
+            hideKirbyCvProposal();
+            setAssistantActivity('Modification appliquée. Retour permet d’annuler.', false);
+            return reply;
+        }
+
         if (!showKirbyCvProposal(result, task, snapshot, instruction)) {
             return 'Kirby n’a pas pu préparer de proposition exploitable.';
         }
@@ -6753,7 +6839,7 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
         queuedAssistantPrompt = '';
         if (queuedMessage) {
             window.setTimeout(async () => {
-                const quickReply = applyQuickLanguageCorrectionToProposal(queuedMessage);
+                const quickReply = applyQuickKirbyCorrection(queuedMessage);
                 if (quickReply) {
                     appendAssistantMessage(quickReply, 'bot');
                     return;
@@ -6907,8 +6993,9 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
         return;
     }
 
-    const quickReply = applyQuickLanguageCorrectionToProposal(cleanMessage);
+    const quickReply = applyQuickKirbyCorrection(cleanMessage);
     if (quickReply) {
+        hideKirbyCvProposal();
         appendAssistantMessage(quickReply, 'bot');
         return;
     }
@@ -8258,7 +8345,7 @@ if (assistantClose) {
 
 kirbyModeButtons.forEach((button) => {
     button.addEventListener('click', () => {
-        setKirbyMode(button.dataset.kirbyMode || 'create', { focus: true });
+        setKirbyMode(button.dataset.kirbyMode || 'optimize', { focus: true });
         hideKirbyCvProposal();
     });
 });
