@@ -1511,7 +1511,10 @@ const callOpenAi = async ({ brief, revision, currentProposal }) => {
     for (const apiKey of apiKeys) {
         for (const model of models) {
             try {
-                return await requestOpenAiProposal({ apiKey, model, brief, revision, currentProposal });
+                return {
+                    proposal: await requestOpenAiProposal({ apiKey, model, brief, revision, currentProposal }),
+                    model,
+                };
             } catch (error) {
                 errors.push({
                     code: error && error.message ? error.message : 'openai_request_failed',
@@ -1541,7 +1544,10 @@ const callOpenAiCvAssistant = async ({ task, cv, jobOffer, instruction, letter }
     for (const apiKey of apiKeys) {
         for (const model of models) {
             try {
-                return await requestOpenAiCvAssistant({ apiKey, model, task, cv, jobOffer, instruction, letter });
+                return {
+                    result: await requestOpenAiCvAssistant({ apiKey, model, task, cv, jobOffer, instruction, letter }),
+                    model,
+                };
             } catch (error) {
                 errors.push({ status: error && error.status, model });
             }
@@ -1607,8 +1613,9 @@ module.exports = async (request, response) => {
                 return json(response, 200, {
                     ok: true,
                     source: 'openai',
+                    model: openAiResult.model,
                     cv: finalizeCvAssistantResult({
-                        result: openAiResult,
+                        result: openAiResult.result,
                         cv,
                         task,
                         jobOffer,
@@ -1647,7 +1654,8 @@ module.exports = async (request, response) => {
             return json(response, 200, {
                 ok: true,
                 source: 'openai',
-                proposal: sanitizeProposal(openAiProposal, brief),
+                model: openAiProposal.model,
+                proposal: sanitizeProposal(openAiProposal.proposal, brief),
             });
         }
     } catch (error) {

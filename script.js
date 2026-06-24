@@ -6838,13 +6838,14 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
 
     try {
         const result = await requestKirbyCvAssistant({ task, instruction });
+        const runtimeLabel = getKirbyRuntimeLabel(result);
         const canApplyDirectly = shouldApplyKirbyResultDirectly({ task, instruction })
             && snapshot === getKirbyCvSnapshot();
 
         if (canApplyDirectly) {
             const reply = applyKirbyCvResult(result, task, instruction);
             hideKirbyCvProposal();
-            setAssistantActivity('Modification appliquée. Retour permet d’annuler.', false);
+            setAssistantActivity(`${runtimeLabel} · Modification appliquée. Retour permet d’annuler.`, false);
             return reply;
         }
 
@@ -6852,7 +6853,7 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
             return 'Kirby n’a pas pu préparer de proposition exploitable.';
         }
         setCvStatus('Proposition Kirby prête à appliquer');
-        setAssistantActivity('Contrôle terminé. Vérifiez le résumé puis appliquez la proposition.');
+        setAssistantActivity(`${runtimeLabel} · Contrôle terminé. Vérifiez le résumé puis appliquez la proposition.`);
         return 'Proposition prête. Vérifiez le résumé puis choisissez « Appliquer au CV ».';
     } catch (error) {
         console.error(error);
@@ -9732,6 +9733,18 @@ const requestKirbyProposal = async ({ brief, revision = '', currentProposal = nu
     return response.json();
 };
 
+const getKirbyRuntimeLabel = (payload = {}) => {
+    if (payload?.source === 'openai' && payload.model) {
+        return `Kirby IA active · ${payload.model}`;
+    }
+
+    if (payload?.source === 'fallback') {
+        return 'Kirby mode secours · IA indisponible';
+    }
+
+    return 'Kirby en préparation';
+};
+
 const normalizeKirbyLayoutVariant = (value = '') => {
     const variant = normalizeKirbyText(value).replace(/_/g, '-').replace(/\s+/g, '-');
     const aliases = {
@@ -9807,7 +9820,7 @@ const getKirbyLayoutVariant = (proposal = {}, brief = '', isDashboardPreview = f
     return variants[getKirbyHash(`${brief} ${proposal.siteName || ''} ${source}`) % variants.length];
 };
 
-const renderKirbyProposal = (proposal, brief) => {
+const renderKirbyProposal = (proposal, brief, runtime = {}) => {
     if (!aiBriefOutput) {
         return;
     }
@@ -9824,6 +9837,7 @@ const renderKirbyProposal = (proposal, brief) => {
     });
     const builderPanel = aiBriefOutput.closest('.ai-brief-panel');
     const siteName = formatKirbySiteName(safeProposal.siteName) || 'Nom de site à valider';
+    const runtimeLabel = getKirbyRuntimeLabel(runtime);
     const domain = getKirbyDomain(siteName);
     const email = `contact@${domain}`;
     const cleanPages = pages.filter((page) => getKirbyItemTitle(page));
@@ -10163,6 +10177,7 @@ const renderKirbyProposal = (proposal, brief) => {
     aiBriefOutput.classList.remove('is-loading');
     aiBriefOutput.innerHTML = `
         <div class="kirby-generated-clean">
+            <p class="signal-label">${cleanHtml(runtimeLabel)}</p>
             <div class="kirby-generated-website kirby-editor-workspace">
                 <div class="kirby-preview-browser kirby-live-browser kirby-site-canvas ${previewTone} layout-${layoutVariant}" style="${previewStyle.canvas}" aria-label="Prévisualisation du site">
                     <div class="kirby-preview-chrome"><span></span><span></span><span></span></div>
@@ -10198,10 +10213,10 @@ const renderKirbyProposal = (proposal, brief) => {
 
         try {
             const payload = await requestKirbyProposal({ brief, revision, currentProposal: safeProposal });
-            renderKirbyProposal(applyKirbyRevision(payload.proposal || safeProposal, revision, brief), brief);
+            renderKirbyProposal(applyKirbyRevision(payload.proposal || safeProposal, revision, brief), brief, payload);
         } catch (error) {
             console.warn('Kirby revision fallback:', error);
-            renderKirbyProposal(applyKirbyRevision(safeProposal, revision, brief), brief);
+            renderKirbyProposal(applyKirbyRevision(safeProposal, revision, brief), brief, { source: 'fallback' });
         }
     });
 };
@@ -10255,10 +10270,10 @@ if (aiBriefForm && aiBriefInput && aiBriefOutput) {
 
         try {
             const payload = await requestKirbyProposal({ brief });
-            renderKirbyProposal(payload.proposal || buildBrowserKirbyProposal(brief), brief);
+            renderKirbyProposal(payload.proposal || buildBrowserKirbyProposal(brief), brief, payload);
         } catch (error) {
             console.warn('Kirby assistant fallback:', error);
-            renderKirbyProposal(buildBrowserKirbyProposal(brief), brief);
+            renderKirbyProposal(buildBrowserKirbyProposal(brief), brief, { source: 'fallback' });
         }
     });
 }
