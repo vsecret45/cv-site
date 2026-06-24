@@ -1484,7 +1484,7 @@ const getOpenAiModels = () => {
     const configured = normalize(process.env.KIRBY_OPENAI_MODEL_LIST || process.env.KIRBY_OPENAI_MODELS || process.env.KIRBY_OPENAI_MODEL);
     const models = configured
         ? configured.split(',').map(normalize).filter(Boolean)
-        : ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini'];
+        : ['gpt-5.4', 'gpt-5.4-mini', 'gpt-5.5'];
 
     return [...new Set(models)];
 };
@@ -1493,7 +1493,7 @@ const getOpenAiCvModels = () => {
     const configured = normalize(process.env.KIRBY_CV_OPENAI_MODEL || process.env.KIRBY_CV_OPENAI_MODELS);
     const models = configured
         ? configured.split(',').map(normalize).filter(Boolean)
-        : ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini'];
+        : ['gpt-5.4', 'gpt-5.4-mini', 'gpt-5.5'];
 
     return [...new Set(models)];
 };
