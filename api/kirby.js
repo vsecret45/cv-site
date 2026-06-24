@@ -55,13 +55,15 @@ const getServiceKey = (value) =>
         .trim();
 
 const KIRBY_SYSTEM_PROMPT = `
-Tu es Kirby SA Creation Web, assistant specialise de SA Creation Web.
+Tu es Kirby SA Creation Web, directeur digital senior de SA Creation Web : strategie, identite de marque, experience utilisateur, contenu, conversion et lancement.
 Mission unique : aider des independants, artisans, petites entreprises et porteurs de projets a demarrer leur presence en ligne.
 
 Tu dois produire une vraie premiere proposition de site, pas un simple diagnostic ni un formulaire.
 Tu analyses le besoin et tu prends l'initiative, meme si la description est courte.
 Tu proposes un projet digital complet : positionnement, nom, slogan, modele de site conseille, direction visuelle, structure de site, textes principaux, SEO, services utiles, options pertinentes et logique commerciale pour attirer des clients.
 Chaque proposition doit contenir assez de matiere pour donner l'impression que le projet commence deja a se construire.
+
+Les champs du JSON sont tes leviers d'action : utilise ceux qui sont utiles pour livrer une direction directement exploitable dans l'aperçu. Quand une demande contient plusieurs changements, applique-les tous dans une proposition complete et coherente. Ne reponds jamais par une intention vague : prends une decision, produis le contenu et explique les choix. Les actions externes (publication, achat de domaine, paiement ou envoi a un tiers) restent soumises a la validation explicite de l'utilisateur.
 
 Priorite creativite :
 - La demande utilisateur complete est ta source principale. N'ecrase jamais ses details par un modele generique.
@@ -178,7 +180,7 @@ Schema JSON attendu :
 `.trim();
 
 const KIRBY_CV_SYSTEM_PROMPT = `
-Tu es Kirby, l'assistant CV de SA Creation Web. Tu aides a extraire, corriger et adapter un CV francais pour une candidature.
+Tu es Kirby, l'assistant CV senior de SA Creation Web. Tu aides a extraire, corriger et adapter un CV francais pour une candidature. Tu appliques toutes les demandes compatibles formulees dans une meme phrase, sans en ignorer une partie.
 
 Regle de verite non negociable : le CV fourni est la seule source des faits. N'invente jamais un employeur, un poste occupe, une date, un diplome, une mission, un resultat, un permis, une langue ou un niveau de langue. Ne transforme jamais une competence attendue dans une offre en experience acquise.
 
@@ -200,6 +202,7 @@ Pour les niveaux de langues, conserve la formulation explicite. Si elle correspo
 
 Les demandes courtes sont des actions, pas des questions a faire confirmer. Comprends notamment :
 - "anglais notions professionnelles" : remplace le niveau d'anglais par "Notions professionnelles" ;
+- "Francais courant, Anglais bases professionnelles" : retourne les deux langues avec leur niveau respectif ;
 - "remplace vendeur par vendeuse" : remplace le titre cible par « Vendeuse » et adapte la forme associee si elle est presente (ex. « Vendeur polyvalent » devient « Vendeuse polyvalente »), sans modifier les faits des experiences ;
 - "plus court" : raccourcis l'accroche et conserve les faits ;
 - "enleve / pas besoin de Lifestyle" : retire Lifestyle du titre et de l'accroche, sans toucher aux experiences. Retourne toujours un titre de remplacement non vide, choisi parmi les intitulés réellement présents dans le CV ;
@@ -1320,8 +1323,10 @@ const requestOpenAiCvAssistant = async ({ apiKey, model, task, cv, jobOffer, ins
         },
         body: JSON.stringify({
             model,
-            temperature: 0.2,
-            max_tokens: 1100,
+            ...getOpenAiGenerationControls(model, {
+                temperature: 0.2,
+                max_tokens: 1100,
+            }),
             response_format: { type: 'json_object' },
             messages: [
                 { role: 'system', content: KIRBY_CV_SYSTEM_PROMPT },
@@ -1357,6 +1362,11 @@ const getOpenAiKeys = () => {
 
     return [...new Set(keys)];
 };
+
+const isCurrentReasoningModel = (model = '') => /^gpt-5(?:\.|$)/i.test(normalize(model));
+
+const getOpenAiGenerationControls = (model, legacyControls = {}) =>
+    isCurrentReasoningModel(model) ? {} : legacyControls;
 
 const inferOpenAiBriefContext = (brief = '') => {
     const source = stripAccents(normalizeText(brief).toLowerCase());
@@ -1439,10 +1449,12 @@ const requestOpenAiProposal = async ({ apiKey, model, brief, revision, currentPr
         },
         body: JSON.stringify({
             model,
-            temperature: 0.92,
-            top_p: 0.95,
-            presence_penalty: 0.25,
-            frequency_penalty: 0.15,
+            ...getOpenAiGenerationControls(model, {
+                temperature: 0.92,
+                top_p: 0.95,
+                presence_penalty: 0.25,
+                frequency_penalty: 0.15,
+            }),
             response_format: { type: 'json_object' },
             messages: [
                 { role: 'system', content: KIRBY_SYSTEM_PROMPT },
@@ -1472,7 +1484,7 @@ const getOpenAiModels = () => {
     const configured = normalize(process.env.KIRBY_OPENAI_MODEL_LIST || process.env.KIRBY_OPENAI_MODELS || process.env.KIRBY_OPENAI_MODEL);
     const models = configured
         ? configured.split(',').map(normalize).filter(Boolean)
-        : ['gpt-4o', 'gpt-4o-mini'];
+        : ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini'];
 
     return [...new Set(models)];
 };
@@ -1481,7 +1493,7 @@ const getOpenAiCvModels = () => {
     const configured = normalize(process.env.KIRBY_CV_OPENAI_MODEL || process.env.KIRBY_CV_OPENAI_MODELS);
     const models = configured
         ? configured.split(',').map(normalize).filter(Boolean)
-        : ['gpt-4o-mini', 'gpt-4o'];
+        : ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini'];
 
     return [...new Set(models)];
 };

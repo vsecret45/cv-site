@@ -3331,9 +3331,30 @@ body.is-exporting-pdf .cv-modern-contact-line {
     justify-items: center;
 }
 
+/* Le choix « En-tête » doit rester prioritaire, même si du texte a été
+   aligné individuellement avec la barre d'édition. Le corps du CV reste
+   volontairement à gauche, plus facile à parcourir par un recruteur. */
+.cv-preview.align-center .cv-header > :not(.cv-label) {
+    text-align: center !important;
+    justify-self: center;
+}
+
+.cv-preview.align-center .cv-header .cv-meta {
+    justify-content: center !important;
+}
+
 .cv-preview.align-right .cv-header {
     text-align: right;
     justify-items: end;
+}
+
+.cv-preview.align-right .cv-header > :not(.cv-label) {
+    text-align: right !important;
+    justify-self: end;
+}
+
+.cv-preview.align-right .cv-header .cv-meta {
+    justify-content: end !important;
 }
 
 .cv-preview.align-center .cv-body,

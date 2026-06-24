@@ -5608,11 +5608,16 @@ const exportPdf = async (options = {}) => {
 
     if (window.html2canvas && domExportSource) {
         const filename = exportMode === 'letter' ? 'lettre-motivation.pdf' : 'cv-intelligent.pdf';
+        let exportNode = null;
 
         try {
             document.body.classList.add('is-exporting-pdf');
             await document.fonts?.ready;
-            const canvas = await window.html2canvas(domExportSource, {
+            // html2canvas peut parfois rater un aperçu transformé, déplacé ou
+            // partiellement masqué dans l'éditeur. On exporte donc une copie
+            // statique du CV, avec ses styles calculés, au lieu de la page web.
+            exportNode = buildStaticExportNode(exportMode);
+            const canvas = await window.html2canvas(exportNode || domExportSource, {
                 scale: Math.min(2.4, window.devicePixelRatio || 2),
                 useCORS: true,
                 backgroundColor: pdfBackground,
@@ -5657,6 +5662,7 @@ const exportPdf = async (options = {}) => {
             console.error(error);
             setCvStatus('Export apercu indisponible, generation PDF classique...');
         } finally {
+            exportNode?.remove();
             document.body.classList.remove('is-exporting-pdf');
         }
     }
@@ -6326,7 +6332,33 @@ const getAssistantTask = (message = '', mode = activeKirbyMode) => {
         : 'optimize';
 };
 
-const getQuickLanguageCorrection = (message = '') => {
+const getQuickLanguageLevel = (source = '') => {
+    if (/\b(langue maternelle|maternelle)\b/.test(source)) {
+        return 'Langue maternelle';
+    }
+    if (/\bbilingue\b/.test(source)) {
+        return 'Bilingue';
+    }
+    if (/\bcourant(?:e)?\b/.test(source)) {
+        return 'Courant';
+    }
+    if (/\b(intermediaire|intermédiaire)\b/.test(source)) {
+        return 'Intermédiaire';
+    }
+    if (/\bprofessionnel(?:le)?\b/.test(source)) {
+        return 'Professionnel';
+    }
+    if (/\b(base|bases)\b/.test(source)) {
+        return 'Bases professionnelles';
+    }
+    if (/\b(notion|notions)\b/.test(source)) {
+        return 'Notions professionnelles';
+    }
+
+    return '';
+};
+
+const getQuickLanguageCorrections = (message = '') => {
     const source = normalizeForMatch(message);
     const languageMap = [
         ['francais', 'Français'],
@@ -6337,49 +6369,42 @@ const getQuickLanguageCorrection = (message = '') => {
         ['allemand', 'Allemand'],
         ['portugais', 'Portugais'],
     ];
-    const language = languageMap.find(([keyword]) => new RegExp(`\\b${keyword}\\b`).test(source))?.[1] || '';
+    const namesByKeyword = new Map(languageMap);
+    const languagePattern = new RegExp(`\\b(${languageMap.map(([keyword]) => keyword).join('|')})\\b`, 'g');
+    const matches = [...source.matchAll(languagePattern)];
+    const corrections = new Map();
 
-    if (!language) {
-        return null;
-    }
+    matches.forEach((match, index) => {
+        const keyword = match[1];
+        const language = namesByKeyword.get(keyword);
+        const levelSource = source.slice(match.index + match[0].length, matches[index + 1]?.index);
+        const level = getQuickLanguageLevel(levelSource);
 
-    let level = '';
-    if (/\b(langue maternelle|maternelle)\b/.test(source)) {
-        level = 'Langue maternelle';
-    } else if (/\bbilingue\b/.test(source)) {
-        level = 'Bilingue';
-    } else if (/\bcourant(?:e)?\b/.test(source)) {
-        level = 'Courant';
-    } else if (/\b(intermediaire|intermédiaire)\b/.test(source)) {
-        level = 'Intermédiaire';
-    } else if (/\bprofessionnel(?:le)?\b/.test(source)) {
-        level = 'Professionnel';
-    } else if (/\b(base|bases)\b/.test(source)) {
-        level = 'Bases professionnelles';
-    } else if (/\b(notion|notions)\b/.test(source)) {
-        level = 'Notions professionnelles';
-    }
+        if (language && level) {
+            corrections.set(normalizeForMatch(language), { language, level });
+        }
+    });
 
-    return level ? { language, level } : null;
+    return [...corrections.values()];
 };
 
-const applyQuickLanguageCorrection = (message = '') => {
-    const correction = getQuickLanguageCorrection(message);
-    if (!correction || !cvForm) {
+const applyQuickLanguageCorrections = (message = '') => {
+    const corrections = getQuickLanguageCorrections(message);
+    if (!corrections.length || !cvForm) {
         return '';
     }
 
     const beforeState = getCvHistoryState();
-    if (!mergeKirbyLanguages([correction])) {
-        return `${correction.language} est déjà réglé sur « ${correction.level} ». `;
+    if (!mergeKirbyLanguages(corrections)) {
+        return `Langues déjà réglées : ${corrections.map(({ language, level }) => `${language} : ${level}`).join(', ')}.`;
     }
 
     clearEditableOverride('languages');
     renderLanguageEditor();
     updateCvPreview();
     commitCvHistoryTransition(beforeState);
-    setCvStatus(`Kirby a mis à jour la langue : ${correction.language}`);
-    return `${correction.language} : « ${correction.level} » appliqué au CV.`;
+    setCvStatus('Kirby a mis à jour les langues');
+    return `Langues mises à jour : ${corrections.map(({ language, level }) => `${language} : ${level}`).join(', ')}.`;
 };
 
 const getQuickTitleGenderCorrection = (message = '') => {
@@ -6456,7 +6481,7 @@ const applyQuickTitleGenderCorrection = (message = '') => {
 };
 
 const applyQuickKirbyCorrection = (message = '') =>
-    applyQuickTitleGenderCorrection(message) || applyQuickLanguageCorrection(message);
+    applyQuickTitleGenderCorrection(message) || applyQuickLanguageCorrections(message);
 
 const reorderExistingExperiences = (order = []) => {
     const field = getExperienceField();
