@@ -103,6 +103,7 @@ const aiBriefForm = document.querySelector('#ai-brief-form');
 const aiBriefInput = document.querySelector('#ai-brief-input');
 const aiBriefOutput = document.querySelector('#ai-brief-output');
 const kirbyExampleButtons = document.querySelectorAll('[data-kirby-example]');
+const kirbyAutopilotButtons = document.querySelectorAll('[data-kirby-autopilot]');
 const qrServiceForm = document.querySelector('#qr-service-form');
 const qrServiceInput = document.querySelector('#qr-service-input');
 const qrServicePreview = document.querySelector('#qr-service-preview');
@@ -9745,6 +9746,25 @@ const getKirbyRuntimeLabel = (payload = {}) => {
     return 'Kirby en préparation';
 };
 
+const getKirbyPilotMission = (proposal = {}) => {
+    const safeProposal = proposal && typeof proposal === 'object' ? proposal : {};
+    const pages = getKirbyArray(safeProposal.pages, 7).map((page) => getKirbyItemTitle(page)).filter(Boolean);
+    const seo = getKirbySeo(safeProposal);
+
+    return [
+        safeProposal.styleGuide?.direction || safeProposal.visualConcept?.layoutSignature || 'Direction visuelle définie',
+        pages.length ? `${pages.length} pages structurées : ${pages.slice(0, 3).join(', ')}` : 'Parcours du site structuré',
+        seo.metaDescription ? 'SEO de départ rédigé' : 'SEO à renforcer',
+        safeProposal.ctas?.[0] ? `Action principale : ${safeProposal.ctas[0]}` : 'Conversion à renforcer',
+    ].filter(Boolean).slice(0, 4);
+};
+
+const kirbyPilotActions = {
+    brand: 'Reprends la direction artistique complète : rends le projet plus distinctif, mémorable et cohérent avec l’activité. Mets à jour le visuel, la hiérarchie, les textes et les appels à l’action.',
+    conversion: 'Audite le parcours client et améliore la conversion : clarifie la promesse, les preuves de confiance, les actions principales et les sections qui doivent déclencher une prise de contact ou une réservation.',
+    launch: 'Prépare le lancement : complète les pages et le SEO, vérifie les informations indispensables, priorise les éléments à finaliser et propose une version prête à valider.',
+};
+
 const normalizeKirbyLayoutVariant = (value = '') => {
     const variant = normalizeKirbyText(value).replace(/_/g, '-').replace(/\s+/g, '-');
     const aliases = {
@@ -9838,6 +9858,7 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
     const builderPanel = aiBriefOutput.closest('.ai-brief-panel');
     const siteName = formatKirbySiteName(safeProposal.siteName) || 'Nom de site à valider';
     const runtimeLabel = getKirbyRuntimeLabel(runtime);
+    const pilotMission = getKirbyPilotMission(safeProposal);
     const domain = getKirbyDomain(siteName);
     const email = `contact@${domain}`;
     const cleanPages = pages.filter((page) => getKirbyItemTitle(page));
@@ -10178,6 +10199,18 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
     aiBriefOutput.innerHTML = `
         <div class="kirby-generated-clean">
             <p class="signal-label">${cleanHtml(runtimeLabel)}</p>
+            <section class="kirby-pilot-panel" aria-label="Mission Kirby">
+                <div>
+                    <p class="signal-label">Mission Kirby</p>
+                    <strong>La première version est pilotée.</strong>
+                </div>
+                <ul>${pilotMission.map((item) => `<li>${cleanHtml(item)}</li>`).join('')}</ul>
+                <div class="kirby-pilot-actions" aria-label="Actions Kirby">
+                    <button class="button button-secondary" type="button" data-kirby-pilot-action="brand">Renforcer l'identité</button>
+                    <button class="button button-secondary" type="button" data-kirby-pilot-action="conversion">Optimiser la conversion</button>
+                    <button class="button button-primary" type="button" data-kirby-pilot-action="launch">Préparer le lancement</button>
+                </div>
+            </section>
             <div class="kirby-generated-website kirby-editor-workspace">
                 <div class="kirby-preview-browser kirby-live-browser kirby-site-canvas ${previewTone} layout-${layoutVariant}" style="${previewStyle.canvas}" aria-label="Prévisualisation du site">
                     <div class="kirby-preview-chrome"><span></span><span></span><span></span></div>
@@ -10219,9 +10252,29 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
             renderKirbyProposal(applyKirbyRevision(safeProposal, revision, brief), brief, { source: 'fallback' });
         }
     });
+
+    aiBriefOutput.querySelectorAll('[data-kirby-pilot-action]').forEach((button) => {
+        button.addEventListener('click', async () => {
+            const action = button.dataset.kirbyPilotAction || '';
+            const revision = kirbyPilotActions[action];
+
+            if (!revision) {
+                return;
+            }
+
+            setKirbyLoading('Kirby prend le sujet en main…');
+            try {
+                const payload = await requestKirbyProposal({ brief, revision, currentProposal: safeProposal });
+                renderKirbyProposal(applyKirbyRevision(payload.proposal || safeProposal, revision, brief), brief, payload);
+            } catch (error) {
+                console.warn('Kirby pilot fallback:', error);
+                renderKirbyProposal(applyKirbyRevision(safeProposal, revision, brief), brief, { source: 'fallback' });
+            }
+        });
+    });
 };
 
-const setKirbyLoading = () => {
+const setKirbyLoading = (message = 'Génération du site...') => {
     if (!aiBriefOutput) {
         return;
     }
@@ -10232,7 +10285,7 @@ const setKirbyLoading = () => {
         <div class="kirby-generation-stage" aria-label="Kirby génère le site">
             <div class="kirby-generation-overlay">
                 <div class="kirby-loader-ring" aria-hidden="true"></div>
-                <h3>Génération du site...</h3>
+                <h3>${escapeHtml(message)}</h3>
             </div>
         </div>
     `;
@@ -10246,6 +10299,28 @@ kirbyExampleButtons.forEach((button) => {
 
         aiBriefInput.value = button.dataset.kirbyExample || '';
         aiBriefInput.focus();
+    });
+});
+
+kirbyAutopilotButtons.forEach((button) => {
+    button.addEventListener('click', async () => {
+        const baseBrief = aiBriefInput?.value.trim() || '';
+
+        if (baseBrief.length < 8 || !aiBriefOutput) {
+            aiBriefInput?.focus();
+            return;
+        }
+
+        const brief = `${baseBrief}\n\nMission Kirby : prends le projet en main. Choisis la meilleure direction de marque et de design, construis le parcours client complet, rédige les contenus prioritaires, prépare le SEO et livre une première version forte à ajuster.`;
+        setKirbyLoading('Kirby prend le projet en main…');
+
+        try {
+            const payload = await requestKirbyProposal({ brief });
+            renderKirbyProposal(payload.proposal || buildBrowserKirbyProposal(brief), brief, payload);
+        } catch (error) {
+            console.warn('Kirby autopilot fallback:', error);
+            renderKirbyProposal(buildBrowserKirbyProposal(brief), brief, { source: 'fallback' });
+        }
     });
 });
 

@@ -7233,11 +7233,91 @@ body.studio-home .platform-product-card p {
     font-size: 1rem;
 }
 
+.creator-prompt-console .advisor-composer-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.62rem;
+}
+
+.creator-prompt-console .advisor-composer-actions .button-secondary {
+    min-height: 3.45rem;
+    justify-content: center;
+    border-radius: 999px;
+}
+
 .creator-output-note {
     margin: 0;
     color: rgba(248, 246, 238, 0.62);
     font-size: 0.82rem;
     line-height: 1.45;
+}
+
+.kirby-pilot-panel {
+    display: grid;
+    grid-template-columns: minmax(12rem, 0.46fr) minmax(0, 1fr);
+    gap: 0.9rem 1.15rem;
+    align-items: center;
+    padding: 1rem 1.1rem;
+    border: 1px solid rgba(239, 214, 163, 0.2);
+    border-radius: 18px;
+    background:
+        radial-gradient(circle at top right, rgba(167, 139, 250, 0.18), transparent 16rem),
+        rgba(255, 255, 255, 0.055);
+}
+
+.kirby-pilot-panel strong {
+    color: #f8f6ee;
+    font-size: 1rem;
+}
+
+.kirby-pilot-panel ul {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.38rem 0.75rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.kirby-pilot-panel li {
+    color: rgba(248, 246, 238, 0.76);
+    font-size: 0.8rem;
+    line-height: 1.35;
+}
+
+.kirby-pilot-panel li::before {
+    content: "✓";
+    margin-right: 0.42rem;
+    color: #efd6a3;
+    font-weight: 900;
+}
+
+.kirby-pilot-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+}
+
+.kirby-pilot-actions .button {
+    min-height: 2.5rem;
+    font-size: 0.84rem;
+}
+
+@media (max-width: 680px) {
+    .creator-prompt-console .advisor-composer-actions,
+    .kirby-pilot-panel,
+    .kirby-pilot-panel ul {
+        grid-template-columns: 1fr;
+    }
+
+    .kirby-pilot-actions {
+        grid-column: auto;
+    }
+
+    .kirby-pilot-actions .button {
+        width: 100%;
+    }
 }
 
 .creator-form-head {

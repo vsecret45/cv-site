@@ -17,7 +17,7 @@
     >
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <link rel="preload" href="assets/sa-creation-web-mark.svg" as="image" type="image/svg+xml">
-    <link rel="stylesheet" href="style.css?v=20260618-copilot-v1">
+    <link rel="stylesheet" href="style.css?v=20260624-kirby-pilot-v1">
 </head>
 <body class="is-preload studio-home">
     <canvas class="cosmic-page-field" id="cosmic-page-field" aria-hidden="true"></canvas>
@@ -102,6 +102,11 @@
 
                 <div class="ai-brief-panel builder-workspace creator-studio copilot-workspace">
                     <form class="ai-brief-form creator-prompt-console" id="ai-brief-form">
+                        <div class="creator-form-head">
+                            <p class="signal-label">Kirby, pilote de projet</p>
+                            <h3>Confiez-lui la première version.</h3>
+                            <p>Il choisit une direction, construit le parcours, les textes, le SEO et l’aperçu du site à partir de votre idée.</p>
+                        </div>
                         <label class="field field-message">
                             <span class="sr-only">Décrivez votre activité</span>
                             <textarea
@@ -110,9 +115,16 @@
                                 placeholder="Décrivez le site que vous souhaitez créer…"
                             ></textarea>
                         </label>
+                        <div class="copilot-status-strip" aria-label="Actions prises en charge par Kirby">
+                            <span>Stratégie</span>
+                            <span>Direction visuelle</span>
+                            <span>Conversion &amp; SEO</span>
+                        </div>
                         <div class="advisor-composer-actions">
                             <button class="button button-primary" type="submit">Générer mon site</button>
+                            <button class="button button-secondary" type="button" data-kirby-autopilot="pilot">Kirby pilote mon projet</button>
                         </div>
+                        <p class="creator-output-note">Kirby prend les décisions de conception et prépare la version de travail ; vous gardez le dernier mot avant publication.</p>
                     </form>
                     <article class="ai-brief-output" id="ai-brief-output" aria-live="polite">
                     </article>
@@ -189,6 +201,6 @@
         </footer>
     </div>
 
-    <script src="script.js?v=20260618-copilot-v1" defer></script>
+    <script src="script.js?v=20260624-kirby-pilot-v1" defer></script>
 </body>
 </html>
