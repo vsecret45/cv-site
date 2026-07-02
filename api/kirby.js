@@ -184,11 +184,17 @@ Tu es Kirby, l'assistant CV senior de SA Creation Web. Tu aides a extraire, corr
 
 Regle de verite non negociable : le CV fourni est la seule source des faits. N'invente jamais un employeur, un poste occupe, une date, un diplome, une mission, un resultat, un permis, une langue ou un niveau de langue. Ne transforme jamais une competence attendue dans une offre en experience acquise.
 
+Exception encadree pour les trous de parcours : tu peux proposer une experience, une formation ou des competences comme brouillon a valider si l'utilisateur demande explicitement de combler/valoriser une periode ou fournit des indices sur cette periode. Dans ce cas, ne presente jamais le brouillon comme un fait deja confirme : utilise generatedExperiences, educationSuggestions, suggestedSkills, suggestions et periodGaps pour poser les questions utiles et attendre la validation utilisateur.
+
 Tu peux :
 - extraire et normaliser les informations explicitement presentes ;
 - reformuler une accroche a partir des faits du CV ;
 - mettre en avant des competences transferables seulement lorsqu'elles sont etayees par le CV ;
-- reordonner les experiences deja presentes pour faire apparaitre les plus pertinentes en premier ;
+- reordonner les experiences deja presentes en ordre antichronologique : la plus recente en haut, puis les plus anciennes. Les formations/certifications sans date restent sans date et ne doivent pas recevoir d'annee inventee ;
+- detecter les periodes non renseignees dans le parcours professionnel sans transformer un CV rapide en questionnaire. Cible surtout la periode recente apres la derniere experience ou la periode explicitement demandee par l'utilisateur. Ignore les petites pauses anciennes, les transitions de quelques mois, et les dates manifestement mal importees. Si tu as assez d'elements pour proposer une experience dans generatedExperiences, laisse periodGaps vide ;
+- proposer une experience de transition uniquement comme hypothese a valider lorsque la demande utilisateur indique des faits exploitables pendant cette periode : projet personnel, creation de projet, developpement web/numerique, autoformation, formation professionnelle, recherche active d'emploi, benevolat ou missions ponctuelles. Renseigne generatedExperiences avec un titre, une periode, des missions et les competences developpees. Marque toujours la source comme "a valider" ;
+- une experience proposee dans generatedExperiences ne doit jamais chevaucher une experience deja presente dans le CV. Si la derniere experience reelle finit en 2024 et que la periode recente a valoriser va jusqu'a 2026, la periode proposee doit commencer en 2025, pas en 2024 ;
+- proposer dans educationSuggestions les formations et certifications manquantes a valoriser dans une rubrique separee : Ecole 42/Piscine informatique, Simplon, formations courtes, certificats et ateliers. Meme si la formation n'est pas directement liee au poste vise, elle peut expliquer une reconversion ou une periode recente, mais elle doit rester a valider avant insertion ;
 - relever les mots-cles de l'offre et proposer, dans "suggestedSkills", ceux que la personne peut ajouter uniquement si elle les a reellement pratiques ;
 - detecter les langues. Conserve le niveau exact fourni dans le CV ou dans la demande utilisateur, y compris une formulation informelle comme "notions professionnelles". Si le niveau manque, laisse "level" vide, sans avertissement ni texte de blocage.
 - verifier la qualite avant proposition : fautes evidentes, doublons de competences, repetitions, rubriques vides et risque de contenu trop long ;
@@ -198,11 +204,11 @@ Tu peux :
 
 Quand la consigne contient un CV colle, traite-le comme une source factuelle supplementaire et remplis "extracted" avec les coordonnees, experiences, formations, langues et activites explicitement presentes. Ne lis jamais une offre d'emploi comme un CV. Une offre sert uniquement a adapter les elements deja prouves.
 
-Pour les niveaux de langues, conserve la formulation explicite. Si elle correspond clairement a l'une de ces valeurs, normalise-la ainsi : Notions, Intermédiaire, Professionnel, Courant, Bilingue ou Langue maternelle. Ne choisis jamais un niveau a la place de la personne.
+Pour les niveaux de langues, conserve la formulation explicite. Si elle correspond clairement a l'une de ces valeurs, normalise-la ainsi : Notions, Débutant, Bases solides, Niveau intermédiaire, Niveau professionnel, Courant, Bilingue ou Langue maternelle. Exemples : French Native = Français : langue maternelle ; English Basic/Basic knowledge/Basic proficiency/Basic English = Anglais : Notions ; Beginner = Débutant ; Elementary = Bases solides ; Intermediate = Niveau intermédiaire ; Fluent = Courant ; Professional working proficiency = Niveau professionnel. Ne choisis jamais un niveau a la place de la personne.
 
 Les demandes courtes sont des actions, pas des questions a faire confirmer. Comprends notamment :
 - "anglais notions professionnelles" : remplace le niveau d'anglais par "Notions professionnelles" ;
-- "Francais courant, Anglais bases professionnelles" : retourne les deux langues avec leur niveau respectif ;
+- "Francais langue maternelle, Anglais Basic English" : retourne « Français : Langue maternelle » et « Anglais : Notions » ;
 - "remplace vendeur par vendeuse" : remplace le titre cible par « Vendeuse » et adapte la forme associee si elle est presente (ex. « Vendeur polyvalent » devient « Vendeuse polyvalente »), sans modifier les faits des experiences ;
 - "plus court" : raccourcis l'accroche et conserve les faits ;
 - "enleve / pas besoin de Lifestyle" : retire Lifestyle du titre et de l'accroche, sans toucher aux experiences. Retourne toujours un titre de remplacement non vide, choisi parmi les intitulés réellement présents dans le CV ;
@@ -212,11 +218,24 @@ Pour l'adaptation a une offre, le titre exact de l'offre collee est prioritaire 
 
 Pour un poste de vente ou de magasin (Vendeur Lifestyle, Vendeur polyvalent, etc.), valorise uniquement les preuves de relation client, conseil, accueil, autonomie et sens du service deja presentes. N'ajoute jamais vente, encaissement ou mise en rayon comme experience si le CV ne les prouve pas. Ces elements peuvent seulement etre proposes dans suggestedSkills avec la mention « a confirmer ».
 
+Pour une periode recente 2025-2026 liee a des projets numeriques, autoformation, IA ou developpement web, propose de preference ce brouillon a valider : titre « Créatrice de projets numériques – Autoformation et développement », periode exacte « 2025 - 2026 » si la derniere experience reelle finit en 2024, missions « Conception et développement de plateformes web », « Gestion de projets digitaux », « Utilisation d’outils d’intelligence artificielle pour le développement », « Coordination de développements avec des assistants IA », « Amélioration de l’expérience utilisateur (UX/UI) », « Tests fonctionnels et suivi des évolutions », « Développement de compétences en gestion de projet, communication digitale et résolution de problèmes ». Propose les competences correspondantes dans suggestedSkills.
+
+Mode CV rapide prêt à l'emploi : ne pose pas une liste de questions si la demande contient deja les projets, formations, outils ou periodes a valoriser. Dans ce cas, prépare directement une proposition validable. Les questions ne sont utiles que si aucune experience credible ne peut etre redigee.
+
 Selon la tache demandee :
 - "create" : transforme un CV colle ou des informations brutes en CV structure. Si les faits sont insuffisants, utilise extracted et suggestions pour indiquer exactement ce qui manque, sans creer de faux parcours.
 - "optimize" ou "assistant" : corrige, compacte et deduplique le CV existant. Renseigne quality.fixes avec les controles realises.
 - "adapt" : adapte titre, accroche, ordre des experiences et competences prouvees a l'offre. Produis aussi la lettre si la demande parle de lettre.
 - "letter" : redige letter.subject et letter.body. La lettre doit etre directement utilisable, faire 900 caracteres maximum et ne jamais affirmer un fait absent du CV.
+
+Actions d'edition directes :
+- Si l'utilisateur demande une modification ciblee d'un element existant (date/periode d'une experience, niveau de langue, suppression/retrait, correction d'un champ), renseigne "operations" avec l'action a appliquer. Ne cree pas de nouveau bloc pour une correction.
+- Si la demande cible explicitement un seul champ (titre, langue, date, telephone, email, profil, nom, ville, permis), ne lance pas d'optimisation globale : laisse periodGaps, generatedExperiences, educationSuggestions, suggestedSkills et layout vides sauf demande explicite d'optimisation globale.
+- Pour corriger une date d'experience existante, utilise type "update_experience_date", renseigne "value" avec la nouvelle date/periode, et cible l'experience avec target.index si le contexte de selection le fournit, sinon target.title, target.organization ou target.currentValue.
+- Pour ajouter ou modifier une langue, utilise type "upsert_language", value = niveau, target.label = langue.
+- Pour modifier un champ simple, utilise type "set_field", field parmi fullName, location, phone, email, permit, headline, summary, skills, education, activities, projects, languages, value = contenu final.
+- Pour supprimer une experience existante ou un doublon d'experience, utilise type "remove_experience" et cible l'experience avec target.index si le contexte de selection le fournit, sinon target.title, target.organization ou target.currentValue. Ne regenere jamais cette experience dans generatedExperiences pour la meme demande.
+- Si la demande est comprise mais qu'il manque une cible ou une valeur, renseigne "bugReport" seulement si l'application aurait du pouvoir agir. Sinon explique dans "suggestions" la precision manquante.
 
 Le resultat doit rester court et tenir sur une page de CV : une accroche de 300 caracteres maximum, 10 competences appliquees maximum, 8 mots-cles et 6 suggestions maximum. Reponds uniquement avec un JSON valide, sans markdown.
 
@@ -227,6 +246,28 @@ Schema JSON obligatoire :
   "skills": ["competence prouvee par le CV"],
   "experienceOrder": ["intitule exact d'une experience existante"],
   "languages": [{"language": "Francais", "level": "niveau exact ou chaine vide"}],
+  "periodGaps": [{
+    "period": "2025 - 2026",
+    "reason": "periode non renseignee",
+    "questions": ["question courte a poser avant insertion"],
+    "options": ["Projet personnel", "Autoformation", "Recherche active d'emploi"]
+  }],
+  "generatedExperiences": [{
+    "title": "titre professionnel a valider",
+    "period": "periode exacte a valider",
+    "organization": "Projet personnel / Autoformation / Formation / Benevolat",
+    "description": ["mission courte et factuelle a valider"],
+    "skills": ["competence developpee a valider"],
+    "source": "a valider"
+  }],
+  "educationSuggestions": [{
+    "title": "formation ou certification a valider",
+    "period": "annee ou periode si connue",
+    "organization": "organisme si connu",
+    "description": "description courte",
+    "skills": ["competence associee"],
+    "source": "a valider"
+  }],
   "extracted": {
     "fullName": "nom explicite ou chaine vide",
     "location": "ville explicite ou chaine vide",
@@ -255,6 +296,26 @@ Schema JSON obligatoire :
     "removeSections": ["projects"],
     "reflow": false,
     "compact": false
+  },
+  "operations": [{
+    "type": "update_experience_date | upsert_language | set_field | remove_section | reorder_experiences | remove_experience",
+    "field": "experience | languages | fullName | location | phone | email | permit | headline | summary | skills | education | activities | projects",
+    "target": {
+      "index": 0,
+      "label": "texte cible ou langue",
+      "title": "titre exact si experience",
+      "organization": "employeur/lieu si connu",
+      "currentValue": "valeur actuelle si utile"
+    },
+    "value": "nouvelle valeur a appliquer",
+    "reason": "raison courte"
+  }],
+  "bugReport": {
+    "category": "bug modification date | bug langue | bug sélection texte | bug export | bug page blanche | bug insertion expérience | bug application",
+    "summary": "resume court",
+    "expectedAction": "action attendue",
+    "target": "element concerne",
+    "details": "details utiles"
   },
   "letter": {
     "subject": "Objet : Candidature",
@@ -955,6 +1016,62 @@ const toCvStringList = (value, max = 10, itemMax = 100) =>
         .filter((item, index, list) => list.findIndex((candidate) => stripAccents(candidate).toLowerCase() === stripAccents(item).toLowerCase()) === index)
         .slice(0, max);
 
+const normalizeCvLanguageLevel = (value = '') => {
+    const level = limitCvText(value, 72);
+    const key = stripAccents(normalizeText(level).toLowerCase());
+    const aliases = {
+        'langue maternelle': 'Langue maternelle',
+        maternelle: 'Langue maternelle',
+        native: 'Langue maternelle',
+        'native speaker': 'Langue maternelle',
+        bilingual: 'Bilingue',
+        bilingue: 'Bilingue',
+        fluent: 'Courant',
+        courant: 'Courant',
+        courante: 'Courant',
+        'professional working proficiency': 'Niveau professionnel',
+        'working proficiency': 'Niveau professionnel',
+        'niveau professionnel': 'Niveau professionnel',
+        professionnel: 'Niveau professionnel',
+        professionnelle: 'Niveau professionnel',
+        intermediate: 'Niveau intermédiaire',
+        intermediaire: 'Niveau intermédiaire',
+        'niveau intermediaire': 'Niveau intermédiaire',
+        elementary: 'Bases solides',
+        'elementary level': 'Bases solides',
+        'bases solides': 'Bases solides',
+        beginner: 'Débutant',
+        debutant: 'Débutant',
+        basic: 'Notions',
+        'basic english': 'Notions',
+        'basic knowledge': 'Notions',
+        'basic proficiency': 'Notions',
+        bases: 'Notions',
+        base: 'Notions',
+        notions: 'Notions',
+        notion: 'Notions',
+    };
+
+    return aliases[key] || level;
+};
+
+const detectCvLanguageLevel = (value = '') => {
+    const source = stripAccents(normalizeText(value).toLowerCase());
+    const patterns = [
+        [/langue maternelle|maternelle|native speaker|native/, 'Langue maternelle'],
+        [/bilingual|bilingue/, 'Bilingue'],
+        [/fluent|courant(?:e)?/, 'Courant'],
+        [/professional working proficiency|working proficiency|niveau professionnel|professionnel(?:le)?/, 'Niveau professionnel'],
+        [/intermediate|niveau intermediaire|intermediaire/, 'Niveau intermédiaire'],
+        [/elementary level|elementary|bases solides/, 'Bases solides'],
+        [/beginner|debutant/, 'Débutant'],
+        [/basic english|basic knowledge|basic proficiency|basic|bases?|notions?/, 'Notions'],
+    ];
+    const found = patterns.find(([pattern]) => pattern.test(source));
+
+    return found ? found[1] : '';
+};
+
 const normalizeCvLanguage = (value) => {
     if (!value) {
         return null;
@@ -964,14 +1081,14 @@ const normalizeCvLanguage = (value) => {
         const [language = '', ...levelParts] = value.split(/\s*[:–-]\s*/);
         const normalizedLanguage = limitCvText(language, 48);
         return normalizedLanguage
-            ? { language: normalizedLanguage, level: limitCvText(levelParts.join(' '), 72) }
+            ? { language: normalizedLanguage, level: normalizeCvLanguageLevel(levelParts.join(' ')) }
             : null;
     }
 
     if (typeof value === 'object') {
         const language = limitCvText(value.language || value.name, 48);
         return language
-            ? { language, level: limitCvText(value.level || value.niveau, 72) }
+            ? { language, level: normalizeCvLanguageLevel(value.level || value.niveau) }
             : null;
     }
 
@@ -1048,6 +1165,60 @@ const sanitizeCvLayout = (value) => {
     };
 };
 
+const CV_OPERATION_TYPES = new Set(['update_experience_date', 'upsert_language', 'set_field', 'remove_section', 'reorder_experiences', 'remove_experience']);
+const CV_OPERATION_FIELDS = new Set(['experience', 'languages', 'fullName', 'location', 'phone', 'email', 'permit', 'headline', 'summary', 'skills', 'education', 'activities', 'projects']);
+
+const sanitizeCvOperation = (value) => {
+    if (!value || typeof value !== 'object') {
+        return null;
+    }
+
+    const type = limitCvText(value.type || value.action, 48);
+    if (!CV_OPERATION_TYPES.has(type)) {
+        return null;
+    }
+
+    const rawTarget = value.target && typeof value.target === 'object' ? value.target : {};
+    const rawIndex = Number.isInteger(rawTarget.index) ? rawTarget.index : Number.isInteger(value.index) ? value.index : null;
+    const field = CV_OPERATION_FIELDS.has(value.field) ? value.field : '';
+
+    return {
+        type,
+        field,
+        target: {
+            index: rawIndex,
+            label: limitCvText(rawTarget.label || rawTarget.name || value.targetLabel, 120),
+            title: limitCvText(rawTarget.title || rawTarget.role, 120),
+            organization: limitCvText(rawTarget.organization || rawTarget.company || rawTarget.meta, 120),
+            currentValue: limitCvText(rawTarget.currentValue || rawTarget.current || value.currentValue, 160),
+        },
+        value: limitCvMultilineText(value.value || value.newValue || value.date || value.level, 900),
+        reason: limitCvText(value.reason || value.summary, 180),
+    };
+};
+
+const sanitizeCvOperations = (value) =>
+    (Array.isArray(value) ? value : [])
+        .map(sanitizeCvOperation)
+        .filter(Boolean)
+        .slice(0, 8);
+
+const sanitizeCvBugReport = (value) => {
+    if (!value || typeof value !== 'object') {
+        return null;
+    }
+
+    const category = limitCvText(value.category || value.type, 80);
+    const summary = limitCvText(value.summary || value.message, 220);
+    const expectedAction = limitCvText(value.expectedAction || value.expected, 220);
+    const target = limitCvText(value.target || value.element, 140);
+    const details = limitCvText(value.details || value.context, 320);
+
+    return category || summary || expectedAction || target || details
+        ? { category, summary, expectedAction, target, details }
+        : null;
+};
+
 const sanitizeCvLetter = (value) => {
     const letter = value && typeof value === 'object' ? value : {};
 
@@ -1056,6 +1227,128 @@ const sanitizeCvLetter = (value) => {
         body: limitCvMultilineText(letter.body, 1100),
     };
 };
+
+const sanitizeCvPeriodGap = (value) => {
+    if (!value) {
+        return null;
+    }
+
+    if (typeof value === 'string') {
+        const period = limitCvText(value, 48);
+        return period ? { period, reason: 'Période non renseignée', questions: [], options: [] } : null;
+    }
+
+    if (typeof value !== 'object') {
+        return null;
+    }
+
+    const period = limitCvText(value.period || value.dates, 48);
+    const reason = limitCvText(value.reason || value.description, 130);
+
+    return period || reason
+        ? {
+            period,
+            reason,
+            questions: toCvStringList(value.questions, 4, 150),
+            options: toCvStringList(value.options, 7, 80),
+        }
+        : null;
+};
+
+const sanitizeCvPeriodGaps = (value) =>
+    (Array.isArray(value) ? value : [])
+        .map(sanitizeCvPeriodGap)
+        .filter(Boolean)
+        .slice(0, 4);
+
+const sanitizeCvGeneratedExperience = (value) => {
+    if (!value) {
+        return null;
+    }
+
+    if (typeof value === 'string') {
+        const text = limitCvText(value, 460);
+        return text
+            ? {
+                title: limitCvText(text.split(/[•|]/)[0], 90),
+                period: '',
+                organization: '',
+                description: [text],
+                skills: [],
+                source: 'a valider',
+            }
+            : null;
+    }
+
+    if (typeof value !== 'object') {
+        return null;
+    }
+
+    const title = limitCvText(value.title || value.role || value.name, 90);
+    const period = limitCvText(value.period || value.dates, 48);
+    const organization = limitCvText(value.organization || value.context || value.company, 90);
+    const descriptionSource = Array.isArray(value.description)
+        ? value.description
+        : Array.isArray(value.missions)
+            ? value.missions
+            : Array.isArray(value.bullets)
+                ? value.bullets
+                : value.description
+                    ? [value.description]
+                    : [];
+    const description = toCvStringList(descriptionSource, 8, 180);
+    const skills = toCvStringList(value.skills || value.competences, 10, 80);
+    const source = limitCvText(value.source || 'a valider', 40);
+
+    return title || period || description.length
+        ? { title, period, organization, description, skills, source }
+        : null;
+};
+
+const sanitizeCvGeneratedExperiences = (value) =>
+    (Array.isArray(value) ? value : [])
+        .map(sanitizeCvGeneratedExperience)
+        .filter(Boolean)
+        .slice(0, 4);
+
+const sanitizeCvEducationSuggestion = (value) => {
+    if (!value) {
+        return null;
+    }
+
+    if (typeof value === 'string') {
+        const title = limitCvText(value, 150);
+        return title
+            ? { title, period: '', organization: '', description: '', skills: [], source: 'a valider' }
+            : null;
+    }
+
+    if (typeof value !== 'object') {
+        return null;
+    }
+
+    const title = limitCvText(value.title || value.name || value.formation, 120);
+    const period = limitCvText(value.period || value.year || value.dates, 48);
+    const organization = limitCvText(value.organization || value.school || value.organism || value.provider, 90);
+    const description = limitCvText(value.description || value.summary, 220);
+    const skills = toCvStringList(value.skills || value.competences, 8, 80);
+    const source = limitCvText(value.source || 'a valider', 40);
+
+    return title || organization || description
+        ? { title, period, organization, description, skills, source }
+        : null;
+};
+
+const sanitizeCvEducationSuggestions = (...values) =>
+    values
+        .flatMap((value) => (Array.isArray(value) ? value : []))
+        .map(sanitizeCvEducationSuggestion)
+        .filter(Boolean)
+        .filter((item, index, list) => {
+            const signature = stripAccents(`${item.title} ${item.organization}`.toLowerCase());
+            return list.findIndex((candidate) => stripAccents(`${candidate.title} ${candidate.organization}`.toLowerCase()) === signature) === index;
+        })
+        .slice(0, 6);
 
 const sanitizeCvAssistantResult = (result, cv = {}) => {
     const sourceExperienceTitles = getCvExperienceTitles(cv.experience);
@@ -1077,14 +1370,19 @@ const sanitizeCvAssistantResult = (result, cv = {}) => {
         skills: toCvStringList(result && result.skills, 10, 80),
         experienceOrder: [...orderedTitles, ...sourceExperienceTitles.filter((title) => !orderedTitles.includes(title))],
         languages,
+        periodGaps: sanitizeCvPeriodGaps(result && result.periodGaps),
+        generatedExperiences: sanitizeCvGeneratedExperiences(result && result.generatedExperiences),
+        educationSuggestions: sanitizeCvEducationSuggestions(result && result.educationSuggestions, result && result.certificationSuggestions),
         extracted: sanitizeCvExtraction(result && result.extracted),
         jobTarget: limitCvText(result && result.jobTarget, 90),
         keywords: toCvStringList(result && result.keywords, 8, 60),
-        suggestedSkills: toCvStringList(result && result.suggestedSkills, 8, 80),
+        suggestedSkills: toCvStringList(result && result.suggestedSkills, 12, 80),
         suggestions: toCvStringList(result && result.suggestions, 6, 180),
         notice: limitCvText(result && result.notice, 260),
         quality: sanitizeCvQuality(result && result.quality),
         layout: sanitizeCvLayout(result && result.layout),
+        operations: sanitizeCvOperations(result && result.operations),
+        bugReport: sanitizeCvBugReport(result && result.bugReport),
         letter: sanitizeCvLetter(result && result.letter),
     };
 };
@@ -1141,7 +1439,7 @@ const getRequestedCvRole = ({ task, jobOffer = '', instruction = '' } = {}) => {
 };
 
 const finalizeCvAssistantResult = ({ result, cv, task, jobOffer, instruction }) => {
-    const assistantResult = sanitizeCvAssistantResult(result, cv);
+    const assistantResult = enhanceCvGapDrafts(sanitizeCvAssistantResult(result, cv), { cv, instruction });
     const requestedRole = getRequestedCvRole({ task, jobOffer, instruction });
 
     if (!requestedRole) {
@@ -1158,14 +1456,486 @@ const finalizeCvAssistantResult = ({ result, cv, task, jobOffer, instruction }) 
 const getCvLanguagesFromText = (value = '') => {
     const knownLanguages = ['Français', 'Anglais', 'Arabe', 'Espagnol', 'Italien', 'Allemand', 'Portugais'];
     const source = normalize(value);
+    const normalizedSource = stripAccents(source);
 
     return knownLanguages
-        .filter((language) => new RegExp(`\\b${stripAccents(language)}\\b`, 'i').test(stripAccents(source)))
+        .filter((language) => new RegExp(`\\b${stripAccents(language)}\\b`, 'i').test(normalizedSource))
         .map((language) => {
-            const line = source.split(/\r?\n/).find((item) => new RegExp(`\\b${stripAccents(language)}\\b`, 'i').test(stripAccents(item))) || language;
-            const [, level = ''] = line.split(/\s*[:–-]\s*/);
-            return { language, level: limitCvText(level, 72) };
+            const languagePattern = new RegExp(`\\b${stripAccents(language)}\\b`, 'i');
+            const line = source.split(/\r?\n/).find((item) => languagePattern.test(stripAccents(item))) || language;
+            const match = languagePattern.exec(stripAccents(line));
+            const levelSource = match ? line.slice(match.index + match[0].length, match.index + match[0].length + 90) : '';
+            const detectedLevel = detectCvLanguageLevel(levelSource);
+            const [, fallbackLevel = ''] = line.split(/\s*[:–]\s*/);
+            return { language, level: detectedLevel || normalizeCvLanguageLevel(fallbackLevel) };
         });
+};
+
+const getCurrentCvYear = () => new Date().getFullYear();
+
+const extractCvYearRanges = (experience = '') => {
+    const currentYear = getCurrentCvYear();
+
+    return normalize(experience)
+        .split(/\r?\n/)
+        .map((line) => {
+            const years = [...line.matchAll(/\b(?:19|20)\d{2}\b/g)].map((match) => Number(match[0]));
+            const hasOngoingMarker = /\b(aujourd'hui|aujourd’hui|present|présent|actuel|maintenant)\b/i.test(line);
+
+            if (!years.length) {
+                return null;
+            }
+
+            const start = Math.min(years[0], hasOngoingMarker ? years[0] : years[years.length - 1]);
+            const end = hasOngoingMarker ? currentYear : Math.max(years[0], years[years.length - 1]);
+
+            return {
+                start,
+                end,
+                ongoing: hasOngoingMarker,
+            };
+        })
+        .filter(Boolean)
+        .filter((range) => range.start >= 1980 && range.end >= range.start && range.end <= currentYear + 1);
+};
+
+const getExplicitInstructionPeriods = (instruction = '') => {
+    const currentYear = getCurrentCvYear();
+    const periods = [];
+    const pattern = /\b((?:19|20)\d{2})\s*[–-]\s*((?:19|20)\d{2}|aujourd'hui|aujourd’hui|present|présent|actuel|maintenant)\b/gi;
+    let match;
+
+    while ((match = pattern.exec(instruction))) {
+        const start = Number(match[1]);
+        const end = /\d{4}/.test(match[2]) ? Number(match[2]) : currentYear;
+
+        if (start >= 1980 && end >= start && end <= currentYear + 1) {
+            periods.push({ start, end, ongoing: end === currentYear && !/\d{4}/.test(match[2]) });
+        }
+    }
+
+    return periods;
+};
+
+const formatCvYearPeriod = ({ start, end }) => (start === end ? String(start) : `${start} - ${end}`);
+
+const detectCvPeriodGaps = ({ cv, instruction }) => {
+    const currentYear = getCurrentCvYear();
+    const ranges = extractCvYearRanges(cv.experience).sort((left, right) => left.start - right.start || left.end - right.end);
+    const explicitPeriods = getExplicitInstructionPeriods(instruction);
+    const gaps = [];
+    const addGap = (range, reason) => {
+        if (!range || range.start > range.end) {
+            return;
+        }
+
+        const period = formatCvYearPeriod(range);
+        if (gaps.some((gap) => gap.period === period)) {
+            return;
+        }
+
+        gaps.push({
+            period,
+            reason,
+            questions: [
+                `Pendant ${period}, s'agissait-il d'un projet personnel, d'une formation, d'une recherche d'emploi, de bénévolat ou de missions ponctuelles ?`,
+                'Quels outils, technologies ou compétences avez-vous réellement pratiqués pendant cette période ?',
+                'Quel intitulé voulez-vous afficher dans le CV pour rester juste et professionnel ?',
+            ],
+            options: [
+                'Projet personnel',
+                'Entrepreneur / Créateur de projet',
+                'Développement web et projets numériques',
+                'Autoformation / Formation en autodidacte',
+                'Formation professionnelle',
+                "Recherche active d'emploi",
+                'Bénévolat ou missions ponctuelles',
+            ],
+        });
+    };
+
+    explicitPeriods.forEach((range) => addGap(range, 'Période mentionnée à valoriser'));
+
+    ranges.forEach((range, index) => {
+        const next = ranges[index + 1];
+        if (next && next.start - range.end > 1) {
+            addGap({ start: range.end + 1, end: next.start - 1 }, 'Période non renseignée entre deux expériences');
+        }
+    });
+
+    const hasOngoingExperience = ranges.some((range) => range.ongoing || range.end >= currentYear);
+    const latestEnd = ranges.reduce((max, range) => Math.max(max, range.end), 0);
+    if (!hasOngoingExperience && latestEnd && latestEnd < currentYear) {
+        addGap({ start: latestEnd + 1, end: currentYear }, 'Période récente non renseignée');
+    }
+
+    return sanitizeCvPeriodGaps(gaps);
+};
+
+const getCvGapContext = (instruction = '', cv = {}) => {
+    const source = stripAccents(normalizeText([
+        instruction,
+        cv.headline,
+        cv.summary,
+        cv.skills,
+        cv.projects,
+        cv.education,
+    ].join(' ')).toLowerCase());
+
+    if (/\b(web|site|plateforme|numerique|digital|ia|intelligence artificielle|ux|ui|developp|javascript|html|css)\b/.test(source)) {
+        return 'web';
+    }
+    if (/\b(entrepreneur|entrepreneure|createur|creatrice|creation de projet|auto entrepreneur|auto-entrepreneur)\b/.test(source)) {
+        return 'entrepreneur';
+    }
+    if (/\b(formation|autoformation|autodidacte|ecole|42|simplon|certificat|certification|atelier)\b/.test(source)) {
+        return 'formation';
+    }
+    if (/\b(recherche active|recherche d emploi|candidature|emploi)\b/.test(source)) {
+        return 'jobSearch';
+    }
+    if (/\b(benevolat|benevole|mission ponctuelle|missions ponctuelles)\b/.test(source)) {
+        return 'volunteer';
+    }
+
+    return 'project';
+};
+
+const shouldDraftGapExperience = (instruction = '') =>
+    /\b(trou|vide|periode|période|combler|valoriser|projet|autoformation|autodidacte|formation|web|numerique|numérique|digital|ia|entrepreneur|creatrice|créatrice|recherche active|benevolat|bénévolat|mission ponctuelle)\b/i.test(instruction);
+
+const buildCvGapExperience = (gap, context) => {
+    const commonSkills = ['Organisation', 'Autonomie', 'Gestion de projet', 'Résolution de problèmes'];
+    const byContext = {
+        web: {
+            title: 'Créatrice de projets numériques - Autoformation et développement',
+            organization: 'Projet personnel / Autoformation',
+            description: [
+                'Conception et développement de plateformes web.',
+                'Gestion de projets digitaux.',
+                "Utilisation d'outils d'intelligence artificielle pour le développement.",
+                "Coordination de développements avec des assistants IA.",
+                "Amélioration de l'expérience utilisateur (UX/UI).",
+                'Tests fonctionnels et suivi des évolutions.',
+                'Développement de compétences en gestion de projet, communication digitale et résolution de problèmes.',
+            ],
+            skills: ['Gestion de projet', 'Développement web', 'IA', 'Communication digitale', 'UX/UI', 'Tests fonctionnels', ...commonSkills],
+        },
+        entrepreneur: {
+            title: 'Entrepreneure - Création et développement de projet',
+            organization: 'Projet personnel',
+            description: [
+                "Structuration d'une offre et clarification des besoins utilisateurs.",
+                'Gestion des priorités, suivi des actions et amélioration continue du projet.',
+                'Création de supports digitaux et coordination des étapes de développement.',
+            ],
+            skills: ['Entrepreneuriat', 'Communication digitale', 'Gestion de projet', ...commonSkills],
+        },
+        formation: {
+            title: 'Autoformation et développement de compétences numériques',
+            organization: 'Formation en autodidacte',
+            description: [
+                'Apprentissage progressif par la pratique et les projets.',
+                'Renforcement de la logique, de la méthode de travail et de la résolution de problèmes.',
+                'Veille, exercices pratiques et consolidation des compétences techniques.',
+            ],
+            skills: ['Autoformation', 'Apprentissage continu', 'Méthode', ...commonSkills],
+        },
+        jobSearch: {
+            title: "Recherche active d'emploi - Projet professionnel",
+            organization: 'Projet professionnel',
+            description: [
+                'Clarification du projet professionnel et ciblage des candidatures.',
+                'Mise à jour des supports de candidature et veille sur les opportunités.',
+                'Préparation des entretiens et valorisation des compétences transférables.',
+            ],
+            skills: ['Recherche d’emploi', 'Communication', 'Organisation', ...commonSkills],
+        },
+        volunteer: {
+            title: 'Bénévolat et missions ponctuelles',
+            organization: 'Engagement personnel',
+            description: [
+                "Participation à des actions ponctuelles selon les besoins de l'organisation.",
+                'Organisation, entraide et communication avec différents interlocuteurs.',
+                'Développement du sens du service et de la fiabilité.',
+            ],
+            skills: ['Bénévolat', 'Sens du service', 'Communication', ...commonSkills],
+        },
+        project: {
+            title: 'Développement de projet personnel - Autoformation',
+            organization: 'Projet personnel',
+            description: [
+                'Développement de compétences par la pratique et la veille.',
+                'Organisation des étapes du projet et suivi des améliorations.',
+                'Renforcement de l’autonomie, de la méthode et de la résolution de problèmes.',
+            ],
+            skills: ['Projet personnel', 'Autoformation', ...commonSkills],
+        },
+    };
+    const template = byContext[context] || byContext.project;
+
+    return sanitizeCvGeneratedExperience({
+        ...template,
+        period: gap.period,
+        source: 'a valider',
+    });
+};
+
+const buildCvGapExperiences = ({ gaps, cv, instruction }) => {
+    if (!gaps.length || !shouldDraftGapExperience(instruction)) {
+        return [];
+    }
+
+    const context = getCvGapContext(instruction, cv);
+    return sanitizeCvGeneratedExperiences(gaps.map((gap) => buildCvGapExperience(gap, context)));
+};
+
+const buildCvEducationSuggestions = ({ cv, instruction }) => {
+    const source = stripAccents(normalizeText([instruction, cv.education].join(' ')).toLowerCase());
+    const existingEducation = stripAccents(normalizeText(cv.education).toLowerCase());
+    const suggestions = [];
+
+    if (/\b(42|ecole 42|piscine)\b/.test(source) && !/\b(42|ecole 42|piscine)\b/.test(existingEducation)) {
+        suggestions.push({
+            title: 'École 42 - Piscine informatique',
+            organization: 'École 42',
+            description: 'Initiation intensive au développement, logique algorithmique, autonomie, résolution de problèmes et travail en pair-to-pair.',
+            skills: ['Logique algorithmique', 'Autonomie', 'Résolution de problèmes', 'Pair-to-pair'],
+            source: 'a valider',
+        });
+    }
+
+    if (/\bsimplon\b/.test(source) && !/\bsimplon\b/.test(existingEducation)) {
+        suggestions.push({
+            title: 'Simplon - Formation numérique / développement web',
+            organization: 'Simplon',
+            description: 'Bases du développement web, culture numérique et apprentissage par projet.',
+            skills: ['Développement web', 'Culture numérique', 'Apprentissage par projet'],
+            source: 'a valider',
+        });
+    }
+
+    if (/\b(formations? courtes?|certificats?|ateliers?|autres certifications?)\b/.test(source)) {
+        suggestions.push({
+            title: 'Formations courtes, certificats ou ateliers',
+            organization: 'Organisme à préciser',
+            description: 'Formation complémentaire à valoriser dans une rubrique séparée après validation du nom, de la date et du contenu.',
+            skills: ['Apprentissage continu', 'Adaptabilité'],
+            source: 'a valider',
+        });
+    }
+
+    return sanitizeCvEducationSuggestions(suggestions);
+};
+
+const digitalProjectExperienceDetails = {
+    title: 'Créatrice de projets numériques - Autoformation et développement',
+    description: [
+        'Conception et développement de plateformes web.',
+        'Gestion de projets digitaux.',
+        "Utilisation d'outils d'intelligence artificielle pour le développement.",
+        'Coordination de développements avec des assistants IA.',
+        "Amélioration de l'expérience utilisateur (UX/UI).",
+        'Tests fonctionnels et suivi des évolutions.',
+        'Développement de compétences en gestion de projet, communication digitale et résolution de problèmes.',
+    ],
+    skills: [
+        'Gestion de projet',
+        'Développement web',
+        'IA',
+        'Communication digitale',
+        'UX/UI',
+        'Tests fonctionnels',
+        'Organisation',
+        'Autonomie',
+        'Résolution de problèmes',
+    ],
+};
+
+const shouldUseDigitalProjectExperienceDetails = ({ instruction = '', experiences = [] } = {}) => {
+    const source = stripAccents(normalizeText([
+        instruction,
+        ...experiences.map((experience) => `${experience.title || ''} ${experience.period || ''} ${experience.organization || ''}`),
+    ].join(' ')).toLowerCase());
+
+    return /\b(creatrice de projets numeriques|projets numeriques|creation de projets numeriques|autoformation|developpement web|assistant ia|intelligence artificielle|ux\/ui|2025\s*-\s*2026)\b/.test(source);
+};
+
+const filterCvPeriodGapsForReadyCv = ({ periodGaps = [], generatedExperiences = [], cv = {}, instruction = '' } = {}) => {
+    if (!Array.isArray(periodGaps) || !periodGaps.length) {
+        return [];
+    }
+
+    if (Array.isArray(generatedExperiences) && generatedExperiences.length) {
+        return [];
+    }
+
+    const explicitPeriods = new Set(getExplicitInstructionPeriods(instruction).map(formatCvYearPeriod));
+    if (explicitPeriods.size) {
+        return periodGaps.filter((gap) => explicitPeriods.has(gap.period)).slice(0, 1);
+    }
+
+    const currentYear = getCurrentCvYear();
+    const latestEnd = extractCvYearRanges(cv.experience).reduce((max, range) => Math.max(max, range.end), 0);
+    const recentPeriod = latestEnd && latestEnd < currentYear
+        ? formatCvYearPeriod({ start: latestEnd + 1, end: currentYear })
+        : '';
+
+    return recentPeriod
+        ? periodGaps.filter((gap) => gap.period === recentPeriod).slice(0, 1)
+        : [];
+};
+
+const getPreferredGeneratedExperiencePeriod = ({ cv = {}, instruction = '' } = {}) => {
+    const explicitPeriods = getExplicitInstructionPeriods(instruction);
+    if (explicitPeriods.length) {
+        return formatCvYearPeriod(explicitPeriods[explicitPeriods.length - 1]);
+    }
+
+    const currentYear = getCurrentCvYear();
+    const ranges = extractCvYearRanges(cv.experience);
+    const hasOngoingExperience = ranges.some((range) => range.ongoing || range.end >= currentYear);
+    const latestEnd = ranges.reduce((max, range) => Math.max(max, range.end), 0);
+
+    if (!hasOngoingExperience && latestEnd && latestEnd < currentYear) {
+        return formatCvYearPeriod({ start: latestEnd + 1, end: currentYear });
+    }
+
+    return '';
+};
+
+const getCvPeriodRangeFromText = (value = '') => getExplicitInstructionPeriods(value)[0] || null;
+
+const rangesOverlap = (left, right) =>
+    Boolean(left && right && left.start <= right.end && right.start <= left.end);
+
+const shouldNormalizeGeneratedExperiencePeriod = ({ experience = {}, cv = {}, preferredPeriod = '' } = {}) => {
+    if (!preferredPeriod) {
+        return false;
+    }
+
+    const currentPeriod = normalizeText(experience.period || '');
+    if (!currentPeriod || currentPeriod === preferredPeriod) {
+        return Boolean(!currentPeriod);
+    }
+
+    const currentRange = getCvPeriodRangeFromText(currentPeriod);
+    const preferredRange = getCvPeriodRangeFromText(preferredPeriod);
+    if (!currentRange || !preferredRange) {
+        return false;
+    }
+
+    const source = stripAccents(normalizeText([
+        experience.title,
+        experience.organization,
+        experience.description,
+        experience.skills,
+    ].flat().join(' ')).toLowerCase());
+    const looksLikeGapDraft = /\b(projets?|numeriques?|digital|web|autoformation|developpement|ia|intelligence artificielle|creation|creatrice|entrepreneur|formation|recherche active|benevolat)\b/.test(source);
+    const overlapsRealExperience = extractCvYearRanges(cv.experience).some((range) => rangesOverlap(currentRange, range));
+
+    return looksLikeGapDraft && overlapsRealExperience;
+};
+
+const normalizeGeneratedExperiencePeriods = (experiences = [], { cv = {}, instruction = '' } = {}) => {
+    const preferredPeriod = getPreferredGeneratedExperiencePeriod({ cv, instruction });
+
+    return experiences.map((experience) => {
+        if (!shouldNormalizeGeneratedExperiencePeriod({ experience, cv, preferredPeriod })) {
+            return experience;
+        }
+
+        return {
+            ...experience,
+            period: preferredPeriod,
+        };
+    });
+};
+
+const enhanceCvGapDrafts = (assistantResult, { cv = {}, instruction = '' } = {}) => {
+    const result = assistantResult && typeof assistantResult === 'object' ? assistantResult : {};
+    const generatedExperiences = normalizeGeneratedExperiencePeriods(
+        Array.isArray(result.generatedExperiences) ? result.generatedExperiences : [],
+        { cv, instruction }
+    );
+    const shouldEnhanceDigitalProject = shouldUseDigitalProjectExperienceDetails({ instruction, experiences: generatedExperiences });
+    const enhancedExperiences = shouldEnhanceDigitalProject
+        ? generatedExperiences.map((experience, index) => {
+            const isMatchingExperience = index === 0 || /projets?\s+num[eé]riques?|autoformation|d[eé]veloppement/i.test(experience.title || '');
+            if (!isMatchingExperience) {
+                return experience;
+            }
+
+            return sanitizeCvGeneratedExperience({
+                ...experience,
+                title: experience.title || digitalProjectExperienceDetails.title,
+                description: digitalProjectExperienceDetails.description,
+                skills: toCvStringList([...(experience.skills || []), ...digitalProjectExperienceDetails.skills], 12, 80),
+            });
+        })
+        : generatedExperiences;
+    const canonicalEducationSuggestions = buildCvEducationSuggestions({ cv, instruction });
+    const instructionSource = stripAccents(normalizeText(instruction).toLowerCase());
+    const getEducationSignature = (education = {}) => stripAccents(`${education.title} ${education.organization}`.toLowerCase()).replace(/\s+/g, ' ').trim();
+    const hasCanonical42 = canonicalEducationSuggestions.some((education) => /\b(?:ecole\s+42|42|piscine)\b/.test(stripAccents(`${education.title} ${education.organization}`.toLowerCase())));
+    const hasCanonicalSimplon = canonicalEducationSuggestions.some((education) => /\bsimplon\b/.test(stripAccents(`${education.title} ${education.organization}`.toLowerCase())));
+    const canonical42Signatures = new Set(
+        canonicalEducationSuggestions
+            .filter((education) => /\b(?:ecole\s+42|42|piscine)\b/.test(getEducationSignature(education)))
+            .map(getEducationSignature)
+    );
+    const canonicalSimplonSignatures = new Set(
+        canonicalEducationSuggestions
+            .filter((education) => /\bsimplon\b/.test(getEducationSignature(education)))
+            .map(getEducationSignature)
+    );
+    const allowGenericShortTraining = /\b(formations? courtes?|certificats?|ateliers?|autres certifications?)\b/.test(instructionSource);
+    const educationSuggestions = sanitizeCvEducationSuggestions(result.educationSuggestions, canonicalEducationSuggestions)
+        .filter((education) => {
+            const source = stripAccents(`${education.title} ${education.organization} ${education.description}`.toLowerCase());
+            const signature = getEducationSignature(education);
+
+            if (hasCanonical42 && /\b(?:ecole\s+42|42|piscine|informatique)\b/.test(source) && !canonical42Signatures.has(signature)) {
+                return false;
+            }
+            if (hasCanonicalSimplon && /\b(?:simplon|formation|developpement web|numerique)\b/.test(source) && !canonicalSimplonSignatures.has(signature) && !allowGenericShortTraining) {
+                return false;
+            }
+            if (!allowGenericShortTraining && /\b(formations? courtes?|certificats?|certifications?|ateliers?)\b/.test(source)) {
+                return false;
+            }
+
+            return true;
+        });
+    const suggestedSkills = toCvStringList([
+        ...(result.suggestedSkills || []),
+        ...(shouldEnhanceDigitalProject ? digitalProjectExperienceDetails.skills : []),
+        ...educationSuggestions.flatMap((education) => education.skills || []),
+    ], 12, 80);
+    const requestedLanguages = getCvLanguagesFromText(instruction);
+    const languagesByKey = new Map(
+        [
+            ...(result.languages || []),
+            ...requestedLanguages,
+        ]
+            .map(normalizeCvLanguage)
+            .filter(Boolean)
+            .map((language) => [stripAccents(language.language).toLowerCase(), language])
+    );
+
+    return {
+        ...result,
+        generatedExperiences: sanitizeCvGeneratedExperiences(enhancedExperiences),
+        educationSuggestions,
+        suggestedSkills,
+        languages: [...languagesByKey.values()],
+        periodGaps: filterCvPeriodGapsForReadyCv({
+            periodGaps: result.periodGaps,
+            generatedExperiences: enhancedExperiences,
+            cv,
+            instruction,
+        }),
+    };
 };
 
 const buildFallbackCvLetter = ({ cv, jobOffer, instruction, letter, role }) => {
@@ -1192,7 +1962,7 @@ const buildFallbackCvLetter = ({ cv, jobOffer, instruction, letter, role }) => {
 };
 
 const buildFallbackCvAssistant = ({ task, cv, jobOffer, instruction, letter = {} }) => {
-    const source = [cv.headline, cv.summary, cv.skills, cv.experience, cv.projects, instruction, jobOffer].filter(Boolean).join(' ');
+    const source = [cv.headline, cv.summary, cv.skills, cv.experience, cv.projects, cv.education, cv.languages, instruction, jobOffer].filter(Boolean).join(' ');
     const normalizedSource = stripAccents(source.toLowerCase());
     const role = getCvRoleFromText(jobOffer) || getCvRoleFromText(instruction) || getCvRoleFromText(cv.headline);
     const isRetailRole = /^(Vendeur|Vendeuse|Employé|Employée)/.test(role);
@@ -1221,11 +1991,25 @@ const buildFallbackCvAssistant = ({ task, cv, jobOffer, instruction, letter = {}
         });
     }
 
-    const languages = getCvLanguagesFromText(cv.languages || `${cv.summary || ''}\n${cv.experience || ''}`);
+    const languages = getCvLanguagesFromText([cv.languages, instruction, cv.summary, cv.experience].filter(Boolean).join('\n'));
     if (!languages.length) {
         suggestions.push('Ajoutez vos langues et un niveau exact : par exemple Français : langue maternelle, Anglais : bases professionnelles.');
     } else if (languages.some((language) => !language.level)) {
         suggestions.push('Précisez le niveau des langues détectées avant l’export.');
+    }
+
+    const periodGaps = detectCvPeriodGaps({ cv, instruction });
+    const generatedExperiences = buildCvGapExperiences({ gaps: periodGaps, cv, instruction });
+    const educationSuggestions = buildCvEducationSuggestions({ cv, instruction });
+    const generatedSkillSuggestions = generatedExperiences
+        .flatMap((experience) => experience.skills || [])
+        .filter((skill) => !skills.some((item) => stripAccents(item).toLowerCase() === stripAccents(skill).toLowerCase()));
+
+    if (periodGaps.length) {
+        suggestions.push('Validez la période vide avant insertion : intitulé, activité réelle, outils utilisés et compétences développées.');
+    }
+    if (educationSuggestions.length) {
+        suggestions.push('Validez les formations ou certifications à ajouter dans la rubrique Formations & certifications.');
     }
 
     const keywords = normalize(jobOffer)
@@ -1246,12 +2030,15 @@ const buildFallbackCvAssistant = ({ task, cv, jobOffer, instruction, letter = {}
         ? buildFallbackCvLetter({ cv, jobOffer, instruction, letter, role })
         : { subject: '', body: '' };
 
-    return sanitizeCvAssistantResult({
+    return enhanceCvGapDrafts(sanitizeCvAssistantResult({
         headline: task === 'adapt' && role ? role : cv.headline,
         summary,
         skills,
         experienceOrder: getCvExperienceTitles(cv.experience),
         languages,
+        periodGaps,
+        generatedExperiences,
+        educationSuggestions,
         extracted: {
             fullName: cv.fullName,
             location: cv.location,
@@ -1269,23 +2056,25 @@ const buildFallbackCvAssistant = ({ task, cv, jobOffer, instruction, letter = {}
         },
         jobTarget: role || cv.headline,
         keywords,
-        suggestedSkills,
+        suggestedSkills: [...suggestedSkills, ...generatedSkillSuggestions],
         suggestions,
         quality: {
             fixes: ['Compétences et sections analysées avant proposition.'],
-            warnings: languages.some((language) => !language.level)
-                ? ['Un niveau de langue reste à préciser.']
-                : [],
+            warnings: [
+                languages.some((language) => !language.level) ? 'Un niveau de langue reste à préciser.' : '',
+                periodGaps.length ? 'Une période vide doit être validée avant insertion dans le CV.' : '',
+                educationSuggestions.length ? 'Une formation ou certification suggérée doit être confirmée avant ajout.' : '',
+            ].filter(Boolean),
         },
         layout,
         letter: fallbackLetter,
         notice: role
             ? `Adaptation ${role} réalisée à partir des éléments présents dans le CV.`
             : 'Informations détectées et harmonisées à partir du CV.',
-    }, cv);
+    }, cv), { cv, instruction });
 };
 
-const buildOpenAiCvPrompt = ({ task, cv, jobOffer, instruction, letter }) => [
+const buildOpenAiCvPrompt = ({ task, cv, jobOffer, instruction, letter, interaction }) => [
     `Tache : ${task === 'autofill'
         ? 'extraire et pre-remplir le CV colle par l utilisateur'
         : task === 'create'
@@ -1299,6 +2088,7 @@ const buildOpenAiCvPrompt = ({ task, cv, jobOffer, instruction, letter }) => [
                         : 'corriger et ameliorer ce CV'}.`,
     'Donnees du CV (faits a respecter) :',
     JSON.stringify(cv, null, 2),
+    interaction && Object.values(interaction).some(Boolean) ? `Contexte technique de selection dans l'interface :\n${JSON.stringify(interaction, null, 2)}` : '',
     jobOffer ? `Offre ou poste cible :\n${jobOffer}` : '',
     instruction ? `Consigne utilisateur :\n${instruction}` : '',
     letter && Object.values(letter).some(Boolean) ? `Contexte de la lettre :\n${JSON.stringify(letter, null, 2)}` : '',
@@ -1311,10 +2101,15 @@ const buildOpenAiCvPrompt = ({ task, cv, jobOffer, instruction, letter }) => [
     task === 'letter'
         ? 'La lettre est obligatoire dans le resultat. Reste precise, courte et honnete : aucun resultat, outil ou experience non present dans le CV.'
         : '',
+    'Analyse les dates du parcours professionnel. Si une periode vide existe, renseigne periodGaps avec les questions utiles. Si la consigne donne assez d elements sur cette periode, propose une experience dans generatedExperiences et des competences dans suggestedSkills, toujours a valider.',
+    'Regle stricte de date : une generatedExperience doit couvrir uniquement une periode non renseignee. Elle ne doit jamais chevaucher une experience deja presente dans cv.experience. Si cv.experience contient une mission en 2024 terminee en 2024 et que la periode recente va jusqu en 2026, la periode generee commence en 2025.',
+    'Ordre d affichage attendu : experiences et formations datees de la plus recente a la plus ancienne. Les certifications sans date restent sans date et passent apres les entrees datees, sans date inventee.',
+    'Pour les formations/certifications non presentes mais mentionnees par l utilisateur (Ecole 42, Piscine informatique, Simplon, formations courtes, certificats, ateliers), renseigne educationSuggestions au lieu de les melanger aux experiences.',
+    'Si la consigne demande une correction ciblee, retourne une operation applicative dans operations. Ne remplace pas une correction par une proposition generique.',
     'Respecte strictement le schema du systeme. Les intitules dans experienceOrder doivent etre les intitules exacts du CV source.',
 ].filter(Boolean).join('\n\n');
 
-const requestOpenAiCvAssistant = async ({ apiKey, model, task, cv, jobOffer, instruction, letter }) => {
+const requestOpenAiCvAssistant = async ({ apiKey, model, task, cv, jobOffer, instruction, letter, interaction }) => {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -1325,12 +2120,12 @@ const requestOpenAiCvAssistant = async ({ apiKey, model, task, cv, jobOffer, ins
             model,
             ...getOpenAiGenerationControls(model, {
                 temperature: 0.2,
-                max_tokens: 1100,
+                max_tokens: 1600,
             }),
             response_format: { type: 'json_object' },
             messages: [
                 { role: 'system', content: KIRBY_CV_SYSTEM_PROMPT },
-                { role: 'user', content: buildOpenAiCvPrompt({ task, cv, jobOffer, instruction, letter }) },
+                { role: 'user', content: buildOpenAiCvPrompt({ task, cv, jobOffer, instruction, letter, interaction }) },
             ],
         }),
     });
@@ -1531,7 +2326,7 @@ const callOpenAi = async ({ brief, revision, currentProposal }) => {
     throw finalError;
 };
 
-const callOpenAiCvAssistant = async ({ task, cv, jobOffer, instruction, letter }) => {
+const callOpenAiCvAssistant = async ({ task, cv, jobOffer, instruction, letter, interaction }) => {
     const apiKeys = getOpenAiKeys();
 
     if (!apiKeys.length) {
@@ -1545,7 +2340,7 @@ const callOpenAiCvAssistant = async ({ task, cv, jobOffer, instruction, letter }
         for (const model of models) {
             try {
                 return {
-                    result: await requestOpenAiCvAssistant({ apiKey, model, task, cv, jobOffer, instruction, letter }),
+                    result: await requestOpenAiCvAssistant({ apiKey, model, task, cv, jobOffer, instruction, letter, interaction }),
                     model,
                 };
             } catch (error) {
@@ -1601,13 +2396,23 @@ module.exports = async (request, response) => {
             motivation: limitCvText(sourceLetter.motivation, 240),
             style: limitCvText(sourceLetter.style, 24),
         };
+        const sourceInteraction = payload.interaction && typeof payload.interaction === 'object' ? payload.interaction : {};
+        const interaction = {
+            activeSection: limitCvText(sourceInteraction.activeSection, 48),
+            selectedText: limitCvText(sourceInteraction.selectedText, 220),
+            activeExperienceIndex: Number.isInteger(sourceInteraction.activeExperienceIndex)
+                ? sourceInteraction.activeExperienceIndex
+                : null,
+            activeExperience: limitCvText(sourceInteraction.activeExperience, 520),
+            pendingQuestion: limitCvText(sourceInteraction.pendingQuestion, 220),
+        };
 
         if (!Object.values(cv).some(Boolean) && !jobOffer && !instruction) {
             return json(response, 400, { error: 'cv_too_short' });
         }
 
         try {
-            const openAiResult = await callOpenAiCvAssistant({ task, cv, jobOffer, instruction, letter });
+            const openAiResult = await callOpenAiCvAssistant({ task, cv, jobOffer, instruction, letter, interaction });
 
             if (openAiResult) {
                 return json(response, 200, {

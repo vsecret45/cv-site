@@ -95,7 +95,9 @@ const assistantMessages = document.querySelector('#assistant-messages');
 const assistantProposal = document.querySelector('#assistant-proposal');
 const assistantProposalTitle = document.querySelector('#assistant-proposal-title');
 const assistantProposalSummary = document.querySelector('#assistant-proposal-summary');
+const assistantProposalDetails = document.querySelector('#assistant-proposal-details');
 const assistantApplyButton = document.querySelector('#assistant-apply');
+const assistantNewRequestButton = document.querySelector('#assistant-new-request');
 const kirbyModeButtons = document.querySelectorAll('[data-kirby-mode]');
 const suggestionChips = document.querySelectorAll('.suggestion-chip');
 const themeToggles = document.querySelectorAll('.theme-toggle');
@@ -137,7 +139,12 @@ let isAutoFittingCv = false;
 let cvSectionOrder = ['summary', 'skills', 'experience', 'projects', 'education', 'activities', 'languages'];
 let currentUser = null;
 let activeEditableNode = null;
+let activeFormatNode = null;
+let savedFormatRange = null;
+let activeExperienceIndex = null;
+let pendingExperienceDateCorrectionIndex = null;
 let cvEditableContent = {};
+let cvSectionTitleStyles = {};
 let isRenderingExperienceEditor = false;
 let isSyncingExperienceEditor = false;
 let isRenderingLanguageEditor = false;
@@ -214,7 +221,7 @@ const cvSectionLabels = {
     skills: 'Competences',
     experience: 'Experiences professionnelles',
     projects: 'Projets',
-    education: 'Formations',
+    education: 'Formations & certifications',
     activities: 'Activites',
     languages: 'Langues',
 };
@@ -629,6 +636,7 @@ let cvHistoryCurrent = '';
 let cvHistoryCoalesceTimer = null;
 let isCvHistoryCoalescing = false;
 let isRestoringCvHistory = false;
+let isLoadingCvDraft = false;
 const cvUndoStack = [];
 const CV_HISTORY_LIMIT = 15;
 
@@ -802,6 +810,23 @@ const extractEditableNodeStyleState = (node) => ({
     fontSize: node?.style.fontSize || '',
     textAlign: node?.style.textAlign || '',
     lineHeight: node?.style.lineHeight || '1.2',
+    fontWeight: node?.style.fontWeight || '',
+    fontStyle: node?.style.fontStyle || '',
+    textDecoration: node?.style.textDecoration || '',
+    letterSpacing: node?.style.letterSpacing || '',
+    textTransform: node?.style.textTransform || '',
+});
+
+const normalizeStyleState = (styleState = {}) => ({
+    fontFamily: styleState.fontFamily || '',
+    fontSize: styleState.fontSize || '',
+    textAlign: styleState.textAlign || '',
+    lineHeight: styleState.lineHeight || '1.2',
+    fontWeight: styleState.fontWeight || '',
+    fontStyle: styleState.fontStyle || '',
+    textDecoration: styleState.textDecoration || '',
+    letterSpacing: styleState.letterSpacing || '',
+    textTransform: styleState.textTransform || '',
 });
 
 const applyEditableNodeStyleState = (node, styleState = {}) => {
@@ -809,17 +834,55 @@ const applyEditableNodeStyleState = (node, styleState = {}) => {
         return;
     }
 
-    node.style.fontFamily = styleState.fontFamily || '';
-    node.style.fontSize = styleState.fontSize || '';
-    node.style.textAlign = styleState.textAlign || '';
-    node.style.lineHeight = styleState.lineHeight || '1.2';
+    const style = normalizeStyleState(styleState);
+    node.style.fontFamily = style.fontFamily;
+    node.style.fontSize = style.fontSize;
+    node.style.textAlign = style.textAlign;
+    node.style.lineHeight = style.lineHeight;
+    node.style.fontWeight = style.fontWeight;
+    node.style.fontStyle = style.fontStyle;
+    node.style.textDecoration = style.textDecoration;
+    node.style.letterSpacing = style.letterSpacing;
+    node.style.textTransform = style.textTransform;
 };
 
 const isDefaultEditableStyleState = (styleState = {}) =>
     !styleState.fontFamily &&
     !styleState.fontSize &&
     !styleState.textAlign &&
+    !styleState.fontWeight &&
+    !styleState.fontStyle &&
+    !styleState.textDecoration &&
+    !styleState.letterSpacing &&
+    !styleState.textTransform &&
     (!styleState.lineHeight || styleState.lineHeight === '1.2');
+
+const applySectionTitleStyles = () => {
+    document.querySelectorAll('[data-section-title]').forEach((node) => {
+        const key = node.dataset.sectionTitle || '';
+        const style = cvSectionTitleStyles[key] || {};
+        if (isDefaultEditableStyleState(style)) {
+            node.removeAttribute('style');
+            return;
+        }
+        applyEditableNodeStyleState(node, style);
+    });
+};
+
+const storeSectionTitleStyle = (node) => {
+    const key = node?.dataset?.sectionTitle || '';
+    if (!key) {
+        return;
+    }
+
+    const style = normalizeStyleState(extractEditableNodeStyleState(node));
+    if (isDefaultEditableStyleState(style)) {
+        delete cvSectionTitleStyles[key];
+        return;
+    }
+
+    cvSectionTitleStyles[key] = style;
+};
 
 const stripBulletPrefix = (line) => line.replace(/^[•●▪◦\-–—*]\s*/, '').trim();
 
@@ -881,6 +944,20 @@ const appendSanitizedInlineChildren = (source, target) => {
             appendSanitizedInlineChildren(child, u);
             if (u.textContent.trim()) {
                 target.appendChild(u);
+            }
+            return;
+        }
+
+        if (tag === 'SPAN') {
+            const span = document.createElement('span');
+            ['fontFamily', 'fontSize', 'lineHeight', 'fontWeight', 'fontStyle', 'textDecoration'].forEach((key) => {
+                if (child.style[key]) {
+                    span.style[key] = child.style[key];
+                }
+            });
+            appendSanitizedInlineChildren(child, span);
+            if (span.textContent.trim()) {
+                target.appendChild(span);
             }
             return;
         }
@@ -1045,6 +1122,8 @@ const saveCvDraft = (silent = false) => {
     const payload = {
         values,
         editableContent: cvEditableContent,
+        sectionTitleStyles: cvSectionTitleStyles,
+        sectionOrder: cvSectionOrder,
         history: cvUndoStack.slice(-CV_HISTORY_LIMIT),
         savedAt: new Date().toISOString(),
         user: currentUser?.email || null,
@@ -1066,6 +1145,7 @@ const getCvHistoryState = () => {
     return JSON.stringify({
         values,
         editableContent: cvEditableContent,
+        sectionTitleStyles: cvSectionTitleStyles,
         sectionOrder: cvSectionOrder,
     });
 };
@@ -1143,6 +1223,22 @@ const captureCvHistoryFromInteraction = ({ immediate = false } = {}) => {
     }, 700);
 };
 
+const syncCvDraftToVisibleState = () => {
+    if (!cvForm || isRestoringCvHistory || isLoadingCvDraft) {
+        return;
+    }
+
+    const nextState = getCvHistoryState();
+
+    if (!nextState || nextState === cvHistoryCurrent) {
+        return;
+    }
+
+    cvHistoryCurrent = nextState;
+    updateCvUndoControl();
+    saveCvDraft(true);
+};
+
 const commitCvHistoryTransition = (beforeState = '') => {
     if (isRestoringCvHistory || !beforeState) {
         return;
@@ -1198,6 +1294,9 @@ const restorePreviousCvVersion = () => {
         cvEditableContent = state?.editableContent && typeof state.editableContent === 'object'
             ? state.editableContent
             : {};
+        cvSectionTitleStyles = state?.sectionTitleStyles && typeof state.sectionTitleStyles === 'object'
+            ? state.sectionTitleStyles
+            : {};
         structuredPreviewTargets.forEach((target) => {
             const style = cvEditableContent[target]?.style || {};
             if (isDefaultEditableStyleState(style)) {
@@ -1210,6 +1309,8 @@ const restorePreviousCvVersion = () => {
             ? state.sectionOrder.filter((key) => cvSectionLabels[key])
             : ['summary', 'skills', 'experience', 'projects', 'education', 'activities', 'languages'];
         activeEditableNode = null;
+        activeFormatNode = null;
+        savedFormatRange = null;
         renderExperienceEditor();
         renderLanguageEditor();
         updateCvPreview();
@@ -1227,60 +1328,82 @@ const loadCvDraft = () => {
         return;
     }
 
-    resetCvFormToDefaults();
-    applyCurrentUserDefaults();
-    cvEditableContent = {};
+    try {
+        isLoadingCvDraft = true;
+        const raw = getCvDraftStorage().getItem(getCvDraftStorageKey());
+        let payload = null;
+        let savedHistory = [];
 
-    const raw = getCvDraftStorage().getItem(getCvDraftStorageKey());
-    if (!raw) {
+        try {
+            payload = raw ? JSON.parse(raw) : null;
+        } catch (error) {
+            console.error(error);
+            payload = null;
+        }
+
+        const hasDraftValues = Boolean(
+            payload && (
+                (payload?.values && typeof payload.values === 'object' && !Array.isArray(payload.values)) ||
+                (!payload?.values && typeof payload === 'object' && !Array.isArray(payload))
+            )
+        );
+
+        hideKirbyCvProposal();
+
+        if (hasDraftValues) {
+            resetCvFormToDefaults();
+            applyCurrentUserDefaults();
+            cvEditableContent = {};
+            cvSectionTitleStyles = {};
+
+            const values = payload?.values && typeof payload.values === 'object' ? payload.values : payload;
+            savedHistory = Array.isArray(payload?.history) ? payload.history : [];
+
+            Object.entries(values).forEach(([key, value]) => {
+                const field = cvForm.elements[key] || [...document.querySelectorAll('[form="cv-form"][name]')]
+                    .find((candidate) => candidate.name === key);
+                if (!field) {
+                    return;
+                }
+
+                if (field.type === 'checkbox') {
+                    field.checked = value === true || value === 'true';
+                } else {
+                    field.value = value;
+                }
+            });
+
+            if (payload?.editableContent && typeof payload.editableContent === 'object') {
+                cvEditableContent = payload.editableContent;
+                structuredPreviewTargets.forEach((target) => {
+                    const style = cvEditableContent[target]?.style || {};
+                    if (isDefaultEditableStyleState(style)) {
+                        delete cvEditableContent[target];
+                    } else {
+                        cvEditableContent[target] = { style };
+                    }
+                });
+            }
+
+            if (payload?.sectionTitleStyles && typeof payload.sectionTitleStyles === 'object') {
+                cvSectionTitleStyles = payload.sectionTitleStyles;
+            }
+
+            cvSectionOrder = Array.isArray(payload?.sectionOrder) && payload.sectionOrder.length
+                ? payload.sectionOrder.filter((key) => cvSectionLabels[key])
+                : ['summary', 'skills', 'experience', 'projects', 'education', 'activities', 'languages'];
+        } else {
+            applyCurrentUserDefaults();
+        }
+
+        applyCurrentUserDefaults();
         updateCvPreview();
         renderExperienceEditor();
         renderLanguageEditor();
-        resetCvHistory();
-        return;
+        resetCvHistory(savedHistory);
+    } finally {
+        isLoadingCvDraft = false;
     }
-
-    let savedHistory = [];
-    try {
-        const payload = JSON.parse(raw);
-        const values = payload?.values && typeof payload.values === 'object' ? payload.values : payload;
-        savedHistory = Array.isArray(payload?.history) ? payload.history : [];
-        Object.entries(values).forEach(([key, value]) => {
-            const field = cvForm.elements[key];
-            if (!field) {
-                return;
-            }
-
-            if (field.type === 'checkbox') {
-                field.checked = Boolean(value);
-            } else {
-                field.value = value;
-            }
-        });
-
-        if (payload?.editableContent && typeof payload.editableContent === 'object') {
-            cvEditableContent = payload.editableContent;
-            structuredPreviewTargets.forEach((target) => {
-                const style = cvEditableContent[target]?.style || {};
-                if (isDefaultEditableStyleState(style)) {
-                    delete cvEditableContent[target];
-                } else {
-                    cvEditableContent[target] = { style };
-                }
-            });
-        }
-    } catch (error) {
-        console.error(error);
-    }
-
-    applyCurrentUserDefaults();
-    if (shouldCleanCvDraftCasing()) {
-        proofreadCvTextFields({ silent: true });
-    }
-    updateCvPreview();
-    renderExperienceEditor();
-    renderLanguageEditor();
-    resetCvHistory(savedHistory);
 };
 
 const isBinaryDocument = (file) => {
@@ -1817,10 +1940,19 @@ const renderTimelineList = (target, items, options = {}) => {
 
     const projectType = options.projectType?.trim();
 
-    dedupeImportedItems(items.filter(Boolean)).forEach((item) => {
+    dedupeImportedItems(items.filter(Boolean)).forEach((item, index) => {
         const entry = parseExperienceEntry(item);
         const li = document.createElement('li');
         li.className = 'cv-experience-item';
+        if (options.indexAttribute) {
+            li.setAttribute(options.indexAttribute, String(index));
+            li.addEventListener('mousedown', () => {
+                activeExperienceIndex = index;
+            });
+            li.addEventListener('click', () => {
+                activeExperienceIndex = index;
+            });
+        }
 
         const head = document.createElement('div');
         head.className = 'cv-experience-head';
@@ -2402,7 +2534,12 @@ const defaultCvFieldFragments = {
     projects: ['projet principal 2024 resultat impact ou realisation'],
     skills: ['gestion de projet communication organisation analyse suite bureautique'],
     education: ['diplome ou formation etablissement annee'],
-    languages: ['francais anglais'],
+    languages: [
+        'francais anglais',
+        'francais anglais arabe',
+        'francais langue maternelle anglais bases professionnelles arabe',
+        'francais langue maternelle anglais notions arabe',
+    ],
     activities: ['lecture veille professionnelle sport'],
 };
 
@@ -2531,7 +2668,9 @@ const getReadyCvAssistantReply = (result) => {
 
 const serializeExperienceEntry = (entry) => {
     const header = [entry.title, entry.meta, entry.date]
-        .map((item) => normalizeCvSentenceText(item || ''))
+        .map((item, index) => index === 2
+            ? normalizeExperienceDateText(item || '')
+            : normalizeCvSentenceText(item || ''))
         .filter(Boolean)
         .join(' - ');
     const bullets = dedupeImportedItems((entry.bullets || []).map(normalizeCvSentenceText).filter(Boolean));
@@ -2648,6 +2787,7 @@ const syncExperienceFieldFromEditor = ({ refreshCards = false, status = '' } = {
         return;
     }
 
+    hideKirbyCvProposal();
     isSyncingExperienceEditor = true;
     field.value = collectExperienceEditorEntries().map(serializeExperienceEntry).filter(Boolean).join('\n');
     clearEditableOverride('experience');
@@ -2672,6 +2812,7 @@ const addExperienceCard = () => {
         return;
     }
 
+    hideKirbyCvProposal();
     const entries = collectExperienceEditorEntries();
     entries.push({
         title: cvForm.elements.headline?.value || 'Poste occupé',
@@ -2694,18 +2835,35 @@ const normalizeLanguageLevel = (value = '') => {
     const aliases = {
         'langue maternelle': 'Langue maternelle',
         maternelle: 'Langue maternelle',
+        native: 'Langue maternelle',
+        'native speaker': 'Langue maternelle',
         courant: 'Courant',
         courante: 'Courant',
+        fluent: 'Courant',
         bilingue: 'Bilingue',
-        'bases professionnelles': 'Bases professionnelles',
-        'base professionnelle': 'Bases professionnelles',
+        'bases professionnelles': 'Notions',
+        'base professionnelle': 'Notions',
+        basic: 'Notions',
+        'basic english': 'Notions',
+        'basic knowledge': 'Notions',
+        'basic proficiency': 'Notions',
+        beginner: 'Débutant',
+        debutant: 'Débutant',
+        'bases solides': 'Bases solides',
+        elementary: 'Bases solides',
+        'elementary level': 'Bases solides',
         'notion professionnelle': 'Notions professionnelles',
         'notions professionnelles': 'Notions professionnelles',
         'notion professionnel': 'Notions professionnelles',
         'notions professionnel': 'Notions professionnelles',
-        professionnel: 'Professionnel',
-        professionnelle: 'Professionnel',
-        intermediaire: 'Intermédiaire',
+        professionnel: 'Niveau professionnel',
+        professionnelle: 'Niveau professionnel',
+        'niveau professionnel': 'Niveau professionnel',
+        'professional working proficiency': 'Niveau professionnel',
+        'working proficiency': 'Niveau professionnel',
+        intermediaire: 'Niveau intermédiaire',
+        'niveau intermediaire': 'Niveau intermédiaire',
+        intermediate: 'Niveau intermédiaire',
         notions: 'Notions',
         notion: 'Notions',
         'a preciser': '',
@@ -2809,6 +2967,7 @@ const syncLanguageFieldFromEditor = ({ refreshCards = false, status = '' } = {})
         return;
     }
 
+    hideKirbyCvProposal();
     isSyncingLanguageEditor = true;
     field.value = collectLanguageEditorEntries().map(serializeLanguageEntry).filter(Boolean).join('\n');
     clearEditableOverride('languages');
@@ -2833,6 +2992,7 @@ const addLanguageCard = () => {
         return;
     }
 
+    hideKirbyCvProposal();
     const entries = getLanguageSourceEntries();
     entries.push({ language: '', level: '' });
     field.value = entries.map(serializeLanguageEntry).filter(Boolean).join('\n');
@@ -3158,6 +3318,258 @@ const repairPreviewExperienceItems = (items) => {
     return dedupeImportedItems(repaired);
 };
 
+const normalizeTimelineMatch = (value = '') =>
+    String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+
+const getTimelineEntrySortValue = (line = '') => {
+    const entry = parseExperienceEntry(line);
+    const source = `${entry.date || ''} ${line || ''}`;
+    const years = [...source.matchAll(/\b(?:19|20)\d{2}\b/g)].map((match) => Number(match[0]));
+    const hasOngoingMarker = /\b(aujourd'hui|aujourd’hui|present|présent|actuel|maintenant)\b/i.test(source);
+
+    if (!years.length) {
+        return { end: 0, start: 0, hasDate: false };
+    }
+
+    return {
+        end: hasOngoingMarker ? new Date().getFullYear() : Math.max(...years),
+        start: Math.min(...years),
+        hasDate: true,
+    };
+};
+
+const isDigitalProjectExperienceLine = (line = '') => {
+    const source = normalizeTimelineMatch(line);
+
+    return /\b(projet|projets|numerique|numeriques|digital|digitaux|plateforme|plateformes|web|autoformation|ia|intelligence artificielle|ux|ui|fondatrice|creatrice|developpeuse|sa creation|velours|contadirect)\b/.test(source);
+};
+
+const getTimelineDedupeKey = (line = '') => {
+    const sort = getTimelineEntrySortValue(line);
+    const period = sort.start && sort.end ? `${sort.start}-${sort.end}` : '';
+    const title = normalizeTimelineMatch(parseExperienceEntry(line).title || '');
+
+    if (period && isDigitalProjectExperienceLine(line)) {
+        return `digital-project-${period}`;
+    }
+
+    return `${title}-${period || normalizeTimelineMatch(line).slice(0, 80)}`;
+};
+
+const scoreExperienceTimelineEntry = (line = '') => {
+    const entry = parseExperienceEntry(line);
+    const source = normalizeTimelineMatch(line);
+    const bulletScore = (entry.bullets || []).length * 5;
+    const titleScore = /fondatrice|fondatrice et developpeuse|creatrice|developpeuse/.test(source) ? 4 : 0;
+    const dateScore = entry.date ? 3 : 0;
+
+    return bulletScore + titleScore + dateScore + Math.min(8, line.length / 120);
+};
+
+const dedupeExperienceTimelineEntries = (entries = []) => {
+    const byKey = new Map();
+
+    entries.filter(Boolean).forEach((line, index) => {
+        const key = getTimelineDedupeKey(line);
+        const previous = byKey.get(key);
+        const candidate = {
+            line,
+            index,
+            score: scoreExperienceTimelineEntry(line),
+        };
+
+        if (!previous || candidate.score > previous.score) {
+            byKey.set(key, candidate);
+        }
+    });
+
+    return [...byKey.values()]
+        .sort((left, right) => left.index - right.index)
+        .map((item) => item.line);
+};
+
+const sortTimelineEntriesNewestFirst = (entries = [], addedEntries = []) => {
+    const addedKeys = new Set(addedEntries.map((entry) => normalizeTimelineMatch(entry)));
+    const dedupedEntries = dedupeExperienceTimelineEntries(entries);
+
+    return dedupedEntries
+        .map((line, index) => ({
+            line,
+            index,
+            added: addedKeys.has(normalizeTimelineMatch(line)),
+            sort: getTimelineEntrySortValue(line),
+        }))
+        .sort((left, right) =>
+            Number(right.sort.hasDate) - Number(left.sort.hasDate) ||
+            right.sort.end - left.sort.end ||
+            right.sort.start - left.sort.start ||
+            Number(right.added) - Number(left.added) ||
+            left.index - right.index
+        )
+        .map((item) => item.line);
+};
+
+const normalizeDigitalProjectTimelinePeriods = (entries = []) => {
+    const currentYear = new Date().getFullYear();
+    const cleanEntries = entries.filter(Boolean);
+    const realRanges = cleanEntries
+        .filter((line) => !isDigitalProjectExperienceLine(line))
+        .map(getTimelineEntrySortValue)
+        .filter((range) => range.hasDate);
+    const latestRealEnd = realRanges.reduce((max, range) => Math.max(max, range.end), 0);
+
+    if (!latestRealEnd || latestRealEnd >= currentYear) {
+        return cleanEntries;
+    }
+
+    const preferredDate = `${latestRealEnd + 1} - ${currentYear}`;
+
+    return cleanEntries.map((line) => {
+        if (!isDigitalProjectExperienceLine(line)) {
+            return line;
+        }
+
+        const sort = getTimelineEntrySortValue(line);
+        const overlapsExistingExperience = sort.start <= latestRealEnd && sort.end >= latestRealEnd;
+
+        if (!overlapsExistingExperience) {
+            return line;
+        }
+
+        return serializeExperienceEntry({
+            ...parseExperienceEntry(line),
+            date: preferredDate,
+        });
+    });
+};
+
+const sortExperienceFieldNewestFirst = () => {
+    const field = getExperienceField();
+    const lines = field ? normalizeDigitalProjectTimelinePeriods(repairPreviewExperienceItems(splitLines(field.value))) : [];
+
+    if (!field || lines.length < 2) {
+        return false;
+    }
+
+    const sorted = sortTimelineEntriesNewestFirst(lines);
+    const value = sorted.join('\n');
+    if (!value || value === lines.join('\n')) {
+        return false;
+    }
+
+    field.value = value;
+    clearEditableOverride('experience');
+    return true;
+};
+
+const applyReadyCvLayout = () => {
+    if (!cvForm) {
+        return false;
+    }
+
+    const layoutDefaults = {
+        layoutTheme: 'ats',
+        fontTheme: 'inter',
+        colorTheme: 'graphite',
+        designMood: 'clean',
+        textAlign: 'left',
+        fontSize: 'compact',
+        lineSpacing: 'tight',
+        headlineScale: 'normal',
+        accentColor: '#24324a',
+        paperColor: '#ffffff',
+        frameColor: '#d8dee8',
+    };
+    let changed = false;
+
+    Object.entries(layoutDefaults).forEach(([fieldName, value]) => {
+        const field = cvForm.elements[fieldName];
+        if (field && field.value !== value) {
+            field.value = value;
+            changed = true;
+        }
+    });
+
+    return changed;
+};
+
+const getCvAutopilotFieldSnapshot = () => {
+    if (!cvForm) {
+        return '';
+    }
+
+    return [
+        'headline',
+        'summary',
+        'skills',
+        'experience',
+        'projects',
+        'education',
+        'activities',
+        'languages',
+        'permit',
+        'location',
+        'fontSize',
+        'lineSpacing',
+        'layoutTheme',
+        'fontTheme',
+        'colorTheme',
+        'designMood',
+    ]
+        .map((fieldName) => `${fieldName}:${cvForm.elements[fieldName]?.value || ''}`)
+        .join('\n');
+};
+
+const applyCvAutopilotLocalCleanup = ({ readyLayout = false, fromImport = false, silent = false } = {}) => {
+    if (!cvForm) {
+        return [];
+    }
+
+    const before = getCvAutopilotFieldSnapshot();
+    const changes = [];
+
+    proofreadCvTextFields({ silent: true });
+    cleanupImportedExperienceField();
+    cleanupImportedEducationField();
+
+    if (sortExperienceFieldNewestFirst()) {
+        changes.push('expériences triées');
+    }
+
+    if (readyLayout || fromImport) {
+        if (applyReadyCvLayout()) {
+            changes.push('mise en forme prête');
+        }
+    }
+
+    clearEditableOverrides();
+    updateCvPreview();
+
+    if (getRenderedCvPageCount() > 1) {
+        applyCompactCvLayout(false);
+        changes.push('CV compacté sur une page');
+        updateCvPreview();
+    }
+
+    renderExperienceEditor();
+    renderLanguageEditor();
+    scheduleCvDraftSave();
+
+    const after = getCvAutopilotFieldSnapshot();
+    if (after !== before && !changes.length) {
+        changes.push('structure harmonisée');
+    }
+
+    if (!silent) {
+        setCvStatus(changes.length ? `Kirby a préparé le CV : ${changes.join(', ')}` : 'CV déjà propre et rangé');
+    }
+
+    return [...new Set(changes)];
+};
+
 const updateCvPreview = () => {
     if (!cvForm || !previewNodes.preview) {
         return;
@@ -3178,11 +3590,11 @@ const updateCvPreview = () => {
     const skillItems = dedupeCvSkillItems(rawSkillItems);
     const rawExperienceSourceItems = splitLines(values.experience || '');
     const rawExperienceItems = dedupeImportedItems(rawExperienceSourceItems);
-    const experienceItems = repairPreviewExperienceItems(rawExperienceItems);
+    const experienceItems = sortTimelineEntriesNewestFirst(normalizeDigitalProjectTimelinePeriods(repairPreviewExperienceItems(rawExperienceItems)));
     const rawProjectItems = splitLines(values.projects || '');
     const projectItems = mergeStandaloneDateItems(dedupeImportedItems(rawProjectItems));
     const rawEducationItems = splitLines(values.education || '').filter((item) => !/^[-–—]?\s*\)?$/.test(item.trim()));
-    const educationItems = normalizeEducationItems(rawEducationItems);
+    const educationItems = sortTimelineEntriesNewestFirst(normalizeEducationItems(rawEducationItems));
     const rawLanguageItems = splitLines(values.languages || '');
     const languageItems = dedupeImportedItems(rawLanguageItems);
     const rawActivityItems = splitLines(values.activities || '');
@@ -3205,7 +3617,7 @@ const updateCvPreview = () => {
             cvForm.elements.experience.value = repairedExperienceValue;
             values.experience = repairedExperienceValue;
             clearEditableOverride('experience');
-            qualityFixes.push('répétitions d’expériences retirées');
+            qualityFixes.push('expériences triées et doublons retirés');
         }
     }
 
@@ -3235,7 +3647,7 @@ const updateCvPreview = () => {
     normalizeRepeatedField('languages', rawLanguageItems, languageItems, 'languages', 'répétitions de langues retirées');
     normalizeRepeatedField('activities', rawActivityItems, activityItems, 'activities', 'répétitions d’activités retirées');
 
-    renderEditableListNode(previewNodes.experience, 'experience', () => renderTimelineList(previewNodes.experience, experienceItems));
+    renderEditableListNode(previewNodes.experience, 'experience', () => renderTimelineList(previewNodes.experience, experienceItems, { indexAttribute: 'data-experience-index' }));
     renderEditableListNode(previewNodes.projects, 'projects', () => renderTimelineList(previewNodes.projects, projectItems, { projectType: values.projectType || '' }));
     renderEditableListNode(previewNodes.skills, 'skills', () => fillList(previewNodes.skills, skillItems));
     renderEditableListNode(previewNodes.education, 'education', () => renderTimelineList(previewNodes.education, educationItems));
@@ -3319,8 +3731,12 @@ const updateCvPreview = () => {
     previewNodes.preview.style.setProperty('--modern-side', values.sidebarColor || '#f1e9ed');
     previewNodes.preview.style.setProperty('--modern-ink', values.headingColor || '#30282d');
     previewNodes.preview.style.setProperty('--modern-rule', values.frameColor || '#ded2d7');
+    applySectionTitleStyles();
 
     setCvStatus(qualityFixes.length ? `CV vérifié : ${qualityFixes.join(', ')}` : 'CV vérifié');
+    if (qualityFixes.length) {
+        scheduleCvDraftSave();
+    }
     updateCvPageMode();
 
     analyzeCv(values);
@@ -3343,6 +3759,8 @@ const updateCvPreview = () => {
     if (previewLayoutTheme) {
         previewLayoutTheme.value = values.layoutTheme || 'classic';
     }
+
+    syncCvDraftToVisibleState();
 };
 
 const getJobOfferAnalysis = (values) => {
@@ -3830,9 +4248,11 @@ const optimizeCvProfessionally = ({ fromImport = false } = {}) => {
 
     cleanupImportedExperienceField();
     cleanupImportedEducationField();
+    sortExperienceFieldNewestFirst();
     clearEditableOverrides();
-    renderExperienceEditor();
     updateCvPreview();
+    renderExperienceEditor();
+    renderLanguageEditor();
     scheduleCvDraftSave();
     setCvStatus(fromImport ? 'CV importe, corrige et optimise' : 'CV corrige et optimise pour recruteur');
 };
@@ -4450,6 +4870,20 @@ const normalizeSkillItems = (items) =>
             )
     );
 
+const normalizeEducationDisplayItem = (item = '') => {
+    const source = normalizeForMatch(item);
+
+    if (/\b(?:ecole 42|42)\b/.test(source) && /\bpiscine\b/.test(source)) {
+        return 'École 42 — Piscine informatique • Initiation intensive au développement, logique algorithmique, autonomie, résolution de problèmes et travail en pair-to-pair.';
+    }
+
+    if (/\bsimplon\b/.test(source)) {
+        return 'Simplon — Formation numérique / développement web • Bases du développement web, culture numérique et apprentissage par projet.';
+    }
+
+    return item;
+};
+
 const normalizeEducationItems = (items) =>
     (() => {
         const educationEntryStartRegex = /\b(?:permis|dipl[oô]me|formation|certification|bac|bts|master|licence|niveau|ecole|école|universit[eé]|simplon|fimo|iobsp|42)\b/i;
@@ -4503,7 +4937,7 @@ const normalizeEducationItems = (items) =>
             grouped.push(current);
         }
 
-        return dedupeImportedItems(grouped.map(cleanImportedSectionLine).filter(Boolean));
+        return dedupeImportedItems(grouped.map(cleanImportedSectionLine).map(normalizeEducationDisplayItem).filter(Boolean));
     })();
 
 const yearLeadingRangeRegex = new RegExp(
@@ -4824,7 +5258,7 @@ const cleanupImportedExperienceField = () => {
         return;
     }
 
-    const repaired = repairImportedExperienceItems(splitLines(field.value));
+    const repaired = sortTimelineEntriesNewestFirst(normalizeDigitalProjectTimelinePeriods(repairImportedExperienceItems(splitLines(field.value))));
     if (repaired.length) {
         field.value = repaired.join('\n');
     }
@@ -4837,11 +5271,37 @@ const cleanupImportedEducationField = () => {
         return;
     }
 
-    const repaired = normalizeEducationItems(splitLines(field.value).filter((item) => !/^[-–—]?\s*\)?$/.test(item.trim())));
+    const repaired = sortTimelineEntriesNewestFirst(normalizeEducationItems(splitLines(field.value).filter((item) => !/^[-–—]?\s*\)?$/.test(item.trim()))));
     if (repaired.length) {
         field.value = repaired.join('\n');
     }
 };
+
+const CV_AUTOPILOT_IMPORT_INSTRUCTION = [
+    "Prends le CV importé en main comme un CV rapide prêt à l'emploi.",
+    "Nettoie la structure, harmonise les titres, les langues, les compétences et la rubrique Formations & certifications.",
+    "Range les expériences de la plus récente date à la plus ancienne et nettoie uniquement les doublons stricts, sans supprimer de rubrique ni de contenu réel.",
+    "Détecte les périodes vides. Si les informations déjà présentes permettent de comprendre la période, prépare directement une expérience cohérente à valider au lieu de poser des questions.",
+    "Valorise les projets numériques, l'autoformation et les formations/certifications réellement présentes ou explicitement demandées, comme École 42 ou Simplon, dans les bonnes rubriques.",
+    "Propose les compétences utiles liées aux expériences générées. L'utilisateur validera les ajouts de fond avant insertion.",
+].join(' ');
+
+const shouldRunCvAutopilotMode = (message = '') => {
+    const source = normalizeForMatch(message);
+
+    if (hasExplicitDestructiveCvRemoval(message)) {
+        return false;
+    }
+
+    return /\b(prend|prends|prendre|pilote|autopilote|cv pret|pret a l emploi|pret a l'emploi|auto organise|auto-organise|organise tout|range tout|ranger tout|remplis|remplir|mise en forme|met en forme|mets en forme|bouche|boucher|combler|trou|periode vide|periode non renseignee|periode non renseigne|certification|certifications|ecole 42|simplon)\b/.test(source);
+};
+
+const buildCvAutopilotInstruction = (message = '') =>
+    [
+        CV_AUTOPILOT_IMPORT_INSTRUCTION,
+        "Applique cette logique à la demande utilisateur suivante.",
+        message,
+    ].filter(Boolean).join('\n\n');
 
 const parseImportedCv = (text) => {
     if (!cvForm || !text) {
@@ -5107,17 +5567,19 @@ const parseImportedCv = (text) => {
     }
 
     optimizeCvProfessionally({ fromImport: true });
+    applyCvAutopilotLocalCleanup({ fromImport: true, silent: true });
     clearEditableOverrides();
-    renderLanguageEditor();
     updateCvPreview();
+    renderExperienceEditor();
+    renderLanguageEditor();
     setPreviewMode('cv');
     currentPreviewPage = 1;
     scrollToPreviewPage(1);
 
-    setCvStatus('CV importé. Kirby vérifie les informations, les langues et les niveaux…');
+    setCvStatus('CV importé. Kirby le range, détecte les trous et prépare les ajouts utiles…');
     void runKirbyCvAssistant({
         task: 'autofill',
-        instruction: 'Détecte les informations du CV importé, ses langues et les niveaux manquants.',
+        instruction: CV_AUTOPILOT_IMPORT_INSTRUCTION,
     });
 };
 
@@ -5200,10 +5662,10 @@ const splitExportItems = (value, options = {}) => {
 
 const normalizeExportTimelineEntries = (items, type = 'experience') => {
     const sourceItems = type === 'education'
-        ? normalizeEducationItems(mergeStandaloneDateItems(items))
+        ? sortTimelineEntriesNewestFirst(normalizeEducationItems(mergeStandaloneDateItems(items)))
         : type === 'projects'
             ? mergeStandaloneDateItems(items)
-            : repairPreviewExperienceItems(items);
+            : sortTimelineEntriesNewestFirst(repairPreviewExperienceItems(items));
 
     return sourceItems
         .map((item) => parseExperienceEntry(item))
@@ -5381,7 +5843,7 @@ const buildWordCvHtml = (data) => {
     ${data.skills.length ? `${buildWordSectionTitle('Competences', data)}${buildWordTwoColumnList(data.skills, data)}` : ''}
     ${data.experiences.length ? `${buildWordSectionTitle('Experiences professionnelles', data)}${buildWordTimeline(data.experiences, data)}` : ''}
     ${maybeProjects}
-    ${data.education.length ? `${buildWordSectionTitle('Formations', data)}${buildWordTimeline(data.education, data, { compact: true })}` : ''}
+    ${data.education.length ? `${buildWordSectionTitle('Formations & certifications', data)}${buildWordTimeline(data.education, data, { compact: true })}` : ''}
     ${maybeLanguages}
     ${maybeActivities}
   </div>
@@ -5989,7 +6451,7 @@ const exportPdf = async (options = {}) => {
         }
 
         if (data.education.length) {
-            writeSectionTitle('Formations');
+            writeSectionTitle('Formations & certifications');
             writeTimelineCards(data.education, { compact: true });
         }
 
@@ -6150,21 +6612,25 @@ const appendAssistantMessage = (text, role) => {
 
 const getKirbyCvSource = () => {
     const values = cvForm ? Object.fromEntries(new FormData(cvForm).entries()) : {};
+    const cleanValue = (name) => {
+        const value = values[name] || '';
+        return isDefaultCvFieldValue(name, value) ? '' : value;
+    };
 
     return {
-        fullName: values.fullName || '',
-        location: values.location || '',
-        phone: values.phone || '',
-        email: values.email || '',
-        permit: values.permit || '',
-        headline: values.headline || '',
-        summary: values.summary || '',
-        skills: values.skills || '',
-        experience: values.experience || '',
-        projects: values.projects || '',
-        education: values.education || '',
-        languages: values.languages || '',
-        activities: values.activities || '',
+        fullName: cleanValue('fullName'),
+        location: cleanValue('location'),
+        phone: cleanValue('phone'),
+        email: cleanValue('email'),
+        permit: cleanValue('permit'),
+        headline: cleanValue('headline'),
+        summary: cleanValue('summary'),
+        skills: cleanValue('skills'),
+        experience: cleanValue('experience'),
+        projects: cleanValue('projects'),
+        education: cleanValue('education'),
+        languages: cleanValue('languages'),
+        activities: cleanValue('activities'),
     };
 };
 
@@ -6174,11 +6640,37 @@ const getKirbyCvSnapshot = () => JSON.stringify({
     letter: getKirbyLetterSource(),
 });
 
+const getActiveExperienceLine = () => {
+    const entries = getExperienceField() ? repairPreviewExperienceItems(splitLines(getExperienceField().value)) : [];
+    const selectedIndex = getSelectedExperienceIndex();
+
+    return selectedIndex !== null && entries[selectedIndex] ? entries[selectedIndex] : '';
+};
+
+const getKirbyCvInteractionContext = () => {
+    const selection = document.getSelection();
+    const selectedText = selection && !selection.isCollapsed ? selection.toString().trim() : '';
+    const formatNode = getActiveFormatNode();
+    const activeSection = formatNode?.dataset?.editTarget || formatNode?.dataset?.sectionTitle || '';
+    const selectedExperienceIndex = getSelectedExperienceIndex();
+
+    return {
+        activeSection,
+        selectedText,
+        activeExperienceIndex: selectedExperienceIndex,
+        activeExperience: getActiveExperienceLine(),
+        pendingQuestion: pendingExperienceDateCorrectionIndex !== null ? 'date_experience' : '',
+    };
+};
+
 const hideKirbyCvProposal = () => {
     pendingKirbyCvProposal = null;
     assistantProposal?.classList.add('is-hidden');
     if (assistantProposalSummary) {
         assistantProposalSummary.textContent = '';
+    }
+    if (assistantProposalDetails) {
+        assistantProposalDetails.replaceChildren();
     }
 };
 
@@ -6202,6 +6694,7 @@ const requestKirbyCvAssistant = async ({ task, instruction = '' }) => {
             jobOffer: jobOfferField?.value || '',
             instruction,
             letter: getKirbyLetterSource(),
+            interaction: getKirbyCvInteractionContext(),
         }),
     });
 
@@ -6254,6 +6747,44 @@ const looksLikeJobOffer = (message = '') => {
     return signals >= 1 || (hasJobTitle && (hasContract || hasOfferContext));
 };
 
+const getKirbyUserInstruction = (instruction = '') => {
+    const marker = 'Applique cette logique à la demande utilisateur suivante.';
+    const index = String(instruction || '').indexOf(marker);
+
+    return index === -1
+        ? String(instruction || '')
+        : String(instruction || '').slice(index + marker.length).trim();
+};
+
+const hasLanguageNameInInstruction = (message = '') =>
+    /\b(francais|français|anglais|arabe|espagnol|italien|allemand|portugais|french|english|arabic|spanish|italian|german|portuguese)\b/i.test(message);
+
+const isLanguageFocusedInstruction = (message = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(message));
+    const hasLanguageSignal = /\b(langue|langues|francais|anglais|arabe|espagnol|italien|allemand|portugais|french|english|arabic|spanish|italian|german|portuguese|native|basic|beginner|elementary|intermediate|fluent|notions?|courant|bilingue)\b/.test(source);
+    const hasOtherCvScope = /\b(experience|experiences|poste|mission|missions|formation|formations|certification|certifications|ecole 42|simplon|piscine|projet|projets|competence|competences|trou|periode|periode vide|autoformation|cv pret|pret a l emploi|pret a l'emploi)\b/.test(source);
+
+    return hasLanguageSignal && !hasOtherCvScope;
+};
+
+const looksLikeCvCreationInstruction = (message = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(message));
+
+    return /\b(genere|generer|cree|creer|construis|construire|prepare|preparer|remplis|remplir|reconstruis|reconstruire|refais|refaire|cv pret|pret a l emploi|pret a l'emploi|prend le cv|prends le cv|mets le cv|met le cv|fait le cv|fais le cv)\b/.test(source)
+        && /\bcv\b/.test(source);
+};
+
+const isExplicitKirbyApplyInstruction = (message = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(message));
+    const asksForSuggestionOnly = /\b(propose|proposer|suggestion|suggere|suggerer|question|demande moi|demande-moi|a valider|à valider|avant insertion|avant d inserer|avant d'inserer)\b/.test(source);
+
+    if (asksForSuggestionOnly) {
+        return false;
+    }
+
+    return /\b(applique|appliquer|ajoute|ajouter|insere|inserer|integre|integrer|mets|mettre|met|bouche|boucher|comble|combler|complete|completer|remplis|remplir|range|ranger|trie|trier|corrige|corriger|optimise|optimiser|modifie|modifier|remplace|remplacer|supprime|supprimer|retire|retirer|enleve|enlever|reformule|reformuler|compacte|compacter)\b/.test(source);
+};
+
 const setJobOfferFromAssistantMessage = (message = '') => {
     const cleanMessage = message.trim();
     const looksLikeOffer = looksLikeJobOffer(cleanMessage);
@@ -6267,6 +6798,135 @@ const setJobOfferFromAssistantMessage = (message = '') => {
     return false;
 };
 
+const getKirbyCvArray = (value) => (Array.isArray(value) ? value : []);
+
+const createKirbyProposalDetailGroup = (title, items = []) => {
+    const cleanItems = items.map((item) => String(item || '').trim()).filter(Boolean);
+    if (!assistantProposalDetails || !cleanItems.length) {
+        return;
+    }
+
+    const group = document.createElement('section');
+    group.className = 'assistant-proposal-detail-group';
+    const heading = document.createElement('strong');
+    heading.textContent = title;
+    const list = document.createElement('ul');
+    cleanItems.slice(0, 6).forEach((item) => {
+        const li = document.createElement('li');
+        li.textContent = item;
+        list.appendChild(li);
+    });
+    group.append(heading, list);
+    assistantProposalDetails.appendChild(group);
+};
+
+const describeKirbyGeneratedExperience = (experience = {}) => {
+    const parts = [
+        experience.period,
+        experience.title,
+        experience.organization,
+    ].map((item) => String(item || '').trim()).filter(Boolean);
+    const description = getKirbyCvArray(experience.description).slice(0, 2).join(' / ');
+    const skills = getKirbyCvArray(experience.skills).slice(0, 4).join(', ');
+
+    return [
+        parts.join(' · '),
+        description,
+        skills ? `Compétences : ${skills}` : '',
+    ].filter(Boolean).join(' - ');
+};
+
+const describeKirbyEducationSuggestion = (education = {}) => {
+    const title = [education.title, education.organization, education.period]
+        .map((item) => String(item || '').trim())
+        .filter(Boolean)
+        .join(' · ');
+    const description = String(education.description || '').trim();
+    const skills = getKirbyCvArray(education.skills).slice(0, 4).join(', ');
+
+    return [
+        title,
+        description,
+        skills ? `Compétences : ${skills}` : '',
+    ].filter(Boolean).join(' - ');
+};
+
+const getKirbyProposalSuggestedSkills = (proposal = {}) => {
+    const generatedSkills = getKirbyCvArray(proposal.generatedExperiences)
+        .flatMap((experience) => getKirbyCvArray(experience.skills));
+    const educationSkills = getKirbyCvArray(proposal.educationSuggestions)
+        .flatMap((education) => getKirbyCvArray(education.skills));
+    const directSkills = getKirbyCvArray(proposal.suggestedSkills)
+        .filter((skill) => !/\b(?:a confirmer|à confirmer)\b/i.test(normalizeForMatch(skill)));
+
+    return dedupeCvSkillItems([...generatedSkills, ...educationSkills, ...directSkills].map(normalizeCvSentenceText));
+};
+
+const createKirbyEditableSkillGroup = (title, items = []) => {
+    const cleanItems = dedupeCvSkillItems(items.map(normalizeCvSentenceText).filter(Boolean));
+    if (!assistantProposalDetails || !cleanItems.length) {
+        return;
+    }
+
+    const group = document.createElement('section');
+    group.className = 'assistant-proposal-detail-group assistant-proposal-editable-group';
+    const heading = document.createElement('strong');
+    heading.textContent = title;
+    const list = document.createElement('div');
+    list.className = 'assistant-proposal-skill-list';
+
+    cleanItems.slice(0, 12).forEach((skill) => {
+        const row = document.createElement('label');
+        row.className = 'assistant-proposal-skill-choice';
+        row.dataset.kirbySkillChoice = 'true';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = true;
+        checkbox.dataset.kirbySkillEnabled = 'true';
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = skill;
+        input.dataset.kirbySkillValue = 'true';
+        input.setAttribute('aria-label', 'Modifier la compétence suggérée');
+        row.append(checkbox, input);
+        list.appendChild(row);
+    });
+
+    group.append(heading, list);
+    assistantProposalDetails.appendChild(group);
+};
+
+const renderKirbyCvProposalDetails = (proposal = {}) => {
+    if (!assistantProposalDetails) {
+        return;
+    }
+
+    assistantProposalDetails.replaceChildren();
+    const hasReadyExperienceProposal = getKirbyCvArray(proposal.generatedExperiences).length > 0;
+    const periodQuestions = hasReadyExperienceProposal ? [] : getKirbyCvArray(proposal.periodGaps)
+        .flatMap((gap) => {
+            const period = String(gap?.period || '').trim();
+            const prefix = period ? `${period} : ` : '';
+            const questions = getKirbyCvArray(gap?.questions);
+            const options = getKirbyCvArray(gap?.options).slice(0, 5);
+
+            return [
+                ...questions.map((question) => `${prefix}${question}`),
+                options.length ? `${prefix}Options possibles : ${options.join(', ')}` : '',
+            ];
+        });
+    const generatedExperiences = getKirbyCvArray(proposal.generatedExperiences).map(describeKirbyGeneratedExperience);
+    const educationSuggestions = getKirbyCvArray(proposal.educationSuggestions).map(describeKirbyEducationSuggestion);
+    const suggestedSkills = getKirbyProposalSuggestedSkills(proposal);
+
+    createKirbyProposalDetailGroup('Questions avant insertion', periodQuestions);
+    createKirbyProposalDetailGroup('Expériences proposées', generatedExperiences);
+    createKirbyProposalDetailGroup('Formations & certifications', educationSuggestions);
+    createKirbyEditableSkillGroup('Compétences suggérées', suggestedSkills);
+
+    assistantProposalDetails.hidden = !assistantProposalDetails.children.length;
+};
+
 const showKirbyCvProposal = (result, task, snapshot, instruction = '') => {
     const proposal = result?.cv;
 
@@ -6277,8 +6937,17 @@ const showKirbyCvProposal = (result, task, snapshot, instruction = '') => {
     pendingKirbyCvProposal = { result, task, snapshot, instruction };
     const extracted = proposal.extracted || {};
     const extractedCount = (extracted.experiences?.length || 0) + (extracted.education?.length || 0);
+    const gapCount = getKirbyCvArray(proposal.periodGaps).length;
+    const generatedExperienceCount = getKirbyCvArray(proposal.generatedExperiences).length;
+    const educationSuggestionCount = getKirbyCvArray(proposal.educationSuggestions).length;
     const target = task === 'letter'
         ? proposal.letter?.subject || proposal.jobTarget || 'votre lettre de motivation'
+        : generatedExperienceCount
+        ? `${generatedExperienceCount} expérience(s) à valider`
+        : gapCount
+        ? `${gapCount} période(s) à clarifier`
+        : educationSuggestionCount
+        ? `${educationSuggestionCount} formation(s) à valider`
         : ['autofill', 'create'].includes(task) && extractedCount
         ? `${extractedCount} éléments détectés`
         : proposal.jobTarget || proposal.headline || 'votre CV';
@@ -6289,6 +6958,10 @@ const showKirbyCvProposal = (result, task, snapshot, instruction = '') => {
         const qualityFixes = Array.isArray(proposal.quality?.fixes) ? proposal.quality.fixes : [];
         const layoutIntent = getKirbyLayoutIntent(instruction, proposal.layout);
         const structuralActions = [
+            gapCount ? `${gapCount} période(s) vide(s) détectée(s)` : '',
+            generatedExperienceCount ? `${generatedExperienceCount} expérience(s) proposée(s)` : '',
+            educationSuggestionCount ? `${educationSuggestionCount} formation(s) / certification(s) proposée(s)` : '',
+            getKirbyCvArray(proposal.suggestedSkills).length ? `${getKirbyCvArray(proposal.suggestedSkills).length} compétence(s) suggérée(s)` : '',
             layoutIntent.removeSections.length
                 ? `${layoutIntent.removeSections.map((key) => kirbySectionActions.find((section) => section.key === key)?.label || key).join(', ')} à retirer`
                 : '',
@@ -6306,6 +6979,7 @@ const showKirbyCvProposal = (result, task, snapshot, instruction = '') => {
             structuralActions,
         ].filter(Boolean).join(' · ') || 'Contrôle terminé avant application.';
     }
+    renderKirbyCvProposalDetails(proposal);
     if (assistantApplyButton) {
         assistantApplyButton.textContent = task === 'letter' ? 'Appliquer la lettre' : 'Appliquer au CV';
     }
@@ -6318,6 +6992,9 @@ const showKirbyCvProposal = (result, task, snapshot, instruction = '') => {
 const getAssistantTask = (message = '', mode = activeKirbyMode) => {
     if (mode === 'letter') {
         return 'letter';
+    }
+    if (mode !== 'adapt' && (looksLikePastedCv(message) || looksLikeCvCreationInstruction(message))) {
+        return looksLikePastedCv(message) ? 'autofill' : 'create';
     }
     if (mode === 'create') {
         return looksLikePastedCv(message) ? 'autofill' : 'create';
@@ -6334,26 +7011,35 @@ const getAssistantTask = (message = '', mode = activeKirbyMode) => {
 };
 
 const getQuickLanguageLevel = (source = '') => {
-    if (/\b(langue maternelle|maternelle)\b/.test(source)) {
+    if (/\b(langue maternelle|maternelle|native speaker|native)\b/.test(source)) {
         return 'Langue maternelle';
     }
     if (/\bbilingue\b/.test(source)) {
         return 'Bilingue';
     }
-    if (/\bcourant(?:e)?\b/.test(source)) {
+    if (/\bcourant(?:e)?|fluent\b/.test(source)) {
         return 'Courant';
     }
-    if (/\b(intermediaire|intermédiaire)\b/.test(source)) {
-        return 'Intermédiaire';
+    if (/\b(professional working proficiency|working proficiency|niveau professionnel)\b/.test(source)) {
+        return 'Niveau professionnel';
+    }
+    if (/\b(intermediaire|intermédiaire|intermediate)\b/.test(source)) {
+        return 'Niveau intermédiaire';
+    }
+    if (/\b(elementary|elementary level|bases solides)\b/.test(source)) {
+        return 'Bases solides';
+    }
+    if (/\b(beginner|debutant|débutant)\b/.test(source)) {
+        return 'Débutant';
     }
     if (/\bprofessionnel(?:le)?\b/.test(source)) {
-        return 'Professionnel';
+        return 'Niveau professionnel';
     }
-    if (/\b(base|bases)\b/.test(source)) {
-        return 'Bases professionnelles';
+    if (/\b(basic english|basic knowledge|basic proficiency|basic|base|bases)\b/.test(source)) {
+        return 'Notions';
     }
     if (/\b(notion|notions)\b/.test(source)) {
-        return 'Notions professionnelles';
+        return 'Notions';
     }
 
     return '';
@@ -6363,12 +7049,19 @@ const getQuickLanguageCorrections = (message = '') => {
     const source = normalizeForMatch(message);
     const languageMap = [
         ['francais', 'Français'],
+        ['french', 'Français'],
         ['anglais', 'Anglais'],
+        ['english', 'Anglais'],
         ['arabe', 'Arabe'],
+        ['arabic', 'Arabe'],
         ['espagnol', 'Espagnol'],
+        ['spanish', 'Espagnol'],
         ['italien', 'Italien'],
+        ['italian', 'Italien'],
         ['allemand', 'Allemand'],
+        ['german', 'Allemand'],
         ['portugais', 'Portugais'],
+        ['portuguese', 'Portugais'],
     ];
     const namesByKeyword = new Map(languageMap);
     const languagePattern = new RegExp(`\\b(${languageMap.map(([keyword]) => keyword).join('|')})\\b`, 'g');
@@ -6406,6 +7099,22 @@ const applyQuickLanguageCorrections = (message = '') => {
     commitCvHistoryTransition(beforeState);
     setCvStatus('Kirby a mis à jour les langues');
     return `Langues mises à jour : ${corrections.map(({ language, level }) => `${language} : ${level}`).join(', ')}.`;
+};
+
+const getQuickEditorBugReport = (message = '') => {
+    const source = normalizeForMatch(message);
+    const mentionsEditor = /\b(editeur|éditeur|selection|selectionne|sélection|sélectionne|format|mise en forme|taille|police|toolbar|barre|titre|profil|competences|langues|experiences)\b/.test(source);
+    const mentionsWrongTarget = /\b(bug|dysfonctionnement|anomalie|pas au bon|mauvais|autre zone|autre rubrique|ne s applique pas|change pas|modifie .*competences|competences .*change)\b/.test(source);
+
+    if (!mentionsEditor || !mentionsWrongTarget) {
+        return '';
+    }
+
+    return [
+        "Je détecte un dysfonctionnement de l’éditeur CV.",
+        "La mise en forme ne semble pas s’appliquer à l’élément sélectionné : c’est probablement un problème de ciblage de sélection, pas une erreur d’utilisation.",
+        "Rapport de bug : quand un titre de section comme Profil est sélectionné puis passé en taille 18, l’éditeur peut appliquer le style à une autre rubrique, par exemple Compétences. Correction attendue : verrouiller la cible sélectionnée et appliquer police/taille uniquement à cette cible.",
+    ].join('\n');
 };
 
 const getQuickTitleGenderCorrection = (message = '') => {
@@ -6481,8 +7190,556 @@ const applyQuickTitleGenderCorrection = (message = '') => {
     return `Titre appliqué : « ${nextHeadline} ». Vous pouvez revenir en arrière avec Retour.`;
 };
 
-const applyQuickKirbyCorrection = (message = '') =>
-    applyQuickTitleGenderCorrection(message) || applyQuickLanguageCorrections(message);
+const normalizeExperienceDateToken = (value = '') => {
+    const monthReplacements = [
+        [/\bjanv(?:ier)?\.?\s*(\d{4})\b/gi, 'janv. $1'],
+        [/\bf[ée]vr(?:ier)?\.?\s*(\d{4})\b/gi, 'févr. $1'],
+        [/\bavr(?:il)?\.?\s*(\d{4})\b/gi, 'avr. $1'],
+        [/\bmars\.?\s*(\d{4})\b/gi, 'mars $1'],
+        [/\bmai\.?\s*(\d{4})\b/gi, 'mai $1'],
+        [/\bjuin\.?\s*(\d{4})\b/gi, 'juin $1'],
+        [/\bjuil(?:let)?\.?\s*(\d{4})\b/gi, 'juil. $1'],
+        [/\bao[uû]t\.?\s*(\d{4})\b/gi, 'août $1'],
+        [/\bsept(?:embre)?\.?\s*(\d{4})\b/gi, 'sept. $1'],
+        [/\boct(?:obre)?\.?\s*(\d{4})\b/gi, 'oct. $1'],
+        [/\bnov(?:embre)?\.?\s*(\d{4})\b/gi, 'nov. $1'],
+        [/\bd[ée]c(?:embre)?\.?\s*(\d{4})\b/gi, 'déc. $1'],
+    ];
+
+    return monthReplacements.reduce(
+        (text, [pattern, replacement]) => text.replace(pattern, replacement),
+        String(value || '')
+            .replace(/\bpresent\b/gi, 'présent')
+            .replace(/\bpr[ée]sent\b/gi, 'présent')
+            .replace(/\s{2,}/g, ' ')
+            .trim()
+    );
+};
+
+const getComparableExperienceDate = (value = '') => {
+    const source = normalizeForMatch(value).replace(/\./g, '');
+
+    if (/\b(aujourd'hui|present)\b/.test(source)) {
+        return Number.POSITIVE_INFINITY;
+    }
+
+    const yearMatch = source.match(/\b(\d{4})\b/);
+    if (!yearMatch) {
+        return null;
+    }
+
+    const monthIndex = [
+        ['janv', 1],
+        ['janvier', 1],
+        ['fevr', 2],
+        ['fevrier', 2],
+        ['mars', 3],
+        ['avr', 4],
+        ['avril', 4],
+        ['mai', 5],
+        ['juin', 6],
+        ['juil', 7],
+        ['juillet', 7],
+        ['aout', 8],
+        ['sept', 9],
+        ['septembre', 9],
+        ['oct', 10],
+        ['octobre', 10],
+        ['nov', 11],
+        ['novembre', 11],
+        ['dec', 12],
+        ['decembre', 12],
+    ].find(([month]) => new RegExp(`\\b${month}\\b`).test(source))?.[1] || 1;
+
+    return (Number(yearMatch[1]) * 12) + monthIndex;
+};
+
+const normalizeExperienceDateText = (value = '') => {
+    const cleanValue = String(value || '')
+        .replace(/\s*[–—]\s*/g, ' - ')
+        .replace(/\s*-\s*/g, ' - ')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+    const parts = cleanValue.split(/\s+-\s+/).filter(Boolean);
+
+    if (parts.length >= 2) {
+        const start = normalizeExperienceDateToken(parts[0]);
+        const end = normalizeExperienceDateToken(parts.slice(1).join(' - '));
+        const startValue = getComparableExperienceDate(start);
+        const endValue = getComparableExperienceDate(end);
+        const shouldSwap = Number.isFinite(startValue)
+            && Number.isFinite(endValue)
+            && startValue > endValue;
+        const ordered = shouldSwap ? [end, start] : [start, end];
+
+        return ordered.join(' - ');
+    }
+
+    return normalizeExperienceDateToken(cleanValue);
+};
+
+const quickExperienceDateTokenPattern = `(?:${monthNamesPattern})\\.?\\s*\\d{4}|\\d{4}|aujourd'hui|present|pr[ée]sent`;
+
+const getQuickExperienceDateValue = (message = '') => {
+    const rangePattern = new RegExp(
+        `(${quickExperienceDateTokenPattern})\\s*[–-]\\s*(${quickExperienceDateTokenPattern})`,
+        'i'
+    );
+    const rangeMatch = message.match(rangePattern);
+    if (rangeMatch) {
+        return normalizeExperienceDateText(`${rangeMatch[1]} - ${rangeMatch[2]}`);
+    }
+
+    const singlePattern = new RegExp(`(${quickExperienceDateTokenPattern})`, 'i');
+    const singleMatch = message.match(singlePattern);
+
+    return singleMatch ? normalizeExperienceDateText(singleMatch[1]) : '';
+};
+
+const hasQuickExperienceDateIntent = (message = '', dateValue = '') => {
+    const source = normalizeForMatch(message);
+    const hasDateTopic = /\b(date|dates|periode|periodes)\b/.test(source);
+    const hasCorrectionVerb = /\b(modifie|modifier|change|changer|corrige|corriger|remplace|remplacer|mets|mettre|met)\b/.test(source);
+    const answersPendingDateQuestion = Boolean(dateValue) && Number.isInteger(pendingExperienceDateCorrectionIndex);
+
+    return hasDateTopic || answersPendingDateQuestion || (Boolean(dateValue) && hasCorrectionVerb);
+};
+
+const getQuickExperienceDateCorrection = (message = '') => {
+    const date = getQuickExperienceDateValue(message);
+    if (!hasQuickExperienceDateIntent(message, date)) {
+        return null;
+    }
+
+    return {
+        date,
+        pendingIndex: Number.isInteger(pendingExperienceDateCorrectionIndex)
+            ? pendingExperienceDateCorrectionIndex
+            : null,
+    };
+};
+
+const getQuickExperienceDateTargetScore = (entry, message = '') => {
+    const source = normalizeForMatch(message);
+    const entryTokens = normalizeForMatch(`${entry.title || ''} ${entry.meta || ''}`)
+        .split(/[^a-z0-9]+/)
+        .filter((token) => token.length >= 4);
+    const uniqueTokens = [...new Set(entryTokens)];
+
+    return uniqueTokens.filter((token) => source.includes(token)).length;
+};
+
+const getExperienceIndexFromNode = (node) => {
+    const element = node?.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+    const target = element?.closest?.('.cv-experience-item[data-experience-index], .experience-card[data-experience-index]');
+    const value = target?.dataset?.experienceIndex;
+    const index = Number.parseInt(value || '', 10);
+
+    return Number.isInteger(index) && index >= 0 ? index : null;
+};
+
+const getSelectedExperienceIndex = () => {
+    const selection = document.getSelection();
+    const selectionNodes = [
+        selection?.anchorNode,
+        selection?.focusNode,
+        savedFormatRange?.commonAncestorContainer,
+        activeFormatNode,
+        activeEditableNode,
+        document.activeElement,
+    ];
+
+    for (const node of selectionNodes) {
+        const index = getExperienceIndexFromNode(node);
+        if (index !== null) {
+            activeExperienceIndex = index;
+            return index;
+        }
+    }
+
+    return Number.isInteger(activeExperienceIndex) && activeExperienceIndex >= 0
+        ? activeExperienceIndex
+        : null;
+};
+
+const findQuickExperienceDateTargetIndex = (entries = [], message = '', correction = {}) => {
+    const scores = entries
+        .map((entry, index) => ({
+            index,
+            score: getQuickExperienceDateTargetScore(entry, message),
+        }))
+        .filter((item) => item.score > 0)
+        .sort((left, right) => right.score - left.score);
+
+    if (scores.length > 1 && scores[0].score === scores[1].score) {
+        return -2;
+    }
+
+    if (scores.length) {
+        return scores[0].index;
+    }
+
+    const selectedIndex = getSelectedExperienceIndex();
+    if (selectedIndex !== null && entries[selectedIndex]) {
+        return selectedIndex;
+    }
+
+    if (Number.isInteger(correction.pendingIndex) && entries[correction.pendingIndex]) {
+        return correction.pendingIndex;
+    }
+
+    return entries.length === 1 ? 0 : -1;
+};
+
+const applyQuickExperienceDateCorrection = (message = '') => {
+    const correction = getQuickExperienceDateCorrection(message);
+    const field = getExperienceField();
+    if (!correction || !field) {
+        return '';
+    }
+
+    const entries = repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
+    const index = findQuickExperienceDateTargetIndex(entries, message, correction);
+    if (index === -2) {
+        pendingExperienceDateCorrectionIndex = null;
+        return correction.date
+            ? `J’ai trouvé plusieurs expériences possibles. Précisez le poste ou l’entreprise à modifier pour appliquer ${correction.date}.`
+            : 'J’ai trouvé plusieurs expériences possibles. Précisez le poste ou l’entreprise, puis la date à appliquer.';
+    }
+
+    if (index === -1) {
+        pendingExperienceDateCorrectionIndex = null;
+        return correction.date
+            ? `Je peux modifier uniquement la date, mais je dois savoir quelle expérience est concernée. Sélectionnez l’expérience dans le CV ou indiquez le poste/l’entreprise pour appliquer ${correction.date}.`
+            : 'Quelle expérience et quelle date dois-je modifier ? Sélectionnez la ligne dans le CV ou indiquez le poste/l’entreprise avec la nouvelle période.';
+    }
+
+    const title = entries[index].title || 'cette expérience';
+    if (!correction.date) {
+        pendingExperienceDateCorrectionIndex = index;
+        return `Quelle date dois-je appliquer à ${title} ?`;
+    }
+
+    pendingExperienceDateCorrectionIndex = null;
+    if (normalizeExperienceDateText(entries[index].date) === correction.date) {
+        return `La date ${correction.date} est déjà appliquée à ${title}.`;
+    }
+
+    const beforeState = getCvHistoryState();
+    entries[index] = {
+        ...entries[index],
+        date: correction.date,
+    };
+    field.value = entries.map(serializeExperienceEntry).filter(Boolean).join('\n');
+    clearEditableOverride('experience');
+    renderExperienceEditor();
+    updateCvPreview();
+    commitCvHistoryTransition(beforeState);
+    scheduleCvDraftSave();
+    setCvStatus(`Date mise à jour : ${title}`);
+    return `Date mise à jour pour ${title} : ${correction.date}.`;
+};
+
+const shouldQuickSortExperiences = (message = '') => {
+    const source = normalizeForMatch(message);
+
+    return /\b(date|dates|chronologique|ordre|range|ranger|remet|remets|trie|trier|ancienne|recent|recente|plus ancien|plus ancienne|plus recent|plus recente)\b/.test(source)
+        && /\b(experience|experiences|parcours|cv|date|dates)\b/.test(source);
+};
+
+const applyQuickExperienceSortCorrection = (message = '') => {
+    if (!shouldQuickSortExperiences(message) || !getExperienceField()) {
+        return '';
+    }
+
+    const beforeState = getCvHistoryState();
+    const changed = sortExperienceFieldNewestFirst();
+    if (!changed) {
+        return 'Les expériences sont déjà rangées de la plus récente à la plus ancienne.';
+    }
+
+    renderExperienceEditor();
+    updateCvPreview();
+    commitCvHistoryTransition(beforeState);
+    scheduleCvDraftSave();
+    setCvStatus('Expériences rangées par date');
+    return 'Expériences rangées de la plus récente à la plus ancienne, avec les doublons de période nettoyés.';
+};
+
+const getQuickExperienceRemovalTokens = (message = '') =>
+    normalizeForMatch(message)
+        .split(/[^a-z0-9]+/)
+        .filter((token) => token.length >= 3)
+        .filter((token) => !new Set([
+            'supprime', 'supprimer', 'retire', 'retirer', 'enleve', 'enlever', 'efface', 'effacer',
+            'doublon', 'doublons', 'double', 'duplicate', 'experience', 'experiences', 'periode', 'periodes',
+            'date', 'dates', 'corrige', 'corriger', 'kirby', 'cette', 'celle', 'celui', 'bloc'
+        ]).has(token));
+
+const getExperienceRemovalIntent = (message = '') => {
+    const source = normalizeForMatch(message);
+    return {
+        duplicateOnly: /\b(doublon|doublons|duplicate|double)\b/.test(source),
+        wholeBlock: /\b(supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer)\b.{0,30}\b(cette experience|cette ligne|ce poste|ce bloc|le bloc|l experience|l experience complete|l experience entiere)\b/.test(source),
+    };
+};
+
+const getExperienceFieldMatchScore = (value = '', tokens = []) => {
+    const haystack = normalizeForMatch(value);
+    return tokens.filter((token) => haystack.includes(token)).length;
+};
+
+const cleanupExperienceEntryFragments = (entry = {}, tokens = []) => {
+    if (!tokens.length) {
+        return null;
+    }
+
+    const titleScore = getExperienceFieldMatchScore(entry.title || '', tokens);
+    const dateScore = getExperienceFieldMatchScore(entry.date || '', tokens);
+    const metaScore = getExperienceFieldMatchScore(entry.meta || '', tokens);
+    const bulletScores = (entry.bullets || []).map((bullet) => getExperienceFieldMatchScore(bullet, tokens));
+
+    if (!metaScore && !bulletScores.some(Boolean)) {
+        return null;
+    }
+
+    if (titleScore || dateScore) {
+        return null;
+    }
+
+    const nextEntry = {
+        ...entry,
+        bullets: [...(entry.bullets || [])],
+    };
+    let changed = false;
+
+    if (nextEntry.meta) {
+        const segments = nextEntry.meta
+            .split(/\s+(?:\/|-)\s+/)
+            .map((segment) => segment.trim())
+            .filter(Boolean);
+        const keptSegments = segments.filter((segment) => !getExperienceFieldMatchScore(segment, tokens));
+        if (keptSegments.length !== segments.length) {
+            nextEntry.meta = keptSegments.join(' - ');
+            changed = true;
+        }
+    }
+
+    if (nextEntry.bullets.length) {
+        const keptBullets = nextEntry.bullets.filter((bullet) => !getExperienceFieldMatchScore(bullet, tokens));
+        if (keptBullets.length !== nextEntry.bullets.length) {
+            nextEntry.bullets = keptBullets;
+            changed = true;
+        }
+    }
+
+    if (!changed) {
+        return null;
+    }
+
+    return {
+        ...nextEntry,
+        meta: normalizeCvSentenceText(nextEntry.meta || ''),
+        bullets: dedupeImportedItems((nextEntry.bullets || []).map((bullet) => normalizeCvSentenceText(bullet)).filter(Boolean)),
+    };
+};
+
+const applyQuickExperienceRemoval = (message = '') => {
+    const field = getExperienceField();
+    const asksRemoval = hasExplicitDestructiveCvRemoval(message);
+    const { duplicateOnly, wholeBlock } = getExperienceRemovalIntent(message);
+
+    if (!field || !asksRemoval) {
+        return '';
+    }
+
+    const entries = repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
+    if (!entries.length) {
+        return '';
+    }
+
+    const selectedIndex = getSelectedExperienceIndex();
+    const tokens = getQuickExperienceRemovalTokens(message);
+    const scoredEntries = entries
+        .map((entry, index) => {
+            const titleScore = getExperienceFieldMatchScore(entry.title || '', tokens);
+            const metaScore = getExperienceFieldMatchScore(entry.meta || '', tokens);
+            const dateScore = getExperienceFieldMatchScore(entry.date || '', tokens);
+            const bulletScore = getExperienceFieldMatchScore((entry.bullets || []).join(' '), tokens);
+            return {
+                index,
+                titleScore,
+                metaScore,
+                dateScore,
+                bulletScore,
+                score: titleScore + metaScore + dateScore + bulletScore,
+            };
+        })
+        .filter((item) => item.score > 0)
+        .sort((left, right) => right.score - left.score)
+    const matchingIndexes = scoredEntries.map((item) => item.index);
+
+    if (!wholeBlock && !duplicateOnly && tokens.length) {
+        const updatedEntries = entries.map((entry, index) => {
+            const scoredEntry = scoredEntries.find((item) => item.index === index);
+            if (!scoredEntry) {
+                return entry;
+            }
+            return cleanupExperienceEntryFragments(entry, tokens) || entry;
+        });
+        const fragmentChanged = updatedEntries.some((entry, index) => serializeExperienceEntry(entry) !== serializeExperienceEntry(entries[index]));
+        if (fragmentChanged) {
+            const beforeState = getCvHistoryState();
+            field.value = updatedEntries.map(serializeExperienceEntry).filter(Boolean).join('\n');
+            clearEditableOverride('experience');
+            renderExperienceEditor();
+            updateCvPreview();
+            commitCvHistoryTransition(beforeState);
+            scheduleCvDraftSave();
+            setCvStatus('Mention supprimée dans l’expérience');
+            return 'Mention supprimée dans l’expérience ciblée.';
+        }
+    }
+
+    let indexesToRemove = [];
+    if (wholeBlock && selectedIndex !== null && entries[selectedIndex]) {
+        indexesToRemove = [selectedIndex];
+    } else if (duplicateOnly && matchingIndexes.length > 1) {
+        indexesToRemove = matchingIndexes.slice(1);
+    } else if (!duplicateOnly && matchingIndexes.length) {
+        indexesToRemove = matchingIndexes.filter((index) => {
+            const scoredEntry = scoredEntries.find((item) => item.index === index);
+            return scoredEntry && (scoredEntry.titleScore > 0 || scoredEntry.dateScore > 0);
+        });
+    }
+
+    indexesToRemove = [...new Set(indexesToRemove)].filter((index) => Number.isInteger(index) && entries[index]);
+    if (!indexesToRemove.length) {
+        return '';
+    }
+
+    const beforeState = getCvHistoryState();
+    const keptEntries = entries.filter((_, index) => !indexesToRemove.includes(index));
+    field.value = keptEntries.map(serializeExperienceEntry).filter(Boolean).join('\n');
+    clearEditableOverride('experience');
+    renderExperienceEditor();
+    updateCvPreview();
+    commitCvHistoryTransition(beforeState);
+    scheduleCvDraftSave();
+    setCvStatus(indexesToRemove.length > 1 ? 'Doublons supprimés' : 'Expérience supprimée');
+
+    return indexesToRemove.length > 1
+        ? 'Doublons supprimés dans les expériences.'
+        : 'Expérience supprimée du CV.';
+};
+
+const applyQuickCvTypographyAdjustment = (message = '') => {
+    const source = normalizeForMatch(message);
+    const sectionTitleOnlyIntent = /\b(reduis|reduire|reduit|retrecis|retrecir)\b.*\b(titre|titres)\b.*\b(section|sections|rubrique|rubriques)\b/.test(source);
+    const wantsBiggerTitles = /\b(agrandi(?:r)?|grossi(?:r)?|augmente(?:r)?|plus grand|plus gros)\b/.test(source)
+        && /\b(titre|titres|rubrique|rubriques|profil|competences|langues|experiences|formations)\b/.test(source);
+    const wantsSmallerTitles = /\b(reduis|reduire|reduit|retrecis|retrecir|plus petit|plus petits|discret|discrets|sobre|sobres|moins agressif|moins agressifs)\b/.test(source)
+        && /\b(titre|titres|section|sections|rubrique|rubriques|profil|competences|langues|experiences|formations)\b/.test(source);
+    const wantsSmallerBody = /\b(retreci(?:r)?|reduit|reduire|diminue(?:r)?|plus petit|plus petits|compacte(?:r)?)\b/.test(source)
+        && /\b(reste|texte|contenu|corps|paragraphes?|missions|contenu cv)\b/.test(source);
+    const wantsUppercaseTitles = /\b(majuscule|majuscules|uppercase)\b/.test(source);
+    const wantsLetterSpacing = /\b(espacement|espacer|espacement des lettres|lettres espacees|letter spacing)\b/.test(source);
+    const wantsReadableContent = /\b(contenu|texte|corps)\b.*\b(lisible|lisibilite|plus lisible)\b|\bplus lisible que les titres\b/.test(source);
+
+    if (!wantsBiggerTitles && !wantsSmallerTitles && !wantsSmallerBody && !wantsUppercaseTitles && !wantsLetterSpacing) {
+        return '';
+    }
+
+    const beforeState = getCvHistoryState();
+    let changed = false;
+
+    if (wantsBiggerTitles || wantsSmallerTitles || wantsUppercaseTitles || wantsLetterSpacing) {
+        document.querySelectorAll('[data-section-title]').forEach((node) => {
+            const key = node.dataset.sectionTitle || '';
+            if (!key) {
+                return;
+            }
+
+            const previous = normalizeStyleState(cvSectionTitleStyles[key] || {});
+            const next = {
+                ...previous,
+                fontSize: wantsSmallerTitles ? '13px' : wantsBiggerTitles ? '18px' : (previous.fontSize || '13px'),
+                fontWeight: wantsSmallerTitles ? '700' : wantsBiggerTitles ? '800' : (previous.fontWeight || '700'),
+                lineHeight: wantsSmallerTitles ? '1.05' : wantsBiggerTitles ? '1.1' : (previous.lineHeight || '1.1'),
+                letterSpacing: (wantsSmallerTitles || wantsLetterSpacing) ? '0.08em' : previous.letterSpacing,
+                textTransform: (wantsSmallerTitles || wantsUppercaseTitles) ? 'uppercase' : previous.textTransform,
+            };
+
+            if (JSON.stringify(previous) !== JSON.stringify(next)) {
+                cvSectionTitleStyles[key] = next;
+                changed = true;
+            }
+        });
+    }
+
+    if (wantsSmallerBody || wantsReadableContent || wantsSmallerTitles || sectionTitleOnlyIntent) {
+        ['summary', 'skills', 'experience', 'projects', 'education', 'activities', 'languages'].forEach((target) => {
+            const previous = cvEditableContent[target] || {};
+            const nextStyle = {
+                ...normalizeStyleState(previous.style || {}),
+                fontSize: (wantsReadableContent || wantsSmallerTitles || sectionTitleOnlyIntent) ? '14px' : '13px',
+                lineHeight: (wantsReadableContent || wantsSmallerTitles || sectionTitleOnlyIntent) ? '1.2' : '1.15',
+            };
+            const next = previous.html ? { ...previous, style: nextStyle } : { style: nextStyle };
+
+            if (JSON.stringify(previous) !== JSON.stringify(next)) {
+                cvEditableContent[target] = next;
+                changed = true;
+            }
+        });
+    }
+
+    if (!changed) {
+        return '';
+    }
+
+    updateCvPreview();
+    renderExperienceEditor();
+    renderLanguageEditor();
+    commitCvHistoryTransition(beforeState);
+    scheduleCvDraftSave();
+    setCvStatus('Mise en forme ajustée');
+
+    if (wantsSmallerTitles && (wantsReadableContent || wantsSmallerBody)) {
+        return 'Titres de section réduits et hiérarchie typographique rendue plus sobre.';
+    }
+
+    if (wantsBiggerTitles && wantsSmallerBody) {
+        return 'Titres agrandis et contenu principal resserré dans le CV.';
+    }
+
+    if (sectionTitleOnlyIntent || wantsSmallerTitles) {
+        return 'Titres de section réduits et harmonisés dans le CV.';
+    }
+
+    if (wantsBiggerTitles) {
+        return 'Titres de rubriques agrandis dans le CV.';
+    }
+
+    return 'Contenu principal réduit dans le CV.';
+};
+
+const applyQuickKirbyCorrection = (message = '') => {
+    const directCorrections = [
+        applyQuickCvTypographyAdjustment(message),
+        getQuickEditorBugReport(message),
+        applyQuickTitleGenderCorrection(message),
+        applyQuickLanguageCorrections(message),
+        applyQuickExperienceDateCorrection(message),
+        applyQuickExperienceRemoval(message),
+    ].filter(Boolean);
+
+    if (directCorrections.length) {
+        return directCorrections.join(' ');
+    }
+
+    return applyQuickExperienceSortCorrection(message);
+};
 
 const reorderExistingExperiences = (order = []) => {
     const field = getExperienceField();
@@ -6527,7 +7784,7 @@ const mergeKirbyLanguages = (languages = []) => {
         return false;
     }
 
-    const entries = getLanguageSourceEntries();
+    const entries = isDefaultCvFieldValue('languages', field.value) ? [] : getLanguageSourceEntries();
     const existing = new Map(entries.map((entry) => [normalizeForMatch(entry.language), entry]));
 
     languages.forEach((entry) => {
@@ -6552,6 +7809,208 @@ const mergeKirbyLanguages = (languages = []) => {
     return true;
 };
 
+const getExplicitCvPeriodsFromText = (value = '') => {
+    const currentYear = new Date().getFullYear();
+    const periods = [];
+    const pattern = /\b((?:19|20)\d{2})\s*[–-]\s*((?:19|20)\d{2}|aujourd'hui|aujourd’hui|present|présent|actuel|maintenant)\b/gi;
+    let match;
+
+    while ((match = pattern.exec(value || ''))) {
+        const start = Number(match[1]);
+        const end = /\d{4}/.test(match[2]) ? Number(match[2]) : currentYear;
+
+        if (start >= 1980 && end >= start && end <= currentYear + 1) {
+            periods.push({ start, end });
+        }
+    }
+
+    return periods;
+};
+
+const formatCvYearPeriod = ({ start, end } = {}) => start && end
+    ? start === end ? String(start) : `${start} - ${end}`
+    : '';
+
+const rangesOverlap = (left, right) =>
+    Boolean(left && right && left.start <= right.end && right.start <= left.end);
+
+const getExperienceFieldYearRanges = () => {
+    const field = getExperienceField();
+    const currentYear = new Date().getFullYear();
+
+    return (field ? repairPreviewExperienceItems(splitLines(field.value)) : [])
+        .map((line) => {
+            const sort = getTimelineEntrySortValue(line);
+            if (!sort.hasDate) {
+                return null;
+            }
+            return {
+                start: sort.start,
+                end: sort.end,
+                ongoing: /\b(aujourd'hui|aujourd’hui|present|présent|actuel|maintenant)\b/i.test(line),
+            };
+        })
+        .filter(Boolean)
+        .filter((range) => range.start >= 1980 && range.end >= range.start && range.end <= currentYear + 1);
+};
+
+const getPreferredGeneratedExperiencePeriod = (instruction = '') => {
+    const explicitPeriods = getExplicitCvPeriodsFromText(instruction);
+    if (explicitPeriods.length) {
+        return formatCvYearPeriod(explicitPeriods[explicitPeriods.length - 1]);
+    }
+
+    const currentYear = new Date().getFullYear();
+    const ranges = getExperienceFieldYearRanges();
+    const hasOngoingExperience = ranges.some((range) => range.ongoing || range.end >= currentYear);
+    const latestEnd = ranges.reduce((max, range) => Math.max(max, range.end), 0);
+
+    return !hasOngoingExperience && latestEnd && latestEnd < currentYear
+        ? formatCvYearPeriod({ start: latestEnd + 1, end: currentYear })
+        : '';
+};
+
+const normalizeKirbyGeneratedExperiencePeriod = (experience = {}, instruction = '') => {
+    const preferredPeriod = getPreferredGeneratedExperiencePeriod(instruction);
+    if (!preferredPeriod) {
+        return experience;
+    }
+
+    const currentPeriod = normalizeCvSentenceText(experience.period || '');
+    const currentRange = getExplicitCvPeriodsFromText(currentPeriod)[0] || null;
+    const source = normalizeForMatch([
+        experience.title,
+        experience.organization,
+        ...(getKirbyCvArray(experience.description)),
+        ...(getKirbyCvArray(experience.skills)),
+    ].filter(Boolean).join(' '));
+    const looksLikeGapDraft = /\b(projet|projets|numerique|numeriques|digital|web|autoformation|developpement|ia|intelligence artificielle|creation|creatrice|entrepreneur|formation|recherche active|benevolat)\b/.test(source);
+    const overlapsRealExperience = currentRange
+        ? getExperienceFieldYearRanges().some((range) => rangesOverlap(currentRange, range))
+        : false;
+
+    if (!currentPeriod || (looksLikeGapDraft && overlapsRealExperience)) {
+        return {
+            ...experience,
+            period: preferredPeriod,
+        };
+    }
+
+    return experience;
+};
+
+const serializeKirbyGeneratedExperience = (experience = {}) => {
+    const entry = {
+        title: formatCvHeadline(experience.title || 'Expérience à valider'),
+        meta: normalizeCvSentenceText(experience.organization || ''),
+        date: normalizeCvSentenceText(experience.period || ''),
+        bullets: getKirbyCvArray(experience.description).map(normalizeCvSentenceText).filter(Boolean),
+    };
+
+    return serializeExperienceEntry(entry);
+};
+
+const mergeKirbyGeneratedExperiences = (experiences = [], instruction = '') => {
+    const field = getExperienceField();
+    const entries = getKirbyCvArray(experiences)
+        .map((experience) => normalizeKirbyGeneratedExperiencePeriod(experience, instruction))
+        .map(serializeKirbyGeneratedExperience)
+        .filter(Boolean);
+
+    if (!field || !entries.length) {
+        return 0;
+    }
+
+    const existing = repairPreviewExperienceItems(splitLines(field.value));
+    const existingKeys = new Set(existing.map((item) => normalizeForMatch(item)));
+    const additions = entries.filter((entry) => !existingKeys.has(normalizeForMatch(entry)));
+
+    if (!additions.length) {
+        return 0;
+    }
+
+    field.value = normalizeCvTextareaValue('experience', sortTimelineEntriesNewestFirst([...existing, ...additions], additions).join('\n'));
+    clearEditableOverride('experience');
+    return additions.length;
+};
+
+const serializeKirbyEducationSuggestion = (education = {}) => {
+    const title = normalizeCvSentenceText(education.title || '');
+    const organization = normalizeCvSentenceText(education.organization || '');
+    const period = normalizeCvSentenceText(education.period || '');
+    const titleAlreadyContainsOrganization = organization && normalizeForMatch(title).includes(normalizeForMatch(organization));
+    const header = [
+        titleAlreadyContainsOrganization || !organization ? title : `${title} — ${organization}`,
+        period,
+    ].filter(Boolean).join(' - ');
+    const description = normalizeCvSentenceText(education.description || '');
+
+    return normalizeEducationDisplayItem([header, description].filter(Boolean).join(' • '));
+};
+
+const mergeKirbyEducationSuggestions = (educationSuggestions = []) => {
+    const field = cvForm?.elements.education;
+    const entries = getKirbyCvArray(educationSuggestions)
+        .map(serializeKirbyEducationSuggestion)
+        .filter(Boolean);
+
+    if (!field || !entries.length) {
+        return 0;
+    }
+
+    const existing = normalizeEducationItems(splitLines(field.value));
+    const existingKeys = new Set(existing.map((item) => normalizeForMatch(item)));
+    const additions = entries.filter((entry) => !existingKeys.has(normalizeForMatch(entry)));
+
+    if (!additions.length) {
+        return 0;
+    }
+
+    field.value = normalizeCvTextareaValue('education', [...existing, ...additions].join('\n'));
+    clearEditableOverride('education');
+    return additions.length;
+};
+
+const getApplicableKirbySuggestedSkills = (proposal = {}) => {
+    return getKirbyProposalSuggestedSkills(proposal);
+};
+
+const getReviewedKirbySuggestedSkills = (proposal = {}) => {
+    const choices = [...(assistantProposalDetails?.querySelectorAll('[data-kirby-skill-choice]') || [])];
+
+    if (!choices.length) {
+        return getApplicableKirbySuggestedSkills(proposal);
+    }
+
+    return dedupeCvSkillItems(
+        choices
+            .filter((choice) => choice.querySelector('[data-kirby-skill-enabled]')?.checked)
+            .map((choice) => choice.querySelector('[data-kirby-skill-value]')?.value || '')
+            .map(normalizeCvSentenceText)
+            .filter(Boolean)
+    );
+};
+
+const mergeKirbySuggestedSkills = (proposal = {}) => {
+    const field = cvForm?.elements.skills;
+    const suggested = getReviewedKirbySuggestedSkills(proposal);
+
+    if (!field || !suggested.length) {
+        return false;
+    }
+
+    const existing = splitLines(field.value).map(normalizeCvSentenceText);
+    const value = dedupeCvSkillItems([...existing, ...suggested]).join('\n');
+
+    if (!value || value === field.value) {
+        return false;
+    }
+
+    field.value = value;
+    clearEditableOverride('skills');
+    return true;
+};
+
 const kirbySectionActions = [
     { key: 'summary', label: 'profil', aliases: ['profil', 'accroche', 'resume'] },
     { key: 'skills', label: 'compétences', aliases: ['competence', 'competences', 'skill', 'skills'] },
@@ -6562,20 +8021,30 @@ const kirbySectionActions = [
     { key: 'languages', label: 'langues', aliases: ['langue', 'langues'] },
 ];
 
+const hasExplicitDestructiveCvRemoval = (instruction = '') => {
+    const source = normalizeForMatch(String(instruction || '')).replace(/[’']/g, ' ');
+    const asksRemoval = /\b(supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|masque|masquer)\b|pas besoin de/.test(source);
+    const negatesRemoval = /\b(ne|n)\s+(?:me\s+)?(?:supprime|retire|enleve|efface)\s+pas\b|sans\s+(?:me\s+)?(?:supprimer|retirer|enlever|effacer)|ne touche pas|garde|conserve/.test(source);
+
+    return asksRemoval && !negatesRemoval;
+};
+
 const getKirbyLayoutIntent = (instruction = '', layout = {}) => {
     const source = normalizeForMatch(String(instruction || '')).replace(/[’']/g, ' ');
-    const removalAsked = /\b(supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|masque|masquer)\b|pas besoin de/.test(source);
-    const sourceRemovals = removalAsked
+    const removalAsked = hasExplicitDestructiveCvRemoval(instruction);
+    const duplicateCleanupAsked = /\b(doublon|doublons|repetition|repetitions)\b/.test(source);
+    const sectionRemovalAsked = removalAsked && !duplicateCleanupAsked;
+    const sourceRemovals = sectionRemovalAsked
         ? kirbySectionActions
             .filter((section) => section.aliases.some((alias) => source.includes(alias)))
             .map((section) => section.key)
         : [];
-    const modelRemovals = removalAsked && Array.isArray(layout?.removeSections)
+    const modelRemovals = sectionRemovalAsked && Array.isArray(layout?.removeSections)
         ? layout.removeSections.filter((key) => kirbySectionActions.some((section) => section.key === key))
         : [];
     const removeSections = [...new Set([...sourceRemovals, ...modelRemovals])];
     const existingSkills = splitLines(cvForm?.elements.skills?.value || '');
-    const namedSkillRemovals = removalAsked && !removeSections.includes('skills')
+    const namedSkillRemovals = sectionRemovalAsked && !removeSections.includes('skills')
         ? existingSkills.filter((skill) => {
             const normalizedSkill = normalizeForMatch(skill).replace(/[^a-z0-9]+/g, ' ').trim();
             return normalizedSkill.length > 2 && source.includes(normalizedSkill);
@@ -6587,7 +8056,7 @@ const getKirbyLayoutIntent = (instruction = '', layout = {}) => {
     return {
         removeSections,
         namedSkillRemovals,
-        replaceSkills: removeSections.includes('skills') || namedSkillRemovals.length > 0 || (removalAsked && /\b(doublon|doublons)\b/.test(source)),
+        replaceSkills: removeSections.includes('skills') || namedSkillRemovals.length > 0,
         reflow,
         compact,
     };
@@ -6645,22 +8114,40 @@ const applyKirbyExtractedCv = (extracted = {}) => {
         if (!field || !nextValue || field.value === nextValue) {
             return;
         }
+        if (field.value?.trim() && !isDefaultCvFieldValue(name, field.value)) {
+            return;
+        }
         field.value = nextValue;
         clearEditableOverride(name === 'fullName' ? 'fullName' : name === 'location' || name === 'phone' || name === 'email' || name === 'permit' ? 'location' : name);
         changes.push(label);
+    };
+    const getMergedListValue = (name, incomingItems) => {
+        const field = cvForm.elements[name];
+        const existingItems = field && !isDefaultCvFieldValue(name, field.value)
+            ? splitLines(field.value)
+            : [];
+        const combinedItems = [...existingItems, ...incomingItems].map(normalizeCvSentenceText).filter(Boolean);
+
+        if (name === 'skills') {
+            return dedupeCvSkillItems(combinedItems).join('\n');
+        }
+
+        if (name === 'activities') {
+            return dedupeImportedItems(combinedItems).join('\n');
+        }
+
+        return normalizeCvTextareaValue(name, combinedItems.join('\n'));
     };
     const setListField = (name, values, label) => {
         const field = cvForm.elements[name];
         const items = Array.isArray(values)
             ? values.map((value) => normalizeCvSentenceText(value)).filter(Boolean)
             : [];
-        const nextValue = items.join('\n');
+        const nextValue = getMergedListValue(name, items);
         if (!field || !nextValue || field.value === nextValue) {
             return;
         }
-        field.value = ['experience', 'projects', 'education'].includes(name)
-            ? normalizeCvTextareaValue(name, nextValue)
-            : nextValue;
+        field.value = nextValue;
         clearEditableOverride(name);
         changes.push(label);
     };
@@ -6719,30 +8206,233 @@ const applyKirbyLetter = (letter = {}, fallbackRole = '') => {
     return true;
 };
 
-const applyKirbyCvResult = (result, task, instruction = '') => {
+const KIRBY_BUG_REPORT_STORAGE_KEY = 'kirby-generic-bug-reports';
+
+const getStoredKirbyBugReports = () => {
+    try {
+        return JSON.parse(localStorage.getItem(KIRBY_BUG_REPORT_STORAGE_KEY) || '[]');
+    } catch (error) {
+        return [];
+    }
+};
+
+const saveKirbyBugReport = (report = {}) => {
+    const reports = getStoredKirbyBugReports();
+    const nextReport = {
+        id: `kirby-bug-${Date.now()}`,
+        createdAt: new Date().toISOString(),
+        category: report.category || 'bug application',
+        summary: report.summary || 'Demande comprise, mais aucune modification visible n’a été appliquée.',
+        expectedAction: report.expectedAction || '',
+        target: report.target || '',
+        details: report.details || '',
+        instruction: report.instruction || '',
+    };
+
+    localStorage.setItem(KIRBY_BUG_REPORT_STORAGE_KEY, JSON.stringify([nextReport, ...reports].slice(0, 50)));
+    return nextReport;
+};
+
+const formatKirbyBugReportReply = (report = {}) => [
+    'Rapport de bug créé.',
+    report.category ? `Catégorie : ${report.category}.` : '',
+    report.summary ? `Résumé : ${report.summary}.` : '',
+    report.target ? `Élément concerné : ${report.target}.` : '',
+    report.expectedAction ? `Action attendue : ${report.expectedAction}.` : '',
+].filter(Boolean).join(' ');
+
+const getOperationTargetText = (operation = {}) => [
+    operation.target?.label,
+    operation.target?.title,
+    operation.target?.organization,
+    operation.target?.currentValue,
+].filter(Boolean).join(' ');
+
+const getOperationTargetScore = (entry = {}, operation = {}) => {
+    const target = normalizeForMatch(getOperationTargetText(operation));
+    if (!target) {
+        return 0;
+    }
+
+    const entryText = normalizeForMatch(`${entry.title || ''} ${entry.meta || ''} ${entry.date || ''}`);
+    const tokens = target.split(/[^a-z0-9]+/).filter((token) => token.length >= 3);
+
+    return [...new Set(tokens)].filter((token) => entryText.includes(token)).length;
+};
+
+const findExperienceIndexForOperation = (entries = [], operation = {}) => {
+    const targetIndex = Number.isInteger(operation.target?.index) ? operation.target.index : null;
+    if (targetIndex !== null && entries[targetIndex]) {
+        return targetIndex;
+    }
+
+    const selectedIndex = getSelectedExperienceIndex();
+    const targetText = getOperationTargetText(operation);
+    if (selectedIndex !== null && entries[selectedIndex] && (!targetText || /cette|selection|sélection/i.test(targetText))) {
+        return selectedIndex;
+    }
+
+    const scores = entries
+        .map((entry, index) => ({ index, score: getOperationTargetScore(entry, operation) }))
+        .filter((item) => item.score > 0)
+        .sort((left, right) => right.score - left.score);
+
+    if (scores.length > 1 && scores[0].score === scores[1].score) {
+        return -2;
+    }
+
+    if (scores.length) {
+        return scores[0].index;
+    }
+
+    return entries.length === 1 ? 0 : -1;
+};
+
+const applyKirbyOperation = (operation = {}) => {
+    if (!operation?.type) {
+        return '';
+    }
+
+    if (operation.type === 'update_experience_date') {
+        const field = getExperienceField();
+        const date = normalizeExperienceDateText(operation.value || '');
+        if (!field || !date) {
+            return '';
+        }
+
+        const entries = repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
+        const index = findExperienceIndexForOperation(entries, operation);
+        if (index < 0 || !entries[index]) {
+            return '';
+        }
+
+        const previous = entries[index].date || '';
+        if (normalizeExperienceDateText(previous) === date) {
+            return '';
+        }
+
+        entries[index] = { ...entries[index], date };
+        field.value = entries.map(serializeExperienceEntry).filter(Boolean).join('\n');
+        clearEditableOverride('experience');
+        return `date ${entries[index].title || 'expérience'}`;
+    }
+
+    if (operation.type === 'upsert_language') {
+        const language = operation.target?.label || operation.field || '';
+        const level = operation.value || operation.target?.currentValue || '';
+        return mergeKirbyLanguages([{ language, level }]) ? 'langues' : '';
+    }
+
+    if (operation.type === 'set_field') {
+        const fieldName = operation.field;
+        const field = fieldName && cvForm?.elements[fieldName];
+        const value = String(operation.value || '').trim();
+        if (!field || !value || field.value.trim() === value) {
+            return '';
+        }
+        field.value = ['skills', 'education', 'activities', 'projects', 'languages'].includes(fieldName)
+            ? normalizeCvTextareaValue(fieldName, value)
+            : ['email', 'phone'].includes(fieldName)
+                ? value
+                : normalizeCvSentenceText(value);
+        clearEditableOverride(fieldName);
+        return fieldName;
+    }
+
+    if (operation.type === 'remove_section') {
+        const key = operation.field || normalizeForMatch(operation.target?.label || '');
+        return applyKirbyLayoutIntent({ removeSections: [key], reflow: true, compact: false }).length ? 'section retirée' : '';
+    }
+
+    if (operation.type === 'remove_experience') {
+        const field = getExperienceField();
+        if (!field) {
+            return '';
+        }
+
+        const entries = repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
+        const index = findExperienceIndexForOperation(entries, operation);
+        if (index < 0 || !entries[index]) {
+            return '';
+        }
+
+        field.value = entries
+            .filter((_, entryIndex) => entryIndex !== index)
+            .map(serializeExperienceEntry)
+            .filter(Boolean)
+            .join('\n');
+        clearEditableOverride('experience');
+        return 'expérience retirée';
+    }
+
+    if (operation.type === 'reorder_experiences') {
+        const changed = sortExperienceFieldNewestFirst();
+        return changed ? 'ordre des expériences' : '';
+    }
+
+    return '';
+};
+
+const applyKirbyOperations = (operations = []) => {
+    const applied = getKirbyCvArray(operations).slice(0, 8)
+        .map(applyKirbyOperation)
+        .filter(Boolean);
+
+    return [...new Set(applied)];
+};
+
+const applyKirbyCvResult = (result, task, instruction = '', options = {}) => {
     const proposal = result?.cv;
 
     if (!cvForm || !proposal || typeof proposal !== 'object') {
         return 'Kirby n’a pas renvoyé de proposition exploitable.';
     }
 
+    const userInstruction = getKirbyUserInstruction(instruction);
+    const languageOnlyIntent = isLanguageFocusedInstruction(userInstruction) && !looksLikePastedCv(userInstruction);
+    const singleFieldIntent = getSingleFieldEditIntent(userInstruction);
     const changes = ['autofill', 'create'].includes(task) ? applyKirbyExtractedCv(proposal.extracted) : [];
+    const operationChanges = applyKirbyOperations(proposal.operations);
+    changes.push(...operationChanges);
+    const applyMode = options?.applyMode === 'proposal' ? 'proposal' : 'direct';
+    const directTargetedUpdate = applyMode === 'direct' && (operationChanges.length || singleFieldIntent || languageOnlyIntent);
+    const allowGlobalCvRewrite = !directTargetedUpdate;
+
+    if (languageOnlyIntent && !['autofill', 'create'].includes(task)) {
+        if (!operationChanges.length && mergeKirbyLanguages(proposal.languages)) {
+            changes.push('langues');
+        }
+
+        clearEditableOverride('languages');
+        updateCvPreview();
+        renderLanguageEditor();
+        scheduleCvDraftSave();
+        setCvStatus(changes.length ? `Kirby a mis à jour le CV : ${changes.join(', ')}` : 'Kirby a analysé les langues');
+
+        return changes.length
+            ? `CV mis à jour : ${changes.join(', ')}.`
+            : 'Indiquez la langue et le niveau à ajouter, par exemple : Français courant, Anglais notions.';
+    }
+
     const headlineField = cvForm.elements.headline;
     const summaryField = cvForm.elements.summary;
     const skillsField = cvForm.elements.skills;
     const layoutIntent = getKirbyLayoutIntent(instruction, proposal.layout);
     const headlineCorrectionAsked = /\b(titre|intitule|poste vise|vendeur|vendeuse|conseiller|conseillere|charge|chargee)\b/.test(normalizeForMatch(instruction));
 
-    if (proposal.jobTarget && cvForm.elements.jobTarget) {
+    if (allowGlobalCvRewrite && !singleFieldIntent && proposal.jobTarget && cvForm.elements.jobTarget) {
         cvForm.elements.jobTarget.value = formatCvHeadline(proposal.jobTarget);
     }
 
-    if (proposal.headline && headlineField && (task === 'adapt' || headlineCorrectionAsked || !headlineField.value || /intitule du poste vise/i.test(headlineField.value))) {
+    if (proposal.headline && headlineField && (
+        singleFieldIntent === 'headline' ||
+        (allowGlobalCvRewrite && !singleFieldIntent && (task === 'adapt' || headlineCorrectionAsked || !headlineField.value || /intitule du poste vise/i.test(headlineField.value)))
+    )) {
         headlineField.value = formatCvHeadline(proposal.headline);
         changes.push('titre');
     }
 
-    if (proposal.summary && summaryField) {
+    if (proposal.summary && summaryField && (!singleFieldIntent || singleFieldIntent === 'summary')) {
         const summary = normalizeCvSentenceText(proposal.summary);
         if (summary && summary !== summaryField.value) {
             summaryField.value = summary;
@@ -6750,12 +8440,15 @@ const applyKirbyCvResult = (result, task, instruction = '') => {
         }
     }
 
-    if (skillsField && ((Array.isArray(proposal.skills) && proposal.skills.length) || layoutIntent.namedSkillRemovals.length)) {
+    if (allowGlobalCvRewrite && !singleFieldIntent && skillsField && ((Array.isArray(proposal.skills) && proposal.skills.length) || layoutIntent.namedSkillRemovals.length)) {
         const existing = splitLines(skillsField.value).map(normalizeCvSentenceText);
         const proposed = Array.isArray(proposal.skills) ? proposal.skills.map(normalizeCvSentenceText) : [];
-        const removedSkills = new Set(layoutIntent.namedSkillRemovals.map((skill) => normalizeForMatch(skill)));
-        const retainedExisting = existing.filter((skill) => !removedSkills.has(normalizeForMatch(skill)));
-        const candidates = layoutIntent.replaceSkills
+        const allowSkillRemoval = hasExplicitDestructiveCvRemoval(instruction);
+        const removedSkills = new Set((allowSkillRemoval ? layoutIntent.namedSkillRemovals : []).map((skill) => normalizeForMatch(skill)));
+        const retainedExisting = allowSkillRemoval
+            ? existing.filter((skill) => !removedSkills.has(normalizeForMatch(skill)))
+            : existing;
+        const candidates = layoutIntent.replaceSkills && allowSkillRemoval
             ? [...proposed, ...retainedExisting]
             : [...proposed, ...existing];
         const value = dedupeCvSkillItems(candidates.filter((skill) => !removedSkills.has(normalizeForMatch(skill)))).join('\n');
@@ -6765,29 +8458,56 @@ const applyKirbyCvResult = (result, task, instruction = '') => {
         }
     }
 
-    if (reorderExistingExperiences(proposal.experienceOrder)) {
+    const generatedExperienceCount = allowGlobalCvRewrite && !singleFieldIntent
+        ? mergeKirbyGeneratedExperiences(proposal.generatedExperiences, instruction)
+        : 0;
+    if (generatedExperienceCount) {
+        changes.push(`${generatedExperienceCount} expérience(s) proposée(s)`);
+    }
+
+    const educationSuggestionCount = allowGlobalCvRewrite && !singleFieldIntent
+        ? mergeKirbyEducationSuggestions(proposal.educationSuggestions)
+        : 0;
+    if (educationSuggestionCount) {
+        changes.push(`${educationSuggestionCount} formation(s) / certification(s)`);
+    }
+
+    if (allowGlobalCvRewrite && !singleFieldIntent && mergeKirbySuggestedSkills(proposal)) {
+        changes.push('compétences suggérées');
+    }
+
+    if (allowGlobalCvRewrite && !singleFieldIntent && reorderExistingExperiences(proposal.experienceOrder)) {
         changes.push('ordre des expériences');
     }
 
-    if (mergeKirbyLanguages(proposal.languages)) {
+    if (allowGlobalCvRewrite && !singleFieldIntent && sortExperienceFieldNewestFirst()) {
+        changes.push('expériences triées par date');
+    }
+
+    if ((!singleFieldIntent || singleFieldIntent === 'languages') && mergeKirbyLanguages(proposal.languages)) {
         changes.push('langues');
     }
 
-    changes.push(...applyKirbyLayoutIntent(layoutIntent));
+    if (allowGlobalCvRewrite && !singleFieldIntent) {
+        changes.push(...applyKirbyLayoutIntent(layoutIntent));
+    }
 
-    const didApplyLetter = applyKirbyLetter(proposal.letter, proposal.jobTarget || proposal.headline);
+    const shouldApplyLetter = task === 'letter' || /\blettre(?:\s+de\s+motivation)?\b/.test(normalizeForMatch(instruction));
+    const didApplyLetter = shouldApplyLetter && applyKirbyLetter(proposal.letter, proposal.jobTarget || proposal.headline);
     if (didApplyLetter) {
         changes.push('lettre de motivation');
     }
 
     clearEditableOverrides();
+    updateCvPreview();
     renderExperienceEditor();
     renderLanguageEditor();
-    updateCvPreview();
 
-    if (task !== 'letter' && getRenderedCvPageCount() > 1) {
+    if (allowGlobalCvRewrite && !singleFieldIntent && task !== 'letter' && getRenderedCvPageCount() > 1) {
         applyCompactCvLayout(true);
         updateCvPreview();
+        renderExperienceEditor();
+        renderLanguageEditor();
         changes.push('mise en page compacte');
     }
     scheduleCvDraftSave();
@@ -6801,15 +8521,62 @@ const applyKirbyCvResult = (result, task, instruction = '') => {
 };
 
 const shouldApplyKirbyResultDirectly = ({ task = '', instruction = '' } = {}) => {
+    const userInstruction = getKirbyUserInstruction(instruction);
+    const source = normalizeForMatch(userInstruction);
+
+    if (isLanguageFocusedInstruction(userInstruction)) {
+        return true;
+    }
+
+    if (isSingleFieldEditIntent(userInstruction)) {
+        return true;
+    }
+
+    if (['create', 'autofill'].includes(task)) {
+        return isExplicitKirbyApplyInstruction(userInstruction) || looksLikeCvCreationInstruction(userInstruction) || looksLikePastedCv(userInstruction);
+    }
+
     if (task !== 'optimize') {
         return false;
     }
 
-    const source = normalizeForMatch(instruction);
-    return /\b(corrige|corriger|optimise|optimiser|remplace|remplacer|modifie|modifier|change|changer|supprime|supprimer|retire|retirer|enleve|enlever|ajoute|ajouter|reformule|reformuler|compacte|compacter)\b/.test(source)
-        && !looksLikePastedCv(instruction)
-        && !looksLikeJobOffer(instruction);
+    if (/\b(trou|periode|période|vide|combler|valoriser|autoformation|autodidacte|projet personnel|entrepreneur|creatrice|créatrice|formation|certification|certificat|atelier|simplon|ecole 42|école 42|piscine|benevolat|bénévolat|mission ponctuelle|recherche active)\b/.test(source)
+        && !isExplicitKirbyApplyInstruction(userInstruction)) {
+        return false;
+    }
+
+    return isExplicitKirbyApplyInstruction(userInstruction)
+        && !looksLikePastedCv(userInstruction)
+        && !looksLikeJobOffer(userInstruction);
 };
+
+const hasKirbyOperations = (result = {}) => getKirbyCvArray(result?.cv?.operations).length > 0;
+
+const getSingleFieldEditIntent = (instruction = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(instruction));
+    const hasEditVerb = /\b(ajoute|ajouter|mets|mettre|met|modifie|modifier|change|changer|corrige|corriger|remplace|remplacer|retire|retirer|supprime|supprimer)\b/.test(source);
+
+    if (!hasEditVerb) {
+        return '';
+    }
+
+    const fieldPatterns = [
+        ['date', /\b(date|dates|periode|periodes)\b/],
+        ['languages', /\b(langue|langues|francais|anglais|arabe|espagnol|italien|allemand|portugais|french|english|native|basic|notions?|courant|bilingue)\b/],
+        ['phone', /\b(telephone|tel|mobile|numero|numéro)\b/],
+        ['email', /\b(email|e-mail|mail|adresse mail|courriel)\b/],
+        ['headline', /\b(titre|intitule|intitulé|poste vise|poste visé|metier|métier)\b/],
+        ['summary', /\b(profil|accroche|resume|résumé|presentation|présentation)\b/],
+        ['fullName', /\b(nom|prenom|prénom)\b/],
+        ['location', /\b(ville|adresse|code postal|localisation)\b/],
+        ['permit', /\b(permis)\b/],
+    ];
+    const matches = fieldPatterns.filter(([, pattern]) => pattern.test(source));
+
+    return matches.length === 1 ? matches[0][0] : '';
+};
+
+const isSingleFieldEditIntent = (instruction = '') => Boolean(getSingleFieldEditIntent(instruction));
 
 const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}) => {
     if (!cvForm) {
@@ -6821,7 +8588,10 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
     }
 
     const layoutIntent = getKirbyLayoutIntent(instruction);
-    const taskLabel = layoutIntent.removeSections.length || layoutIntent.namedSkillRemovals.length || layoutIntent.reflow || layoutIntent.compact
+    const isAutopilotInstruction = shouldRunCvAutopilotMode(instruction);
+    const taskLabel = isAutopilotInstruction
+        ? 'Kirby prend le CV en main…'
+        : layoutIntent.removeSections.length || layoutIntent.namedSkillRemovals.length || layoutIntent.reflow || layoutIntent.compact
         ? 'Kirby prépare les suppressions et la mise en page…'
         : {
         create: 'Kirby structure votre CV…',
@@ -6840,11 +8610,38 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
     try {
         const result = await requestKirbyCvAssistant({ task, instruction });
         const runtimeLabel = getKirbyRuntimeLabel(result);
-        const canApplyDirectly = shouldApplyKirbyResultDirectly({ task, instruction })
-            && snapshot === getKirbyCvSnapshot();
+        const operationDriven = hasKirbyOperations(result);
+        const singleFieldDriven = isSingleFieldEditIntent(instruction);
+        const currentSnapshot = getKirbyCvSnapshot();
+        const sourceChangedDuringRequest = snapshot !== currentSnapshot;
+        const canApplyDirectly = (operationDriven || shouldApplyKirbyResultDirectly({ task, instruction }))
+            && !sourceChangedDuringRequest;
+
+        if (sourceChangedDuringRequest) {
+            hideKirbyCvProposal();
+            setCvStatus('Le CV a changé pendant l’analyse');
+            setAssistantActivity(`${runtimeLabel} · Le CV affiché a changé pendant l’analyse. Kirby ignore cette ancienne réponse.`, false);
+            return 'Le CV a changé pendant l’analyse. Kirby a ignoré cette ancienne réponse pour respecter la version actuellement affichée. Relancez la demande si besoin.';
+        }
 
         if (canApplyDirectly) {
-            const reply = applyKirbyCvResult(result, task, instruction);
+            const beforeApplySnapshot = getKirbyCvSnapshot();
+            const reply = applyKirbyCvResult(result, task, instruction, { applyMode: 'direct' });
+            const afterApplySnapshot = getKirbyCvSnapshot();
+            const operationFailed = (operationDriven || singleFieldDriven) && beforeApplySnapshot === afterApplySnapshot;
+            if (operationFailed) {
+                const report = saveKirbyBugReport({
+                    ...(result.cv?.bugReport || {}),
+                    category: result.cv?.bugReport?.category || 'bug application',
+                    summary: result.cv?.bugReport?.summary || 'La demande a été comprise par Kirby, mais l’application n’a pas modifié le CV.',
+                    expectedAction: result.cv?.operations?.[0]?.reason || result.cv?.operations?.[0]?.type || 'Appliquer l’opération demandée',
+                    target: getOperationTargetText(result.cv?.operations?.[0]) || result.cv?.operations?.[0]?.field || 'CV',
+                    instruction,
+                });
+                hideKirbyCvProposal();
+                setAssistantActivity(`${runtimeLabel} · ${formatKirbyBugReportReply(report)}`, false);
+                return formatKirbyBugReportReply(report);
+            }
             hideKirbyCvProposal();
             setAssistantActivity(`${runtimeLabel} · Modification appliquée. Retour permet d’annuler.`, false);
             return reply;
@@ -6866,22 +8663,51 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
         queuedAssistantPrompt = '';
         if (queuedMessage) {
             window.setTimeout(async () => {
+                const languageFocused = isLanguageFocusedInstruction(queuedMessage);
+                if (languageFocused && !hasLanguageNameInInstruction(queuedMessage)) {
+                    hideKirbyCvProposal();
+                    appendAssistantMessage('Quelle langue et quel niveau dois-je ajouter ? Exemple : Français courant, Anglais notions.', 'bot');
+                    return;
+                }
+
                 const quickReply = applyQuickKirbyCorrection(queuedMessage);
                 if (quickReply) {
+                    hideKirbyCvProposal();
                     appendAssistantMessage(quickReply, 'bot');
                     return;
                 }
 
+                const autopilotMode = shouldRunCvAutopilotMode(queuedMessage);
+
+                const localReplies = [];
+                if (autopilotMode) {
+                    const autopilotChanges = applyCvAutopilotLocalCleanup({ readyLayout: true, silent: true });
+                    if (autopilotChanges.length) {
+                        localReplies.push(`J'ai déjà préparé la structure : ${autopilotChanges.join(', ')}.`);
+                    }
+                }
+
                 const messageIsOffer = setJobOfferFromAssistantMessage(queuedMessage);
                 hideKirbyCvProposal();
+                const assistantInstruction = autopilotMode ? buildCvAutopilotInstruction(queuedMessage) : queuedMessage;
                 const reply = await runKirbyCvAssistant({
                     task: messageIsOffer ? 'adapt' : getAssistantTask(queuedMessage, activeKirbyMode),
-                    instruction: queuedMessage,
+                    instruction: assistantInstruction,
                 });
-                appendAssistantMessage(reply, 'bot');
+                appendAssistantMessage(formatKirbyAssistantReply(localReplies, reply), 'bot');
             }, 0);
         }
     }
+};
+
+const formatKirbyAssistantReply = (localReplies = [], reply = '') => {
+    const cleanReply = String(reply || '').trim();
+
+    if (/^(CV mis à jour|Base CV créée|CV corrigé|Langues mises à jour|Expériences rangées|Le CV est déjà aligné)/i.test(cleanReply)) {
+        return cleanReply;
+    }
+
+    return [...localReplies, cleanReply].filter(Boolean).join('\n\n');
 };
 
 const runAssistantAction = (action, message = '') => {
@@ -7020,6 +8846,13 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
         return;
     }
 
+    const languageFocused = isLanguageFocusedInstruction(cleanMessage);
+    if (languageFocused && !hasLanguageNameInInstruction(cleanMessage)) {
+        hideKirbyCvProposal();
+        appendAssistantMessage('Quelle langue et quel niveau dois-je ajouter ? Exemple : Français courant, Anglais notions.', 'bot');
+        return;
+    }
+
     const quickReply = applyQuickKirbyCorrection(cleanMessage);
     if (quickReply) {
         hideKirbyCvProposal();
@@ -7027,15 +8860,26 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
         return;
     }
 
+    const autopilotMode = shouldRunCvAutopilotMode(cleanMessage);
+
+    const localReplies = [];
+    if (autopilotMode) {
+        const autopilotChanges = applyCvAutopilotLocalCleanup({ readyLayout: true, silent: true });
+        if (autopilotChanges.length) {
+            localReplies.push(`J'ai déjà préparé la structure : ${autopilotChanges.join(', ')}.`);
+        }
+    }
+
     const messageIsOffer = mode !== 'letter' && setJobOfferFromAssistantMessage(cleanMessage);
     hideKirbyCvProposal();
+    const assistantInstruction = autopilotMode ? buildCvAutopilotInstruction(cleanMessage) : cleanMessage;
     const reply = shouldUseKirbyCvAssistant(cleanMessage)
         ? await runKirbyCvAssistant({
             task: messageIsOffer ? 'adapt' : getAssistantTask(cleanMessage, mode),
-            instruction: cleanMessage,
+            instruction: assistantInstruction,
         })
         : getAssistantReply(cleanMessage);
-    appendAssistantMessage(reply, 'bot');
+    appendAssistantMessage(formatKirbyAssistantReply(localReplies, reply), 'bot');
 };
 
 const handleAuthLogin = async (event) => {
@@ -7061,6 +8905,8 @@ const handleAuthLogin = async (event) => {
 
     persistAuthSession(account);
     activeEditableNode = null;
+    activeFormatNode = null;
+    savedFormatRange = null;
     updateAuthUi();
     loadCvDraft();
     refreshCvModule();
@@ -7112,6 +8958,8 @@ const handleAuthSignup = async (event) => {
     saveStoredAccounts(accounts);
     persistAuthSession(account);
     activeEditableNode = null;
+    activeFormatNode = null;
+    savedFormatRange = null;
     updateAuthUi();
     applyCurrentUserDefaults();
     resetCvHistory();
@@ -7126,7 +8974,10 @@ const handleAuthSignup = async (event) => {
 const handleAuthLogout = () => {
     persistAuthSession(null);
     activeEditableNode = null;
+    activeFormatNode = null;
+    savedFormatRange = null;
     cvEditableContent = {};
+    cvSectionTitleStyles = {};
     resetCvFormToDefaults();
     updateAuthUi();
     updateCvPreview();
@@ -7151,7 +9002,6 @@ window.addEventListener('load', () => {
         console.error(error);
         setCvStatus('Brouillon local ignore pour eviter un blocage');
     }
-    renderLanguageEditor();
     refreshCvModule();
 });
 
@@ -7393,11 +9243,15 @@ const normalizeCvTextareaValue = (fieldName, value) => {
     const items = splitLines(value || '');
 
     if (fieldName === 'education') {
-        return normalizeEducationItems(items.filter((item) => !/^[-–—]?\s*\)?$/.test(item.trim()))).join('\n');
+        return sortTimelineEntriesNewestFirst(normalizeEducationItems(items.filter((item) => !/^[-–—]?\s*\)?$/.test(item.trim())))).join('\n');
     }
 
     if (fieldName === 'experience' || fieldName === 'projects') {
-        return repairPreviewExperienceItems(dedupeImportedItems(items)).join('\n');
+        const timelineItems = repairPreviewExperienceItems(dedupeImportedItems(items));
+        return (fieldName === 'experience'
+            ? sortTimelineEntriesNewestFirst(normalizeDigitalProjectTimelinePeriods(timelineItems))
+            : timelineItems
+        ).join('\n');
     }
 
     return value.trim();
@@ -7429,6 +9283,10 @@ if (cvForm) {
     const handleCvFormMutation = (event) => {
         const fieldName = event.target?.name;
         const linkedTarget = fieldName ? editableFieldMap[fieldName] : '';
+
+        if (event.isTrusted) {
+            hideKirbyCvProposal();
+        }
 
         if (fieldName === 'colorTheme' && event.type === 'change') {
             applyModernColorPalette(event.target.value);
@@ -7497,13 +9355,27 @@ if (experienceAddButton) {
 }
 
 if (experienceCards) {
+    const rememberExperienceCard = (target) => {
+        const card = target?.closest?.('.experience-card[data-experience-index]');
+        const index = Number.parseInt(card?.dataset?.experienceIndex || '', 10);
+        if (Number.isInteger(index) && index >= 0) {
+            activeExperienceIndex = index;
+        }
+    };
+
+    experienceCards.addEventListener('focusin', (event) => {
+        rememberExperienceCard(event.target);
+    });
+
     experienceCards.addEventListener('input', (event) => {
         if (event.target?.matches('[data-experience-field]')) {
+            rememberExperienceCard(event.target);
             syncExperienceFieldFromEditor();
         }
     });
 
     experienceCards.addEventListener('click', (event) => {
+        rememberExperienceCard(event.target);
         const button = event.target.closest('[data-experience-action]');
 
         if (!button) {
@@ -7603,6 +9475,8 @@ if (previewHeadlineScale && cvForm) {
     previewHeadlineScale.addEventListener('change', () => {
         cvForm.elements.headlineScale.value = previewHeadlineScale.value;
         updateCvPreview();
+        captureCvHistoryFromInteraction({ immediate: true });
+        scheduleCvDraftSave();
         setCvStatus('Taille du titre ajustee');
     });
 }
@@ -7611,6 +9485,8 @@ if (previewLineSpacing && cvForm) {
     previewLineSpacing.addEventListener('change', () => {
         cvForm.elements.lineSpacing.value = previewLineSpacing.value;
         updateCvPreview();
+        captureCvHistoryFromInteraction({ immediate: true });
+        scheduleCvDraftSave();
         setCvStatus('Interligne mis a jour');
     });
 }
@@ -7619,6 +9495,8 @@ if (previewLayoutTheme && cvForm) {
     previewLayoutTheme.addEventListener('change', () => {
         cvForm.elements.layoutTheme.value = previewLayoutTheme.value;
         updateCvPreview();
+        captureCvHistoryFromInteraction({ immediate: true });
+        scheduleCvDraftSave();
         setCvStatus('Theme applique');
     });
 }
@@ -7632,6 +9510,8 @@ document.querySelectorAll('.cv-section-action').forEach((button) => {
         if (!cvForm) {
             return;
         }
+
+        hideKirbyCvProposal();
 
         const key = button.dataset.sectionKey;
         const action = button.dataset.sectionAction;
@@ -7647,6 +9527,8 @@ document.querySelectorAll('.cv-section-action').forEach((button) => {
             }
             clearEditableOverride(key);
             updateCvPreview();
+            captureCvHistoryFromInteraction({ immediate: true });
+            scheduleCvDraftSave();
             setCvStatus(`${cvSectionLabels[key] || 'Bloc'} supprime`);
             return;
         }
@@ -7666,6 +9548,8 @@ document.querySelectorAll('.cv-section-action').forEach((button) => {
 
         reorderPreviewSections();
         updatePreviewViewport();
+        captureCvHistoryFromInteraction({ immediate: true });
+        scheduleCvDraftSave();
         setCvStatus(`Ordre mis a jour : ${cvSectionLabels[key] || 'Bloc'}`);
     });
 });
@@ -7706,6 +9590,42 @@ const getEditableSelectionNode = () => {
     return element?.closest?.('[contenteditable="true"]') || null;
 };
 
+const getFormatTargetFromNode = (node) => {
+    const element = node?.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+    return element?.closest?.('[contenteditable="true"], [data-section-title]') || null;
+};
+
+const getCurrentFormatRange = () => {
+    const selection = document.getSelection();
+    const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+    const rangeTarget = range ? getFormatTargetFromNode(range.commonAncestorContainer) : null;
+
+    if (range && rangeTarget) {
+        savedFormatRange = range.cloneRange();
+        activeFormatNode = rangeTarget;
+        if (rangeTarget.isContentEditable) {
+            activeEditableNode = rangeTarget;
+        }
+        return range;
+    }
+
+    return savedFormatRange && document.body.contains(savedFormatRange.commonAncestorContainer)
+        ? savedFormatRange
+        : null;
+};
+
+const rememberFormatTarget = (node) => {
+    const target = getFormatTargetFromNode(node);
+    if (!target) {
+        return;
+    }
+
+    activeFormatNode = target;
+    if (target.isContentEditable) {
+        activeEditableNode = target;
+    }
+};
+
 const getActiveEditableNode = () => {
     if (activeEditableNode && document.body.contains(activeEditableNode)) {
         return activeEditableNode;
@@ -7715,24 +9635,37 @@ const getActiveEditableNode = () => {
     return activeEditableNode;
 };
 
-const getSelectedEditableNodes = () => {
-    const selection = document.getSelection();
-    const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+const getActiveFormatNode = () => {
+    const range = getCurrentFormatRange();
+    const rangeTarget = range ? getFormatTargetFromNode(range.commonAncestorContainer) : null;
+    if (rangeTarget) {
+        return rangeTarget;
+    }
+
+    if (activeFormatNode && document.body.contains(activeFormatNode)) {
+        return activeFormatNode;
+    }
+
+    return getActiveEditableNode();
+};
+
+const getSelectedFormatNodes = () => {
+    const range = getCurrentFormatRange();
 
     if (range && !range.collapsed) {
-        const selectedNodes = [...document.querySelectorAll('[contenteditable="true"]')]
+        const selectedNodes = [...document.querySelectorAll('[contenteditable="true"], [data-section-title]')]
             .filter((node) => range.intersectsNode(node));
         if (selectedNodes.length) {
             return selectedNodes;
         }
     }
 
-    const activeNode = getActiveEditableNode();
+    const activeNode = getActiveFormatNode();
     return activeNode ? [activeNode] : [];
 };
 
 const updateWordToolbarState = () => {
-    const node = getActiveEditableNode();
+    const node = getActiveFormatNode();
 
     cvWordToolbarShell?.classList.toggle('is-hidden', currentPreviewMode !== 'cv');
 
@@ -7907,8 +9840,58 @@ const handleEditablePaste = (event, node) => {
     });
 };
 
+const syncFormatNode = (node) => {
+    if (!node) {
+        return;
+    }
+
+    if (node.matches?.('[data-section-title]')) {
+        storeSectionTitleStyle(node);
+        updateWordToolbarState();
+        return;
+    }
+
+    syncPreviewEditableNode(node, { refreshPreview: false });
+};
+
+const canApplyInlineRangeStyle = (range, node, styleKey) => {
+    if (!range || range.collapsed || !node?.isContentEditable || styleKey === 'textAlign') {
+        return false;
+    }
+
+    if (!node.contains(range.startContainer) || !node.contains(range.endContainer)) {
+        return false;
+    }
+
+    const fragment = range.cloneContents();
+    return !fragment.querySelector?.('li, ul, ol, p, div, section, article, h1, h2, h3, h4');
+};
+
+const applyInlineRangeStyle = (range, node, styleKey, value) => {
+    if (!canApplyInlineRangeStyle(range, node, styleKey)) {
+        return false;
+    }
+
+    const span = document.createElement('span');
+    span.style[styleKey] = value;
+    span.appendChild(range.extractContents());
+    range.insertNode(span);
+
+    const selection = document.getSelection();
+    const nextRange = document.createRange();
+    nextRange.selectNodeContents(span);
+    selection?.removeAllRanges();
+    selection?.addRange(nextRange);
+    savedFormatRange = nextRange.cloneRange();
+    activeFormatNode = node;
+    activeEditableNode = node;
+    syncFormatNode(node);
+    return true;
+};
+
 const applyEditableRootStyle = (styleKey, value) => {
-    const nodes = getSelectedEditableNodes();
+    const range = getCurrentFormatRange();
+    const nodes = getSelectedFormatNodes();
 
     if (!nodes.length) {
         setCvStatus('Cliquez d abord dans le CV pour modifier le texte');
@@ -7916,22 +9899,49 @@ const applyEditableRootStyle = (styleKey, value) => {
     }
 
     nodes.forEach((node) => {
+        if (nodes.length === 1 && applyInlineRangeStyle(range, node, styleKey, value)) {
+            return;
+        }
         node.style[styleKey] = value;
-        syncPreviewEditableNode(node, { refreshPreview: false });
+        syncFormatNode(node);
     });
     captureCvHistoryFromInteraction({ immediate: true });
     setCvStatus(nodes.length > 1 ? `Mise en forme appliquée sur ${nodes.length} blocs` : 'Mise en forme appliquée');
 };
 
 const applyInlineCommand = (command) => {
-    const node = getActiveEditableNode();
+    const node = getActiveFormatNode();
 
     if (!node) {
         setCvStatus('Cliquez d abord dans le CV pour modifier le texte');
         return;
     }
 
+    if (node.matches?.('[data-section-title]')) {
+        if (command === 'bold') {
+            node.style.fontWeight = Number.parseInt(window.getComputedStyle(node).fontWeight, 10) >= 600 ? '500' : '800';
+        } else if (command === 'italic') {
+            node.style.fontStyle = window.getComputedStyle(node).fontStyle === 'italic' ? '' : 'italic';
+        } else if (command === 'underline') {
+            node.style.textDecoration = window.getComputedStyle(node).textDecorationLine.includes('underline') ? '' : 'underline';
+        } else if (command === 'removeFormat') {
+            applyEditableNodeStyleState(node, { lineHeight: '1.2' });
+            node.style.fontWeight = '';
+            node.style.fontStyle = '';
+            node.style.textDecoration = '';
+        }
+        syncFormatNode(node);
+        captureCvHistoryFromInteraction({ immediate: true });
+        setCvStatus('Mise en forme appliquée');
+        return;
+    }
+
     node.focus();
+    if (savedFormatRange) {
+        const selection = document.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(savedFormatRange);
+    }
     document.execCommand(command, false, null);
     syncPreviewEditableNode(node, { refreshPreview: false });
     captureCvHistoryFromInteraction({ immediate: true });
@@ -7941,11 +9951,14 @@ const applyInlineCommand = (command) => {
 document.querySelectorAll('[contenteditable="true"]').forEach((node) => {
     node.addEventListener('focus', () => {
         activeEditableNode = node;
+        activeFormatNode = node;
         updateWordToolbarState();
         setCvStatus('Edition directe active');
     });
     node.addEventListener('input', () => {
+        hideKirbyCvProposal();
         activeEditableNode = node;
+        activeFormatNode = node;
         syncPreviewEditableNode(node, { refreshPreview: false, normalize: false });
         captureCvHistoryFromInteraction();
         scheduleCvDraftSave();
@@ -7958,6 +9971,7 @@ document.querySelectorAll('[contenteditable="true"]').forEach((node) => {
     });
     node.addEventListener('paste', (event) => {
         activeEditableNode = node;
+        activeFormatNode = node;
         handleEditablePaste(event, node);
     });
     node.addEventListener('keydown', (event) => {
@@ -7978,10 +9992,36 @@ document.querySelectorAll('[contenteditable="true"]').forEach((node) => {
     });
 });
 
+document.querySelectorAll('[data-section-title]').forEach((node) => {
+    node.addEventListener('mousedown', () => {
+        rememberFormatTarget(node);
+    });
+    node.addEventListener('mouseup', () => {
+        rememberFormatTarget(node);
+        const selection = document.getSelection();
+        if (selection?.rangeCount) {
+            savedFormatRange = selection.getRangeAt(0).cloneRange();
+        }
+        updateWordToolbarState();
+        setCvStatus('Titre de section sélectionné');
+    });
+    node.addEventListener('click', () => {
+        rememberFormatTarget(node);
+        updateWordToolbarState();
+    });
+});
+
 document.addEventListener('selectionchange', () => {
-    const editableNode = getEditableSelectionNode();
-    if (editableNode) {
-        activeEditableNode = editableNode;
+    const formatNode = getFormatTargetFromNode(document.getSelection()?.anchorNode);
+    if (formatNode) {
+        activeFormatNode = formatNode;
+        if (formatNode.isContentEditable) {
+            activeEditableNode = formatNode;
+        }
+        const selection = document.getSelection();
+        if (selection?.rangeCount) {
+            savedFormatRange = selection.getRangeAt(0).cloneRange();
+        }
         updateWordToolbarState();
     }
 });
@@ -7999,6 +10039,18 @@ document.addEventListener('click', (event) => {
 cvInlineFont?.addEventListener('change', () => applyEditableRootStyle('fontFamily', cvInlineFont.value));
 cvInlineSize?.addEventListener('change', () => applyEditableRootStyle('fontSize', cvInlineSize.value));
 cvInlineLineHeight?.addEventListener('change', () => applyEditableRootStyle('lineHeight', cvInlineLineHeight.value));
+[
+    cvInlineFont,
+    cvInlineSize,
+    cvInlineLineHeight,
+].filter(Boolean).forEach((control) => {
+    control.addEventListener('mousedown', () => {
+        const range = getCurrentFormatRange();
+        if (range) {
+            savedFormatRange = range.cloneRange();
+        }
+    });
+});
 document.querySelectorAll('.word-toolbar-button').forEach((button) => {
     button.addEventListener('mousedown', (event) => {
         event.preventDefault();
@@ -8012,10 +10064,14 @@ cvInlineIndentButton?.addEventListener('click', () => applyInlineCommand('indent
 cvInlineOutdentButton?.addEventListener('click', () => applyInlineCommand('outdent'));
 cvInlineClearButton?.addEventListener('click', () => {
     applyInlineCommand('removeFormat');
-    const node = getActiveEditableNode();
+    const node = getActiveFormatNode();
     if (node) {
-        applyEditableNodeStyleState(node, { lineHeight: '1.2' });
-        syncPreviewEditableNode(node, { refreshPreview: false });
+        if (node.matches?.('[data-section-title]')) {
+            node.removeAttribute('style');
+        } else {
+            applyEditableNodeStyleState(node, { lineHeight: '1.2' });
+        }
+        syncFormatNode(node);
     }
 });
 cvInlineAlignButtons.forEach((button) => {
@@ -8049,6 +10105,8 @@ templatePresetChips.forEach((chip) => {
         });
 
         updateCvPreview();
+        captureCvHistoryFromInteraction({ immediate: true });
+        scheduleCvDraftSave();
         setCvStatus('Mise en forme appliquee');
     });
 });
@@ -8062,7 +10120,7 @@ previewModeTabs.forEach((tab) => {
 if (cvAutofillButton) {
     cvAutofillButton.addEventListener('click', () => {
         openAssistant();
-        void handleAssistantPrompt('Pré-remplis et structure le CV à partir des informations déjà présentes, sans rien inventer.');
+        void handleAssistantPrompt("Prends le CV en main : pré-remplis, structure, range les dates de la plus récente à la plus ancienne, nettoie les doublons, prépare les formations & certifications et les compétences utiles sans inventer.");
     });
 }
 
@@ -8077,13 +10135,13 @@ if (cvUndoButton) {
 if (cvImproveButton) {
     cvImproveButton.addEventListener('click', () => {
         openAssistant();
-        void handleAssistantPrompt('Corrige et optimise mon CV.');
+        void handleAssistantPrompt("Prends le CV en main : corrige, optimise, range les dates de la plus récente à la plus ancienne et prépare une version prête à l'emploi.");
     });
 }
 
 if (cvOptimizeMainButton) {
     cvOptimizeMainButton.addEventListener('click', () => {
-        const prompt = 'Corrige et optimise mon CV';
+        const prompt = "Prends le CV en main : corrige, optimise, range les dates de la plus récente à la plus ancienne, complète les rubriques utiles et prépare une version prête à l'emploi";
         openAssistant();
         void handleAssistantPrompt(prompt);
     });
@@ -8312,10 +10370,7 @@ if (cvImportInput) {
             }
 
             parseImportedCv(text);
-            cleanupImportedExperienceField();
-            cleanupImportedEducationField();
-            renderExperienceEditor();
-            updateCvPreview();
+            applyCvAutopilotLocalCleanup({ fromImport: true, silent: true });
             commitCvHistoryTransition(historyBeforeImport);
             if (cvPreviewViewport) {
                 cvPreviewViewport.scrollTop = 0;
@@ -8393,16 +10448,45 @@ if (assistantApplyButton) {
             return;
         }
 
+        const proposalState = pendingKirbyCvProposal;
+        const beforeApplySnapshot = getKirbyCvSnapshot();
         const reply = applyKirbyCvResult(
-            pendingKirbyCvProposal.result,
-            pendingKirbyCvProposal.task,
-            pendingKirbyCvProposal.instruction
+            proposalState.result,
+            proposalState.task,
+            proposalState.instruction,
+            { applyMode: 'proposal' }
         );
+        const afterApplySnapshot = getKirbyCvSnapshot();
+        const operationDriven = hasKirbyOperations(proposalState.result);
         hideKirbyCvProposal();
         if (assistantInput) {
             assistantInput.value = '';
         }
+        if (operationDriven && beforeApplySnapshot === afterApplySnapshot) {
+            const operation = proposalState.result?.cv?.operations?.[0] || {};
+            const report = saveKirbyBugReport({
+                ...(proposalState.result?.cv?.bugReport || {}),
+                category: proposalState.result?.cv?.bugReport?.category || 'bug application',
+                summary: proposalState.result?.cv?.bugReport?.summary || 'La demande a été comprise par Kirby, mais l’application n’a pas modifié le CV.',
+                expectedAction: operation.reason || operation.type || 'Appliquer l’opération demandée',
+                target: getOperationTargetText(operation) || operation.field || 'CV',
+                instruction: proposalState.instruction,
+            });
+            appendAssistantMessage(formatKirbyBugReportReply(report), 'bot');
+            return;
+        }
         appendAssistantMessage(reply, 'bot');
+    });
+}
+
+if (assistantNewRequestButton) {
+    assistantNewRequestButton.addEventListener('click', () => {
+        hideKirbyCvProposal();
+        if (assistantInput) {
+            assistantInput.value = '';
+            assistantInput.focus();
+        }
+        setAssistantActivity('Nouvelle demande prête.', false);
     });
 }
 
@@ -8422,6 +10506,14 @@ suggestionChips.forEach((chip) => {
 });
 
 if (assistantForm) {
+    assistantInput?.addEventListener('focus', () => {
+        hideKirbyCvProposal();
+    });
+
+    assistantInput?.addEventListener('input', () => {
+        hideKirbyCvProposal();
+    });
+
     assistantForm.addEventListener('submit', (event) => {
         event.preventDefault();
 
@@ -8431,6 +10523,7 @@ if (assistantForm) {
             return;
         }
 
+        hideKirbyCvProposal();
         void handleAssistantPrompt(message);
         assistantInput.value = '';
     });

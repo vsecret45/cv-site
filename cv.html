@@ -15,7 +15,7 @@
         rel="stylesheet"
     >
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-    <link rel="stylesheet" href="style.css?v=20260624-velours-cv-v21">
+    <link rel="stylesheet" href="style.css?v=20260702-typography-fix-v22">
 </head>
 <body class="is-preload cv-workspace-page">
     <div class="page-shell">
@@ -181,11 +181,11 @@ Analyse
 Suite bureautique</textarea>
                             </label>
                             <label class="field field-message">
-                                <span>Formations</span>
+                                <span>Formations & certifications</span>
                                 <textarea
                                     name="education"
                                     rows="5"
-                                    placeholder="Une formation par ligne"
+                                    placeholder="Une formation ou certification par ligne"
                                 >Diplome ou formation - Etablissement - Annee</textarea>
                             </label>
                         </div>
@@ -200,8 +200,10 @@ Suite bureautique</textarea>
                             <div class="language-cards" id="language-cards" aria-live="polite"></div>
                             <datalist id="language-level-options">
                                 <option value="Notions"></option>
-                                <option value="Intermédiaire"></option>
-                                <option value="Professionnel"></option>
+                                <option value="Débutant"></option>
+                                <option value="Bases solides"></option>
+                                <option value="Niveau intermédiaire"></option>
+                                <option value="Niveau professionnel"></option>
                                 <option value="Courant"></option>
                                 <option value="Bilingue"></option>
                                 <option value="Langue maternelle"></option>
@@ -495,7 +497,7 @@ Sport</textarea>
                                     <div class="cv-body" id="cv-preview-sections">
                                         <section data-section-key="summary">
                                             <div class="cv-section-head">
-                                                <h4>Profil</h4>
+                                                <h4 data-section-title="summary">Profil</h4>
                                                 <div class="cv-section-actions" aria-label="Actions Profil">
                                                     <button class="cv-section-action" type="button" data-section-key="summary" data-section-action="up" aria-label="Monter Profil">↑</button>
                                                     <button class="cv-section-action" type="button" data-section-key="summary" data-section-action="down" aria-label="Descendre Profil">↓</button>
@@ -506,7 +508,7 @@ Sport</textarea>
                                         </section>
                                         <section data-section-key="skills">
                                             <div class="cv-section-head">
-                                                <h4>Competences</h4>
+                                                <h4 data-section-title="skills">Competences</h4>
                                                 <div class="cv-section-actions" aria-label="Actions Competences">
                                                     <button class="cv-section-action" type="button" data-section-key="skills" data-section-action="up" aria-label="Monter Competences">↑</button>
                                                     <button class="cv-section-action" type="button" data-section-key="skills" data-section-action="down" aria-label="Descendre Competences">↓</button>
@@ -517,7 +519,7 @@ Sport</textarea>
                                         </section>
                                         <section data-section-key="experience">
                                             <div class="cv-section-head">
-                                                <h4>Experiences professionnelles</h4>
+                                                <h4 data-section-title="experience">Experiences professionnelles</h4>
                                                 <div class="cv-section-actions" aria-label="Actions Experiences">
                                                     <button class="cv-section-action" type="button" data-section-key="experience" data-section-action="up" aria-label="Monter Experiences">↑</button>
                                                     <button class="cv-section-action" type="button" data-section-key="experience" data-section-action="down" aria-label="Descendre Experiences">↓</button>
@@ -528,7 +530,7 @@ Sport</textarea>
                                         </section>
                                         <section data-section-key="projects">
                                             <div class="cv-section-head">
-                                                <h4>Projets</h4>
+                                                <h4 data-section-title="projects">Projets</h4>
                                                 <div class="cv-section-actions" aria-label="Actions Projets">
                                                     <button class="cv-section-action" type="button" data-section-key="projects" data-section-action="up" aria-label="Monter Projets">↑</button>
                                                     <button class="cv-section-action" type="button" data-section-key="projects" data-section-action="down" aria-label="Descendre Projets">↓</button>
@@ -539,18 +541,18 @@ Sport</textarea>
                                         </section>
                                         <section data-section-key="education">
                                             <div class="cv-section-head">
-                                                <h4>Formations</h4>
-                                                <div class="cv-section-actions" aria-label="Actions Formations">
-                                                    <button class="cv-section-action" type="button" data-section-key="education" data-section-action="up" aria-label="Monter Formations">↑</button>
-                                                    <button class="cv-section-action" type="button" data-section-key="education" data-section-action="down" aria-label="Descendre Formations">↓</button>
-                                                    <button class="cv-section-action" type="button" data-section-key="education" data-section-action="delete" aria-label="Supprimer Formations">×</button>
+                                                <h4 data-section-title="education">Formations & certifications</h4>
+                                                <div class="cv-section-actions" aria-label="Actions Formations & certifications">
+                                                    <button class="cv-section-action" type="button" data-section-key="education" data-section-action="up" aria-label="Monter Formations & certifications">↑</button>
+                                                    <button class="cv-section-action" type="button" data-section-key="education" data-section-action="down" aria-label="Descendre Formations & certifications">↓</button>
+                                                    <button class="cv-section-action" type="button" data-section-key="education" data-section-action="delete" aria-label="Supprimer Formations & certifications">×</button>
                                                 </div>
                                             </div>
                                             <ul id="preview-education" data-edit-target="education" contenteditable="true" spellcheck="true"></ul>
                                         </section>
                                         <section data-section-key="activities">
                                             <div class="cv-section-head">
-                                                <h4>Activites</h4>
+                                                <h4 data-section-title="activities">Activites</h4>
                                                 <div class="cv-section-actions" aria-label="Actions Activites">
                                                     <button class="cv-section-action" type="button" data-section-key="activities" data-section-action="up" aria-label="Monter Activites">↑</button>
                                                     <button class="cv-section-action" type="button" data-section-key="activities" data-section-action="down" aria-label="Descendre Activites">↓</button>
@@ -561,7 +563,7 @@ Sport</textarea>
                                         </section>
                                         <section data-section-key="languages">
                                             <div class="cv-section-head">
-                                                <h4>Langues</h4>
+                                                <h4 data-section-title="languages">Langues</h4>
                                                 <div class="cv-section-actions" aria-label="Actions Langues">
                                                     <button class="cv-section-action" type="button" data-section-key="languages" data-section-action="up" aria-label="Monter Langues">↑</button>
                                                     <button class="cv-section-action" type="button" data-section-key="languages" data-section-action="down" aria-label="Descendre Langues">↓</button>
@@ -673,8 +675,12 @@ Sport</textarea>
         <div class="assistant-messages assistant-activity" id="assistant-messages" role="status" aria-live="polite">Prêt.</div>
         <section class="assistant-proposal is-hidden" id="assistant-proposal" aria-live="polite">
             <div>
-                <strong id="assistant-proposal-title">Prêt à appliquer</strong>
+                <div class="assistant-proposal-head">
+                    <strong id="assistant-proposal-title">Prêt à appliquer</strong>
+                    <button class="assistant-proposal-close" type="button" id="assistant-new-request">Nouvelle demande</button>
+                </div>
                 <span id="assistant-proposal-summary"></span>
+                <div class="assistant-proposal-details" id="assistant-proposal-details"></div>
             </div>
             <button class="button button-primary" type="button" id="assistant-apply">Appliquer au CV</button>
         </section>
@@ -746,6 +752,6 @@ Sport</textarea>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js" defer></script>
-    <script src="script.js?v=20260624-velours-cv-v28" defer></script>
+    <script src="script.js?v=20260702-kirby-openai-ops-v11" defer></script>
 </body>
 </html>

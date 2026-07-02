@@ -1827,8 +1827,8 @@ body.cv-workspace-page .assistant-toggle {
     body.cv-workspace-page .assistant-chat {
         top: 12.6rem;
         bottom: auto;
-        max-height: calc(100vh - 15rem);
-        overflow: auto;
+        max-height: calc(100dvh - 15rem);
+        overflow: hidden;
     }
 }
 
@@ -3062,6 +3062,15 @@ body.is-exporting-pdf .cv-modern-contact-line {
     color: #111827;
 }
 
+.cv-preview .cv-body h4[data-section-title] {
+    font-size: 1.08rem;
+    line-height: 1.28;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    cursor: text;
+    user-select: text;
+}
+
 .cv-preview.template-wordpro {
     border-radius: 16px;
     border: 1px solid var(--cv-frame);
@@ -3896,7 +3905,8 @@ body.is-exporting-pdf .cv-modern-contact-line {
     bottom: 5.2rem;
     width: var(--assistant-width);
     z-index: 30;
-    display: grid;
+    display: flex;
+    flex-direction: column;
     gap: 0.55rem;
     padding: 0.8rem;
     border: 1px solid var(--line);
@@ -3913,7 +3923,7 @@ body.is-exporting-pdf .cv-modern-contact-line {
 body.cv-workspace-page .assistant-chat {
     width: min(28rem, calc(100vw - 2rem));
     max-height: min(36rem, calc(100dvh - 6.5rem));
-    overflow-y: auto;
+    overflow: hidden;
 }
 
 .assistant-chat.is-open {
@@ -4028,6 +4038,12 @@ body.cv-workspace-page .assistant-chat {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 0.5rem;
     align-items: end;
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    flex: 0 0 auto;
+    padding-top: 0.35rem;
+    background: rgba(255, 255, 255, 0.96);
 }
 
 .assistant-input-row textarea {
@@ -4050,17 +4066,45 @@ body.cv-workspace-page .assistant-chat {
 
 .assistant-proposal {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 0.75rem;
+    min-height: 0;
+    max-height: min(22rem, calc(100dvh - 17rem));
+    overflow-y: auto;
     padding: 0.65rem 0.7rem 0.65rem 0.9rem;
     border: 1px solid rgba(47, 63, 127, 0.16);
     border-radius: 10px;
     background: rgba(244, 247, 255, 0.92);
 }
 
+.assistant-proposal > div {
+    min-width: 0;
+}
+
 .assistant-proposal.is-hidden {
     display: none;
+}
+
+.assistant-proposal-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.6rem;
+}
+
+.assistant-proposal-close {
+    flex: 0 0 auto;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.88);
+    color: #2f3f7f;
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1;
+    padding: 0.44rem 0.58rem;
+    cursor: pointer;
 }
 
 .assistant-proposal strong {
@@ -4075,6 +4119,75 @@ body.cv-workspace-page .assistant-chat {
     color: var(--text-soft);
     font-size: 0.78rem;
     line-height: 1.3;
+}
+
+.assistant-proposal-details {
+    display: grid;
+    gap: 0.48rem;
+    margin-top: 0.58rem;
+}
+
+.assistant-proposal-details[hidden] {
+    display: none;
+}
+
+.assistant-proposal-detail-group {
+    display: grid;
+    gap: 0.28rem;
+    padding-top: 0.48rem;
+    border-top: 1px solid rgba(47, 63, 127, 0.12);
+}
+
+.assistant-proposal-detail-group strong {
+    font-size: 0.74rem;
+    line-height: 1.25;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-soft);
+}
+
+.assistant-proposal-detail-group ul {
+    display: grid;
+    gap: 0.22rem;
+    margin: 0;
+    padding-left: 1rem;
+}
+
+.assistant-proposal-detail-group li {
+    color: var(--text);
+    font-size: 0.78rem;
+    line-height: 1.32;
+}
+
+.assistant-proposal-skill-list {
+    display: grid;
+    gap: 0.35rem;
+}
+
+.assistant-proposal-skill-choice {
+    display: grid;
+    grid-template-columns: 1rem minmax(0, 1fr);
+    gap: 0.45rem;
+    align-items: center;
+}
+
+.assistant-proposal-skill-choice input[type="checkbox"] {
+    width: 1rem;
+    height: 1rem;
+    accent-color: var(--accent);
+}
+
+.assistant-proposal-skill-choice input[type="text"] {
+    width: 100%;
+    min-width: 0;
+    padding: 0.38rem 0.48rem;
+    border: 1px solid rgba(47, 63, 127, 0.16);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.88);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.78rem;
+    line-height: 1.2;
 }
 
 .assistant-proposal .button {
