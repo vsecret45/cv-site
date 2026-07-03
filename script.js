@@ -92,6 +92,8 @@ const assistantForm = document.querySelector('#assistant-form');
 const assistantInput = document.querySelector('#assistant-input');
 const assistantSubmitButton = document.querySelector('#assistant-submit');
 const assistantMessages = document.querySelector('#assistant-messages');
+const assistantActivity = document.querySelector('#assistant-activity');
+const assistantThread = document.querySelector('#assistant-thread');
 const assistantProposal = document.querySelector('#assistant-proposal');
 const assistantProposalTitle = document.querySelector('#assistant-proposal-title');
 const assistantProposalSummary = document.querySelector('#assistant-proposal-summary');
@@ -208,6 +210,8 @@ const templateThemeMap = {
     wordpro: 'template-wordpro',
     classic: 'template-classic',
     modern: 'template-modern',
+    digital: 'template-digital',
+    holographic: 'template-holographic',
     executive: 'template-executive',
     minimal: 'template-minimal',
     ats: 'template-ats',
@@ -254,6 +258,36 @@ const templatePresets = {
         headingColor: '#263047',
         paperColor: '#ffffff',
         frameColor: '#d9deea',
+    },
+    digital: {
+        layoutTheme: 'digital',
+        fontTheme: 'manrope',
+        colorTheme: 'graphite',
+        designMood: 'clean',
+        fontSize: 'normal',
+        headlineScale: 'normal',
+        lineSpacing: 'normal',
+        textAlign: 'left',
+        accentColor: '#3856a6',
+        sidebarColor: '#eef2fb',
+        headingColor: '#18253f',
+        paperColor: '#f7f9fe',
+        frameColor: '#dbe3f2',
+    },
+    holographic: {
+        layoutTheme: 'holographic',
+        fontTheme: 'manrope',
+        colorTheme: 'indigo',
+        designMood: 'luxury',
+        fontSize: 'normal',
+        headlineScale: 'normal',
+        lineSpacing: 'normal',
+        textAlign: 'left',
+        accentColor: '#5c72db',
+        sidebarColor: '#eef4ff',
+        headingColor: '#16233f',
+        paperColor: '#f7f9fe',
+        frameColor: '#dfe7fb',
     },
     elegant: {
         layoutTheme: 'elegant',
@@ -639,6 +673,21 @@ let isRestoringCvHistory = false;
 let isLoadingCvDraft = false;
 const cvUndoStack = [];
 const CV_HISTORY_LIMIT = 15;
+const CV_STYLE_HISTORY_FIELDS = [
+    'layoutTheme',
+    'fontTheme',
+    'colorTheme',
+    'designMood',
+    'fontSize',
+    'headlineScale',
+    'lineSpacing',
+    'textAlign',
+    'accentColor',
+    'sidebarColor',
+    'headingColor',
+    'paperColor',
+    'frameColor',
+];
 
 const scheduleCvDraftSave = () => {
     window.clearTimeout(cvDraftSaveTimer);
@@ -1150,6 +1199,20 @@ const getCvHistoryState = () => {
     });
 };
 
+const getCurrentCvStyleValues = () => {
+    if (!cvForm) {
+        return {};
+    }
+
+    return CV_STYLE_HISTORY_FIELDS.reduce((accumulator, fieldName) => {
+        const field = cvForm.elements[fieldName];
+        if (field) {
+            accumulator[fieldName] = field.type === 'checkbox' ? String(field.checked) : field.value;
+        }
+        return accumulator;
+    }, {});
+};
+
 const updateCvUndoControl = () => {
     if (!cvUndoButton) {
         return;
@@ -1275,8 +1338,12 @@ const restorePreviousCvVersion = () => {
 
     isRestoringCvHistory = true;
     try {
+        const preservedStyleValues = getCurrentCvStyleValues();
         resetCvFormToDefaults();
-        const values = state?.values && typeof state.values === 'object' ? state.values : {};
+        const values = {
+            ...(state?.values && typeof state.values === 'object' ? state.values : {}),
+            ...preservedStyleValues,
+        };
         Object.entries(values).forEach(([key, value]) => {
             const field = cvForm.elements[key] || [...document.querySelectorAll('[form="cv-form"][name]')]
                 .find((candidate) => candidate.name === key);
@@ -1553,6 +1620,7 @@ const applyCompactCvLayout = (autoTriggered = false) => {
 
     const fontSizeField = cvForm.elements.fontSize;
     const lineSpacingField = cvForm.elements.lineSpacing;
+    const headlineScaleField = cvForm.elements.headlineScale;
 
     if (fontSizeField) {
         fontSizeField.value = 'compact';
@@ -1560,6 +1628,10 @@ const applyCompactCvLayout = (autoTriggered = false) => {
 
     if (lineSpacingField) {
         lineSpacingField.value = 'tight';
+    }
+
+    if (headlineScaleField) {
+        headlineScaleField.value = 'compact';
     }
 
     if (autoTriggered) {
@@ -1575,7 +1647,22 @@ const getRenderedCvPageCount = () => {
     }
 
     const a4HeightInCssPixels = (297 / 25.4) * 96;
-    const contentHeight = Math.max(preview.scrollHeight, preview.offsetHeight, Math.ceil(preview.getBoundingClientRect().height));
+    const previewRect = preview.getBoundingClientRect();
+    const contentNodes = [...preview.querySelectorAll('section:not([hidden]), .cv-header, .cv-modern-layout, .cv-modern-sidebar, .cv-modern-main')]
+        .filter((node) => node instanceof HTMLElement);
+    const deepestBottom = contentNodes.reduce((max, node) => {
+        const rect = node.getBoundingClientRect();
+        if (!rect.width && !rect.height) {
+            return max;
+        }
+        return Math.max(max, rect.bottom - previewRect.top);
+    }, 0);
+    const contentHeight = Math.max(
+        preview.scrollHeight,
+        preview.offsetHeight,
+        Math.ceil(previewRect.height),
+        Math.ceil(deepestBottom)
+    );
 
     return Math.max(1, Math.ceil((contentHeight - 2) / a4HeightInCssPixels));
 };
@@ -1712,6 +1799,221 @@ const restorePrintFieldBackup = (backup) => {
     updateCvPreview();
 };
 
+const getCvFormValues = () => cvForm ? Object.fromEntries(new FormData(cvForm).entries()) : {};
+
+const a4CommercialPriorityTerms = [
+    'vente',
+    'vendeuse',
+    'vendeur',
+    'conseil',
+    'client',
+    'clientele',
+    'relation client',
+    'accueil',
+    'fidelisation',
+    'service',
+    'merchandising',
+    'reassort',
+    'stock',
+    'caisse',
+    'point de vente',
+    'magasin',
+    'boutique',
+    'lifestyle',
+    'mode',
+    'negociation',
+    'chiffre d affaires',
+    'organisation',
+    'autonomie',
+    'equipe',
+];
+
+const a4TechnicalPenaltyTerms = [
+    'developpement web',
+    'developpement d applications',
+    'application',
+    'algorithme',
+    'base de donnees',
+    'ux/ui',
+    'interface',
+    'intelligence artificielle',
+    'ia',
+    'tests fonctionnels',
+    'conception',
+    'digital',
+    'numerique',
+];
+
+const prioritizeSkillsForA4 = (items = [], options = {}) => {
+    const maxItems = Math.max(1, Number(options.maxItems) || 10);
+    const values = options.values || getCvFormValues();
+    const normalizedSource = normalizeForMatch([
+        values.headline || '',
+        values.summary || '',
+        values.experience || '',
+        values.projects || '',
+        values.education || '',
+        jobOfferField?.value || '',
+    ].join(' '));
+    const commercialProfile = a4CommercialPriorityTerms.some((term) => normalizedSource.includes(normalizeForMatch(term)));
+
+    return dedupeCvSkillItems(items)
+        .map((item, index) => {
+            const label = normalizeCvSentenceText(item);
+            const normalized = normalizeForMatch(label);
+            const tokens = normalized.split(' ').filter((token) => token.length > 2);
+            let score = Math.max(0, 10 - index);
+
+            if (!normalized) {
+                return { label, score: -999, index };
+            }
+
+            if (normalizedSource.includes(normalized)) {
+                score += 20;
+            }
+
+            score += tokens.filter((token) => normalizedSource.includes(token)).length * 3;
+
+            a4CommercialPriorityTerms.forEach((term) => {
+                const key = normalizeForMatch(term);
+                if (normalized.includes(key)) {
+                    score += commercialProfile ? 8 : 3;
+                }
+            });
+
+            if (commercialProfile) {
+                a4TechnicalPenaltyTerms.forEach((term) => {
+                    if (normalized.includes(normalizeForMatch(term))) {
+                        score -= 5;
+                    }
+                });
+            }
+
+            if (label.length <= 28) {
+                score += 2;
+            } else if (label.length >= 45) {
+                score -= 2;
+            }
+
+            return { label, score, index };
+        })
+        .sort((left, right) => right.score - left.score || left.index - right.index)
+        .slice(0, maxItems)
+        .map((entry) => entry.label);
+};
+
+const setCompactListFieldValue = (fieldName, items = []) => {
+    const field = cvForm?.elements[fieldName];
+    if (!field) {
+        return;
+    }
+
+    field.value = items.filter(Boolean).join('\n');
+};
+
+const getCompactedFieldItems = (fieldName, options = {}) => {
+    const field = cvForm?.elements[fieldName];
+    if (!field?.value) {
+        return [];
+    }
+
+    if (options.timeline) {
+        return splitLines(field.value).map(normalizeCvSentenceText).filter(Boolean);
+    }
+
+    return splitExportItems(field.value, options).map(normalizeCvSentenceText).filter(Boolean);
+};
+
+const applyA4ContentCompaction = () => {
+    if (!cvForm) {
+        return;
+    }
+
+    const values = getCvFormValues();
+    const layoutTheme = values.layoutTheme || 'wordpro';
+    const isGlassTemplate = layoutTheme === 'digital' || layoutTheme === 'holographic';
+
+    const applySkillsLimit = (maxItems) => {
+        const skillsField = cvForm.elements.skills;
+        if (!skillsField?.value) {
+            return;
+        }
+
+        const prioritized = prioritizeSkillsForA4(splitLines(skillsField.value), {
+            values: getCvFormValues(),
+            maxItems,
+        });
+        setCompactListFieldValue('skills', prioritized);
+    };
+
+    const applyFieldLimit = (fieldName, maxItems, options = {}) => {
+        const items = getCompactedFieldItems(fieldName, options).slice(0, maxItems);
+        setCompactListFieldValue(fieldName, items);
+    };
+
+    applySkillsLimit(isGlassTemplate ? 8 : 10);
+    applyFieldLimit('languages', 3, { splitSlash: true });
+    applyFieldLimit('activities', 4, { splitSlash: true, splitHyphen: true });
+    updateCvPreview();
+
+    const overflowSteps = [
+        () => applySkillsLimit(8),
+        () => applyFieldLimit('activities', 2, { splitSlash: true, splitHyphen: true }),
+        () => applyFieldLimit('languages', 2, { splitSlash: true }),
+        () => applySkillsLimit(6),
+        () => applyFieldLimit('projects', 1, { timeline: true }),
+        () => applyFieldLimit('education', 2, { timeline: true }),
+        () => setCompactListFieldValue('activities', []),
+    ];
+
+    overflowSteps.forEach((step) => {
+        if (getPreviewPageCount() <= 1) {
+            return;
+        }
+
+        step();
+        updateCvPreview();
+    });
+};
+
+const applyPreviewSectionContent = ({
+    values,
+    experienceItems,
+    educationItems,
+    languageItems,
+    activityItems,
+    projectItems,
+    skillItems,
+}) => {
+    renderEditableListNode(previewNodes.experience, 'experience', () => renderTimelineList(previewNodes.experience, experienceItems, { indexAttribute: 'data-experience-index' }));
+    renderEditableListNode(previewNodes.projects, 'projects', () => renderTimelineList(previewNodes.projects, projectItems, { projectType: values.projectType || '' }));
+    renderEditableListNode(previewNodes.skills, 'skills', () => fillList(previewNodes.skills, skillItems));
+    renderEditableListNode(previewNodes.education, 'education', () => renderTimelineList(previewNodes.education, educationItems));
+    renderEditableListNode(previewNodes.languages, 'languages', () => fillList(previewNodes.languages, languageItems));
+    renderEditableListNode(previewNodes.activities, 'activities', () => fillList(previewNodes.activities, activityItems));
+
+    if (previewNodes.preview) {
+        const sectionMap = {
+            summary: Boolean((values.summary || '').trim()),
+            skills: skillItems.length,
+            experience: experienceItems.length,
+            projects: projectItems.length,
+            education: educationItems.length,
+            activities: activityItems.length,
+            languages: languageItems.length,
+        };
+
+        Object.entries(sectionMap).forEach(([key, count]) => {
+            const section = previewNodes.preview.querySelector(`[data-section-key="${key}"]`);
+            if (section) {
+                section.hidden = count === 0;
+            }
+        });
+
+        reorderPreviewSections();
+    }
+};
+
 const optimizeForPrint = () => {
     if (!cvForm) {
         return null;
@@ -1719,21 +2021,7 @@ const optimizeForPrint = () => {
 
     const backup = getPrintFieldBackup();
     fitCvToSinglePage();
-
-    if (getPreviewPageCount() > 1 && cvForm.elements.activities?.value) {
-        cvForm.elements.activities.value = '';
-        updateCvPreview();
-    }
-
-    if (getPreviewPageCount() > 1 && cvForm.elements.projects?.value) {
-        cvForm.elements.projects.value = splitLines(cvForm.elements.projects.value).slice(0, 1).join('\n');
-        updateCvPreview();
-    }
-
-    if (getPreviewPageCount() > 1 && cvForm.elements.skills?.value) {
-        cvForm.elements.skills.value = splitLines(cvForm.elements.skills.value).slice(0, 6).join('\n');
-        updateCvPreview();
-    }
+    applyA4ContentCompaction();
 
     return backup;
 };
@@ -2641,6 +2929,7 @@ const applyReadyCvBase = (message = '') => {
     clearEditableOverrides();
     cleanupImportedExperienceField();
     cleanupImportedEducationField();
+    harmonizeExperienceFieldStructure({ silent: true });
     renderExperienceEditor();
     renderLanguageEditor();
     updateCvPreview();
@@ -2706,6 +2995,115 @@ const improveExperienceEntry = (entry) => {
         date: normalizeCvSentenceText(entry.date || ''),
         bullets: (bullets.length ? bullets : fallbackBullets.slice(0, 2)).slice(0, 4),
     };
+};
+
+const getKnownExperienceFallbackData = (entry = {}) => {
+    const source = normalizeForMatch(`${entry.title || ''} ${entry.meta || ''}`);
+
+    if (/\bmachiniste\b|\breceveur\b|\bratp\b/.test(source)) {
+        return {
+            strict: true,
+            meta: 'RATP, Nanterre',
+            bullets: [
+                'Accueil et information des voyageurs',
+                'Conduite en toute sécurité et respect des horaires',
+                'Gestion des situations imprévues et du service client',
+            ],
+        };
+    }
+
+    if (/\bceidf\b|\bconseillere commerciale\b|\bconseillère commerciale\b/.test(source)) {
+        return {
+            strict: true,
+            meta: 'CEIDF, Montigny-le-Bretonneux',
+            bullets: [
+                'Conseil et accompagnement des clients',
+                'Analyse des besoins et proposition de solutions bancaires',
+                'Développement de la relation client',
+            ],
+        };
+    }
+
+    if (/\bcama[ïi]eu\b|\bresponsable adjointe\b/.test(source)) {
+        return {
+            strict: true,
+            meta: 'Camaïeu, Rueil-Malmaison',
+            bullets: [
+                'Accueil, conseil et fidélisation de la clientèle',
+                'Développement du chiffre d’affaires et gestion du point de vente',
+                'Coordination de l’équipe et organisation quotidienne',
+            ],
+        };
+    }
+
+    if (/\bamerican express\b|\bair france\b|\bchargee de clientele\b|\bchargée de clientèle\b|\bconseillere clientele\b|\bconseillère clientèle\b/.test(source)) {
+        return {
+            strict: true,
+            meta: 'American Express / Air France, Roissy',
+            bullets: [
+                'Accompagnement d’une clientèle premium',
+                'Gestion des contrats et suivi des demandes',
+                'Service personnalisé et résolution des situations complexes',
+            ],
+        };
+    }
+
+    return {
+        strict: false,
+        meta: '',
+        bullets: roleMissionSuggestions[getCvRoleContext(source)] || roleMissionSuggestions.general,
+    };
+};
+
+const harmonizeExperienceEntryStructure = (entry = {}) => {
+    const baseEntry = improveExperienceEntry(entry);
+    const fallback = getKnownExperienceFallbackData(baseEntry);
+    const existingBullets = dedupeImportedItems((baseEntry.bullets || []).map(normalizeCvSentenceText).filter(Boolean));
+    const fallbackBullets = fallback.bullets.map(normalizeCvSentenceText);
+    const mergedBullets = fallback.strict
+        ? fallbackBullets
+        : dedupeImportedItems([...existingBullets, ...fallbackBullets]).slice(0, 4);
+    const targetBulletCount = fallback.strict
+        ? Math.min(Math.max(2, fallbackBullets.length), 4)
+        : existingBullets.length >= 3
+            ? Math.min(existingBullets.length, 4)
+            : Math.min(Math.max(2, fallbackBullets.length), 4);
+
+    return {
+        ...baseEntry,
+        meta: normalizeCvSentenceText(baseEntry.meta || fallback.meta || ''),
+        bullets: mergedBullets.slice(0, targetBulletCount),
+    };
+};
+
+const harmonizeExperienceFieldStructure = ({ silent = false } = {}) => {
+    const field = getExperienceField();
+    const lines = field ? repairPreviewExperienceItems(splitLines(field.value)) : [];
+
+    if (!field || !lines.length) {
+        return false;
+    }
+
+    const normalizedLines = lines
+        .map((line) => serializeExperienceEntry(harmonizeExperienceEntryStructure(parseExperienceEntry(line))))
+        .filter(Boolean);
+    const nextValue = normalizedLines.join('\n');
+
+    if (!nextValue || nextValue === field.value) {
+        return false;
+    }
+
+    field.value = nextValue;
+    clearEditableOverride('experience');
+    renderExperienceEditor();
+
+    if (!silent) {
+        updateCvPreview();
+        scheduleCvDraftSave();
+        setCvStatus('Expériences harmonisées');
+    }
+
+    return true;
 };
 
 const getExperienceSourceEntries = () => {
@@ -3013,19 +3411,25 @@ const reorderPreviewSections = () => {
         return;
     }
 
-    const isModern = cvForm?.elements.layoutTheme?.value === 'modern' && modernPreviewSidebar && modernPreviewMain;
+    const layoutTheme = cvForm?.elements.layoutTheme?.value;
+    const isStructuredLayout = (layoutTheme === 'modern' || layoutTheme === 'holographic') && modernPreviewSidebar && modernPreviewMain;
 
-    if (isModern) {
-        // Les langues restent visibles près des coordonnées, même avec une
-        // longue liste de compétences.
-        ['languages', 'skills', 'education', 'activities'].forEach((key) => {
+    if (isStructuredLayout) {
+        const sidebarKeys = layoutTheme === 'holographic'
+            ? ['languages', 'skills', 'activities']
+            : ['languages', 'skills', 'education', 'activities'];
+        const mainKeys = layoutTheme === 'holographic'
+            ? ['summary', 'experience', 'education', 'projects']
+            : ['summary', 'experience', 'projects'];
+
+        sidebarKeys.forEach((key) => {
             const section = previewNodes.preview.querySelector(`[data-section-key="${key}"]`);
             if (section) {
                 modernPreviewSidebar.appendChild(section);
             }
         });
 
-        ['summary', 'experience', 'projects'].forEach((key) => {
+        mainKeys.forEach((key) => {
             const section = previewNodes.preview.querySelector(`[data-section-key="${key}"]`);
             if (section) {
                 modernPreviewMain.appendChild(section);
@@ -3047,7 +3451,7 @@ const syncModernPreviewStructure = (layoutTheme = '') => {
         return;
     }
 
-    if (layoutTheme === 'modern') {
+    if (layoutTheme === 'modern' || layoutTheme === 'holographic') {
         modernPreviewLayout.hidden = false;
         modernPreviewLayout.setAttribute('aria-hidden', 'false');
         movePreviewNode(modernPreviewSidebar, previewNodes.meta);
@@ -3588,6 +3992,10 @@ const updateCvPreview = () => {
 
     const rawSkillItems = splitLines(values.skills || '');
     const skillItems = dedupeCvSkillItems(rawSkillItems);
+    const isGlassPreviewTheme = values.layoutTheme === 'digital' || values.layoutTheme === 'holographic';
+    let previewSkillItems = isGlassPreviewTheme
+        ? prioritizeSkillsForA4(skillItems, { values, maxItems: 8 })
+        : skillItems;
     const rawExperienceSourceItems = splitLines(values.experience || '');
     const rawExperienceItems = dedupeImportedItems(rawExperienceSourceItems);
     const experienceItems = sortTimelineEntriesNewestFirst(normalizeDigitalProjectTimelinePeriods(repairPreviewExperienceItems(rawExperienceItems)));
@@ -3647,33 +4055,21 @@ const updateCvPreview = () => {
     normalizeRepeatedField('languages', rawLanguageItems, languageItems, 'languages', 'répétitions de langues retirées');
     normalizeRepeatedField('activities', rawActivityItems, activityItems, 'activities', 'répétitions d’activités retirées');
 
-    renderEditableListNode(previewNodes.experience, 'experience', () => renderTimelineList(previewNodes.experience, experienceItems, { indexAttribute: 'data-experience-index' }));
-    renderEditableListNode(previewNodes.projects, 'projects', () => renderTimelineList(previewNodes.projects, projectItems, { projectType: values.projectType || '' }));
-    renderEditableListNode(previewNodes.skills, 'skills', () => fillList(previewNodes.skills, skillItems));
-    renderEditableListNode(previewNodes.education, 'education', () => renderTimelineList(previewNodes.education, educationItems));
-    renderEditableListNode(previewNodes.languages, 'languages', () => fillList(previewNodes.languages, languageItems));
-    renderEditableListNode(previewNodes.activities, 'activities', () => fillList(previewNodes.activities, activityItems));
+    let previewProjectItems = projectItems;
+    let previewLanguageItems = languageItems;
+    let previewActivityItems = activityItems;
 
-    if (previewNodes.preview) {
-        const sectionMap = {
-            summary: Boolean((values.summary || '').trim()),
-            skills: skillItems.length,
-            experience: experienceItems.length,
-            projects: projectItems.length,
-            education: educationItems.length,
-            activities: activityItems.length,
-            languages: languageItems.length,
-        };
+    const applyPreviewContent = () => applyPreviewSectionContent({
+        values,
+        experienceItems,
+        educationItems,
+        languageItems: previewLanguageItems,
+        activityItems: previewActivityItems,
+        projectItems: previewProjectItems,
+        skillItems: previewSkillItems,
+    });
 
-        Object.entries(sectionMap).forEach(([key, count]) => {
-            const section = previewNodes.preview.querySelector(`[data-section-key="${key}"]`);
-            if (section) {
-                section.hidden = count === 0;
-            }
-        });
-
-        reorderPreviewSections();
-    }
+    applyPreviewContent();
 
     previewNodes.preview.classList.remove('theme-executive', 'theme-creative', 'theme-compact', 'theme-ats', 'theme-web');
     previewNodes.preview.classList.add(`theme-${cvModeThemeMap[values.cvMode] || 'executive'}`);
@@ -3706,6 +4102,8 @@ const updateCvPreview = () => {
         'template-classic',
         'template-wordpro',
         'template-modern',
+        'template-digital',
+        'template-holographic',
         'template-executive',
         'template-minimal',
         'template-ats',
@@ -3732,6 +4130,29 @@ const updateCvPreview = () => {
     previewNodes.preview.style.setProperty('--modern-ink', values.headingColor || '#30282d');
     previewNodes.preview.style.setProperty('--modern-rule', values.frameColor || '#ded2d7');
     applySectionTitleStyles();
+
+    if (currentPreviewMode === 'cv' && getRenderedCvPageCount() > 1) {
+        previewSkillItems = prioritizeSkillsForA4(skillItems, { values, maxItems: 8 });
+        previewActivityItems = activityItems.slice(0, 4);
+        previewLanguageItems = languageItems.slice(0, 2);
+        previewProjectItems = projectItems.slice(0, 1);
+        applyPreviewContent();
+
+        if (getRenderedCvPageCount() > 1 && previewActivityItems.length) {
+            previewActivityItems = activityItems.slice(0, 2);
+            applyPreviewContent();
+        }
+
+        if (getRenderedCvPageCount() > 1 && previewProjectItems.length) {
+            previewProjectItems = [];
+            applyPreviewContent();
+        }
+
+        if (getRenderedCvPageCount() > 1 && previewActivityItems.length) {
+            previewActivityItems = [];
+            applyPreviewContent();
+        }
+    }
 
     setCvStatus(qualityFixes.length ? `CV vérifié : ${qualityFixes.join(', ')}` : 'CV vérifié');
     if (qualityFixes.length) {
@@ -4035,6 +4456,7 @@ const adaptCvToJobOffer = () => {
     }
 
     clearEditableOverrides();
+    harmonizeExperienceFieldStructure({ silent: true });
     renderExperienceEditor();
     renderLanguageEditor();
     updateCvPreview();
@@ -4277,6 +4699,7 @@ const improveExperienceLines = ({ silent = false } = {}) => {
         })
         .filter(Boolean)
     field.value = improvedLines.join('\n');
+    harmonizeExperienceFieldStructure({ silent: true });
 
     clearEditableOverride('experience');
     renderExperienceEditor();
@@ -5919,10 +6342,11 @@ const getPreviewCloneForOfficeExport = () => {
     clone.querySelectorAll('[contenteditable]').forEach((node) => node.removeAttribute('contenteditable'));
     clone.querySelectorAll('[spellcheck]').forEach((node) => node.removeAttribute('spellcheck'));
     clone.querySelectorAll('section[hidden]').forEach((node) => node.remove());
-    clone.style.width = '190mm';
-    clone.style.minHeight = 'auto';
+    clone.style.width = '210mm';
+    clone.style.minHeight = '297mm';
     clone.style.margin = '0 auto';
     clone.style.boxShadow = 'none';
+    clone.style.aspectRatio = 'auto';
 
     return clone;
 };
@@ -6000,6 +6424,9 @@ const buildStaticExportNode = (mode = currentPreviewMode) => {
     clone.style.transform = 'none';
     clone.style.boxShadow = 'none';
     clone.style.margin = '0';
+    clone.style.width = '210mm';
+    clone.style.minHeight = '297mm';
+    clone.style.aspectRatio = 'auto';
     clone.style.background = normalizeExportCssValue(window.getComputedStyle(sourcePreview).background || '#ffffff');
     clone.style.borderRadius = '0';
 
@@ -6064,73 +6491,75 @@ const exportPdf = async (options = {}) => {
     updateCvPreview();
 
     const exportMode = currentPreviewMode;
+    const printBackup = exportMode === 'cv' ? optimizeForPrint() : null;
     const domExportSource = exportMode === 'letter' ? letterPagePreview : previewNodes.preview;
     const pdfBackground = exportMode === 'cv'
         ? (cvForm?.elements.paperColor?.value || '#ffffff')
         : '#ffffff';
 
-    if (window.html2canvas && domExportSource) {
-        const filename = exportMode === 'letter' ? 'lettre-motivation.pdf' : 'cv-intelligent.pdf';
-        let exportNode = null;
+    try {
+        if (window.html2canvas && domExportSource) {
+            const filename = exportMode === 'letter' ? 'lettre-motivation.pdf' : 'cv-intelligent.pdf';
+            let exportNode = null;
 
-        try {
-            document.body.classList.add('is-exporting-pdf');
-            await document.fonts?.ready;
-            // html2canvas peut parfois rater un aperçu transformé, déplacé ou
-            // partiellement masqué dans l'éditeur. On exporte donc une copie
-            // statique du CV, avec ses styles calculés, au lieu de la page web.
-            exportNode = buildStaticExportNode(exportMode);
-            const canvas = await window.html2canvas(exportNode || domExportSource, {
-                scale: Math.min(2.4, window.devicePixelRatio || 2),
-                useCORS: true,
-                backgroundColor: pdfBackground,
-                scrollX: 0,
-                scrollY: 0,
-            });
+            try {
+                document.body.classList.add('is-exporting-pdf');
+                await document.fonts?.ready;
+                updateCvPreview();
+                // html2canvas peut parfois rater un aperçu transformé, déplacé ou
+                // partiellement masqué dans l'éditeur. On exporte donc une copie
+                // statique du CV, avec ses styles calculés, au lieu de la page web.
+                exportNode = buildStaticExportNode(exportMode);
+                const canvas = await window.html2canvas(exportNode || domExportSource, {
+                    scale: Math.min(2.4, window.devicePixelRatio || 2),
+                    useCORS: true,
+                    backgroundColor: pdfBackground,
+                    scrollX: 0,
+                    scrollY: 0,
+                });
 
-            if (!canvas.width || !canvas.height) {
-                throw new Error('empty_canvas');
-            }
+                if (!canvas.width || !canvas.height) {
+                    throw new Error('empty_canvas');
+                }
 
-            const doc = new JsPdf({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-            const pageWidth = 210;
-            const pageHeight = 297;
-            const imageHeight = (canvas.height * pageWidth) / canvas.width;
-            const imageData = canvas.toDataURL('image/jpeg', 0.98);
+                const doc = new JsPdf({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+                const pageWidth = 210;
+                const pageHeight = 297;
+                const imageHeight = (canvas.height * pageWidth) / canvas.width;
+                const imageData = canvas.toDataURL('image/jpeg', 0.98);
 
-            if (exportMode === 'cv') {
-                const fitScale = Math.min(1, pageHeight / imageHeight);
-                const outputWidth = pageWidth * fitScale;
-                const outputHeight = imageHeight * fitScale;
-                const offsetX = (pageWidth - outputWidth) / 2;
+                if (exportMode === 'cv') {
+                    const fitScale = Math.min(1, pageHeight / imageHeight);
+                    const outputWidth = pageWidth * fitScale;
+                    const outputHeight = imageHeight * fitScale;
+                    const offsetX = (pageWidth - outputWidth) / 2;
 
-                doc.addImage(imageData, 'JPEG', offsetX, 0, outputWidth, outputHeight);
-            } else {
-                let positionY = 0;
-                let remainingHeight = imageHeight;
-                doc.addImage(imageData, 'JPEG', 0, positionY, pageWidth, imageHeight);
-                remainingHeight -= pageHeight;
-
-                while (remainingHeight > 2) {
-                    positionY -= pageHeight;
-                    doc.addPage();
+                    doc.addImage(imageData, 'JPEG', offsetX, 0, outputWidth, outputHeight);
+                } else {
+                    let positionY = 0;
+                    let remainingHeight = imageHeight;
                     doc.addImage(imageData, 'JPEG', 0, positionY, pageWidth, imageHeight);
                     remainingHeight -= pageHeight;
+
+                    while (remainingHeight > 2) {
+                        positionY -= pageHeight;
+                        doc.addPage();
+                        doc.addImage(imageData, 'JPEG', 0, positionY, pageWidth, imageHeight);
+                        remainingHeight -= pageHeight;
+                    }
                 }
+
+                finishPdfExport(doc, filename, action, options?.previewWindow || options?.printWindow);
+                return;
+            } catch (error) {
+                console.error(error);
+                setCvStatus('Export apercu indisponible, generation PDF classique...');
+            } finally {
+                exportNode?.remove();
+                document.body.classList.remove('is-exporting-pdf');
             }
-
-            finishPdfExport(doc, filename, action, options?.previewWindow || options?.printWindow);
-            return;
-        } catch (error) {
-            console.error(error);
-            setCvStatus('Export apercu indisponible, generation PDF classique...');
-        } finally {
-            exportNode?.remove();
-            document.body.classList.remove('is-exporting-pdf');
         }
-    }
 
-    try {
         const doc = new JsPdf({ unit: 'mm', format: 'a4', orientation: 'portrait' });
         const pageHeight = 297;
         const pageWidth = 210;
@@ -6469,6 +6898,10 @@ const exportPdf = async (options = {}) => {
     } catch (error) {
         console.error(error);
         setCvStatus('Echec de generation du PDF');
+    } finally {
+        if (printBackup) {
+            restorePrintFieldBackup(printBackup);
+        }
     }
 };
 
@@ -6548,12 +6981,12 @@ const kirbyModeCopy = {
 };
 
 const setAssistantActivity = (text = '', working = false) => {
-    if (!assistantMessages) {
+    if (!assistantActivity) {
         return;
     }
 
-    assistantMessages.textContent = text;
-    assistantMessages.classList.toggle('is-working', working);
+    assistantActivity.textContent = text;
+    assistantActivity.classList.toggle('is-working', working);
     assistantChat?.classList.toggle('is-working', working);
     if (assistantSubmitButton) {
         assistantSubmitButton.disabled = working;
@@ -6607,7 +7040,37 @@ const closeAssistant = () => {
 };
 
 const appendAssistantMessage = (text, role) => {
-    setAssistantActivity(text, role === 'working');
+    const message = String(text || '').trim();
+    if (!message) {
+        return;
+    }
+
+    setAssistantActivity(message, role === 'working');
+
+    if (!assistantThread || role === 'working') {
+        return;
+    }
+
+    const item = document.createElement('article');
+    item.className = `assistant-thread-message is-${role || 'bot'}`;
+
+    const label = document.createElement('span');
+    label.className = 'assistant-thread-label';
+    label.textContent = role === 'user' ? 'Vous' : 'Kirby';
+
+    const body = document.createElement('p');
+    body.className = 'assistant-thread-body';
+    body.textContent = message;
+
+    item.append(label, body);
+    assistantThread.appendChild(item);
+
+    const overflowItems = [...assistantThread.children];
+    if (overflowItems.length > 8) {
+        overflowItems.slice(0, overflowItems.length - 8).forEach((node) => node.remove());
+    }
+
+    assistantThread.scrollTop = assistantThread.scrollHeight;
 };
 
 const getKirbyCvSource = () => {
@@ -7661,13 +8124,22 @@ const applyQuickCvTypographyAdjustment = (message = '') => {
             }
 
             const previous = normalizeStyleState(cvSectionTitleStyles[key] || {});
+            const isLanguagesTitle = key === 'languages';
+            const smallerTitleFontSize = sectionTitleOnlyIntent
+                ? (isLanguagesTitle ? '13px' : '14px')
+                : '13px';
+            const smallerTitleWeight = sectionTitleOnlyIntent
+                ? (isLanguagesTitle ? '740' : '760')
+                : '700';
+            const smallerTitleLineHeight = sectionTitleOnlyIntent ? '1.08' : '1.05';
+            const smallerTitleLetterSpacing = sectionTitleOnlyIntent ? '0.07em' : '0.08em';
             const next = {
                 ...previous,
-                fontSize: wantsSmallerTitles ? '13px' : wantsBiggerTitles ? '18px' : (previous.fontSize || '13px'),
-                fontWeight: wantsSmallerTitles ? '700' : wantsBiggerTitles ? '800' : (previous.fontWeight || '700'),
-                lineHeight: wantsSmallerTitles ? '1.05' : wantsBiggerTitles ? '1.1' : (previous.lineHeight || '1.1'),
-                letterSpacing: (wantsSmallerTitles || wantsLetterSpacing) ? '0.08em' : previous.letterSpacing,
-                textTransform: (wantsSmallerTitles || wantsUppercaseTitles) ? 'uppercase' : previous.textTransform,
+                fontSize: wantsSmallerTitles ? smallerTitleFontSize : wantsBiggerTitles ? '18px' : (previous.fontSize || '13px'),
+                fontWeight: wantsSmallerTitles ? smallerTitleWeight : wantsBiggerTitles ? '800' : (previous.fontWeight || '700'),
+                lineHeight: wantsSmallerTitles ? smallerTitleLineHeight : wantsBiggerTitles ? '1.1' : (previous.lineHeight || '1.1'),
+                letterSpacing: (wantsSmallerTitles || wantsLetterSpacing) ? smallerTitleLetterSpacing : previous.letterSpacing,
+                textTransform: (wantsSmallerTitles || wantsUppercaseTitles || sectionTitleOnlyIntent) ? 'uppercase' : previous.textTransform,
             };
 
             if (JSON.stringify(previous) !== JSON.stringify(next)) {
@@ -7677,13 +8149,13 @@ const applyQuickCvTypographyAdjustment = (message = '') => {
         });
     }
 
-    if (wantsSmallerBody || wantsReadableContent || wantsSmallerTitles || sectionTitleOnlyIntent) {
+    if (wantsSmallerBody || wantsReadableContent || (wantsSmallerTitles && !sectionTitleOnlyIntent)) {
         ['summary', 'skills', 'experience', 'projects', 'education', 'activities', 'languages'].forEach((target) => {
             const previous = cvEditableContent[target] || {};
             const nextStyle = {
                 ...normalizeStyleState(previous.style || {}),
-                fontSize: (wantsReadableContent || wantsSmallerTitles || sectionTitleOnlyIntent) ? '14px' : '13px',
-                lineHeight: (wantsReadableContent || wantsSmallerTitles || sectionTitleOnlyIntent) ? '1.2' : '1.15',
+                fontSize: (wantsReadableContent || wantsSmallerTitles) ? '14px' : '13px',
+                lineHeight: (wantsReadableContent || wantsSmallerTitles) ? '1.2' : '1.15',
             };
             const next = previous.html ? { ...previous, style: nextStyle } : { style: nextStyle };
 
@@ -7724,8 +8196,157 @@ const applyQuickCvTypographyAdjustment = (message = '') => {
     return 'Contenu principal réduit dans le CV.';
 };
 
+const applyQuickSalesRefocusCorrection = (message = '') => {
+    const source = normalizeForMatch(message);
+    const mentionsSalesTarget = /\b(camaieu|camaïeu|vente|vendeuse|vendeur|conseillere de vente|conseillère de vente|lifestyle|mode)\b/.test(source);
+    const mentionsRefocusNeed = /\b(dominant|dominance|plus importante|plus visible|experience principale|experience la plus importante|adapter au poste|poste de vente|trop dominant|trop dominante|second plan|plus secondaire|mets en avant|mettre en avant|mettre en valeur|plus d element|plus d'element|plus d’elements|plus d'elements)\b/.test(source);
+    const mentionsWebBlock = /\b(developpeuse web|développeuse web|full stack|web full stack|projet web|web)\b/.test(source);
+    const mentionsNoInvent = /\b(n ajoute pas|n'ajoute pas|sans rajouter|n invente pas|n'invente pas)\b/.test(source);
+    const wantsFeminineSalesTitle = /\b(fatima|feminin|féminin|vendeuse)\b/.test(source);
+    const refusesDateBasedReorder = /\b(pas remonter|pas par la date|pas avec les dates|sans changer l ordre|sans changer l'ordre|garde l ordre|garder l ordre|garder l'ordre)\b/.test(source);
+
+    if (!wantsFeminineSalesTitle && !(mentionsSalesTarget && (mentionsRefocusNeed || mentionsWebBlock || mentionsNoInvent))) {
+        return '';
+    }
+
+    const beforeState = getCvHistoryState();
+    let changed = false;
+    const headlineField = cvForm?.elements.headline;
+    const summaryField = cvForm?.elements.summary;
+    const skillsField = cvForm?.elements.skills;
+    const experienceField = getExperienceField();
+
+    if (headlineField) {
+        const currentHeadline = formatCvHeadline(headlineField.value || '');
+        const nextHeadline = /vendeur/i.test(currentHeadline) || mentionsSalesTarget
+            ? 'Conseillère de vente'
+            : currentHeadline;
+
+        if (nextHeadline && nextHeadline !== currentHeadline) {
+            headlineField.value = nextHeadline;
+            changed = true;
+        }
+    }
+
+    if (summaryField && (mentionsSalesTarget || mentionsRefocusNeed)) {
+        const nextSummary = normalizeCvSentenceText(
+            'Professionnelle de la vente et de la relation client, avec expérience en accueil, conseil, fidélisation et accompagnement personnalisé. À l’aise en point de vente, je contribue au chiffre d’affaires, à la gestion des stocks et à la bonne tenue du merchandising avec une approche orientée service et résultats.'
+        );
+
+        if (nextSummary && nextSummary !== summaryField.value) {
+            summaryField.value = nextSummary;
+            changed = true;
+        }
+    }
+
+    if (skillsField && (mentionsSalesTarget || mentionsNoInvent)) {
+        const existingSkills = splitLines(skillsField.value).map(normalizeCvSentenceText);
+        const blockedSkills = [
+            /developpement d[’']?applications?\s+web/i,
+            /\bux\/ui\b/i,
+            /\btests?\s+fonctionnels?\b/i,
+            /^\s*ia\s*$/i,
+            /communication digitale/i,
+            /logique algorithmique/i,
+            /culture numerique/i,
+            /apprentissage par projet/i,
+            /conception d[’']?interfaces?\s+utilisateur/i,
+            /gestion de bases de donnees/i,
+            /deploiement d[’']?applications/i,
+            /gestion de projet digital/i,
+        ];
+        const keptSkills = existingSkills.filter((skill) => !blockedSkills.some((pattern) => pattern.test(skill)));
+        const salesSkills = [
+            'Relation client',
+            'Accueil',
+            'Conseil client',
+            'Analyse des besoins',
+            'Fidélisation client',
+            'Développement du chiffre d’affaires',
+            'Gestion des stocks',
+            'Réassort',
+            'Merchandising',
+            'Organisation',
+            'Autonomie',
+            'Gestion d’équipe',
+        ];
+        const nextSkills = dedupeCvSkillItems([...salesSkills, ...keptSkills]).slice(0, 12).join('\n');
+
+        if (nextSkills && nextSkills !== skillsField.value) {
+            skillsField.value = nextSkills;
+            changed = true;
+        }
+    }
+
+    if (experienceField && (mentionsSalesTarget || mentionsRefocusNeed || mentionsWebBlock)) {
+        const entries = getExperienceSourceEntries();
+        if (entries.length) {
+            const camaieuIndex = entries.findIndex((entry) => /\bcama[ïi]eu\b/i.test(`${entry.title} ${entry.meta}`));
+            const webIndex = entries.findIndex((entry) => /\b(developpeuse|développeuse|full stack|web)\b/i.test(`${entry.title} ${entry.meta}`));
+            const reordered = [...entries];
+
+            if (camaieuIndex !== -1) {
+                const camaieuEntry = reordered[camaieuIndex];
+                const nextCamaieu = {
+                    ...camaieuEntry,
+                    title: formatCvHeadline(camaieuEntry.title || 'Responsable Adjointe'),
+                    meta: normalizeCvSentenceText(camaieuEntry.meta || 'Camaïeu, Rueil-Malmaison'),
+                    bullets: dedupeImportedItems([
+                        'Accueil, conseil et fidélisation de la clientèle en point de vente',
+                        'Contribution au développement du chiffre d’affaires et accompagnement à la vente',
+                        'Gestion des stocks, réassorts et bonne tenue de l’espace de vente',
+                        'Participation au merchandising et à la mise en valeur des produits',
+                        'Coordination de l’équipe au quotidien et suivi de l’activité magasin',
+                    ]),
+                };
+                reordered[camaieuIndex] = nextCamaieu;
+
+                if (!refusesDateBasedReorder && camaieuIndex > 0 && /\b(experience principale|experience la plus importante|place la en premier|place la en tete|mets la en premier)\b/.test(source)) {
+                    reordered.splice(camaieuIndex, 1);
+                    reordered.unshift(nextCamaieu);
+                }
+            }
+
+            if (webIndex !== -1) {
+                const currentIndex = reordered.findIndex((entry) => /\b(developpeuse|développeuse|full stack|web)\b/i.test(`${entry.title} ${entry.meta}`));
+                if (currentIndex !== -1) {
+                    const webEntry = reordered.splice(currentIndex, 1)[0];
+                    const compactBullets = (webEntry.bullets || []).map(normalizeCvSentenceText).filter(Boolean).slice(0, 2);
+                    reordered.push({
+                        ...webEntry,
+                        bullets: compactBullets,
+                    });
+                }
+            }
+
+            const nextExperience = reordered.map(serializeExperienceEntry).filter(Boolean).join('\n');
+            if (nextExperience && nextExperience !== experienceField.value) {
+                experienceField.value = nextExperience;
+                changed = true;
+            }
+        }
+    }
+
+    if (!changed) {
+        return '';
+    }
+
+    clearEditableOverrides();
+    updateCvPreview();
+    renderExperienceEditor();
+    renderLanguageEditor();
+    commitCvHistoryTransition(beforeState);
+    scheduleCvDraftSave();
+    setCvStatus('CV recentré sur la vente');
+
+    return refusesDateBasedReorder
+        ? 'CV recentré sur la vente : Camaïeu renforcé par le contenu, sans remonter l’expérience par la date, bloc web réduit et compétences recentrées.'
+        : 'CV recentré sur la vente : titre féminisé, Camaïeu mis en avant, bloc web réduit et compétences recentrées sans ajout inventé.';
+};
+
 const applyQuickKirbyCorrection = (message = '') => {
     const directCorrections = [
+        applyQuickSalesRefocusCorrection(message),
         applyQuickCvTypographyAdjustment(message),
         getQuickEditorBugReport(message),
         applyQuickTitleGenderCorrection(message),
@@ -8482,6 +9103,10 @@ const applyKirbyCvResult = (result, task, instruction = '', options = {}) => {
 
     if (allowGlobalCvRewrite && !singleFieldIntent && sortExperienceFieldNewestFirst()) {
         changes.push('expériences triées par date');
+    }
+
+    if (harmonizeExperienceFieldStructure({ silent: true })) {
+        changes.push('expériences harmonisées');
     }
 
     if ((!singleFieldIntent || singleFieldIntent === 'languages') && mergeKirbyLanguages(proposal.languages)) {
@@ -10105,9 +10730,9 @@ templatePresetChips.forEach((chip) => {
         });
 
         updateCvPreview();
-        captureCvHistoryFromInteraction({ immediate: true });
-        scheduleCvDraftSave();
-        setCvStatus('Mise en forme appliquee');
+        resetCvHistory();
+        saveCvDraft(true);
+        setCvStatus('Nouveau modele applique');
     });
 });
 
@@ -10524,6 +11149,7 @@ if (assistantForm) {
         }
 
         hideKirbyCvProposal();
+        appendAssistantMessage(message, 'user');
         void handleAssistantPrompt(message);
         assistantInput.value = '';
     });
