@@ -2,6 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const contactHandler = require('./api/contact');
+const cvAuthConfigHandler = require('./api/cv-auth-config');
 const kirbyHandler = require('./api/kirby');
 
 const root = __dirname;
@@ -100,6 +101,12 @@ const server = http.createServer((request, response) => {
     if (request.url && request.url.startsWith('/api/kirby')) {
         loadEnv();
         kirbyHandler(request, response);
+        return;
+    }
+
+    if (request.url && request.url.startsWith('/api/cv-auth-config')) {
+        loadEnv();
+        cvAuthConfigHandler(request, response);
         return;
     }
 

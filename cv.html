@@ -17,7 +17,7 @@
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <link rel="stylesheet" href="style.css?v=20260703-typography-fix-v33">
 </head>
-<body class="is-preload cv-workspace-page">
+<body class="is-preload cv-workspace-page cv-workspace-locked">
     <div class="page-shell">
         <header class="hero" id="top">
             <nav class="topbar" aria-label="Navigation principale">
@@ -39,14 +39,14 @@
                     </div>
                     <div class="site-menu-actions auth-actions" id="auth-actions">
                         <span class="auth-badge is-hidden" id="auth-current-user"></span>
-                        <button type="button" id="auth-open-login">Acces local</button>
-                        <button type="button" id="auth-open-signup">Creer un acces local</button>
+                        <button type="button" id="auth-open-login">Connexion</button>
+                        <button type="button" id="auth-open-signup">Creer un compte</button>
                         <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Basculer entre mode nuit et mode jour" aria-pressed="false">
                             <span class="theme-toggle-dot"></span>
                             <span class="theme-toggle-text">Jour</span>
                         </button>
                         <a href="contact.html">Contact</a>
-                        <button class="is-hidden" type="button" id="auth-logout">Deconnexion locale</button>
+                        <button class="is-hidden" type="button" id="auth-logout">Deconnexion</button>
                     </div>
                 </div>
             </nav>
@@ -80,6 +80,15 @@
                         <small class="field-hint">Formats compatibles : `.txt`, `.md`, `.pdf`, `.docx`.</small>
                     </label>
                     <button class="button button-primary" type="button" id="cv-optimize-main">Corriger et optimiser mon CV</button>
+                </div>
+                <div class="cv-private-gate" id="cv-private-gate" aria-hidden="false">
+                    <p class="section-kicker">Espace prive</p>
+                    <h3>Connectez-vous pour ouvrir votre CV personnel</h3>
+                    <p>Chaque brouillon, export et ajustement reste rattache a votre compte. Les donnees de demonstration restent separees de votre espace prive.</p>
+                    <div class="cv-private-gate-actions">
+                        <button class="button button-primary" type="button" id="cv-gate-login">Connexion</button>
+                        <button class="button button-secondary" type="button" id="cv-gate-signup">Creer un compte</button>
+                    </div>
                 </div>
                 <div class="cv-layout" id="cv-layout">
                     <div class="cv-editor-panel" id="cv-editor-panel">
@@ -710,11 +719,11 @@ Sport</textarea>
         <div class="auth-modal-backdrop" data-auth-close></div>
         <div class="auth-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
             <button class="auth-modal-close" id="auth-close" type="button" aria-label="Fermer">×</button>
-            <h2 id="auth-modal-title">Acces local a l'editeur CV</h2>
-            <p class="auth-modal-text">Aucun email n'est envoye. Cet acces sert seulement a retrouver votre brouillon sur ce navigateur.</p>
-            <div class="auth-modal-tabs" role="tablist" aria-label="Acces local">
-                <button class="auth-tab is-active" type="button" data-auth-view="login" aria-selected="true">Ouvrir l'acces</button>
-                <button class="auth-tab" type="button" data-auth-view="signup" aria-selected="false">Creer un acces</button>
+            <h2 id="auth-modal-title">Connexion securisee a l'editeur CV</h2>
+            <p class="auth-modal-text">Connectez-vous pour retrouver vos brouillons, exports et donnees privees dans votre espace personnel.</p>
+            <div class="auth-modal-tabs" role="tablist" aria-label="Connexion securisee">
+                <button class="auth-tab is-active" type="button" data-auth-view="login" aria-selected="true">Connexion</button>
+                <button class="auth-tab" type="button" data-auth-view="signup" aria-selected="false">Creer un compte</button>
             </div>
             <div class="auth-modal-panel" id="auth-panel-login">
                 <form class="auth-form" id="auth-login-form">
@@ -729,7 +738,7 @@ Sport</textarea>
                             <button type="button" data-password-toggle aria-label="Afficher le mot de passe">Afficher</button>
                         </span>
                     </label>
-                    <button class="button button-primary" type="submit">Ouvrir mon acces local</button>
+                    <button class="button button-primary" type="submit">Me connecter</button>
                 </form>
             </div>
             <div class="auth-modal-panel is-hidden" id="auth-panel-signup">
@@ -756,7 +765,7 @@ Sport</textarea>
                             <button type="button" data-password-toggle aria-label="Afficher le mot de passe">Afficher</button>
                         </span>
                     </label>
-                    <button class="button button-primary" type="submit">Creer mon acces local</button>
+                    <button class="button button-primary" type="submit">Creer mon compte</button>
                 </form>
             </div>
             <p class="auth-feedback" id="auth-feedback" aria-live="polite"></p>

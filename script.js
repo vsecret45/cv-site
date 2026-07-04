@@ -39,6 +39,7 @@ const cvSuggestionsList = document.querySelector('#cv-suggestions-list');
 const cvAnalyzeButton = document.querySelector('#cv-analyze');
 const cvMatchJobButton = document.querySelector('#cv-match-job');
 const jobOfferField = document.querySelector('#job-offer');
+const cvImportBlock = document.querySelector('#cv-import-block');
 const cvLayout = document.querySelector('#cv-layout');
 const cvEditorPanel = document.querySelector('#cv-editor-panel');
 const cvLayoutToggle = document.querySelector('#cv-layout-toggle');
@@ -131,15 +132,22 @@ const authSignupPanel = document.querySelector('#auth-panel-signup');
 const authLoginForm = document.querySelector('#auth-login-form');
 const authSignupForm = document.querySelector('#auth-signup-form');
 const passwordToggleButtons = document.querySelectorAll('[data-password-toggle]');
+const cvPrivateGate = document.querySelector('#cv-private-gate');
+const cvGateLoginButton = document.querySelector('#cv-gate-login');
+const cvGateSignupButton = document.querySelector('#cv-gate-signup');
 const PDFJS_MODULE_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/legacy/build/pdf.min.mjs';
 const PDFJS_WORKER_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/legacy/build/pdf.worker.min.mjs';
+const SUPABASE_BROWSER_MODULE_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+const DEFAULT_CV_SECTION_ORDER = ['summary', 'skills', 'experience', 'projects', 'education', 'activities', 'languages'];
 
 let pdfjsLoader;
 let currentPreviewPage = 1;
 let currentPreviewMode = 'cv';
 let isAutoFittingCv = false;
-let cvSectionOrder = ['summary', 'skills', 'experience', 'projects', 'education', 'activities', 'languages'];
+let cvSectionOrder = [...DEFAULT_CV_SECTION_ORDER];
 let currentUser = null;
+let supabaseClientPromise = null;
+let supabaseAuthListenerReady = false;
 let activeEditableNode = null;
 let activeFormatNode = null;
 let savedFormatRange = null;
@@ -704,36 +712,162 @@ const escapeHtml = (value = '') =>
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#39;');
 
-const getAuthAccountsStorageKey = () => 'sa-cv-private-accounts-v1';
-
-const getAuthSessionStorageKey = () => 'sa-cv-private-session-v1';
-
 const normalizeAccountEmail = (value = '') => value.trim().toLowerCase();
 
-const getStoredAccounts = () => {
+const getLegacyDraftStorageKey = (email = 'guest-session') => `sa-cv-private-draft-v4-${email}`;
+const getSecureUserDraftCacheKey = (userId = 'guest') => `sa-cv-secure-draft-v1-${userId}`;
+
+const getLegacyAuthKeys = () => ['sa-cv-private-accounts-v1', 'sa-cv-private-session-v1', getLegacyDraftStorageKey()];
+
+const normalizeSupabaseUser = (user) => {
+    if (!user?.id || !user?.email) {
+        return null;
+    }
+
+    return {
+        id: user.id,
+        email: normalizeAccountEmail(user.email),
+        name: (user.user_metadata?.name || user.user_metadata?.full_name || '').trim(),
+    };
+};
+
+const resetCvDraftState = () => {
+    cvEditableContent = {};
+    cvSectionTitleStyles = {};
+    cvSectionOrder = [...DEFAULT_CV_SECTION_ORDER];
+};
+
+const clearLegacyAuthStorage = () => {
+    [...getLegacyAuthKeys(), currentUser?.email ? getLegacyDraftStorageKey(normalizeAccountEmail(currentUser.email)) : null]
+        .filter(Boolean)
+        .forEach((key) => {
+            try {
+                window.localStorage.removeItem(key);
+                window.sessionStorage.removeItem(key);
+            } catch (error) {
+                console.error(error);
+            }
+        });
+};
+
+const readLegacyLocalDraft = (email) => {
+    if (!email) {
+        return null;
+    }
+
     try {
-        const raw = window.localStorage.getItem(getAuthAccountsStorageKey());
-        const accounts = raw ? JSON.parse(raw) : [];
-        return Array.isArray(accounts) ? accounts : [];
+        const raw = window.localStorage.getItem(getLegacyDraftStorageKey(normalizeAccountEmail(email)));
+        return raw ? JSON.parse(raw) : null;
     } catch (error) {
         console.error(error);
-        return [];
+        return null;
     }
 };
 
-const saveStoredAccounts = (accounts) => {
-    window.localStorage.setItem(getAuthAccountsStorageKey(), JSON.stringify(accounts));
-};
-
-const hashPassword = async (password) => {
-    const value = password.trim();
-
-    if (!window.crypto?.subtle || !window.TextEncoder) {
-        return window.btoa(value);
+const readScopedLocalDraft = (userId) => {
+    if (!userId) {
+        return null;
     }
 
-    const buffer = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
-    return [...new Uint8Array(buffer)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+    try {
+        const raw = window.localStorage.getItem(getSecureUserDraftCacheKey(userId));
+        return raw ? JSON.parse(raw) : null;
+    } catch (error) {
+        console.error(error);
+        return null;
+    }
+};
+
+const writeScopedLocalDraft = (userId, payload) => {
+    if (!userId || !payload) {
+        return;
+    }
+
+    try {
+        window.localStorage.setItem(getSecureUserDraftCacheKey(userId), JSON.stringify(payload));
+    } catch (error) {
+        console.error(error);
+    }
+};
+
+const removeLegacyLocalDraft = (email) => {
+    if (!email) {
+        return;
+    }
+
+    try {
+        window.localStorage.removeItem(getLegacyDraftStorageKey(normalizeAccountEmail(email)));
+    } catch (error) {
+        console.error(error);
+    }
+};
+
+const initializeSupabaseClient = async () => {
+    if (supabaseClientPromise) {
+        return supabaseClientPromise;
+    }
+
+    supabaseClientPromise = (async () => {
+        const response = await fetch('/api/cv-auth-config', {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: {
+                Accept: 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('supabase_config_unavailable');
+        }
+
+        const config = await response.json();
+
+        if (!config?.url || !config?.anonKey) {
+            throw new Error('supabase_config_invalid');
+        }
+
+        const { createClient } = await import(SUPABASE_BROWSER_MODULE_URL);
+        const client = createClient(config.url, config.anonKey, {
+            auth: {
+                persistSession: true,
+                autoRefreshToken: true,
+                detectSessionInUrl: true,
+            },
+        });
+
+        if (!supabaseAuthListenerReady) {
+            client.auth.onAuthStateChange((_event, session) => {
+                persistAuthSession(session?.user || null);
+                updateAuthUi();
+
+                if (currentUser) {
+                    loadCvDraft({ silent: true }).catch((error) => {
+                        console.error(error);
+                        setCvStatus('Impossible de recharger le brouillon securise');
+                    });
+                    return;
+                }
+
+                resetCvFormToDefaults();
+                resetCvDraftState();
+                updateCvPreview();
+                renderExperienceEditor();
+                renderLanguageEditor();
+                resetCvHistory();
+                refreshCvModule();
+                setPreviewMode('cv');
+            });
+
+            supabaseAuthListenerReady = true;
+        }
+
+        return client;
+    })().catch((error) => {
+        supabaseClientPromise = null;
+        throw error;
+    });
+
+    return supabaseClientPromise;
 };
 
 const setAuthFeedback = (message = '', isError = false) => {
@@ -743,6 +877,39 @@ const setAuthFeedback = (message = '', isError = false) => {
 
     authFeedback.textContent = message;
     authFeedback.style.color = isError ? '#be185d' : '#2f3f7f';
+};
+
+const formatAuthErrorMessage = (error, mode = 'signup') => {
+    const source = String(error?.message || error?.error_description || error?.name || '').trim();
+    const normalized = normalizeForMatch(source);
+
+    if (!normalized) {
+        return mode === 'login'
+            ? 'Connexion impossible. Verifiez votre email et votre mot de passe.'
+            : 'Creation du compte impossible pour le moment.';
+    }
+
+    if (/already registered|user already registered|already exists|email address is already/.test(normalized)) {
+        return 'Un compte existe deja avec cet email. Connectez-vous ou utilisez une autre adresse.';
+    }
+
+    if (/invalid login credentials|invalid credentials/.test(normalized)) {
+        return 'Connexion impossible. Verifiez votre email et votre mot de passe.';
+    }
+
+    if (/email.*invalid|invalid email/.test(normalized)) {
+        return 'Adresse email invalide. Verifiez le format saisi.';
+    }
+
+    if (/password/.test(normalized) && /short|weak|least|minimum/.test(normalized)) {
+        return 'Mot de passe trop court ou trop faible. Utilisez au moins 6 caracteres.';
+    }
+
+    if (/network|fetch|failed to fetch|load failed|connection|cors/.test(normalized)) {
+        return 'Connexion au service securise impossible. Rechargez la page puis reessayez.';
+    }
+
+    return source;
 };
 
 const setAuthView = (view) => {
@@ -780,28 +947,23 @@ const closeAuthModal = () => {
 };
 
 const persistAuthSession = (user) => {
-    currentUser = user
-        ? {
-            email: normalizeAccountEmail(user.email),
-            name: (user.name || '').trim(),
-        }
-        : null;
-
-    if (currentUser) {
-        window.sessionStorage.setItem(getAuthSessionStorageKey(), JSON.stringify(currentUser));
-    } else {
-        window.sessionStorage.removeItem(getAuthSessionStorageKey());
-        window.localStorage.removeItem(getAuthSessionStorageKey());
-    }
+    currentUser = normalizeSupabaseUser(user);
 };
 
-const loadAuthSession = () => {
+const loadAuthSession = async () => {
     try {
-        const raw = window.sessionStorage.getItem(getAuthSessionStorageKey());
-        currentUser = raw ? JSON.parse(raw) : null;
+        const client = await initializeSupabaseClient();
+        const { data, error } = await client.auth.getSession();
+
+        if (error) {
+            throw error;
+        }
+
+        persistAuthSession(data?.session?.user || null);
     } catch (error) {
         console.error(error);
-        currentUser = null;
+        persistAuthSession(null);
+        setCvStatus('Connexion securisee indisponible');
     }
 };
 
@@ -812,9 +974,36 @@ const updateAuthUi = () => {
 
     if (authCurrentUserLabel) {
         authCurrentUserLabel.classList.toggle('is-hidden', !currentUser);
-        authCurrentUserLabel.textContent = currentUser ? `Acces local : ${currentUser.name || currentUser.email}` : '';
+        authCurrentUserLabel.textContent = currentUser ? `Connectee : ${currentUser.name || currentUser.email}` : '';
     }
 
+    syncCvWorkspaceAccess();
+};
+
+const syncCvWorkspaceAccess = () => {
+    const isAuthenticated = Boolean(currentUser?.id);
+
+    document.body.classList.toggle('cv-workspace-locked', !isAuthenticated);
+    cvPrivateGate?.classList.toggle('is-hidden', isAuthenticated);
+    cvPrivateGate?.setAttribute('aria-hidden', String(isAuthenticated));
+    cvImportBlock?.classList.toggle('is-hidden', !isAuthenticated);
+    cvLayout?.classList.toggle('is-hidden', !isAuthenticated);
+    cvLayoutToggle?.classList.toggle('is-hidden', !isAuthenticated);
+    assistantToggle?.classList.toggle('is-hidden', !isAuthenticated);
+
+    if (!isAuthenticated) {
+        closeAssistant();
+    }
+};
+
+const requireAuthenticatedCvAccess = (message = 'Connectez-vous pour acceder a votre espace CV prive') => {
+    if (currentUser?.id) {
+        return true;
+    }
+
+    openAuthModal('login');
+    setCvStatus(message);
+    return false;
 };
 
 const resetCvFormToDefaults = () => {
@@ -849,10 +1038,6 @@ const applyCurrentUserDefaults = () => {
         cvForm.elements.fullName.value = currentUser.name;
     }
 };
-
-const getCvDraftStorageKey = () => `sa-cv-private-draft-v4-${currentUser ? normalizeAccountEmail(currentUser.email) : 'guest-session'}`;
-
-const getCvDraftStorage = () => currentUser ? window.localStorage : window.sessionStorage;
 
 const extractEditableNodeStyleState = (node) => ({
     fontFamily: node?.style.fontFamily || '',
@@ -1156,7 +1341,23 @@ const clearEditableOverrides = (targets = editableTargets) => {
     targets.forEach((target) => clearEditableOverride(target));
 };
 
-const saveCvDraft = (silent = false) => {
+const buildCvDraftPayload = () => {
+    const formData = new FormData(cvForm);
+    const values = Object.fromEntries(formData.entries());
+
+    return {
+        values,
+        editableContent: cvEditableContent,
+        sectionTitleStyles: cvSectionTitleStyles,
+        sectionOrder: cvSectionOrder,
+        history: cvUndoStack.slice(-CV_HISTORY_LIMIT),
+        savedAt: new Date().toISOString(),
+        userId: currentUser?.id || null,
+        userEmail: currentUser?.email || null,
+    };
+};
+
+const saveCvDraft = async (silent = false) => {
     if (!cvForm) {
         return;
     }
@@ -1166,19 +1367,45 @@ const saveCvDraft = (silent = false) => {
         syncPreviewEditableNode(focusedEditableNode, { refreshPreview: false });
     }
 
-    const formData = new FormData(cvForm);
-    const values = Object.fromEntries(formData.entries());
-    const payload = {
-        values,
-        editableContent: cvEditableContent,
-        sectionTitleStyles: cvSectionTitleStyles,
-        sectionOrder: cvSectionOrder,
-        history: cvUndoStack.slice(-CV_HISTORY_LIMIT),
-        savedAt: new Date().toISOString(),
-        user: currentUser?.email || null,
-    };
-    getCvDraftStorage().setItem(getCvDraftStorageKey(), JSON.stringify(payload));
-    setCvStatus(silent ? 'Brouillon enregistre' : 'CV sauvegarde localement');
+    if (!currentUser?.id) {
+        if (!silent) {
+            openAuthModal('login');
+            setCvStatus('Connectez-vous pour sauvegarder votre brouillon');
+        }
+        return;
+    }
+
+    try {
+        const client = await initializeSupabaseClient();
+        const payload = buildCvDraftPayload();
+        const { error } = await client
+            .from('cv_drafts')
+            .upsert(
+                {
+                    user_id: currentUser.id,
+                    payload,
+                    updated_at: new Date().toISOString(),
+                },
+                {
+                    onConflict: 'user_id',
+                }
+            );
+
+        if (error) {
+            throw error;
+        }
+
+        writeScopedLocalDraft(currentUser.id, payload);
+        removeLegacyLocalDraft(currentUser.email);
+        clearLegacyAuthStorage();
+        setCvStatus(silent ? 'Brouillon securise enregistre' : 'CV sauvegarde dans votre espace prive');
+    } catch (error) {
+        console.error(error);
+        writeScopedLocalDraft(currentUser.id, buildCvDraftPayload());
+        if (!silent) {
+            setCvStatus('Sauvegarde locale privee active en attendant la table securisee');
+        }
+    }
 };
 
 const getCvHistoryState = () => {
@@ -1374,7 +1601,7 @@ const restorePreviousCvVersion = () => {
         });
         cvSectionOrder = Array.isArray(state?.sectionOrder) && state.sectionOrder.length
             ? state.sectionOrder.filter((key) => cvSectionLabels[key])
-            : ['summary', 'skills', 'experience', 'projects', 'education', 'activities', 'languages'];
+            : [...DEFAULT_CV_SECTION_ORDER];
         activeEditableNode = null;
         activeFormatNode = null;
         savedFormatRange = null;
@@ -1390,22 +1617,54 @@ const restorePreviousCvVersion = () => {
     }
 };
 
-const loadCvDraft = () => {
+const loadCvDraft = async ({ silent = false } = {}) => {
     if (!cvForm) {
         return;
     }
 
     try {
         isLoadingCvDraft = true;
-        const raw = getCvDraftStorage().getItem(getCvDraftStorageKey());
         let payload = null;
         let savedHistory = [];
+        let shouldMigrateLegacyDraft = false;
 
-        try {
-            payload = raw ? JSON.parse(raw) : null;
-        } catch (error) {
-            console.error(error);
-            payload = null;
+        resetCvFormToDefaults();
+        applyCurrentUserDefaults();
+        resetCvDraftState();
+
+        if (currentUser?.id) {
+            try {
+                const client = await initializeSupabaseClient();
+                const { data, error } = await client
+                    .from('cv_drafts')
+                    .select('payload')
+                    .eq('user_id', currentUser.id)
+                    .limit(1)
+                    .maybeSingle();
+
+                if (error) {
+                    throw error;
+                }
+
+                payload = data?.payload || null;
+            } catch (error) {
+                console.error(error);
+                payload = readScopedLocalDraft(currentUser.id);
+            }
+
+            if (!payload) {
+                payload = readScopedLocalDraft(currentUser.id);
+            }
+
+            if (!payload) {
+                const legacyPayload = readLegacyLocalDraft(currentUser.email);
+
+                if (legacyPayload) {
+                    payload = legacyPayload;
+                    shouldMigrateLegacyDraft = true;
+                    removeLegacyLocalDraft(currentUser.email);
+                }
+            }
         }
 
         const hasDraftValues = Boolean(
@@ -1418,11 +1677,6 @@ const loadCvDraft = () => {
         hideKirbyCvProposal();
 
         if (hasDraftValues) {
-            resetCvFormToDefaults();
-            applyCurrentUserDefaults();
-            cvEditableContent = {};
-            cvSectionTitleStyles = {};
-
             const values = payload?.values && typeof payload.values === 'object' ? payload.values : payload;
             savedHistory = Array.isArray(payload?.history) ? payload.history : [];
 
@@ -1458,7 +1712,7 @@ const loadCvDraft = () => {
 
             cvSectionOrder = Array.isArray(payload?.sectionOrder) && payload.sectionOrder.length
                 ? payload.sectionOrder.filter((key) => cvSectionLabels[key])
-                : ['summary', 'skills', 'experience', 'projects', 'education', 'activities', 'languages'];
+                : [...DEFAULT_CV_SECTION_ORDER];
         } else {
             applyCurrentUserDefaults();
         }
@@ -1468,6 +1722,15 @@ const loadCvDraft = () => {
         renderExperienceEditor();
         renderLanguageEditor();
         resetCvHistory(savedHistory);
+        if (shouldMigrateLegacyDraft) {
+            await saveCvDraft(true);
+        }
+        if (!silent) {
+            setCvStatus(currentUser ? 'Brouillon prive charge' : 'Mode invite actif');
+        }
+    } catch (error) {
+        console.error(error);
+        setCvStatus('Impossible de charger le brouillon securise');
     } finally {
         isLoadingCvDraft = false;
     }
@@ -2014,6 +2277,29 @@ const applyPreviewSectionContent = ({
     }
 };
 
+const sanitizeCrystalGlassSkillItems = (items = []) => {
+    const allowedPatterns = [
+        /autonomie/i,
+        /apprentissage\s+par\s+projet/i,
+        /travail\s+en\s+autonomie\s+et\s+en?\s+équipe/i,
+        /r[ée]solution\s+de\s+probl[èe]mes/i,
+        /analyse\s+des\s+besoins?\s+clients?/i,
+        /organisation\s+du\s+travail/i,
+        /respect\s+des\s+proc[ée]dures/i,
+    ];
+
+    return items.filter((item) => {
+        const value = String(item || '').trim();
+        return value && allowedPatterns.some((pattern) => pattern.test(value));
+    });
+};
+
+const sanitizeCrystalGlassEducationItems = (items = []) =>
+    items.map((item) => String(item || '').replace(
+        /Simplon\s*[—-]\s*Formation numérique\s*\/\s*développement web/gi,
+        'Simplon — Formation numérique'
+    ));
+
 const optimizeForPrint = () => {
     if (!cvForm) {
         return null;
@@ -2050,9 +2336,13 @@ const refreshCvModule = () => {
             cvSection.style.opacity = '1';
             cvSection.style.transform = 'none';
         }
+        if (cvImportBlock) {
+            cvImportBlock.style.display = currentUser?.id ? 'grid' : 'none';
+            cvImportBlock.style.visibility = 'visible';
+        }
         if (cvLayout) {
             cvLayout.classList.remove('is-preview-focus');
-            cvLayout.style.display = 'grid';
+            cvLayout.style.display = currentUser?.id ? 'grid' : 'none';
             cvLayout.style.opacity = '1';
             cvLayout.style.visibility = 'visible';
         }
@@ -2061,18 +2351,18 @@ const refreshCvModule = () => {
             cvLayoutToggle.setAttribute('aria-label', 'Rabattre les reglages');
         }
         if (cvEditorPanel) {
-            cvEditorPanel.style.display = 'grid';
+            cvEditorPanel.style.display = currentUser?.id ? 'grid' : 'none';
             cvEditorPanel.style.opacity = '1';
             cvEditorPanel.style.pointerEvents = 'auto';
             cvEditorPanel.style.visibility = 'visible';
         }
         if (cvForm) {
-            cvForm.style.display = 'grid';
+            cvForm.style.display = currentUser?.id ? 'grid' : 'none';
             cvForm.style.visibility = 'visible';
             cvForm.hidden = false;
         }
         if (cvPreviewShell) {
-            cvPreviewShell.style.display = 'grid';
+            cvPreviewShell.style.display = currentUser?.id ? 'grid' : 'none';
             cvPreviewShell.style.opacity = '1';
             cvPreviewShell.style.pointerEvents = 'auto';
             cvPreviewShell.style.visibility = 'visible';
@@ -2110,6 +2400,7 @@ const refreshCvModule = () => {
         }
         updatePreviewViewport();
         updateWordToolbarState();
+        syncCvWorkspaceAccess();
     } catch (error) {
         console.error(error);
         setCvStatus('Le module CV a rencontre un probleme, mais l editeur reste charge');
@@ -3416,10 +3707,10 @@ const reorderPreviewSections = () => {
 
     if (isStructuredLayout) {
         const sidebarKeys = layoutTheme === 'holographic'
-            ? ['languages', 'skills', 'activities']
+            ? ['languages', 'skills', 'education', 'activities']
             : ['languages', 'skills', 'education', 'activities'];
         const mainKeys = layoutTheme === 'holographic'
-            ? ['summary', 'experience', 'education', 'projects']
+            ? ['summary', 'experience', 'projects']
             : ['summary', 'experience', 'projects'];
 
         sidebarKeys.forEach((key) => {
@@ -4002,7 +4293,7 @@ const updateCvPreview = () => {
     const rawProjectItems = splitLines(values.projects || '');
     const projectItems = mergeStandaloneDateItems(dedupeImportedItems(rawProjectItems));
     const rawEducationItems = splitLines(values.education || '').filter((item) => !/^[-–—]?\s*\)?$/.test(item.trim()));
-    const educationItems = sortTimelineEntriesNewestFirst(normalizeEducationItems(rawEducationItems));
+    let educationItems = sortTimelineEntriesNewestFirst(normalizeEducationItems(rawEducationItems));
     const rawLanguageItems = splitLines(values.languages || '');
     const languageItems = dedupeImportedItems(rawLanguageItems);
     const rawActivityItems = splitLines(values.activities || '');
@@ -4058,6 +4349,11 @@ const updateCvPreview = () => {
     let previewProjectItems = projectItems;
     let previewLanguageItems = languageItems;
     let previewActivityItems = activityItems;
+
+    if (values.layoutTheme === 'holographic') {
+        previewSkillItems = sanitizeCrystalGlassSkillItems(previewSkillItems);
+        educationItems = sanitizeCrystalGlassEducationItems(educationItems);
+    }
 
     const applyPreviewContent = () => applyPreviewSectionContent({
         values,
@@ -5764,7 +6060,7 @@ const parseImportedCv = (text) => {
     if (cvForm.elements.languages) {
         cvForm.elements.languages.value = '';
     }
-    cvSectionOrder = ['summary', 'skills', 'experience', 'projects', 'education', 'activities', 'languages'];
+    cvSectionOrder = [...DEFAULT_CV_SECTION_ORDER];
 
     const nameLine =
         cleanLines.find((line) => !looksLikeSectionHeading(line) && /^[A-ZÀ-ÖØ-Ý' -]{6,}$/.test(line) && line.length < 40) ||
@@ -6379,6 +6675,10 @@ const buildPreviewWordHtml = () => {
 };
 
 const exportWord = () => {
+    if (!requireAuthenticatedCvAccess('Connectez-vous pour exporter votre CV en Word')) {
+        return;
+    }
+
     persistAllEditableNodes({ refreshPreview: true });
     updateCvPreview();
     const filename = currentPreviewMode === 'letter' ? 'lettre-motivation.doc' : 'cv-intelligent.doc';
@@ -6387,14 +6687,36 @@ const exportWord = () => {
 };
 
 const previewCurrentDocument = () => {
+    if (!requireAuthenticatedCvAccess('Connectez-vous pour ouvrir l apercu PDF')) {
+        return;
+    }
+
     // Opening the tab synchronously keeps browsers from treating the PDF preview as a popup.
     const previewWindow = window.open('', '_blank', 'popup=yes,width=980,height=1100');
 
-    exportPdf({ action: 'preview', previewWindow }).then(() => {
-        setCvStatus('Aperçu PDF ouvert : téléchargez ou imprimez depuis la barre du PDF');
+    if (previewWindow) {
+        try {
+            previewWindow.document.open();
+            previewWindow.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Preparation du PDF</title><style>body{font-family:Manrope,system-ui,sans-serif;margin:0;display:grid;place-items:center;min-height:100vh;background:#f6f7fb;color:#223047}main{padding:2rem 2.5rem;border:1px solid rgba(47,63,127,.12);border-radius:24px;background:#fff;box-shadow:0 24px 44px rgba(39,52,89,.08)}strong{display:block;font-size:1.05rem;margin-bottom:.4rem}</style></head><body><main><strong>Preparation de l apercu PDF</strong><span>Le CV est en cours de generation...</span></main></body></html>`);
+            previewWindow.document.close();
+        } catch (error) {
+            console.error(error);
+        }
+    }
+
+    exportPdf({ action: 'preview', previewWindow }).then((didOpen) => {
+        if (didOpen === false && previewWindow && !previewWindow.closed) {
+            previewWindow.close();
+        }
+        if (didOpen !== false) {
+            setCvStatus('Aperçu PDF ouvert : téléchargez ou imprimez depuis la barre du PDF');
+        }
     }).catch((error) => {
         console.error(error);
-        setCvStatus('Aperçu indisponible : le PDF a été téléchargé');
+        if (previewWindow && !previewWindow.closed) {
+            previewWindow.close();
+        }
+        setCvStatus('Aperçu indisponible : PDF téléchargé');
     });
 };
 
@@ -6450,7 +6772,7 @@ const openPdfPreview = (doc, filename, previewWindow = null) => {
         URL.revokeObjectURL(pdfUrl);
         doc.save(filename);
         setCvStatus('Aperçu bloqué : PDF téléchargé');
-        return;
+        return false;
     }
 
     try {
@@ -6458,31 +6780,37 @@ const openPdfPreview = (doc, filename, previewWindow = null) => {
         targetWindow.focus?.();
         window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 120000);
         setCvStatus('Aperçu PDF ouvert : utilisez Télécharger ou Imprimer dans le PDF');
+        return true;
     } catch (error) {
         console.error(error);
         URL.revokeObjectURL(pdfUrl);
         doc.save(filename);
         setCvStatus('Aperçu indisponible : PDF téléchargé');
+        return false;
     }
 };
 
 const finishPdfExport = (doc, filename, action, previewWindow = null) => {
     if (action === 'preview' || action === 'print') {
-        openPdfPreview(doc, filename, previewWindow);
-        return;
+        return openPdfPreview(doc, filename, previewWindow);
     }
 
     doc.save(filename);
     setCvStatus('PDF telecharge avec mise en page professionnelle');
+    return true;
 };
 
 const exportPdf = async (options = {}) => {
+    if (!requireAuthenticatedCvAccess('Connectez-vous pour exporter votre CV')) {
+        return false;
+    }
+
     const action = ['preview', 'print'].includes(options?.action) ? options.action : 'save';
     const JsPdf = window.jspdf?.jsPDF;
 
     if (!JsPdf) {
         setCvStatus('Export PDF indisponible : rechargez la page puis recommencez');
-        return;
+        return false;
     }
 
     setCvStatus(action === 'preview' || action === 'print' ? 'Préparation de l aperçu PDF...' : 'Génération du PDF...');
@@ -6549,8 +6877,7 @@ const exportPdf = async (options = {}) => {
                     }
                 }
 
-                finishPdfExport(doc, filename, action, options?.previewWindow || options?.printWindow);
-                return;
+                return finishPdfExport(doc, filename, action, options?.previewWindow || options?.printWindow);
             } catch (error) {
                 console.error(error);
                 setCvStatus('Export apercu indisponible, generation PDF classique...');
@@ -6815,8 +7142,7 @@ const exportPdf = async (options = {}) => {
             writeWrappedText(subject, { size: 11.5, weight: 'bold', color: '#243b7a', lineHeight: 5.2 });
             y += 2;
             writeWrappedText(body, { size: 11, lineHeight: 5.6 });
-            finishPdfExport(doc, 'lettre-motivation.pdf', action, options?.previewWindow || options?.printWindow);
-            return;
+            return finishPdfExport(doc, 'lettre-motivation.pdf', action, options?.previewWindow || options?.printWindow);
         }
 
         const headerHeight = dense(isModern ? 31 : isExecutive ? 29 : 27);
@@ -6894,10 +7220,11 @@ const exportPdf = async (options = {}) => {
             writeTwoColumnList(data.activities);
         }
 
-        finishPdfExport(doc, 'cv-intelligent.pdf', action, options?.previewWindow || options?.printWindow);
+        return finishPdfExport(doc, 'cv-intelligent.pdf', action, options?.previewWindow || options?.printWindow);
     } catch (error) {
         console.error(error);
         setCvStatus('Echec de generation du PDF');
+        return false;
     } finally {
         if (printBackup) {
             restorePrintFieldBackup(printBackup);
@@ -6906,6 +7233,10 @@ const exportPdf = async (options = {}) => {
 };
 
 const exportWebVersion = () => {
+    if (!requireAuthenticatedCvAccess('Connectez-vous pour exporter la version web')) {
+        return;
+    }
+
     const activePreview = currentPreviewMode === 'letter' ? letterPagePreview : previewNodes.preview;
     const clone = activePreview?.cloneNode(true);
     clone?.querySelectorAll('.cv-section-actions').forEach((node) => node.remove());
@@ -7017,6 +7348,12 @@ const openAssistant = (prompt = '', mode = '') => {
         return;
     }
 
+    if (document.body.classList.contains('cv-workspace-page') && !currentUser?.id) {
+        openAuthModal('login');
+        setCvStatus('Connectez-vous pour utiliser Kirby dans votre espace CV prive');
+        return;
+    }
+
     assistantChat.classList.add('is-open');
     assistantToggle.setAttribute('aria-expanded', 'true');
 
@@ -7123,6 +7460,13 @@ const getKirbyCvInteractionContext = () => {
         activeExperienceIndex: selectedExperienceIndex,
         activeExperience: getActiveExperienceLine(),
         pendingQuestion: pendingExperienceDateCorrectionIndex !== null ? 'date_experience' : '',
+        precisionPolicy: [
+            'Kirby agit comme un assistant de precision pour la mise en page du CV.',
+            'Il ne modifie pas les sections deja correctes.',
+            'Il propose une correction ciblee a la fois.',
+            'Il demande confirmation avant toute grosse modification de structure ou de repartition.',
+            'Il verifie le resultat avant d annoncer que le travail est termine.',
+        ].join(' '),
     };
 };
 
@@ -8150,7 +8494,7 @@ const applyQuickCvTypographyAdjustment = (message = '') => {
     }
 
     if (wantsSmallerBody || wantsReadableContent || (wantsSmallerTitles && !sectionTitleOnlyIntent)) {
-        ['summary', 'skills', 'experience', 'projects', 'education', 'activities', 'languages'].forEach((target) => {
+        DEFAULT_CV_SECTION_ORDER.forEach((target) => {
             const previous = cvEditableContent[target] || {};
             const nextStyle = {
                 ...normalizeStyleState(previous.style || {}),
@@ -9148,6 +9492,7 @@ const applyKirbyCvResult = (result, task, instruction = '', options = {}) => {
 const shouldApplyKirbyResultDirectly = ({ task = '', instruction = '' } = {}) => {
     const userInstruction = getKirbyUserInstruction(instruction);
     const source = normalizeForMatch(userInstruction);
+    const precisionSensitive = /\b(mise en page|aeration|aération|align|alignement|hierarchie|hiérarchie|lisibilite|lisibilité|espace|espacement|marge|padding|colonne|colonnes|section|titre|titres|pdf|a4|export|equilibr|equilibre|equilibree|equilibree|repart|repartition|descend|monte|remonte|decale|decalage|largeur|hauteur|respiration|glass|crystal)\b/.test(source);
 
     if (isLanguageFocusedInstruction(userInstruction)) {
         return true;
@@ -9159,6 +9504,10 @@ const shouldApplyKirbyResultDirectly = ({ task = '', instruction = '' } = {}) =>
 
     if (['create', 'autofill'].includes(task)) {
         return isExplicitKirbyApplyInstruction(userInstruction) || looksLikeCvCreationInstruction(userInstruction) || looksLikePastedCv(userInstruction);
+    }
+
+    if (precisionSensitive) {
+        return false;
     }
 
     if (task !== 'optimize') {
@@ -9510,35 +9859,32 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
 const handleAuthLogin = async (event) => {
     event.preventDefault();
 
-    const formData = new FormData(authLoginForm);
-    const email = normalizeAccountEmail((formData.get('email') || '').toString());
-    const password = (formData.get('password') || '').toString();
-    const accounts = getStoredAccounts();
-    const account = accounts.find((entry) => normalizeAccountEmail(entry.email) === email);
+    try {
+        const formData = new FormData(authLoginForm);
+        const email = normalizeAccountEmail((formData.get('email') || '').toString());
+        const password = (formData.get('password') || '').toString();
+        const client = await initializeSupabaseClient();
+        const { data, error } = await client.auth.signInWithPassword({ email, password });
 
-    if (!account) {
-        setAuthFeedback('Compte introuvable sur cet appareil.', true);
-        return;
+        if (error) {
+            throw error;
+        }
+
+        persistAuthSession(data?.user || null);
+        activeEditableNode = null;
+        activeFormatNode = null;
+        savedFormatRange = null;
+        updateAuthUi();
+        await loadCvDraft({ silent: true });
+        refreshCvModule();
+        closeSiteMenu();
+        authLoginForm.reset();
+        closeAuthModal();
+        setCvStatus('Connexion securisee active');
+    } catch (error) {
+        console.error(error);
+        setAuthFeedback(formatAuthErrorMessage(error, 'login'), true);
     }
-
-    const passwordHash = await hashPassword(password);
-
-    if (account.passwordHash !== passwordHash) {
-        setAuthFeedback('Mot de passe incorrect.', true);
-        return;
-    }
-
-    persistAuthSession(account);
-    activeEditableNode = null;
-    activeFormatNode = null;
-    savedFormatRange = null;
-    updateAuthUi();
-    loadCvDraft();
-    refreshCvModule();
-    closeSiteMenu();
-    authLoginForm.reset();
-    closeAuthModal();
-    setCvStatus('Acces local charge');
 };
 
 const handleAuthSignup = async (event) => {
@@ -9565,44 +9911,61 @@ const handleAuthSignup = async (event) => {
         return;
     }
 
-    const accounts = getStoredAccounts();
+    try {
+        const client = await initializeSupabaseClient();
+        const { data, error } = await client.auth.signUp({
+            email,
+            password,
+            options: {
+                data: {
+                    name,
+                },
+            },
+        });
 
-    if (accounts.some((entry) => normalizeAccountEmail(entry.email) === email)) {
-        setAuthFeedback('Un compte existe deja pour cet email.', true);
-        return;
+        if (error) {
+            throw error;
+        }
+
+        persistAuthSession(data?.session?.user || null);
+        activeEditableNode = null;
+        activeFormatNode = null;
+        savedFormatRange = null;
+        updateAuthUi();
+        if (data?.session?.user) {
+            applyCurrentUserDefaults();
+            resetCvHistory();
+            await saveCvDraft(true);
+            refreshCvModule();
+        }
+        closeSiteMenu();
+        authSignupForm.reset();
+        closeAuthModal();
+        setCvStatus(data?.session ? 'Compte cree et connecte' : 'Compte cree. Confirmez votre email si necessaire.');
+    } catch (error) {
+        console.error(error);
+        setAuthFeedback(formatAuthErrorMessage(error, 'signup'), true);
     }
-
-    const account = {
-        name,
-        email,
-        passwordHash: await hashPassword(password),
-        createdAt: new Date().toISOString(),
-    };
-
-    accounts.push(account);
-    saveStoredAccounts(accounts);
-    persistAuthSession(account);
-    activeEditableNode = null;
-    activeFormatNode = null;
-    savedFormatRange = null;
-    updateAuthUi();
-    applyCurrentUserDefaults();
-    resetCvHistory();
-    saveCvDraft(true);
-    refreshCvModule();
-    closeSiteMenu();
-    authSignupForm.reset();
-    closeAuthModal();
-    setCvStatus('Acces local cree sur ce navigateur');
 };
 
-const handleAuthLogout = () => {
+const handleAuthLogout = async () => {
+    try {
+        const client = await initializeSupabaseClient();
+        const { error } = await client.auth.signOut();
+
+        if (error) {
+            throw error;
+        }
+    } catch (error) {
+        console.error(error);
+    }
+
     persistAuthSession(null);
     activeEditableNode = null;
     activeFormatNode = null;
     savedFormatRange = null;
-    cvEditableContent = {};
-    cvSectionTitleStyles = {};
+    resetCvDraftState();
+    clearLegacyAuthStorage();
     resetCvFormToDefaults();
     updateAuthUi();
     updateCvPreview();
@@ -9612,22 +9975,28 @@ const handleAuthLogout = () => {
     refreshCvModule();
     closeSiteMenu();
     setPreviewMode('cv');
-    setCvStatus('Mode invite actif');
+    setCvStatus('Deconnectee. Mode invite actif');
 };
 
 window.addEventListener('load', () => {
     document.body.classList.remove('is-preload');
     document.body.classList.add('is-ready');
     initSiteTheme();
-    loadAuthSession();
-    updateAuthUi();
-    try {
-        loadCvDraft();
-    } catch (error) {
+    clearLegacyAuthStorage();
+    (async () => {
+        await loadAuthSession();
+        updateAuthUi();
+        try {
+            await loadCvDraft({ silent: true });
+        } catch (error) {
+            console.error(error);
+            setCvStatus('Brouillon securise ignore pour eviter un blocage');
+        }
+        refreshCvModule();
+    })().catch((error) => {
         console.error(error);
-        setCvStatus('Brouillon local ignore pour eviter un blocage');
-    }
-    refreshCvModule();
+        refreshCvModule();
+    });
 });
 
 window.addEventListener('hashchange', () => {
@@ -9645,6 +10014,8 @@ cvOpenLinks.forEach((link) => {
 authOpenLoginButton?.addEventListener('click', () => openAuthModal('login'));
 authOpenSignupButton?.addEventListener('click', () => openAuthModal('signup'));
 authLogoutButton?.addEventListener('click', handleAuthLogout);
+cvGateLoginButton?.addEventListener('click', () => openAuthModal('login'));
+cvGateSignupButton?.addEventListener('click', () => openAuthModal('signup'));
 authCloseButton?.addEventListener('click', closeAuthModal);
 authModal?.querySelectorAll('[data-auth-close]')?.forEach((node) => {
     node.addEventListener('click', closeAuthModal);
