@@ -297,6 +297,15 @@ img {
     gap: 0.45rem;
 }
 
+.site-menu-subtitle {
+    margin: 0.15rem 0 0.25rem;
+    color: rgba(248, 246, 238, 0.68);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
 .site-menu-links a,
 .site-menu-actions a,
 .site-menu-actions button {
@@ -354,6 +363,28 @@ img {
     flex-wrap: wrap;
 }
 
+.site-menu-panel .auth-actions {
+    display: grid;
+    align-items: stretch;
+    justify-content: stretch;
+    width: 100%;
+    gap: 0.45rem;
+}
+
+.site-menu-panel .site-menu-actions a,
+.site-menu-panel .site-menu-actions button {
+    min-height: 2.55rem;
+    padding: 0.68rem 0.9rem;
+    border-color: rgba(255, 255, 255, 0.07);
+    background: rgba(255, 255, 255, 0.025);
+    font-size: 0.92rem;
+    font-weight: 650;
+}
+
+.site-menu-panel .site-menu-actions .theme-toggle {
+    justify-content: space-between;
+}
+
 .auth-badge {
     display: inline-flex;
     align-items: center;
@@ -365,6 +396,14 @@ img {
     color: #2f3f7f;
     font-size: 0.88rem;
     font-weight: 700;
+}
+
+.site-menu-panel .auth-badge {
+    width: 100%;
+    min-height: 2.85rem;
+    padding: 0.78rem 0.9rem;
+    border-radius: 18px;
+    justify-content: flex-start;
 }
 
 .auth-button {
@@ -6365,10 +6404,95 @@ body.cv-workspace-page .preview-toolbar-group-tools {
     gap: 0.9rem;
 }
 
+.auth-modal-dialog .field span {
+    color: #20263a;
+}
+
+.auth-modal-dialog .field-hint,
+.auth-modal-dialog .auth-modal-text {
+    color: #5f6780;
+}
+
+.auth-modal-dialog .field input,
+.auth-modal-dialog .field textarea,
+.auth-modal-dialog .field select {
+    border-color: rgba(47, 63, 127, 0.14);
+    background: rgba(244, 248, 255, 0.92);
+    color: #171923;
+    -webkit-text-fill-color: #171923;
+    caret-color: #171923;
+}
+
+.auth-modal-dialog .field input::placeholder,
+.auth-modal-dialog .field textarea::placeholder,
+.auth-modal-dialog .field select::placeholder {
+    color: rgba(53, 61, 89, 0.48);
+    -webkit-text-fill-color: rgba(53, 61, 89, 0.48);
+}
+
+.auth-modal-dialog .field input:-webkit-autofill,
+.auth-modal-dialog .field input:-webkit-autofill:hover,
+.auth-modal-dialog .field input:-webkit-autofill:focus,
+.auth-modal-dialog .field textarea:-webkit-autofill,
+.auth-modal-dialog .field select:-webkit-autofill {
+    -webkit-text-fill-color: #171923;
+    caret-color: #171923;
+    box-shadow: 0 0 0 1000px rgba(244, 248, 255, 0.96) inset;
+    transition: background-color 9999s ease-in-out 0s;
+}
+
+.auth-modal-dialog .password-field button {
+    background: rgba(255, 255, 255, 0.96);
+    color: #2f3f7f;
+}
+
 .auth-feedback {
     min-height: 1.4rem;
     color: #2f3f7f;
     font-weight: 700;
+}
+
+.auth-resend-row {
+    display: grid;
+    gap: 0.7rem;
+    margin-top: 0.2rem;
+}
+
+.auth-resend-row.is-hidden {
+    display: none;
+}
+
+.auth-resend-button {
+    justify-self: start;
+    border: 1px solid rgba(47, 63, 127, 0.18);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.92);
+    color: #2f3f7f;
+    font-weight: 700;
+    padding: 0.75rem 1.15rem;
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.auth-resend-button:hover {
+    transform: translateY(-1px);
+    border-color: rgba(47, 63, 127, 0.3);
+    box-shadow: 0 10px 24px rgba(47, 63, 127, 0.12);
+}
+
+.auth-resend-button:disabled {
+    opacity: 0.6;
+    cursor: wait;
+    transform: none;
+    box-shadow: none;
+}
+
+.auth-resend-hint {
+    min-height: 1.2rem;
+    margin: 0;
+    color: #51607f;
+    font-size: 0.94rem;
+    line-height: 1.45;
 }
 
 .hero-studio {

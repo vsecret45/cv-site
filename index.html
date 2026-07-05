@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta
         name="description"
-        content="SA Création Web est un créateur de site assisté par IA avec accompagnement humain : nom, slogan, pages, textes, SEO, e-mail pro, QR code et projet client."
+        content="SA Création Web accompagne les independants, artisans et petites entreprises avec des sites internet, domaines, emails professionnels, pages vitrines et accompagnement digital."
     >
     <meta name="google-site-verification" content="RDW4DDGx8k2IFBNrP5nAbccTI4no8b-ffSa6S6aWy98">
-    <title>SA Création Web | Créateur de site IA avec accompagnement humain</title>
+    <title>SA Création Web | Sites internet professionnels et accompagnement digital</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -17,7 +17,7 @@
     >
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <link rel="preload" href="assets/sa-creation-web-mark.svg" as="image" type="image/svg+xml">
-    <link rel="stylesheet" href="style.css?v=20260624-kirby-pilot-v1">
+    <link rel="stylesheet" href="style.css?v=20260704-auth-controls-v3">
 </head>
 <body class="is-preload studio-home">
     <canvas class="cosmic-page-field" id="cosmic-page-field" aria-hidden="true"></canvas>
@@ -42,32 +42,37 @@
                         <a href="contact.html">Contact</a>
                         <a href="cv.html">CV & Portfolio</a>
                     </div>
-                    <div class="site-menu-actions">
-                        <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Basculer entre mode nuit et mode jour" aria-pressed="false">
-                            <span class="theme-toggle-dot"></span>
-                            <span class="theme-toggle-text">Jour</span>
-                        </button>
-                        <a href="prestations.html">Voir les offres</a>
-                        <a href="contact.html">Contact</a>
-                    </div>
+                        <div class="site-menu-actions auth-actions" id="auth-actions">
+                            <span class="auth-badge is-hidden" id="auth-current-user"></span>
+                            <p class="site-menu-subtitle">Espace client</p>
+                            <button type="button" id="auth-open-login">Connexion</button>
+                            <button type="button" id="auth-open-signup">Creer un compte</button>
+                            <a class="is-hidden" href="cv.html" id="auth-client-link">Mon espace client</a>
+                            <a class="is-hidden" href="parametres.html" id="auth-settings-link">Parametres</a>
+                            <button class="is-hidden" type="button" id="auth-logout">Deconnexion</button>
+                            <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Basculer entre mode nuit et mode jour" aria-pressed="false">
+                                <span class="theme-toggle-dot"></span>
+                                <span class="theme-toggle-text">Jour</span>
+                            </button>
+                        </div>
                 </div>
             </nav>
 
             <div class="studio-hero-grid">
                 <div class="hero-content">
-                    <p class="eyebrow hero-reveal hero-reveal-delay-1">Créateur de site assisté par IA</p>
+                    <p class="eyebrow hero-reveal hero-reveal-delay-1">SA Creation Web</p>
                     <h1 class="hero-title hero-reveal-delay-2">
-                        <span class="title-line">Votre projet web prend forme avec l'IA.</span>
+                        <span class="title-line">Des sites web professionnels, clairs et prets a travailler pour vous.</span>
                     </h1>
                     <p class="hero-role hero-reveal hero-reveal-delay-3">
-                        Décrivez votre activité, le générateur prépare une première proposition de site.
+                        SA Creation Web accompagne les independants, artisans et petites entreprises dans la creation de leur site, leur domaine, leur email professionnel et leur presence en ligne.
                     </p>
                     <p class="hero-text hero-reveal hero-reveal-delay-4">
-                        Kirby aide ensuite à ajuster avec vous.
+                        Pages vitrines, services rapides, accompagnement digital et solutions simples pour etre visible en ligne sans perdre de temps.
                     </p>
                     <div class="hero-actions hero-reveal hero-reveal-delay-6">
-                        <a class="button button-primary" href="#kirby-assistant">Créer mon projet</a>
-                        <a class="button button-secondary" href="prestations.html">Voir les offres</a>
+                        <a class="button button-primary" href="contact.html">Parler de votre projet</a>
+                        <a class="button button-secondary" href="#services">Voir les services</a>
                     </div>
                 </div>
 
@@ -94,103 +99,91 @@
         </header>
 
         <main id="main-content">
+            <section class="section reveal-section platform-tools-section" id="services">
+                <div class="section-heading generator-heading-minimal">
+                    <p class="section-kicker">Services SA Creation Web</p>
+                    <h2>Des services utiles pour travailler proprement en ligne.</h2>
+                    <p class="section-intro">
+                        SA Creation Web construit des solutions claires pour les independants, artisans, TPE et professionnels qui veulent une presence serieuse sans complexite inutile.
+                    </p>
+                </div>
+
+                <div class="platform-product-grid" aria-label="Services SA Création Web">
+                    <article class="platform-product-card is-featured" id="sites-internet">
+                        <span class="product-icon" aria-hidden="true">WEB</span>
+                        <strong>Sites internet</strong>
+                        <p>Des sites vitrines clairs, rapides et professionnels pour presenter votre activite, vos offres et vos contacts.</p>
+                    </article>
+                    <article class="platform-product-card" id="domaine-email">
+                        <span class="product-icon" aria-hidden="true">.FR</span>
+                        <strong>Domaine et email professionnel</strong>
+                        <p>Nom de domaine, adresse email pro et configuration simple pour donner une image serieuse a votre entreprise.</p>
+                    </article>
+                    <article class="platform-product-card" id="accompagnement-digital">
+                        <span class="product-icon" aria-hidden="true">SEO</span>
+                        <strong>Accompagnement digital</strong>
+                        <p>Structure, contenus, messages, visibilite locale et conseils pratiques pour avancer avec une presence en ligne utile.</p>
+                    </article>
+                    <article class="platform-product-card" id="exemples-projets">
+                        <span class="product-icon" aria-hidden="true">EX</span>
+                        <strong>Exemples de projets</strong>
+                        <p>Pages vitrines, interfaces simples, contenus utiles et exemples concrets pour visualiser le rendu avant de lancer votre projet.</p>
+                    </article>
+                    <article class="platform-product-card" id="contact-rapide">
+                        <span class="product-icon" aria-hidden="true">GO</span>
+                        <strong>Contact rapide</strong>
+                        <p>Un premier echange simple pour expliquer le besoin, cadrer le projet et choisir la bonne formule sans detour.</p>
+                    </article>
+                </div>
+
+                <div class="platform-flow-band" aria-label="Fonctionnement du générateur SA">
+                    <span>Expliquer l activite</span>
+                    <i></i>
+                    <span>Structurer la presence en ligne</span>
+                    <i></i>
+                    <span>Valider les bons services</span>
+                    <i></i>
+                    <span>Mettre en ligne proprement</span>
+                </div>
+            </section>
+
             <section class="section reveal-section ai-brief-section ai-builder-section creator-focus-section" id="kirby-assistant">
                 <div class="section-heading generator-heading-minimal">
-                    <p class="section-kicker">Générateur IA</p>
-                    <h2>Créez votre site.</h2>
+                    <p class="section-kicker">Assistant SA</p>
+                    <h2>Preparez une premiere base de travail.</h2>
+                    <p class="section-intro">
+                        Si vous avez deja une idee, Kirby peut preparer une premiere proposition de structure, de contenus et de direction pour gagner du temps.
+                    </p>
                 </div>
 
                 <div class="ai-brief-panel builder-workspace creator-studio copilot-workspace">
                     <form class="ai-brief-form creator-prompt-console" id="ai-brief-form">
                         <div class="creator-form-head">
-                            <p class="signal-label">Kirby, pilote de projet</p>
-                            <h3>Confiez-lui la première version.</h3>
-                            <p>Il choisit une direction, construit le parcours, les textes, le SEO et l’aperçu du site à partir de votre idée.</p>
+                            <p class="signal-label">Kirby, assistant de projet</p>
+                            <h3>Donnez votre besoin principal.</h3>
+                            <p>Il peut preparer une premiere base de pages, de textes et d organisation que vous ajustez ensuite.</p>
                         </div>
                         <label class="field field-message">
-                            <span class="sr-only">Décrivez votre activité</span>
+                            <span class="sr-only">Decrivez votre activite</span>
                             <textarea
                                 id="ai-brief-input"
                                 rows="7"
-                                placeholder="Décrivez le site que vous souhaitez créer…"
+                                placeholder="Decrivez votre activite, votre client ideal et ce que vous voulez montrer sur votre site…"
                             ></textarea>
                         </label>
                         <div class="copilot-status-strip" aria-label="Actions prises en charge par Kirby">
-                            <span>Stratégie</span>
-                            <span>Direction visuelle</span>
-                            <span>Conversion &amp; SEO</span>
+                            <span>Structure</span>
+                            <span>Contenus</span>
+                            <span>Visibilite</span>
                         </div>
                         <div class="advisor-composer-actions">
-                            <button class="button button-primary" type="submit">Générer mon site</button>
-                            <button class="button button-secondary" type="button" data-kirby-autopilot="pilot">Kirby pilote mon projet</button>
+                            <button class="button button-primary" type="submit">Lancer une premiere proposition</button>
+                            <button class="button button-secondary" type="button" data-kirby-autopilot="pilot">Kirby m aide a cadrer</button>
                         </div>
-                        <p class="creator-output-note">Kirby prend les décisions de conception et prépare la version de travail ; vous gardez le dernier mot avant publication.</p>
+                        <p class="creator-output-note">L assistant prepare une base de travail. Les choix finaux restent valides avec vous.</p>
                     </form>
                     <article class="ai-brief-output" id="ai-brief-output" aria-live="polite">
                     </article>
-                </div>
-            </section>
-
-            <section class="section reveal-section platform-tools-section" id="services">
-                <div class="section-heading">
-                    <p class="section-kicker">Services SA Création Web</p>
-                    <h2>Des services utiles selon votre projet.</h2>
-                    <p class="section-intro">
-                        Ces options peuvent être ajoutées selon le besoin du client. Elles ne sont pas incluses automatiquement dans chaque projet.
-                    </p>
-                </div>
-
-                <div class="platform-product-grid" aria-label="Services SA Création Web">
-                    <article class="platform-product-card is-featured">
-                        <span class="product-icon" aria-hidden="true">WEB</span>
-                        <strong>Site internet</strong>
-                        <p>Un site clair pour présenter l'activité, les offres, les preuves et le contact.</p>
-                    </article>
-                    <article class="platform-product-card">
-                        <span class="product-icon" aria-hidden="true">.FR</span>
-                        <strong>Domaine</strong>
-                        <p>Un nom facile à partager pour rendre le projet identifiable et crédible.</p>
-                    </article>
-                    <article class="platform-product-card">
-                        <span class="product-icon" aria-hidden="true">@</span>
-                        <strong>Email professionnel</strong>
-                        <p>Une adresse type contact@ pour rassurer les clients et centraliser les demandes.</p>
-                    </article>
-                    <article class="platform-product-card">
-                        <span class="product-icon" aria-hidden="true">DEV</span>
-                        <strong>Développement de site web</strong>
-                        <p>Pages, sections, formulaires, galerie, réservation ou fonctionnalités utiles.</p>
-                    </article>
-                    <article class="platform-product-card">
-                        <span class="product-icon" aria-hidden="true">SEO</span>
-                        <strong>Marketing digital</strong>
-                        <p>Mots-clés, contenu local et idées utiles pour attirer des demandes.</p>
-                    </article>
-                    <article class="platform-product-card">
-                        <span class="product-icon" aria-hidden="true">PRO</span>
-                        <strong>Consultation</strong>
-                        <p>Cadrage du besoin, choix des pages, priorités et conseils avant lancement.</p>
-                    </article>
-                    <article class="platform-product-card">
-                        <span class="product-icon" aria-hidden="true">SUP</span>
-                        <strong>Support technique</strong>
-                        <p>Aide après mise en ligne pour ajuster, corriger ou faire évoluer le site.</p>
-                    </article>
-                    <article class="platform-product-card">
-                        <span class="product-icon" aria-hidden="true">LAB</span>
-                        <strong>Formation / prise en main</strong>
-                        <p>Accompagnement pour comprendre, utiliser et gérer les outils du site.</p>
-                    </article>
-                </div>
-
-                <div class="platform-flow-band" aria-label="Fonctionnement du générateur SA">
-                    <span>Décrire l'activité</span>
-                    <i></i>
-                    <span>Recevoir une proposition</span>
-                    <i></i>
-                    <span>Ajuster avec Kirby</span>
-                    <i></i>
-                    <span>Valider le projet</span>
                 </div>
             </section>
         </main>
@@ -201,6 +194,67 @@
         </footer>
     </div>
 
-    <script src="script.js?v=20260624-kirby-pilot-v1" defer></script>
+    <section class="auth-modal is-hidden" id="auth-modal" aria-hidden="true">
+        <div class="auth-modal-backdrop" data-auth-close></div>
+        <div class="auth-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+            <button class="auth-modal-close" id="auth-close" type="button" aria-label="Fermer">×</button>
+            <h2 id="auth-modal-title">Connexion securisee a votre espace</h2>
+            <p class="auth-modal-text">Connectez-vous pour retrouver vos brouillons, exports et donnees privees dans votre espace personnel.</p>
+            <div class="auth-modal-tabs" role="tablist" aria-label="Connexion securisee">
+                <button class="auth-tab is-active" type="button" data-auth-view="login" aria-selected="true">Connexion</button>
+                <button class="auth-tab" type="button" data-auth-view="signup" aria-selected="false">Creer un compte</button>
+            </div>
+            <div class="auth-modal-panel" id="auth-panel-login">
+                <form class="auth-form" id="auth-login-form">
+                    <label class="field">
+                        <span>Email</span>
+                        <input type="email" name="email" placeholder="email@exemple.com" required>
+                    </label>
+                    <label class="field">
+                        <span>Mot de passe</span>
+                        <span class="password-field">
+                            <input type="password" name="password" placeholder="Votre mot de passe" required>
+                            <button type="button" data-password-toggle aria-label="Afficher le mot de passe">Afficher</button>
+                        </span>
+                    </label>
+                    <button class="button button-primary" type="submit">Me connecter</button>
+                </form>
+            </div>
+            <div class="auth-modal-panel is-hidden" id="auth-panel-signup">
+                <form class="auth-form" id="auth-signup-form">
+                    <label class="field">
+                        <span>Nom</span>
+                        <input type="text" name="name" placeholder="Votre nom" required>
+                    </label>
+                    <label class="field">
+                        <span>Email</span>
+                        <input type="email" name="email" placeholder="email@exemple.com" required>
+                    </label>
+                    <label class="field">
+                        <span>Mot de passe</span>
+                        <span class="password-field">
+                            <input type="password" name="password" placeholder="Choisir un mot de passe" required>
+                            <button type="button" data-password-toggle aria-label="Afficher le mot de passe">Afficher</button>
+                        </span>
+                    </label>
+                    <label class="field">
+                        <span>Confirmer le mot de passe</span>
+                        <span class="password-field">
+                            <input type="password" name="confirmPassword" placeholder="Retaper le mot de passe" required>
+                            <button type="button" data-password-toggle aria-label="Afficher le mot de passe">Afficher</button>
+                        </span>
+                    </label>
+                    <button class="button button-primary" type="submit">Creer mon compte</button>
+                </form>
+            </div>
+            <p class="auth-feedback" id="auth-feedback" aria-live="polite"></p>
+            <div class="auth-resend-row is-hidden" id="auth-resend-row">
+                <button class="auth-resend-button" id="auth-resend-button" type="button">Renvoyer l'email de confirmation</button>
+                <p class="auth-resend-hint" id="auth-resend-hint" aria-live="polite"></p>
+            </div>
+        </div>
+    </section>
+
+    <script src="script.js?v=20260704-auth-controls-v3" defer></script>
 </body>
 </html>

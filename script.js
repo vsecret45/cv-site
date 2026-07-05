@@ -121,11 +121,16 @@ const presetChips = document.querySelectorAll('.preset-chip');
 const templatePresetChips = document.querySelectorAll('[data-template-preset]');
 const authOpenLoginButton = document.querySelector('#auth-open-login');
 const authOpenSignupButton = document.querySelector('#auth-open-signup');
+const authClientLink = document.querySelector('#auth-client-link');
+const authSettingsLink = document.querySelector('#auth-settings-link');
 const authLogoutButton = document.querySelector('#auth-logout');
 const authCurrentUserLabel = document.querySelector('#auth-current-user');
 const authModal = document.querySelector('#auth-modal');
 const authCloseButton = document.querySelector('#auth-close');
 const authFeedback = document.querySelector('#auth-feedback');
+const authResendRow = document.querySelector('#auth-resend-row');
+const authResendButton = document.querySelector('#auth-resend-button');
+const authResendHint = document.querySelector('#auth-resend-hint');
 const authTabs = document.querySelectorAll('[data-auth-view]');
 const authLoginPanel = document.querySelector('#auth-panel-login');
 const authSignupPanel = document.querySelector('#auth-panel-signup');
@@ -135,6 +140,14 @@ const passwordToggleButtons = document.querySelectorAll('[data-password-toggle]'
 const cvPrivateGate = document.querySelector('#cv-private-gate');
 const cvGateLoginButton = document.querySelector('#cv-gate-login');
 const cvGateSignupButton = document.querySelector('#cv-gate-signup');
+const settingsAccountTitle = document.querySelector('#settings-account-title');
+const settingsAccountCopy = document.querySelector('#settings-account-copy');
+const settingsFeedback = document.querySelector('#settings-feedback');
+const settingsOpenLoginButton = document.querySelector('#settings-open-login');
+const settingsOpenSignupButton = document.querySelector('#settings-open-signup');
+const settingsLogoutButton = document.querySelector('#settings-logout');
+const settingsDangerZone = document.querySelector('#settings-danger-zone');
+const settingsDeleteAccountButton = document.querySelector('#settings-delete-account');
 const PDFJS_MODULE_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/legacy/build/pdf.min.mjs';
 const PDFJS_WORKER_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/legacy/build/pdf.worker.min.mjs';
 const SUPABASE_BROWSER_MODULE_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
@@ -879,6 +892,136 @@ const setAuthFeedback = (message = '', isError = false) => {
     authFeedback.style.color = isError ? '#be185d' : '#2f3f7f';
 };
 
+const setAuthResendState = ({
+    visible = false,
+    email = '',
+    message = '',
+    isError = false,
+    busy = false,
+} = {}) => {
+    if (!authResendRow || !authResendButton || !authResendHint) {
+        return;
+    }
+
+    authResendRow.classList.toggle('is-hidden', !visible);
+    authResendButton.disabled = Boolean(busy);
+    authResendButton.dataset.email = email || '';
+    authResendButton.textContent = busy ? 'Envoi en cours...' : "Renvoyer l'email de confirmation";
+    authResendHint.textContent = message;
+    authResendHint.style.color = isError ? '#be185d' : '#51607f';
+};
+
+const getAuthEmailRedirectUrl = () => {
+    const { origin } = window.location;
+    return `${origin}/auth/callback/`;
+};
+
+const readAuthUrlError = () => {
+    const currentUrl = new URL(window.location.href);
+    const hash = window.location.hash || '';
+    const hashParams = hash && hash.includes('=') ? new URLSearchParams(hash.replace(/^#/, '')) : null;
+    const searchParams = currentUrl.searchParams;
+    const params = hashParams?.get('error') ? hashParams : searchParams;
+    const errorValue = params.get('error') || '';
+    const errorCode = params.get('error_code') || '';
+    const description = decodeURIComponent((params.get('error_description') || '').replace(/\+/g, ' '));
+
+    if (!errorValue && !errorCode && !description) {
+        return null;
+    }
+
+    return {
+        errorValue,
+        errorCode,
+        description,
+        rawMessage: `${errorValue} ${errorCode} ${description}`.trim(),
+    };
+};
+
+const clearAuthUrlFeedback = () => {
+    const currentUrl = new URL(window.location.href);
+    currentUrl.searchParams.delete('error');
+    currentUrl.searchParams.delete('error_code');
+    currentUrl.searchParams.delete('error_description');
+    currentUrl.searchParams.delete('auth_callback');
+    history.replaceState({}, document.title, `${currentUrl.pathname}${currentUrl.search}`);
+};
+
+const handleAuthHashFeedback = () => {
+    const authError = readAuthUrlError();
+    if (!authError?.rawMessage) {
+        return;
+    }
+
+    const { rawMessage } = authError;
+
+    openAuthModal('login');
+    setAuthFeedback(formatAuthErrorMessage(new Error(rawMessage), 'login'), true);
+
+    const knownEmail =
+        normalizeAccountEmail(authLoginForm?.elements?.email?.value || '') ||
+        normalizeAccountEmail(authSignupForm?.elements?.email?.value || '');
+
+    if (/otp_expired|has expired|link is invalid|access denied/i.test(rawMessage)) {
+        setAuthResendState({
+            visible: true,
+            email: knownEmail,
+            message: knownEmail
+                ? "Le lien de confirmation a expire. Vous pouvez en demander un nouveau."
+                : "Le lien de confirmation a expire. Saisissez votre email puis renvoyez un nouveau lien.",
+            isError: true,
+        });
+    }
+
+    clearAuthUrlFeedback();
+};
+
+const handleAuthResendConfirmation = async () => {
+    const email = normalizeAccountEmail(authResendButton?.dataset.email || '');
+
+    if (!email) {
+        setAuthResendState({
+            visible: true,
+            message: "Ajoutez votre email pour recevoir un nouveau lien de confirmation.",
+            isError: true,
+        });
+        return;
+    }
+
+    try {
+        const client = await initializeSupabaseClient();
+        setAuthResendState({ visible: true, email, busy: true, message: '' });
+
+        const { error } = await client.auth.resend({
+            type: 'signup',
+            email,
+            options: {
+                emailRedirectTo: getAuthEmailRedirectUrl(),
+            },
+        });
+
+        if (error) {
+            throw error;
+        }
+
+        setAuthResendState({
+            visible: true,
+            email,
+            message: "Un nouvel email de confirmation vient d'etre envoye. Verifiez aussi vos courriers indesirables.",
+            isError: false,
+        });
+        setAuthFeedback('Email de confirmation renvoye.', false);
+    } catch (error) {
+        console.error(error);
+        setAuthResendState({
+            visible: true,
+            email,
+            message: formatAuthErrorMessage(error, 'signup'),
+            isError: true,
+        });
+    }
+};
+
 const formatAuthErrorMessage = (error, mode = 'signup') => {
     const source = String(error?.message || error?.error_description || error?.name || '').trim();
     const normalized = normalizeForMatch(source);
@@ -895,6 +1038,14 @@ const formatAuthErrorMessage = (error, mode = 'signup') => {
 
     if (/invalid login credentials|invalid credentials/.test(normalized)) {
         return 'Connexion impossible. Verifiez votre email et votre mot de passe.';
+    }
+
+    if (/email not confirmed|not confirmed/.test(normalized)) {
+        return "Votre adresse email n'est pas encore confirmee. Utilisez le lien recu par email ou demandez un nouvel envoi.";
+    }
+
+    if (/otp_expired|has expired|link is invalid|link has expired|access denied/.test(normalized)) {
+        return 'Ce lien de confirmation a expire ou a deja ete utilise. Demandez un nouvel email de confirmation puis reessayez.';
     }
 
     if (/email.*invalid|invalid email/.test(normalized)) {
@@ -924,6 +1075,7 @@ const setAuthView = (view) => {
     authLoginPanel?.classList.toggle('is-hidden', activeView !== 'login');
     authSignupPanel?.classList.toggle('is-hidden', activeView !== 'signup');
     setAuthFeedback('');
+    setAuthResendState();
 };
 
 const openAuthModal = (view = 'login') => {
@@ -944,6 +1096,17 @@ const closeAuthModal = () => {
     authModal.classList.add('is-hidden');
     authModal.setAttribute('aria-hidden', 'true');
     setAuthFeedback('');
+    setAuthResendState();
+};
+
+const setSettingsFeedback = (message = '', isError = false) => {
+    if (!settingsFeedback) {
+        return;
+    }
+
+    settingsFeedback.textContent = message;
+    settingsFeedback.classList.toggle('is-error', Boolean(message) && isError);
+    settingsFeedback.classList.toggle('is-success', Boolean(message) && !isError);
 };
 
 const persistAuthSession = (user) => {
@@ -967,16 +1130,72 @@ const loadAuthSession = async () => {
     }
 };
 
-const updateAuthUi = () => {
-    authOpenLoginButton?.classList.toggle('is-hidden', Boolean(currentUser));
-    authOpenSignupButton?.classList.toggle('is-hidden', Boolean(currentUser));
-    authLogoutButton?.classList.toggle('is-hidden', !currentUser);
+const handleAuthCallbackSuccess = () => {
+    const currentUrl = new URL(window.location.href);
 
-    if (authCurrentUserLabel) {
-        authCurrentUserLabel.classList.toggle('is-hidden', !currentUser);
-        authCurrentUserLabel.textContent = currentUser ? `Connectee : ${currentUser.name || currentUser.email}` : '';
+    if (currentUrl.searchParams.get('auth_callback') !== '1') {
+        return;
     }
 
+    currentUrl.searchParams.delete('auth_callback');
+    const authError = readAuthUrlError();
+    const hasUrlError = Boolean(authError?.rawMessage);
+    const cleanedUrl = `${currentUrl.pathname}${currentUrl.search}`;
+
+    if (currentUser?.id) {
+        setCvStatus('Adresse email confirmee. Votre espace prive est pret.');
+        setAuthFeedback('Adresse email confirmee. Vous etes maintenant connectee.', false);
+        closeAuthModal();
+    } else if (!hasUrlError) {
+        openAuthModal('login');
+        setAuthFeedback("Adresse email validee. Vous pouvez maintenant vous connecter.", false);
+    }
+
+    history.replaceState({}, document.title, cleanedUrl || window.location.pathname);
+};
+
+const updateSettingsPage = () => {
+    if (!settingsAccountTitle && !settingsAccountCopy) {
+        return;
+    }
+
+    const isAuthenticated = Boolean(currentUser?.id);
+
+    if (settingsAccountTitle) {
+        settingsAccountTitle.textContent = 'Mon compte';
+    }
+
+    if (settingsAccountCopy) {
+        settingsAccountCopy.textContent = isAuthenticated && currentUser?.email
+            ? `Connectee en tant que ${currentUser.email}`
+            : 'Connectez-vous pour acceder a votre compte.';
+    }
+
+    settingsOpenLoginButton?.classList.toggle('is-hidden', isAuthenticated);
+    settingsOpenSignupButton?.classList.toggle('is-hidden', isAuthenticated);
+    settingsLogoutButton?.classList.toggle('is-hidden', !isAuthenticated);
+    settingsDangerZone?.classList.toggle('is-hidden', !isAuthenticated);
+
+    if (!isAuthenticated) {
+        setSettingsFeedback('');
+    }
+};
+
+const updateAuthUi = () => {
+    const isAuthenticated = Boolean(currentUser?.id);
+
+    authOpenLoginButton?.classList.toggle('is-hidden', isAuthenticated);
+    authOpenSignupButton?.classList.toggle('is-hidden', isAuthenticated);
+    authClientLink?.classList.toggle('is-hidden', !isAuthenticated);
+    authSettingsLink?.classList.toggle('is-hidden', !isAuthenticated);
+    authLogoutButton?.classList.toggle('is-hidden', !isAuthenticated);
+
+    if (authCurrentUserLabel) {
+        authCurrentUserLabel.classList.add('is-hidden');
+        authCurrentUserLabel.textContent = '';
+    }
+
+    updateSettingsPage();
     syncCvWorkspaceAccess();
 };
 
@@ -9883,7 +10102,18 @@ const handleAuthLogin = async (event) => {
         setCvStatus('Connexion securisee active');
     } catch (error) {
         console.error(error);
+        const formData = new FormData(authLoginForm);
+        const email = normalizeAccountEmail((formData.get('email') || '').toString());
         setAuthFeedback(formatAuthErrorMessage(error, 'login'), true);
+
+        if (/email not confirmed|not confirmed/i.test(String(error?.message || error || ''))) {
+            setAuthResendState({
+                visible: true,
+                email,
+                message: "Votre adresse email n'est pas encore confirmee. Vous pouvez renvoyer le message de confirmation.",
+                isError: false,
+            });
+        }
     }
 };
 
@@ -9920,11 +10150,30 @@ const handleAuthSignup = async (event) => {
                 data: {
                     name,
                 },
+                emailRedirectTo: getAuthEmailRedirectUrl(),
             },
         });
 
         if (error) {
             throw error;
+        }
+
+        if (!data?.session?.user) {
+            authSignupForm.reset();
+            setAuthView('login');
+            if (authLoginForm?.elements?.email) {
+                authLoginForm.elements.email.value = email;
+            }
+            setAuthFeedback('Compte cree. Confirmez votre adresse email pour activer la connexion.', false);
+            setAuthResendState({
+                visible: true,
+                email,
+                message: "Si le premier email a expire ou n'est pas arrive, vous pouvez le renvoyer.",
+                isError: false,
+            });
+            setCvStatus('Compte cree. Confirmez votre email pour activer la connexion.');
+            closeSiteMenu();
+            return;
         }
 
         persistAuthSession(data?.session?.user || null);
@@ -9941,7 +10190,7 @@ const handleAuthSignup = async (event) => {
         closeSiteMenu();
         authSignupForm.reset();
         closeAuthModal();
-        setCvStatus(data?.session ? 'Compte cree et connecte' : 'Compte cree. Confirmez votre email si necessaire.');
+        setCvStatus('Compte cree et connecte');
     } catch (error) {
         console.error(error);
         setAuthFeedback(formatAuthErrorMessage(error, 'signup'), true);
@@ -9978,13 +10227,64 @@ const handleAuthLogout = async () => {
     setCvStatus('Deconnectee. Mode invite actif');
 };
 
+const handleAccountDelete = async () => {
+    if (!currentUser?.id) {
+        openAuthModal('login');
+        setSettingsFeedback('Connectez-vous pour supprimer votre compte.', true);
+        return;
+    }
+
+    const confirmed = window.confirm('Cette action supprimera votre compte et vos brouillons prives. Continuer ?');
+
+    if (!confirmed) {
+        return;
+    }
+
+    try {
+        setSettingsFeedback('Suppression du compte en cours...');
+        const client = await initializeSupabaseClient();
+        const { data, error } = await client.auth.getSession();
+
+        if (error) {
+            throw error;
+        }
+
+        const accessToken = data?.session?.access_token;
+
+        if (!accessToken) {
+            throw new Error('missing_access_token');
+        }
+
+        const response = await fetch('/api/account-delete', {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+        });
+
+        const payload = await response.json().catch(() => ({}));
+
+        if (!response.ok || !payload?.ok) {
+            throw new Error(payload?.error || 'account_delete_failed');
+        }
+
+        await handleAuthLogout();
+        window.location.href = 'index.html';
+    } catch (error) {
+        console.error(error);
+        setSettingsFeedback('Suppression du compte impossible pour le moment.', true);
+    }
+};
+
 window.addEventListener('load', () => {
     document.body.classList.remove('is-preload');
     document.body.classList.add('is-ready');
     initSiteTheme();
     clearLegacyAuthStorage();
     (async () => {
+        handleAuthHashFeedback();
         await loadAuthSession();
+        handleAuthCallbackSuccess();
         updateAuthUi();
         try {
             await loadCvDraft({ silent: true });
@@ -10014,6 +10314,10 @@ cvOpenLinks.forEach((link) => {
 authOpenLoginButton?.addEventListener('click', () => openAuthModal('login'));
 authOpenSignupButton?.addEventListener('click', () => openAuthModal('signup'));
 authLogoutButton?.addEventListener('click', handleAuthLogout);
+settingsOpenLoginButton?.addEventListener('click', () => openAuthModal('login'));
+settingsOpenSignupButton?.addEventListener('click', () => openAuthModal('signup'));
+settingsLogoutButton?.addEventListener('click', handleAuthLogout);
+settingsDeleteAccountButton?.addEventListener('click', handleAccountDelete);
 cvGateLoginButton?.addEventListener('click', () => openAuthModal('login'));
 cvGateSignupButton?.addEventListener('click', () => openAuthModal('signup'));
 authCloseButton?.addEventListener('click', closeAuthModal);
@@ -10027,6 +10331,7 @@ authTabs.forEach((tab) => {
 });
 authLoginForm?.addEventListener('submit', handleAuthLogin);
 authSignupForm?.addEventListener('submit', handleAuthSignup);
+authResendButton?.addEventListener('click', handleAuthResendConfirmation);
 passwordToggleButtons.forEach((button) => {
     button.addEventListener('click', () => {
         const field = button.closest('.password-field')?.querySelector('input');

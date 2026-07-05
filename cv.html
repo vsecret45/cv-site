@@ -15,7 +15,7 @@
         rel="stylesheet"
     >
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-    <link rel="stylesheet" href="style.css?v=20260703-typography-fix-v33">
+    <link rel="stylesheet" href="style.css?v=20260704-auth-controls-v3">
 </head>
 <body class="is-preload cv-workspace-page cv-workspace-locked">
     <div class="page-shell">
@@ -39,34 +39,36 @@
                     </div>
                     <div class="site-menu-actions auth-actions" id="auth-actions">
                         <span class="auth-badge is-hidden" id="auth-current-user"></span>
+                        <p class="site-menu-subtitle">Espace client</p>
                         <button type="button" id="auth-open-login">Connexion</button>
                         <button type="button" id="auth-open-signup">Creer un compte</button>
+                        <a class="is-hidden" href="cv.html" id="auth-client-link">Mon espace client</a>
+                        <a class="is-hidden" href="parametres.html" id="auth-settings-link">Parametres</a>
+                        <button class="is-hidden" type="button" id="auth-logout">Deconnexion</button>
                         <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Basculer entre mode nuit et mode jour" aria-pressed="false">
                             <span class="theme-toggle-dot"></span>
                             <span class="theme-toggle-text">Jour</span>
                         </button>
-                        <a href="contact.html">Contact</a>
-                        <button class="is-hidden" type="button" id="auth-logout">Deconnexion</button>
                     </div>
                 </div>
             </nav>
 
             <div class="hero-content">
-                <p class="eyebrow hero-reveal hero-reveal-delay-1">Espace privé CV</p>
-                <h1 class="hero-title hero-reveal-delay-2">
-                    <span class="title-line">Créer, corriger et exporter un CV sans mélanger vos données avec la vitrine</span>
-                </h1>
-                <p class="hero-role hero-reveal hero-reveal-delay-3">La vitrine publique reste séparée. L'éditeur CV fonctionne dans un espace de travail dédié, avec connexion, brouillon privé et exports.</p>
-                <p class="hero-text hero-reveal hero-reveal-delay-4">
-                    L'aperçu reste ouvert pendant l'édition pour travailler naturellement, avec des outils proches de Word et un assistant qui applique les corrections directement.
-                </p>
+                    <p class="eyebrow hero-reveal hero-reveal-delay-1">Editeur CV</p>
+                    <h1 class="hero-title hero-reveal-delay-2">
+                        <span class="title-line">Travailler le CV directement dans l'aperçu</span>
+                    </h1>
+                    <p class="hero-role hero-reveal hero-reveal-delay-3">Import, correction, mise en page et export PDF dans un espace d'édition clair, pensé pour aller vite.</p>
+                    <p class="hero-text hero-reveal hero-reveal-delay-4">
+                        L'aperçu reste ouvert pendant l'édition pour ajuster le contenu, la hiérarchie visuelle et les exports sans quitter le document.
+                    </p>
             </div>
         </header>
 
         <main>
             <section class="section section-cv reveal-section" id="cv-intelligent">
                 <div class="section-heading">
-                    <p class="section-kicker">Plan de travail privé</p>
+                    <p class="section-kicker">Aperçu & édition</p>
                     <h2>Modifier le CV sans quitter l'aperçu</h2>
                 </div>
                 <div class="cv-import-strip" id="cv-import-block">
@@ -80,15 +82,6 @@
                         <small class="field-hint">Formats compatibles : `.txt`, `.md`, `.pdf`, `.docx`.</small>
                     </label>
                     <button class="button button-primary" type="button" id="cv-optimize-main">Corriger et optimiser mon CV</button>
-                </div>
-                <div class="cv-private-gate" id="cv-private-gate" aria-hidden="false">
-                    <p class="section-kicker">Espace prive</p>
-                    <h3>Connectez-vous pour ouvrir votre CV personnel</h3>
-                    <p>Chaque brouillon, export et ajustement reste rattache a votre compte. Les donnees de demonstration restent separees de votre espace prive.</p>
-                    <div class="cv-private-gate-actions">
-                        <button class="button button-primary" type="button" id="cv-gate-login">Connexion</button>
-                        <button class="button button-secondary" type="button" id="cv-gate-signup">Creer un compte</button>
-                    </div>
                 </div>
                 <div class="cv-layout" id="cv-layout">
                     <div class="cv-editor-panel" id="cv-editor-panel">
@@ -769,6 +762,10 @@ Sport</textarea>
                 </form>
             </div>
             <p class="auth-feedback" id="auth-feedback" aria-live="polite"></p>
+            <div class="auth-resend-row is-hidden" id="auth-resend-row">
+                <button class="auth-resend-button" id="auth-resend-button" type="button">Renvoyer l'email de confirmation</button>
+                <p class="auth-resend-hint" id="auth-resend-hint" aria-live="polite"></p>
+            </div>
         </div>
     </section>
 
@@ -776,6 +773,6 @@ Sport</textarea>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js" defer></script>
-    <script src="script.js?v=20260703-kirby-openai-ops-v19" defer></script>
+    <script src="script.js?v=20260704-auth-controls-v3" defer></script>
 </body>
 </html>
