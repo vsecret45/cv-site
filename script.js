@@ -14008,7 +14008,14 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
             ? 'is-beauty'
             : '';
     const sectorClass = `sector-${normalizeKirbyText(safeProposal.sectorKey || 'generic').replace(/[^a-z0-9-]/g, '-') || 'generic'}`;
-    const dashboardBrand = cleanHtml(safeProposal.siteName || siteName).replace(/Direct$/i, '<b>Direct</b>');
+    const dashboardInitials = cleanHtml(siteName
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((word) => word.charAt(0))
+        .join('')
+        .slice(0, 2)
+        .toUpperCase() || 'SA');
+    const dashboardBrand = cleanHtml(siteName);
     const projectSummary = [
         `Activite : ${getKirbyShortText(brief || 'Projet a preciser', 170)}`,
         `Type de site : ${safeProposal.projectType || siteModel.name || 'Site professionnel'}`,
@@ -14029,12 +14036,27 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
         'Merci de me dire ce qu’il faut ajuster pour lancer le projet.',
     ].join('\n');
     quoteParams.set('message', coherentContactMessage);
-    const dashboardMenuItems = ['Tableau de bord', 'Revenus', 'Depenses', 'Devis', 'Factures', 'Banque', 'Documents', 'TVA & Charges'];
+    const dashboardMenuItems = (visiblePageNames.length ? visiblePageNames : ['Vue d’ensemble', 'Offres', 'Clients', 'Contenus', 'Paramètres']).slice(0, 8);
+    const dashboardKpis = [
+        { label: visibleSections[0]?.title || 'Promesse', value: getKirbyShortText(primaryCta, 22), trend: safeProposal.positioning?.promise || safeProposal.valueProposition || 'Action principale visible' },
+        { label: visibleSections[1]?.title || 'Parcours', value: `${visiblePageNames.length || 4} pages`, trend: visiblePageNames.slice(0, 3).join(', ') || 'Navigation adaptée' },
+        { label: visibleSections[2]?.title || 'Fonctions', value: `${featureNames.length || 3} modules`, trend: featureNames.slice(0, 3).join(', ') || 'Fonctionnalités selon le brief' },
+        { label: 'Ambiance', value: getKirbyShortText(safeProposal.visualMood || 'Sur mesure', 22), trend: safeProposal.visualConcept?.ambience || safeProposal.styleGuide?.direction || 'Direction déduite du projet' },
+    ];
+    const dashboardTaskItems = visibleSections.slice(0, 3).map((section, index) => ({
+        title: getKirbyItemTitle(section),
+        value: index === 0 ? primaryCta : index === 1 ? secondaryCta : tertiaryCta,
+    })).filter((item) => item.title);
+    const dashboardListItems = visiblePages.slice(0, 3).map((page) => ({
+        title: getKirbyItemTitle(page),
+        value: getKirbyShortText(getKirbyItemText(page), 34) || 'Page clé',
+    }));
+    const dashboardSegments = visibleSections.slice(0, 4).map((section) => getKirbyItemTitle(section)).filter(Boolean);
     const dashboardPreview = `
         <div class="kirby-dashboard-app" aria-label="Apercu application ${cleanHtml(siteName)}">
             <aside class="kirby-dashboard-sidebar">
                 <div class="kirby-dashboard-brand">
-                    <span aria-hidden="true">CD</span>
+                    <span aria-hidden="true">${dashboardInitials}</span>
                     <strong>${dashboardBrand}</strong>
                 </div>
                 <div class="kirby-dashboard-menu">
@@ -14046,15 +14068,15 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
                     `).join('')}
                 </div>
                 <div class="kirby-dashboard-user">
-                    <span aria-hidden="true">TM</span>
+                    <span aria-hidden="true">${dashboardInitials}</span>
                     <div>
-                        <strong>Thomas Martin</strong>
-                        <small>Entreprise individuelle</small>
+                        <strong>${cleanHtml(getKirbyShortText(siteName, 22))}</strong>
+                        <small>${cleanHtml(getKirbyShortText(safeProposal.projectType || siteModel.name || 'Projet digital', 30))}</small>
                     </div>
                 </div>
                 <div class="kirby-dashboard-plan">
-                    <strong>Plan Premium</strong>
-                    <small>Jusqu'au 12/06/2025</small>
+                    <strong>${cleanHtml(safeProposal.recommendedOffer || 'Projet')}</strong>
+                    <small>Direction Kirby</small>
                 </div>
             </aside>
             <main class="kirby-dashboard-main">
@@ -14065,48 +14087,32 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
                     </label>
                     <div class="kirby-dashboard-actions">
                         <span class="dash-new">+ ${cleanHtml(primaryCta || 'Nouveau')}</span>
-                        <span class="dash-icon">3</span>
-                        <span class="dash-avatar">TM</span>
+                        <span class="dash-icon">${String(Math.max(visibleSections.length, 1))}</span>
+                        <span class="dash-avatar">${dashboardInitials}</span>
                     </div>
                 </header>
                 <section class="kirby-dashboard-title">
                     <div>
-                        <h3>Bonjour Thomas</h3>
-                        <p>Voici un apercu de votre activite</p>
+                        <h3>${cleanHtml(getKirbyShortText(safeProposal.slogan || siteName, 42))}</h3>
+                        <p>${cleanHtml(getKirbyShortText(safeProposal.valueProposition || safeProposal.summary || 'Vue produit construite depuis la demande.', 92))}</p>
                     </div>
-                    <span>1 - 30 Mai 2025</span>
+                    <span>${cleanHtml(getKirbyShortText(siteModel.name || safeProposal.projectType || 'Prototype Kirby', 28))}</span>
                 </section>
                 <section class="kirby-dashboard-kpis">
-                    <article>
-                        <small>Chiffre d'affaires</small>
-                        <strong>12 590,00 EUR</strong>
-                        <em>+12,5% vs Avril</em>
-                        <i class="spark spark-blue"></i>
-                    </article>
-                    <article>
-                        <small>Depenses</small>
-                        <strong>4 320,50 EUR</strong>
-                        <em>-8,3% vs Avril</em>
-                        <i class="spark spark-red"></i>
-                    </article>
-                    <article>
-                        <small>Resultat net</small>
-                        <strong>8 269,50 EUR</strong>
-                        <em>+18,7% vs Avril</em>
-                        <i class="spark spark-green"></i>
-                    </article>
-                    <article>
-                        <small>TVA a reverser</small>
-                        <strong>1 250,00 EUR</strong>
-                        <em class="is-warning">Echeance 20/06/2025</em>
-                        <i class="dash-progress"></i>
-                    </article>
+                    ${dashboardKpis.map((item, index) => `
+                        <article>
+                            <small>${cleanHtml(getKirbyShortText(item.label, 28))}</small>
+                            <strong>${cleanHtml(getKirbyShortText(item.value, 26))}</strong>
+                            <em class="${index === 3 ? 'is-warning' : ''}">${cleanHtml(getKirbyShortText(item.trend, 42))}</em>
+                            <i class="${index === 3 ? 'dash-progress' : `spark ${index === 1 ? 'spark-red' : index === 2 ? 'spark-green' : 'spark-blue'}`}"></i>
+                        </article>
+                    `).join('')}
                 </section>
                 <section class="kirby-dashboard-content">
                     <div class="dash-panel dash-chart-panel">
                         <div class="dash-panel-head">
-                            <strong>Evolution du chiffre d'affaires</strong>
-                            <span>Mensuel</span>
+                            <strong>${cleanHtml(getKirbyShortText(safeProposal.visualConcept?.layoutSignature || 'Parcours principal', 42))}</strong>
+                            <span>${cleanHtml(primaryCta)}</span>
                         </div>
                         <div class="dash-bars" aria-hidden="true">
                             <i style="--h: 58%"></i><i style="--h: 68%"></i><i style="--h: 62%"></i><i style="--h: 72%"></i><i style="--h: 80%"></i><i style="--h: 92%"></i>
@@ -14114,45 +14120,42 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
                     </div>
                     <div class="dash-panel dash-donut-panel">
                         <div class="dash-panel-head">
-                            <strong>Repartition des depenses</strong>
-                            <span>Categories</span>
+                            <strong>Architecture du projet</strong>
+                            <span>${cleanHtml(`${visiblePageNames.length || 4} pages`)}</span>
                         </div>
                         <div class="dash-donut-wrap">
-                            <div class="dash-donut" aria-hidden="true"><strong>4 320,50</strong><small>Total</small></div>
+                            <div class="dash-donut" aria-hidden="true"><strong>${cleanHtml(String(Math.max(dashboardSegments.length, 3)))}</strong><small>Axes</small></div>
                             <ul>
-                                <li><i></i> Achats / Marchandises</li>
-                                <li><i></i> Charges externes</li>
-                                <li><i></i> Services</li>
-                                <li><i></i> Deplacements</li>
+                                ${(dashboardSegments.length ? dashboardSegments : ['Promesse', 'Preuves', 'Action']).slice(0, 4).map((item) => `<li><i></i> ${cleanHtml(getKirbyShortText(item, 28))}</li>`).join('')}
                             </ul>
                         </div>
                     </div>
                     <aside class="dash-side-stack">
                         <div class="dash-panel dash-tasks">
-                            <div class="dash-panel-head"><strong>A faire</strong></div>
-                            <p><i></i>Valider 3 factures <b>1 250,00 EUR</b></p>
-                            <p><i></i>Relancer 2 devis <b>950,00 EUR</b></p>
-                            <p><i></i>Justificatifs a classer <b class="badge">7</b></p>
+                            <div class="dash-panel-head"><strong>Actions clés</strong></div>
+                            ${(dashboardTaskItems.length ? dashboardTaskItems : [{ title: primaryCta, value: 'Priorité' }, { title: secondaryCta, value: 'Secondaire' }, { title: tertiaryCta, value: 'Contact' }]).slice(0, 3).map((item, index) => `
+                                <p><i></i>${cleanHtml(getKirbyShortText(item.title, 28))} <b class="${index === 2 ? 'badge' : ''}">${cleanHtml(getKirbyShortText(item.value, 18))}</b></p>
+                            `).join('')}
                             <a>${cleanHtml(secondaryCta || 'Voir toutes les taches')}</a>
                         </div>
                         <div class="dash-panel dash-bank">
-                            <div class="dash-panel-head"><strong>Comptes bancaires</strong><span>Voir tout</span></div>
-                            <p><span>Compte principal</span><b>8 240,75 EUR</b></p>
-                            <p><span>Compte epargne</span><b>12 500,00 EUR</b></p>
+                            <div class="dash-panel-head"><strong>Cible</strong><span>Brief</span></div>
+                            <p><span>Audience</span><b>${cleanHtml(getKirbyShortText(safeProposal.positioning?.audience || 'À déduire', 24))}</b></p>
+                            <p><span>Ton</span><b>${cleanHtml(getKirbyShortText(safeProposal.positioning?.tone || safeProposal.visualMood || 'Sur mesure', 24))}</b></p>
                         </div>
                     </aside>
                     <div class="dash-panel dash-list-panel">
-                        <div class="dash-panel-head"><strong>Dernieres transactions</strong><span>Voir tout</span></div>
-                        <p><span>Facture F-2025-052</span><b>1 250,00 EUR</b></p>
-                        <p><span>Achat fournitures</span><b class="is-negative">-89,90 EUR</b></p>
-                        <p><span>Virement recu</span><b>980,00 EUR</b></p>
+                        <div class="dash-panel-head"><strong>Pages clés</strong><span>Voir tout</span></div>
+                        ${(dashboardListItems.length ? dashboardListItems : [{ title: 'Accueil', value: 'Promesse' }, { title: 'Services', value: 'Offre' }, { title: 'Contact', value: 'Action' }]).slice(0, 3).map((item) => `
+                            <p><span>${cleanHtml(getKirbyShortText(item.title, 28))}</span><b>${cleanHtml(getKirbyShortText(item.value, 34))}</b></p>
+                        `).join('')}
                     </div>
                     <div class="dash-panel dash-ai-panel">
-                        <strong>Assistant IA</strong>
-                        <p>Comment puis-je vous aider aujourd'hui ?</p>
-                        <span>Analyser mes depenses du mois</span>
-                        <span>Quel sera mon resultat ce mois-ci ?</span>
-                        <div>Posez votre question...</div>
+                        <strong>Assistant Kirby</strong>
+                        <p>${cleanHtml(getKirbyShortText(safeProposal.visualConcept?.wowFactor || 'Proposition construite depuis la demande.', 86))}</p>
+                        <span>${cleanHtml(getKirbyShortText(primaryCta, 42))}</span>
+                        <span>${cleanHtml(getKirbyShortText(secondaryCta, 42))}</span>
+                        <div>Demander une modification...</div>
                     </div>
                 </section>
             </main>
