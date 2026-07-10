@@ -10,6 +10,22 @@
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Lato:wght@400;700&family=Libre+Baskerville:wght@400;700&family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <link rel="stylesheet" href="style.css?v=20260614-platform-v17">
+    <style>
+        .contact-simple-layout {
+            width: min(100%, 760px);
+            margin: 0 auto;
+        }
+
+        .contact-simple-form {
+            gap: 0.9rem;
+            padding: clamp(1.2rem, 2.4vw, 1.8rem);
+            border-radius: 22px;
+        }
+
+        .contact-project-field textarea {
+            min-height: 13rem;
+        }
+    </style>
 </head>
 <body class="is-preload studio-home">
     <div class="page-shell">
@@ -24,7 +40,6 @@
                     <div class="site-menu-links">
                         <a href="index.html">Accueil</a>
                         <a href="prestations.html">Prestations</a>
-                        <a href="prestations.html#petits-services">Services rapides</a>
                         <a href="methode.html">Methode</a>
                         <a href="realisations.html">Exemples</a>
                         <a href="contact.html">Contact</a>
@@ -42,33 +57,15 @@
             </nav>
             <div class="page-intro">
                 <p class="eyebrow">Contact</p>
-                <h1>Finaliser votre demande.</h1>
-                <p>Votre proposition est deja preparee. Laissez simplement vos coordonnees pour etre recontacte.</p>
+                <h1>Parlons de votre projet.</h1>
             </div>
         </header>
 
         <main>
             <section class="section section-contact reveal-section">
-                <div class="contact-final-layout">
-                    <article class="contact-project-summary" aria-label="Resume du projet">
-                        <p class="signal-label">Projet prepare</p>
-                        <h2 id="contact-summary-title">Base de site generee</h2>
-                        <p id="contact-summary-message">Le message de demande est prepare automatiquement avec les informations du generateur.</p>
-                        <div class="contact-summary-pills" id="contact-summary-pills">
-                            <span>Site internet</span>
-                            <span>Pages utiles</span>
-                            <span>Options adaptees</span>
-                        </div>
-                    </article>
-
-                    <form class="contact-form contact-final-form" id="contact-form">
-                        <div class="contact-final-head">
-                            <p class="signal-label">Derniere etape</p>
-                            <h2>Finaliser ma demande</h2>
-                            <p>Nous vous recontactons avec la proposition deja preparee.</p>
-                        </div>
+                <div class="contact-simple-layout">
+                    <form class="contact-form contact-simple-form" id="contact-form">
                         <input type="hidden" name="service" value="Projet site web">
-                        <input type="hidden" name="message" value="">
                         <label class="field">
                             <span>Nom</span>
                             <input type="text" name="name" placeholder="Votre nom" autocomplete="name" required>
@@ -81,7 +78,12 @@
                             <span>Telephone facultatif</span>
                             <input type="tel" name="phone" placeholder="07 00 00 00 00" autocomplete="tel">
                         </label>
-                        <button class="button button-primary contact-button" type="submit">Envoyer mes coordonnees</button>
+                        <label class="field contact-project-field">
+                            <span>Décrivez votre projet</span>
+                            <textarea name="project" placeholder="Décrivez librement votre vision..." required></textarea>
+                            <p class="field-hint">Expliquez votre activité, ce que vous souhaitez créer et le résultat attendu.</p>
+                        </label>
+                        <button class="button button-primary contact-button" type="submit">Envoyer ma demande</button>
                         <p class="contact-form-status" id="contact-form-status" aria-live="polite"></p>
                     </form>
                 </div>

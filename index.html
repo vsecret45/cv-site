@@ -17,7 +17,7 @@
     >
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <link rel="preload" href="assets/sa-creation-web-mark.svg" as="image" type="image/svg+xml">
-    <link rel="stylesheet" href="style.css?v=20260704-auth-controls-v3">
+    <link rel="stylesheet" href="style.css?v=20260710-kirby-freeform-v2">
 </head>
 <body class="is-preload studio-home">
     <canvas class="cosmic-page-field" id="cosmic-page-field" aria-hidden="true"></canvas>
@@ -36,7 +36,6 @@
                     <div class="site-menu-links">
                         <a href="index.html">Accueil</a>
                         <a href="prestations.html">Prestations</a>
-                        <a href="prestations.html#petits-services">Services rapides</a>
                         <a href="methode.html">Methode</a>
                         <a href="realisations.html">Exemples</a>
                         <a href="contact.html">Contact</a>
@@ -60,38 +59,25 @@
 
             <div class="studio-hero-grid">
                 <div class="hero-content">
-                    <p class="eyebrow hero-reveal hero-reveal-delay-1">SA Creation Web</p>
+                    <p class="eyebrow eyebrow-balanced hero-reveal hero-reveal-delay-1">SA Création Web</p>
                     <h1 class="hero-title hero-reveal-delay-2">
-                        <span class="title-line">Des sites web professionnels, clairs et prets a travailler pour vous.</span>
+                        <span class="title-line">Bienvenue chez SA Création Web</span>
                     </h1>
                     <p class="hero-role hero-reveal hero-reveal-delay-3">
-                        SA Creation Web accompagne les independants, artisans et petites entreprises dans la creation de leur site, leur domaine, leur email professionnel et leur presence en ligne.
+                        Votre partenaire pour la creation de sites web pour independants, artisans et petites entreprises.
                     </p>
                     <p class="hero-text hero-reveal hero-reveal-delay-4">
-                        Pages vitrines, services rapides, accompagnement digital et solutions simples pour etre visible en ligne sans perdre de temps.
+                        Découvrez des services adaptes a vos besoins numeriques.
                     </p>
                     <div class="hero-actions hero-reveal hero-reveal-delay-6">
                         <a class="button button-primary" href="contact.html">Parler de votre projet</a>
-                        <a class="button button-secondary" href="#services">Voir les services</a>
                     </div>
                 </div>
 
-                <aside class="studio-signal-card hero-reveal hero-reveal-delay-5">
-                    <div class="digital-core" aria-hidden="true">
-                        <img class="sa-logo-stage-mark" src="assets/sa-creation-web-mark.svg" width="220" height="220" alt="">
-                        <span class="sa-orbit sa-orbit-inner"></span>
-                        <span class="sa-orbit sa-orbit-middle"></span>
-                        <span class="sa-orbit sa-orbit-outer"></span>
-                        <i class="sa-star sa-star-a"></i>
-                        <i class="sa-star sa-star-b"></i>
-                        <i class="sa-star sa-star-c"></i>
-                        <i class="sa-star sa-star-d"></i>
-                    </div>
-                    <div class="design-tile design-tile-a" aria-hidden="true">
-                        <span>Aa</span>
-                        <i></i>
-                    </div>
-                    <div class="design-tile design-tile-b" aria-hidden="true">
+                <aside class="studio-signal-card hero-reveal hero-reveal-delay-5" aria-hidden="true">
+                    <div class="digital-core">
+                        <span></span>
+                        <span></span>
                         <span></span>
                     </div>
                 </aside>
@@ -100,90 +86,52 @@
 
         <main id="main-content">
             <section class="section reveal-section platform-tools-section" id="services">
-                <div class="section-heading generator-heading-minimal">
-                    <p class="section-kicker">Services SA Creation Web</p>
-                    <h2>Des services utiles pour travailler proprement en ligne.</h2>
-                    <p class="section-intro">
-                        SA Creation Web construit des solutions claires pour les independants, artisans, TPE et professionnels qui veulent une presence serieuse sans complexite inutile.
-                    </p>
-                </div>
-
-                <div class="platform-product-grid" aria-label="Services SA Création Web">
+                <div class="platform-product-grid platform-product-grid-services" aria-label="Services SA Création Web">
                     <article class="platform-product-card is-featured" id="sites-internet">
-                        <span class="product-icon" aria-hidden="true">WEB</span>
-                        <strong>Sites internet</strong>
-                        <p>Des sites vitrines clairs, rapides et professionnels pour presenter votre activite, vos offres et vos contacts.</p>
+                        <strong>Création de site web</strong>
+                    </article>
+                    <article class="platform-product-card" id="hebergement">
+                        <strong>Hébergement</strong>
                     </article>
                     <article class="platform-product-card" id="domaine-email">
-                        <span class="product-icon" aria-hidden="true">.FR</span>
-                        <strong>Domaine et email professionnel</strong>
-                        <p>Nom de domaine, adresse email pro et configuration simple pour donner une image serieuse a votre entreprise.</p>
+                        <strong>Nom de domaine</strong>
                     </article>
-                    <article class="platform-product-card" id="accompagnement-digital">
-                        <span class="product-icon" aria-hidden="true">SEO</span>
-                        <strong>Accompagnement digital</strong>
-                        <p>Structure, contenus, messages, visibilite locale et conseils pratiques pour avancer avec une presence en ligne utile.</p>
+                    <article class="platform-product-card" id="email-pro">
+                        <strong>Adresse email professionnelle</strong>
                     </article>
-                    <article class="platform-product-card" id="exemples-projets">
-                        <span class="product-icon" aria-hidden="true">EX</span>
-                        <strong>Exemples de projets</strong>
-                        <p>Pages vitrines, interfaces simples, contenus utiles et exemples concrets pour visualiser le rendu avant de lancer votre projet.</p>
+                    <article class="platform-product-card" id="cv-portfolio-service">
+                        <strong>CV &amp; Portfolio</strong>
+                    </article>
+                    <article class="platform-product-card" id="kirby-service">
+                        <strong>Générateur de site avec IA</strong>
                     </article>
                     <article class="platform-product-card" id="contact-rapide">
-                        <span class="product-icon" aria-hidden="true">GO</span>
-                        <strong>Contact rapide</strong>
-                        <p>Un premier echange simple pour expliquer le besoin, cadrer le projet et choisir la bonne formule sans detour.</p>
+                        <strong>Accompagnement professionnel</strong>
                     </article>
-                </div>
-
-                <div class="platform-flow-band" aria-label="Fonctionnement du générateur SA">
-                    <span>Expliquer l activite</span>
-                    <i></i>
-                    <span>Structurer la presence en ligne</span>
-                    <i></i>
-                    <span>Valider les bons services</span>
-                    <i></i>
-                    <span>Mettre en ligne proprement</span>
                 </div>
             </section>
 
-            <section class="section reveal-section ai-brief-section ai-builder-section creator-focus-section" id="kirby-assistant">
+            <section class="section reveal-section ai-brief-section ai-builder-section creator-focus-section kirby-ia-clean" id="kirby-assistant">
                 <div class="section-heading generator-heading-minimal">
-                    <p class="section-kicker">Assistant SA</p>
-                    <h2>Preparez une premiere base de travail.</h2>
-                    <p class="section-intro">
-                        Si vous avez deja une idee, Kirby peut preparer une premiere proposition de structure, de contenus et de direction pour gagner du temps.
-                    </p>
+                    <h2>Générateur de site Kirby IA</h2>
+                    <p class="section-intro">Décrivez votre projet librement.</p>
                 </div>
 
                 <div class="ai-brief-panel builder-workspace creator-studio copilot-workspace">
                     <form class="ai-brief-form creator-prompt-console" id="ai-brief-form">
-                        <div class="creator-form-head">
-                            <p class="signal-label">Kirby, assistant de projet</p>
-                            <h3>Donnez votre besoin principal.</h3>
-                            <p>Il peut preparer une premiere base de pages, de textes et d organisation que vous ajustez ensuite.</p>
-                        </div>
                         <label class="field field-message">
-                            <span class="sr-only">Decrivez votre activite</span>
+                            <span class="sr-only">Décrivez votre activité</span>
                             <textarea
                                 id="ai-brief-input"
-                                rows="7"
-                                placeholder="Decrivez votre activite, votre client ideal et ce que vous voulez montrer sur votre site…"
+                                rows="5"
+                                placeholder="Exemple: Je suis coiffeuse a Rueil, je veux un site avec services, tarifs, photos, contact et prise de rendez-vous."
                             ></textarea>
                         </label>
-                        <div class="copilot-status-strip" aria-label="Actions prises en charge par Kirby">
-                            <span>Structure</span>
-                            <span>Contenus</span>
-                            <span>Visibilite</span>
-                        </div>
                         <div class="advisor-composer-actions">
-                            <button class="button button-primary" type="submit">Lancer une premiere proposition</button>
-                            <button class="button button-secondary" type="button" data-kirby-autopilot="pilot">Kirby m aide a cadrer</button>
+                            <button class="button button-primary" type="submit">Lancer une proposition</button>
                         </div>
-                        <p class="creator-output-note">L assistant prepare une base de travail. Les choix finaux restent valides avec vous.</p>
                     </form>
-                    <article class="ai-brief-output" id="ai-brief-output" aria-live="polite">
-                    </article>
+                    <article class="ai-brief-output" id="ai-brief-output" aria-live="polite"></article>
                 </div>
             </section>
         </main>
@@ -255,6 +203,6 @@
         </div>
     </section>
 
-    <script src="script.js?v=20260704-auth-controls-v3" defer></script>
+    <script src="script.js?v=20260710-kirby-freeform-v2" defer></script>
 </body>
 </html>

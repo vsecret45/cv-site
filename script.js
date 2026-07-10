@@ -10205,13 +10205,20 @@ if (contactForm) {
     const contactParams = new URLSearchParams(window.location.search);
     const requestedService = contactParams.get('service');
     const requestedMessage = contactParams.get('message');
+    const requestedProject = contactParams.get('project');
     const requestedItems = contactParams.get('items');
     const serviceField = contactForm.querySelector('[name="service"]');
     const messageField = contactForm.querySelector('[name="message"]');
+    const projectField = contactForm.querySelector('[name="project"]');
     const summaryTitle = document.querySelector('#contact-summary-title');
     const summaryMessage = document.querySelector('#contact-summary-message');
     const summaryPills = document.querySelector('#contact-summary-pills');
     const fallbackService = requestedService || 'Projet site web';
+    const fallbackProject = requestedProject || requestedMessage || [
+        `Activite : ${fallbackService}`,
+        'Objectif : obtenir une proposition claire et professionnelle.',
+        'Resultat attendu : un site lisible, moderne et pret a etre valide.',
+    ].join('\n');
     const fallbackMessage = requestedMessage || [
         'Bonjour,',
         '',
@@ -10231,6 +10238,10 @@ if (contactForm) {
 
     if (messageField && !messageField.value.trim()) {
         messageField.value = fallbackMessage;
+    }
+
+    if (projectField && !projectField.value.trim()) {
+        projectField.value = fallbackProject;
     }
 
     if (summaryTitle) {
@@ -10260,13 +10271,17 @@ if (contactForm) {
         const service = (formData.get('service') || fallbackService).toString().trim();
         const deadline = '';
         const details = [];
+        const project = (formData.get('project') || fallbackProject).toString().trim();
         const message = (formData.get('message') || fallbackMessage).toString().trim();
         const fullMessage = [
             service ? `Projet : ${service}` : 'Projet : non precise',
             phone ? `Telephone : ${phone}` : 'Telephone : non precise',
             summaryItems.length > 0 ? `Elements inclus : ${summaryItems.join(', ')}` : '',
             '',
-            'Message genere :',
+            'Description du projet :',
+            project || '-',
+            '',
+            'Message interne :',
             message || '-',
         ].filter(Boolean).join('\n');
 
@@ -11643,160 +11658,745 @@ const cleanHtml = (value = '') => escapeHtml(String(value || ''));
 
 const getKirbyArray = (value, max = 8) => (Array.isArray(value) ? value.slice(0, max) : []);
 
-const guessKirbyActivity = (brief) => {
-    const normalizedBrief = brief.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const activities = [
-        ['coiff', 'salon de coiffure'],
-        ['fleur', 'fleuriste'],
-        ['restaurant', 'restaurant'],
-        ['hotel', 'hôtel'],
-        ['hôtel', 'hôtel'],
-        ['chambre', 'hébergement'],
-        ['gite', 'hébergement'],
-        ['plombier', 'plombier'],
-        ['coach', 'coach'],
-        ['photographe', 'photographe'],
-        ['artisan', 'artisan'],
-        ['wordpress', 'site WordPress'],
-        ['boutique', 'boutique'],
-        ['cv', 'CV et portfolio'],
-        ['portfolio', 'portfolio'],
-    ];
-    const found = activities.find(([keyword]) => normalizedBrief.includes(keyword));
+const normalizeKirbyFallbackText = (value = '') => String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 
-    if (found) {
-        return found[1];
+const toKirbyTitleCase = (value = '') => String(value || '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
+    .join(' ')
+    .trim();
+
+const KIRBY_SECTOR_TEMPLATES = {
+    'real-estate': {
+        activity: 'agence immobilière',
+        projectType: 'Site immobilier premium',
+        layoutVariants: ['gallery-focus', 'luxury-asymmetric', 'classic-conversion'],
+        visualMood: 'premium',
+        modelName: 'Direction immobilier',
+        pages: [
+            { name: 'Accueil', goal: 'Présenter le positionnement et les biens en avant.' },
+            { name: 'Biens', goal: 'Afficher annonces et filtres avancés.' },
+            { name: 'Fiche bien', goal: 'Détail, galerie, prix et caractéristiques.' },
+            { name: 'Carte interactive', goal: 'Visualiser les biens par secteur.' },
+            { name: 'Estimation gratuite', goal: 'Capturer les demandes propriétaires.' },
+            { name: 'Agents', goal: 'Présenter l’équipe et la prise de rendez-vous.' },
+            { name: 'Contact', goal: 'Rendez-vous, formulaire et coordonnées.' },
+        ],
+        sections: [
+            { title: 'Biens à la une', text: 'Sélection premium avec photos et accès rapide aux fiches.' },
+            { title: 'Recherche intelligente', text: 'Filtres quartier, budget, surface et critères clés.' },
+            { title: 'Estimation gratuite', text: 'Formulaire clair pour générer des leads qualifiés.' },
+        ],
+        services: [
+            { name: 'Moteur de recherche', description: 'Filtres performants et expérience fluide.' },
+            { name: 'Carte interactive', description: 'Navigation géographique utile pour l’utilisateur.' },
+            { name: 'Prise de rendez-vous', description: 'Conversion directe acheteurs et vendeurs.' },
+        ],
+        recommendedServices: [
+            { name: 'Catalogue immobilier', reason: 'Structurer les annonces et fiches biens.', priceFrom: 'Projet spécifique' },
+            { name: 'Estimation en ligne', reason: 'Générer des demandes vendeurs.', priceFrom: 'Projet spécifique' },
+            { name: 'CRM léger', reason: 'Centraliser les prospects entrants.', priceFrom: 'Projet spécifique' },
+        ],
+        ctas: ['Rechercher un bien', 'Demander une estimation', 'Prendre rendez-vous'],
+        coherenceKeywords: ['bien', 'annonce', 'agence', 'immobilier', 'estimation', 'carte'],
+    },
+    restaurant: {
+        activity: 'restaurant',
+        projectType: 'Site restaurant avec réservation',
+        layoutVariants: ['warm-editorial', 'gallery-focus', 'classic-conversion'],
+        visualMood: 'warm',
+        modelName: 'Direction restaurant',
+        pages: [
+            { name: 'Accueil', goal: 'Ambiance, promesse et CTA réservation.' },
+            { name: 'Menu / carte', goal: 'Plats, menus, prix et offres.' },
+            { name: 'Réservation', goal: 'Réserver une table rapidement.' },
+            { name: 'Galerie', goal: 'Visuels plats, salle et ambiance.' },
+            { name: 'Horaires', goal: 'Ouverture, accès et infos pratiques.' },
+            { name: 'Contact', goal: 'Téléphone, adresse, carte et formulaire.' },
+        ],
+        sections: [
+            { title: 'Carte du moment', text: 'Mise en avant des incontournables du restaurant.' },
+            { title: 'Réservation simple', text: 'Réservation en quelques étapes sans friction.' },
+            { title: 'Avis clients', text: 'Preuves sociales pour rassurer avant la venue.' },
+        ],
+        services: [
+            { name: 'Réservation table', description: 'Conversion directe depuis mobile.' },
+            { name: 'Menu lisible', description: 'Carte claire, rapide à consulter.' },
+            { name: 'Google Maps', description: 'Accès immédiat au lieu.' },
+        ],
+        recommendedServices: [
+            { name: 'Réservation en ligne', reason: 'Remplir plus facilement les services.', priceFrom: 'Inclus selon offre' },
+            { name: 'Galerie pro', reason: 'Donner envie via des visuels forts.', priceFrom: 'Inclus selon offre' },
+        ],
+        ctas: ['Réserver une table', 'Voir la carte', 'Contacter le restaurant'],
+        coherenceKeywords: ['restaurant', 'menu', 'table', 'réservation', 'plats'],
+    },
+    saas: {
+        activity: 'logiciel SaaS',
+        projectType: 'Site SaaS orienté produit',
+        layoutVariants: ['product-dashboard', 'classic-conversion', 'minimal-editorial'],
+        visualMood: 'tech-premium',
+        modelName: 'Direction SaaS',
+        pages: [
+            { name: 'Produit', goal: 'Valeur principale et démo produit.' },
+            { name: 'Fonctionnalités', goal: 'Modules et bénéfices métier.' },
+            { name: 'Tarifs', goal: 'Plans et comparaison claire.' },
+            { name: 'Cas clients', goal: 'Preuves et résultats concrets.' },
+            { name: 'FAQ', goal: 'Lever les objections avant essai.' },
+            { name: 'Contact', goal: 'Démo, onboarding et support.' },
+        ],
+        sections: [
+            { title: 'Valeur immédiate', text: 'Ce que gagne l’utilisateur en 30 secondes.' },
+            { title: 'Preuves produit', text: 'Interfaces, workflow et cas d’usage réels.' },
+            { title: 'Essai / démo', text: 'Action claire pour passer au test.' },
+        ],
+        services: [
+            { name: 'Parcours conversion', description: 'Landing performante orientée essai.' },
+            { name: 'Positionnement SaaS', description: 'Narratif clair et crédible.' },
+            { name: 'Onboarding', description: 'Chemin court entre visite et activation.' },
+        ],
+        recommendedServices: [
+            { name: 'Stratégie conversion', reason: 'Améliorer activation et essai.', priceFrom: 'Projet spécifique' },
+            { name: 'Espace client', reason: 'Préparer la continuité produit.', priceFrom: 'Projet spécifique' },
+        ],
+        ctas: ['Demander une démo', 'Essayer gratuitement', 'Parler à un expert'],
+        coherenceKeywords: ['saas', 'logiciel', 'dashboard', 'api', 'crm', 'erp', 'fintech'],
+    },
+    'kids-app': {
+        activity: 'application éducative enfant',
+        projectType: 'Application éducative immersive enfant',
+        layoutVariants: ['story-world', 'product-dashboard', 'cinematic-video'],
+        visualMood: 'kids-future',
+        modelName: 'Direction produit enfant immersif',
+        pages: [
+            { name: 'Accueil', goal: 'Installer l’univers, la promesse et l’entrée vers le jeu.' },
+            { name: 'Jeux', goal: 'Présenter les mini-jeux éducatifs et les niveaux.' },
+            { name: 'Histoires', goal: 'Donner accès aux récits interactifs et aux personnages.' },
+            { name: 'Comptines', goal: 'Proposer un espace audio doux et rassurant.' },
+            { name: 'Espace parent', goal: 'Afficher progression, temps d’écran et réglages.' },
+            { name: 'Contact', goal: 'Permettre une demande ou un échange avec l’équipe.' },
+        ],
+        sections: [
+            { title: 'Monde à explorer', text: 'Un parcours visuel où l’enfant choisit jeux, histoires et comptines.' },
+            { title: 'Apprentissage doux', text: 'Des activités courtes, progressives et pensées pour apprendre sans pression.' },
+            { title: 'Espace parent', text: 'Un tableau clair pour suivre les progrès, gérer les profils et rassurer.' },
+        ],
+        services: [
+            { name: 'Mini-jeux éducatifs', description: 'Modules courts avec niveaux, récompenses et progression.' },
+            { name: 'Histoires interactives', description: 'Scènes illustrées, choix simples et lecture accompagnée.' },
+            { name: 'Suivi parent', description: 'Vue synthétique des progrès, temps d’usage et contenus favoris.' },
+        ],
+        recommendedServices: [
+            { name: 'Interface produit sur mesure', reason: 'Le projet demande une vraie expérience applicative, pas une vitrine.', priceFrom: 'Projet spécifique' },
+            { name: 'Assistant IA métier', reason: 'Utile pour adapter histoires, activités ou parcours selon l’âge.', priceFrom: 'Projet spécifique' },
+            { name: 'Espace client simple', reason: 'Nécessaire pour les profils enfants, parents et préférences.', priceFrom: 'Projet spécifique' },
+            { name: 'Galerie animée', reason: 'Les univers et personnages doivent être visibles dès le premier écran.', priceFrom: 'Projet spécifique' },
+        ],
+        ctas: ['Commencer à jouer', 'Espace parent', 'Découvrir les histoires'],
+        coherenceKeywords: ['enfant', 'educatif', 'jeu', 'histoire', 'comptine', 'parent', 'application'],
+    },
+    corporate: {
+        activity: 'entreprise de services',
+        projectType: 'Site corporate professionnel',
+        layoutVariants: ['classic-conversion', 'minimal-editorial', 'luxury-asymmetric'],
+        visualMood: 'corporate',
+        modelName: 'Direction corporate',
+        pages: [
+            { name: 'Accueil', goal: 'Promesse claire et crédibilité.' },
+            { name: 'À propos', goal: 'Positionnement et expertise.' },
+            { name: 'Services', goal: 'Offres structurées et lisibles.' },
+            { name: 'Références', goal: 'Preuves clients et réalisations.' },
+            { name: 'Contact', goal: 'Canal simple de prise de contact.' },
+        ],
+        sections: [
+            { title: 'Expertise', text: 'Mise en avant du savoir-faire.' },
+            { title: 'Méthodologie', text: 'Process clair et rassurant.' },
+            { title: 'Références', text: 'Cas concrets et résultats.' },
+        ],
+        services: [
+            { name: 'Positionnement', description: 'Message net et crédible.' },
+            { name: 'Preuves', description: 'Cas clients bien hiérarchisés.' },
+            { name: 'Lead capture', description: 'Formulaire orienté business.' },
+        ],
+        recommendedServices: [
+            { name: 'Refonte corporate', reason: 'Aligner image et conversion.', priceFrom: 'Offre Pro' },
+        ],
+        ctas: ['Découvrir nos services', 'Voir nos références', 'Parler de votre projet'],
+        coherenceKeywords: ['cabinet', 'entreprise', 'services', 'conseil', 'corporate'],
+    },
+    portfolio: {
+        activity: 'portfolio créatif',
+        projectType: 'Portfolio moderne',
+        layoutVariants: ['gallery-focus', 'minimal-editorial', 'luxury-asymmetric'],
+        visualMood: 'image-led',
+        modelName: 'Direction portfolio',
+        pages: [
+            { name: 'Accueil', goal: 'Positionnement créatif fort.' },
+            { name: 'Projets', goal: 'Showcase visuel des réalisations.' },
+            { name: 'Études de cas', goal: 'Détail approche et résultats.' },
+            { name: 'À propos', goal: 'Profil, méthode, spécialités.' },
+            { name: 'Contact', goal: 'Brief et prise de rendez-vous.' },
+        ],
+        sections: [
+            { title: 'Projet vedette', text: 'Mise en avant du meilleur projet.' },
+            { title: 'Galerie de travaux', text: 'Navigation visuelle et rapide.' },
+            { title: 'Process de création', text: 'Comment le travail est réalisé.' },
+        ],
+        services: [
+            { name: 'Galerie premium', description: 'Présenter les créations sans surcharge.' },
+            { name: 'Case studies', description: 'Valoriser la démarche projet.' },
+        ],
+        recommendedServices: [
+            { name: 'Portfolio premium', reason: 'Renforcer l’image perçue.', priceFrom: 'Offre Signature' },
+        ],
+        ctas: ['Voir les projets', 'Demander un devis', 'Prendre rendez-vous'],
+        coherenceKeywords: ['portfolio', 'projets', 'design', 'créatif', 'showreel'],
+    },
+    medical: {
+        activity: 'cabinet médical',
+        projectType: 'Site médical avec rendez-vous',
+        layoutVariants: ['classic-conversion', 'minimal-editorial', 'corporate'],
+        visualMood: 'corporate',
+        modelName: 'Direction médical',
+        pages: [
+            { name: 'Accueil', goal: 'Rassurer et orienter rapidement.' },
+            { name: 'Spécialités', goal: 'Présenter les prises en charge.' },
+            { name: 'Prise de rendez-vous', goal: 'Demande de créneau en ligne.' },
+            { name: 'Horaires', goal: 'Disponibilités et urgence.' },
+            { name: 'Contact', goal: 'Coordonnées et accès.' },
+        ],
+        sections: [
+            { title: 'Prise de rendez-vous', text: 'Entrée rapide vers la demande patient.' },
+            { title: 'Informations utiles', text: 'Horaires, accès, documents nécessaires.' },
+            { title: 'Confiance', text: 'Présentation du cabinet et de l’équipe.' },
+        ],
+        services: [
+            { name: 'Agenda médical', description: 'Limiter les frictions de prise de rendez-vous.' },
+            { name: 'Parcours patient', description: 'Informations claires avant visite.' },
+        ],
+        recommendedServices: [
+            { name: 'Module rendez-vous', reason: 'Organiser les demandes patient.', priceFrom: 'Projet spécifique' },
+        ],
+        ctas: ['Prendre rendez-vous', 'Voir les horaires', 'Contacter le cabinet'],
+        coherenceKeywords: ['cabinet', 'médical', 'docteur', 'patient', 'rendez-vous'],
+    },
+    gaming: {
+        activity: 'studio de jeux vidéo',
+        projectType: 'Site studio gaming',
+        layoutVariants: ['cinematic-video', 'gallery-focus', 'classic-conversion'],
+        visualMood: 'futuriste',
+        modelName: 'Direction gaming',
+        pages: [
+            { name: 'Accueil', goal: 'Univers visuel et promesse du studio.' },
+            { name: 'Jeux', goal: 'Catalogue des jeux et plateformes.' },
+            { name: 'Media', goal: 'Trailers, captures et kit press.' },
+            { name: 'Communauté', goal: 'Discord, newsletter, événements.' },
+            { name: 'Studio', goal: 'Équipe, vision et recrutement.' },
+            { name: 'Contact', goal: 'Business et partenariats.' },
+        ],
+        sections: [
+            { title: 'Jeu vedette', text: 'Hero centré produit avec trailer.' },
+            { title: 'Roadmap', text: 'Actualités, sorties et mises à jour.' },
+            { title: 'Communauté', text: 'Liens vers canaux communautaires.' },
+        ],
+        services: [
+            { name: 'Showcase multimédia', description: 'Assets vidéo et screenshots optimisés.' },
+            { name: 'Landing release', description: 'Page de lancement orientée conversion.' },
+        ],
+        recommendedServices: [
+            { name: 'Branding studio', reason: 'Positionnement visuel fort.', priceFrom: 'Projet spécifique' },
+        ],
+        ctas: ['Voir les jeux', 'Regarder le trailer', 'Rejoindre la communauté'],
+        coherenceKeywords: ['jeu', 'gaming', 'studio', 'trailer', 'steam'],
+    },
+    music: {
+        activity: 'projet musical',
+        projectType: 'Site artiste / musique',
+        layoutVariants: ['cinematic-video', 'gallery-focus', 'minimal-editorial'],
+        visualMood: 'creative',
+        modelName: 'Direction musique',
+        pages: [
+            { name: 'Accueil', goal: 'Identité artistique et dernier projet.' },
+            { name: 'Discographie', goal: 'Albums, singles, plateformes.' },
+            { name: 'Clips', goal: 'Vidéos et performances.' },
+            { name: 'Concerts', goal: 'Dates, lieux, billetterie.' },
+            { name: 'Presse', goal: 'Bio, photos, kit média.' },
+            { name: 'Contact', goal: 'Bookings et collaborations.' },
+        ],
+        sections: [
+            { title: 'Nouveau titre', text: 'Mise en avant du dernier morceau.' },
+            { title: 'Écouter partout', text: 'Plateformes de streaming accessibles.' },
+            { title: 'Dates live', text: 'Calendrier et billetterie.' },
+        ],
+        services: [
+            { name: 'Kit média', description: 'Photos presse et éléments promotionnels.' },
+            { name: 'Concerts', description: 'Parcours clair vers la billetterie.' },
+        ],
+        recommendedServices: [
+            { name: 'Landing release', reason: 'Sortie single/album optimisée.', priceFrom: 'Projet spécifique' },
+        ],
+        ctas: ['Écouter maintenant', 'Voir les concerts', 'Contacter le management'],
+        coherenceKeywords: ['musique', 'artiste', 'album', 'concert', 'single'],
+    },
+};
+
+const KIRBY_SECTOR_DETECTION = [
+    { key: 'real-estate', regex: /immobilier|agence immobiliere|agence immobilière|annonce|bien immobilier|estimation|vendeur|acquereur|acquéreur|mandat|carte interactive/ },
+    { key: 'restaurant', regex: /restaurant|menu|carte|table|reservation|réservation|plat|cuisine|brasserie/ },
+    { key: 'kids-app', regex: /enfant|enfants|kids?|educatif|educative|education|ecole|maternelle|apprendre|apprentissage|comptine|comptines|histoire|histoires|parent|parents|mini jeu|mini-jeu|application enfant|app enfant|luna|leo|léo/ },
+    { key: 'saas', regex: /saas|logiciel|dashboard|crm|erp|fintech|plateforme|application web|facturation|api|automatisation/ },
+    { key: 'medical', regex: /medical|médical|cabinet|docteur|medecin|médecin|patient|sante|santé|infirmier|dentiste|kine|kiné/ },
+    { key: 'gaming', regex: /jeu video|jeu vidéo|gaming|studio de jeu|steam|trailer|gameplay|esport/ },
+    { key: 'music', regex: /musique|artiste|album|single|concert|tournee|tournée|discographie|clip/ },
+    { key: 'portfolio', regex: /portfolio|book|showreel|realisations|réalisations|studio creatif|studio créatif|ux|ui/ },
+    { key: 'corporate', regex: /cabinet|entreprise|services|conseil|avocat|expertise|institutionnel|corporate/ },
+];
+
+const KIRBY_INCOMPATIBLE_BLOCKS = {
+    'real-estate': [/tva|facture|depenses|revenus|banque|comptable|dashboard/],
+    restaurant: [/annonce immobiliere|bien immobilier|estimation gratuite|mandat|agent immobilier/],
+    saas: [/menu du jour|plats|reservation table|annonce immobiliere|agents immobiliers/],
+    medical: [/jeu video|trailer|discographie|steam|esport|annonce immobiliere/],
+    gaming: [/tva|facturation|agenda medical|patient|estimation immobiliere/],
+    music: [/tva|facturation|dashboard comptable|annonce immobiliere|agenda medical/],
+    'kids-app': [/tva|facturation|annonce immobiliere|reservation table|menu du jour|chambres hotel|mandat immobilier/],
+    portfolio: [/tva|facture|annonce immobiliere|agenda medical/],
+    corporate: [/jeu video|discographie|reservation table|tva a reverser|biens immobiliers/],
+};
+
+const detectKirbySectorTemplate = (brief = '') => {
+    const source = normalizeKirbyFallbackText(brief);
+    let bestKey = 'corporate';
+    let bestScore = 0;
+
+    KIRBY_SECTOR_DETECTION.forEach((entry) => {
+        if (entry.regex.test(source)) {
+            const score = (source.match(entry.regex) || []).length + 1;
+            if (score > bestScore) {
+                bestScore = score;
+                bestKey = entry.key;
+            }
+        }
+    });
+
+    return bestKey;
+};
+
+const getKirbyBriefIntent = (brief = '') => {
+    const source = normalizeKirbyFallbackText(brief);
+    const has = (regex) => regex.test(source);
+
+    return {
+        wantsAppointment: has(/rdv|rendez|reservation|booking|agenda|consultation/),
+        wantsSearch: has(/recherche|filtre|filtres|tri|annonce|annonces|biens?/),
+        wantsMap: has(/carte|quartier|zone|zones|geo|geolocal/),
+        wantsEstimate: has(/estimation|estimer|vendeur|vendre|evaluation/),
+        wantsTeam: has(/agents?|equipe|équipe|conseillers?|collaborateurs?/),
+        wantsMenu: has(/menu|carte|plats?|boissons?|formules?|tarifs?|prix/),
+        wantsGallery: has(/galerie|photos?|images?|portfolio|avant\s*\/?\s*apres/),
+        wantsTestimonials: has(/avis|temoignages?|témoignages?|preuves?/),
+        wantsPricing: has(/tarifs?|prix|abonnements?|plans?/),
+        wantsRoadmap: has(/roadmap|feuille de route|planning/),
+        wantsCommunity: has(/communaute|communauté|discord|forum|newsletter/),
+        wantsMedia: has(/trailer|media|média|video|vidéo|clips?|screenshots?/),
+        wantsJobs: has(/recrutement|carrieres?|carrières?|jobs?|postes?/),
+        wantsDiscography: has(/discographie|album|single|ep|sortie|streaming/),
+        wantsConcerts: has(/concerts?|dates?\s+live|tournee|tournée|billetterie/),
+        wantsPress: has(/presse|press\s*kit|media\s*kit|dossier\s*presse/),
+        wantsFaq: has(/faq|questions?\s*frequentes?/),
+        wantsCaseStudies: has(/cas\s+clients?|etudes?\s+de\s+cas|résultats?|resultats?/),
+    };
+};
+
+const filterKirbyProposalByIntent = (proposal = {}, sectorKey = 'corporate', brief = '') => {
+    const intent = getKirbyBriefIntent(brief);
+    const source = normalizeKirbyFallbackText(brief);
+    const alwaysKeepPage = (name = '') => /accueil|contact/.test(normalizeKirbyFallbackText(name));
+
+    const keepPage = (page = {}) => {
+        const name = normalizeKirbyFallbackText(page?.name || '');
+
+        if (alwaysKeepPage(name)) {
+            return true;
+        }
+
+        if (sectorKey === 'real-estate') {
+            if (/biens|fiche/.test(name)) return intent.wantsSearch;
+            if (/carte/.test(name)) return intent.wantsMap;
+            if (/estimation/.test(name)) return intent.wantsEstimate;
+            if (/agents?/.test(name)) return intent.wantsTeam;
+            if (/rendez/.test(name)) return intent.wantsAppointment;
+        }
+
+        if (sectorKey === 'restaurant') {
+            if (/menu|carte/.test(name)) return intent.wantsMenu;
+            if (/reservation/.test(name)) return intent.wantsAppointment;
+            if (/galerie|photos?/.test(name)) return intent.wantsGallery;
+            if (/horaires/.test(name)) return /horaires?|ouverture/.test(source);
+        }
+
+        if (sectorKey === 'gaming') {
+            if (/media/.test(name)) return intent.wantsMedia;
+            if (/communaute/.test(name)) return intent.wantsCommunity;
+            if (/studio/.test(name)) return intent.wantsJobs || /studio|equipe|vision/.test(source);
+        }
+
+        if (sectorKey === 'music') {
+            if (/discographie/.test(name)) return intent.wantsDiscography;
+            if (/clips/.test(name)) return intent.wantsMedia;
+            if (/concerts/.test(name)) return intent.wantsConcerts;
+            if (/presse/.test(name)) return intent.wantsPress;
+        }
+
+        if (sectorKey === 'saas') {
+            if (/tarifs/.test(name)) return intent.wantsPricing;
+            if (/cas clients/.test(name)) return intent.wantsCaseStudies;
+            if (/faq/.test(name)) return intent.wantsFaq;
+        }
+
+        return true;
+    };
+
+    proposal.pages = getKirbyArray(proposal.pages, 9).filter(keepPage);
+    if (!proposal.pages.some((page) => /accueil/i.test(page?.name || ''))) {
+        proposal.pages.unshift({ name: 'Accueil', goal: 'Présenter la promesse et orienter vers l’action principale.' });
+    }
+    if (!proposal.pages.some((page) => /contact/i.test(page?.name || ''))) {
+        proposal.pages.push({ name: 'Contact', goal: 'Permettre une prise de contact directe.' });
     }
 
-    return 'projet professionnel';
+    proposal.homeSections = getKirbyArray(proposal.homeSections, 9).filter((item) => {
+        const text = normalizeKirbyFallbackText(`${item?.title || ''} ${item?.text || ''}`);
+        if (/recherche|filtres|annonces/.test(text)) return intent.wantsSearch;
+        if (/carte/.test(text)) return intent.wantsMap;
+        if (/estimation/.test(text)) return intent.wantsEstimate;
+        if (/reservation|rendez/.test(text)) return intent.wantsAppointment;
+        if (/roadmap/.test(text)) return intent.wantsRoadmap;
+        if (/communaute|discord/.test(text)) return intent.wantsCommunity;
+        if (/clips|video|trailer/.test(text)) return intent.wantsMedia;
+        if (/concert/.test(text)) return intent.wantsConcerts;
+        if (/presse/.test(text)) return intent.wantsPress;
+        if (/tarifs|plans/.test(text)) return intent.wantsPricing;
+        return true;
+    });
+
+    proposal.services = getKirbyArray(proposal.services, 12).filter((item) => {
+        const text = normalizeKirbyFallbackText(`${item?.name || ''} ${item?.description || ''}`);
+        if (/carte interactive/.test(text)) return intent.wantsMap;
+        if (/estimation/.test(text)) return intent.wantsEstimate;
+        if (/rendez|reservation/.test(text)) return intent.wantsAppointment;
+        if (/kit media|presse/.test(text)) return intent.wantsPress;
+        if (/concert/.test(text)) return intent.wantsConcerts;
+        return true;
+    });
+
+    proposal.recommendedServices = getKirbyArray(proposal.recommendedServices, 12).filter((item) => {
+        const text = normalizeKirbyFallbackText(`${item?.name || ''} ${item?.reason || ''}`);
+        if (/reservation|rendez|whatsapp/.test(text)) return intent.wantsAppointment;
+        if (/galerie photos/.test(text)) return intent.wantsGallery;
+        if (/google maps/.test(text)) return intent.wantsMap;
+        return true;
+    });
+
+    proposal.ctas = getKirbyArray(proposal.ctas, 6).filter((cta) => {
+        const text = normalizeKirbyFallbackText(cta);
+        if (/rendez|reservation/.test(text)) return intent.wantsAppointment;
+        if (/estimation/.test(text)) return intent.wantsEstimate;
+        if (/carte/.test(text)) return intent.wantsMap;
+        if (/trailer|discord|roadmap/.test(text)) return intent.wantsMedia || intent.wantsCommunity || intent.wantsRoadmap;
+        if (/concert|album|billetterie/.test(text)) return intent.wantsConcerts || intent.wantsDiscography;
+        return true;
+    });
+
+    return proposal;
+};
+
+const cloneKirbyTemplateArray = (items = []) => items.map((item) => ({ ...item }));
+
+const removeKirbyIncompatibleBlocks = (proposal = {}, sectorKey = 'corporate') => {
+    const blockers = KIRBY_INCOMPATIBLE_BLOCKS[sectorKey] || [];
+    const isBlocked = (value = '') => blockers.some((regex) => regex.test(normalizeKirbyFallbackText(value)));
+
+    proposal.pages = getKirbyArray(proposal.pages, 9).filter((item) => !isBlocked(`${item?.name || ''} ${item?.goal || ''}`));
+    proposal.homeSections = getKirbyArray(proposal.homeSections, 9).filter((item) => !isBlocked(`${item?.title || ''} ${item?.text || ''}`));
+    proposal.recommendedServices = getKirbyArray(proposal.recommendedServices, 12).filter((item) => !isBlocked(`${item?.name || ''} ${item?.reason || ''}`));
+    proposal.services = getKirbyArray(proposal.services, 12).filter((item) => !isBlocked(`${item?.name || ''} ${item?.description || ''}`));
+
+    return proposal;
+};
+
+const getKirbySectorCoherenceScore = (proposal = {}, sectorKey = 'corporate', brief = '') => {
+    const template = KIRBY_SECTOR_TEMPLATES[sectorKey] || KIRBY_SECTOR_TEMPLATES.corporate;
+    const content = normalizeKirbyFallbackText([
+        getKirbyArray(proposal.pages, 9).map((item) => `${item?.name || ''} ${item?.goal || ''}`).join(' '),
+        getKirbyArray(proposal.homeSections, 9).map((item) => `${item?.title || ''} ${item?.text || ''}`).join(' '),
+        getKirbyArray(proposal.recommendedServices, 12).map((item) => `${item?.name || ''} ${item?.reason || ''}`).join(' '),
+    ].join(' '));
+    const briefText = normalizeKirbyFallbackText(brief);
+    const blockers = KIRBY_INCOMPATIBLE_BLOCKS[sectorKey] || [];
+    const positiveHits = (template.coherenceKeywords || []).filter((token) => content.includes(normalizeKirbyFallbackText(token))).length;
+    const briefHits = (template.coherenceKeywords || []).filter((token) => briefText.includes(normalizeKirbyFallbackText(token))).length;
+    const mismatch = blockers.filter((regex) => regex.test(content)).length;
+    const score = Math.max(0, Math.min(100, 55 + positiveHits * 8 + briefHits * 5 - mismatch * 22));
+
+    proposal.sectorCoherence = {
+        sector: sectorKey,
+        score,
+        notes: [
+            `Mots métier détectés : ${positiveHits + briefHits}`,
+            `Blocs incompatibles restants : ${mismatch}`,
+        ],
+    };
+
+    return proposal;
+};
+
+const guessKirbyActivity = (brief) => {
+    const sectorKey = detectKirbySectorTemplate(brief);
+    const template = KIRBY_SECTOR_TEMPLATES[sectorKey] || KIRBY_SECTOR_TEMPLATES.corporate;
+    return template.activity || 'projet professionnel';
+};
+
+const getKirbyFreeformDesignModel = (brief = '', sectorKey = 'corporate', template = {}) => {
+    const source = normalizeKirbyFallbackText(brief);
+    const baseLayouts = getKirbyArray(template.layoutVariants, 4);
+    const wantsImmersive = /immersif|immersive|cinematic|video|plein ecran|impact|waouh|wow|lancement|event|événement|evenement/.test(source);
+    const wantsGallery = /photo|image|galerie|portfolio|realisations|réalisations|book|avant apres|avant\/apres|projets/.test(source);
+    const wantsProduct = /saas|logiciel|dashboard|tableau de bord|application|plateforme|crm|erp|fintech|outil|interface/.test(source);
+    const wantsMinimal = /minimal|sobre|epure|épuré|simple|clair|calme|editorial/.test(source);
+    const wantsPremium = /premium|luxe|haut de gamme|elegant|élégant|signature|exclusif/.test(source);
+    const wantsWarm = /chaleureux|chaleureuse|convivial|restaurant|terroir|italien|artisan|local|famille/.test(source);
+    const wantsBold = /sport|fitness|energie|énergie|gaming|musique|festival|mode|street|créatif|creatif/.test(source);
+    const wantsKidsEducation = /enfant|enfants|kids?|educatif|educative|education|ecole|maternelle|apprendre|apprentissage|comptine|comptines|histoire|histoires|parent|parents|mini jeu|mini-jeu|luna|leo|léo/.test(source);
+    const wantsFutureExperience = /figma|luma|futur|future|futuriste|3d|immersif|immersive|interaction|interactif|motion|anime|animé|univers|personnalite|personnalité|waouh|wow/.test(source);
+    const selectedLayout = wantsKidsEducation
+        ? 'story-world'
+        : wantsProduct
+        ? 'product-dashboard'
+        : wantsImmersive
+            ? 'cinematic-video'
+            : wantsGallery
+                ? 'gallery-focus'
+                : wantsPremium
+                    ? 'luxury-asymmetric'
+                    : wantsWarm
+                        ? 'warm-editorial'
+                        : wantsMinimal
+                            ? 'minimal-editorial'
+                            : baseLayouts[getKirbyHash(`${brief}::${sectorKey}::freeform`) % Math.max(baseLayouts.length, 1)] || 'classic-conversion';
+    const visualMood = wantsKidsEducation
+        ? 'kids-future'
+        : wantsProduct
+        ? 'tech-premium'
+        : wantsWarm
+            ? 'warm'
+            : wantsGallery
+                ? 'image-led'
+                : wantsBold
+                    ? 'creative'
+                    : wantsPremium
+                        ? 'premium'
+                        : template.visualMood || 'corporate';
+    const colorPalette = wantsKidsEducation
+        ? ['nuit indigo profonde', 'menthe lumineuse', 'corail doux', 'jaune soleil', 'lilas interactif', 'surfaces translucides']
+        : wantsProduct
+        ? ['fond clair operationnel', 'bleu profond structurel', 'vert pour les statuts', 'accent violet discret']
+        : wantsWarm
+            ? ['ivoire lumineux', 'terracotta doux', 'brun profond', 'accent or mat']
+            : wantsPremium
+                ? ['blanc casse', 'noir graphite', 'champagne', 'accent metal']
+                : wantsBold
+                    ? ['fond sombre contraste', 'accent electrique', 'tons saturés contrôlés', 'blanc net']
+                    : wantsGallery
+                        ? ['fond neutre', 'contraste photo', 'accent mineral', 'texte noir doux']
+                        : ['fond lumineux', 'texte graphite', 'accent de marque', 'surface douce'];
+    const typography = wantsKidsEducation
+        ? 'Sans-serif ronde et expressive, titres larges, libellés très courts et hiérarchie ludique.'
+        : wantsPremium || wantsGallery
+        ? 'Titres éditoriaux courts, sans-serif premium pour les textes et hiérarchie très espacée.'
+        : wantsProduct
+            ? 'Sans-serif produit, chiffres forts, libellés compacts et lecture rapide.'
+            : 'Sans-serif moderne, titres nets et textes courts adaptés mobile.';
+    const ambience = wantsKidsEducation
+        ? wantsFutureExperience
+            ? 'Futur doux, ludique, immersif et rassurant pour les parents.'
+            : 'Ludique, éducative, douce et immédiatement compréhensible.'
+        : wantsWarm
+        ? 'Chaleureuse, sensorielle et proche du client.'
+        : wantsProduct
+            ? 'Produit digital clair, fiable et immédiatement utilisable.'
+            : wantsBold
+                ? 'Expressive, rythmée et mémorable sans perdre la lisibilité.'
+                : wantsPremium
+                    ? 'Haut de gamme, calme, précise et désirable.'
+                    : 'Moderne, claire et orientée conversion.';
+
+    return {
+        layoutVariant: selectedLayout,
+        visualMood,
+        colorPalette,
+        typography,
+        ambience,
+        direction: `${ambience} Direction déduite du brief, sans style prédéfini.`,
+        heroComposition: wantsKidsEducation
+            ? 'Premier écran comme un monde applicatif : écran enfant, cartes jeux, histoires flottantes, suivi parent et micro-animations.'
+            : wantsProduct
+            ? 'Premier écran applicatif avec navigation, modules métier, chiffres et action principale.'
+            : wantsGallery
+                ? 'Premier écran très visuel avec image forte, promesse courte et accès aux preuves.'
+                : wantsImmersive
+                    ? 'Hero immersif plein impact avec visuel sectoriel, message court et CTA net.'
+                    : 'Hero clair avec promesse, preuve visuelle et action principale visible.',
+        layoutSignature: wantsKidsEducation
+            ? 'Univers produit immersif avec scène illustrée CSS, modules de jeu, rail d’histoires et panneau parent.'
+            : wantsProduct
+            ? 'Interface dense avec sidebar, KPI, cartes métier et assistant.'
+            : wantsGallery
+                ? 'Composition galerie avec blocs visuels et sections courtes.'
+                : wantsPremium
+                    ? 'Grille asymétrique premium avec respiration et détails de confiance.'
+                    : wantsWarm
+                        ? 'Parcours éditorial chaleureux autour des offres, preuves et contact.'
+                        : 'Parcours de conversion clair, modulaire et responsive.',
+        imageKeywords: [
+            template.activity || 'activité professionnelle',
+            wantsKidsEducation ? 'univers applicatif éducatif enfant' : wantsProduct ? 'interface produit' : wantsGallery ? 'réalisation réelle' : 'visuel métier authentique',
+            wantsWarm ? 'ambiance chaleureuse' : wantsPremium ? 'détail premium' : 'preuve concrète',
+        ],
+        microInteractions: wantsKidsEducation
+            ? ['cartes jeux qui respirent', 'parcours lumineux entre les activités', 'panneau parent qui s’ouvre en douceur']
+            : wantsProduct
+            ? ['cartes KPI qui se révèlent', 'états actifs dans la navigation', 'assistant discret prêt à ouvrir']
+            : ['bouton principal réactif', 'apparition douce des sections', 'survol visuel des cartes'],
+        wowFactor: wantsKidsEducation
+            ? 'Le visiteur voit immédiatement un vrai produit enfant avec univers, parcours et contrôle parent.'
+            : wantsProduct
+            ? 'Le visiteur voit un produit utilisable dès le premier écran.'
+            : wantsGallery
+                ? 'Les images donnent immédiatement la preuve du niveau attendu.'
+                : 'La première impression semble conçue pour ce projet précis.',
+    };
 };
 
 const buildBrowserKirbyProposal = (brief) => {
-    const activity = guessKirbyActivity(brief);
-    const normalizedBrief = brief.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const needsAppointment = /rdv|rendez|reservation|agenda|coiff|coach|consultation/.test(normalizedBrief);
-    const needsHotel = /hotel|hôtel|chambre|hebergement|hébergement|gite|gîte|sejour|séjour|touristique/.test(normalizedBrief);
-    const needsWordPress = /wordpress|wp|cms|refonte/.test(normalizedBrief);
-    const needsShop = /boutique|vendre|produit|commande|paiement|catalogue/.test(normalizedBrief);
-    const needsRestaurant = /restaurant|menu|carte|plat|cuisine|table|horaires|avis/.test(normalizedBrief);
-    const needsQr = /\b(qr|qrcode|scan|scanner|flyer|partager)\b/.test(normalizedBrief);
-    const needsClientSpace = /espace client|compte client|suivi|document|connexion|prive|privé/.test(normalizedBrief);
-    const needsAiAssistant = /assistant|ia|automatiser|questions|support|chat/.test(normalizedBrief);
-    const siteName = activity === 'projet professionnel'
-        ? 'Votre Présence Pro'
-        : activity.split(/\s+/).map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`).join(' ');
-    const mainCta = needsHotel ? 'Réserver une chambre' : needsRestaurant && needsAppointment ? 'Réserver une table' : needsRestaurant ? 'Découvrir la carte' : needsShop ? 'Commander en ligne' : needsAppointment ? 'Prendre rendez-vous' : 'Voir le projet';
-    const pages = needsHotel ? [
-        { name: 'Accueil', goal: 'Présenter l’hôtel, l’ambiance et le bouton de réservation.' },
-        { name: 'Chambres', goal: 'Montrer chambres, équipements, photos et capacités.' },
-        { name: 'Tarifs', goal: 'Clarifier prix, périodes, conditions ou disponibilités.' },
-        { name: 'Réservation', goal: 'Afficher le parcours de réservation et les disponibilités.' },
-        { name: 'Galerie', goal: 'Rassurer avec les photos de l’hôtel et des espaces.' },
-        { name: 'Localisation', goal: 'Afficher la ville, Google Maps et les points d’intérêt.' },
-        { name: 'Contact', goal: 'Donner téléphone, e-mail professionnel et accès direct.' },
-    ] : needsRestaurant ? [
-        { name: 'Accueil', goal: 'Présenter le restaurant, l’ambiance et l’action principale.' },
-        { name: 'Menu / carte', goal: 'Afficher les plats, tarifs, formules ou carte à scanner.' },
-        { name: 'Réservation', goal: 'Permettre de réserver une table ou demander une disponibilité.' },
-        { name: 'Horaires', goal: 'Clarifier les jours d’ouverture, services midi/soir et infos pratiques.' },
-        { name: 'Photos', goal: 'Montrer la salle, les plats et l’ambiance.' },
-        { name: 'Avis clients', goal: 'Rassurer avec des preuves et retours clients.' },
-        { name: 'Contact', goal: 'Donner adresse, téléphone, accès et formulaire.' },
-    ] : [
-        { name: 'Accueil', goal: 'Présenter l’activité et donner une raison de continuer.' },
-        { name: needsShop ? 'Boutique' : 'Prestations', goal: needsShop ? 'Présenter les produits et guider vers la commande.' : 'Afficher les services, tarifs ou informations utiles.' },
-        { name: 'Contact', goal: 'Permettre au visiteur d’écrire, appeler ou réserver.' },
-    ];
+    const source = normalizeKirbyFallbackText(brief);
+    const sectorKey = detectKirbySectorTemplate(brief);
+    const template = KIRBY_SECTOR_TEMPLATES[sectorKey] || KIRBY_SECTOR_TEMPLATES.corporate;
+    const designModel = getKirbyFreeformDesignModel(brief, sectorKey, template);
+    const activity = template.activity || guessKirbyActivity(brief);
+    const needsAppointment = /rdv|rendez|reservation|agenda|consultation|booking/.test(source);
+    const needsQr = /\b(qr|qrcode|scan|scanner|flyer|partager)\b/.test(source);
+    const requestedBrand = (String(brief || '').match(/(?:appelee|appelée|appele|appelé|appelle|nommee|nommée|nomme|nommé|nom|marque)\s+["“']?([^.,\n]{2,48})/i)?.[1] || '')
+        .replace(/\s+\b(?:avec|pour|qui|dont|sur|style)\b.*$/i, '')
+        .replace(/["“”']/g, '')
+        .trim();
+    const siteName = requestedBrand ? toKirbyTitleCase(requestedBrand) : `Studio ${toKirbyTitleCase(activity)}`;
+    const layoutVariant = designModel.layoutVariant;
+    const ctas = getKirbyArray(template.ctas, 3);
+    const primaryCta = ctas[0] || 'Parler du projet';
+    const secondaryCta = ctas[1] || 'Voir les services';
+    const tertiaryCta = ctas[2] || 'Contacter maintenant';
 
-    return {
-        projectType: needsHotel ? 'Site hôtel avec réservation' : needsRestaurant ? 'Site restaurant avec carte' : needsShop ? 'Boutique en ligne simple' : needsWordPress ? 'Site WordPress professionnel' : needsAppointment ? 'Site avec rendez-vous' : 'Site vitrine professionnel',
+    const proposal = {
+        sectorKey,
+        projectType: template.projectType,
         siteName,
-        slogan: `Une présence claire pour présenter ${activity} et recevoir des contacts.`,
-        summary: `Le générateur prépare une base de site centrée sur ${activity}, avec des pages courtes et une action visible.`,
-        valueProposition: `Un projet digital complet pour rendre ${activity} plus visible, plus crédible et plus facile à contacter.`,
+        visualMood: designModel.visualMood,
+        layoutVariant,
+        designVariant: getKirbyHash(`${brief}::${sectorKey}::freeform`) % 5,
+        visualSeed: getKirbyHash(`${brief}::fallback::${layoutVariant}`),
+        slogan: `Une présence ${template.activity} claire et mémorable.`,
+        summary: `Kirby reconstruit une proposition ${template.activity} depuis la demande libre, avec une direction visuelle propre.`,
+        valueProposition: `Une maquette complète qui clarifie l’offre, l’ambiance, les preuves et l’action attendue.`,
         positioning: {
-            audience: 'Clients locaux, prospects qui cherchent vite une solution et visiteurs à rassurer.',
-            promise: needsRestaurant ? 'Consulter la carte, vérifier les horaires et réserver facilement.' : needsShop ? 'Découvrir les produits et passer à la commande facilement.' : needsAppointment ? 'Comprendre les offres et réserver sans friction.' : 'Comprendre l’activité et contacter rapidement.',
-            tone: 'Professionnel, simple et rassurant.',
-            differentiator: 'Une proposition IA structurée, puis un accompagnement humain pour finaliser.',
+            audience: 'Visiteurs qualifiés cherchant une solution claire et crédible.',
+            promise: `Comprendre l’offre ${template.activity} et agir immédiatement.`,
+            tone: designModel.ambience,
+            differentiator: 'Direction pensée depuis le brief, sans reprise de blocs précédents.',
         },
         styleGuide: {
-            direction: needsHotel ? 'Site immersif avec chambres, galerie, localisation et réservation visible.' : needsRestaurant ? 'Site gourmand avec carte visible, photos, horaires et réservation.' : needsShop ? 'Catalogue clair avec produits visibles et commande directe.' : needsAppointment ? 'Site élégant orienté réservation et preuves visuelles.' : 'Vitrine moderne, lisible et rassurante.',
-            colors: 'Fond sobre, contraste fort, accent lumineux pour les boutons.',
-            typography: 'Titres nets, textes courts, lecture facile sur mobile.',
-            layout: needsHotel ? 'Hero photo, chambres, tarifs, galerie, localisation, avis, réservation.' : needsRestaurant ? 'Hero, menu/carte, QR code si demandé, photos, avis, horaires, réservation, contact.' : 'Hero direct, prestations, preuves, galerie ou avis, puis contact.',
+            direction: designModel.direction,
+            colors: designModel.colorPalette.join(', '),
+            typography: designModel.typography,
+            layout: designModel.layoutSignature,
+        },
+        visualConcept: {
+            heroComposition: designModel.heroComposition,
+            ambience: designModel.ambience,
+            colorPalette: designModel.colorPalette,
+            imageKeywords: designModel.imageKeywords,
+            layoutSignature: designModel.layoutSignature,
+            microInteractions: designModel.microInteractions,
+            wowFactor: designModel.wowFactor,
         },
         siteModel: {
-            name: needsHotel ? 'Modèle hôtel + réservation' : needsRestaurant ? 'Modèle restaurant + carte' : needsShop ? 'Modèle catalogue + commande' : needsAppointment ? 'Modèle rendez-vous local' : 'Modèle vitrine professionnelle',
-            description: needsHotel ? 'Une structure qui montre les chambres, rassure, localise et mène vers la réservation.' : needsRestaurant ? 'Une structure pour consulter la carte, voir les infos pratiques et réserver.' : needsShop ? 'Une structure qui présente vite les produits et conduit vers la commande.' : needsAppointment ? 'Une structure qui montre les prestations, rassure et mène vers la réservation.' : 'Une structure pour expliquer l’activité, rassurer et déclencher une action claire.',
-            sections: [
-                needsHotel ? 'Hero hôtel avec bouton Réserver' : needsRestaurant ? 'Hero restaurant avec bouton Réserver' : 'Hero avec promesse et bouton principal',
-                needsHotel ? 'Chambres et équipements' : needsRestaurant ? 'Menu / carte' : needsShop ? 'Catalogue ou produits' : 'Prestations principales',
-                needsHotel ? 'Tarifs ou disponibilités' : needsRestaurant ? 'Horaires, photos et avis clients' : 'Galerie, avis ou preuves',
-                needsHotel ? 'Galerie, localisation et contact' : needsRestaurant ? 'Réservation et contact' : needsAppointment ? 'Prise de rendez-vous' : 'Contact rapide',
-            ],
+            name: `Direction ${toKirbyTitleCase(template.activity)}`,
+            description: `Structure sur mesure pour ${template.activity}, reconstruite depuis le brief utilisateur.`,
+            sections: getKirbyArray(template.sections, 6).map((item) => item.title),
         },
-        recommendedOffer: needsHotel ? 'Offre Signature' : needsWordPress ? 'Projet spécifique' : needsShop || needsAppointment || needsRestaurant ? 'Offre Pro' : 'Offre Essentiel',
-        pages,
-        homeSections: [
-            { title: `Bienvenue chez ${siteName}`, text: needsHotel ? `Un accueil visuel présente l’hôtel, l’ambiance, la ville et le bouton ${mainCta}.` : needsRestaurant ? `Un accueil direct présente le restaurant, l’ambiance, la carte et le bouton ${mainCta}.` : `Un bloc d’accueil direct explique l’activité, la zone et ce que le visiteur peut faire.` },
-            { title: needsHotel ? 'Chambres et services' : needsRestaurant ? 'Menu, horaires et photos' : needsShop ? 'Produits ou catalogue' : 'Services principaux', text: needsHotel ? 'Les chambres, équipements et services sont présentés avec photos, tarifs ou disponibilités.' : needsRestaurant ? 'La carte, les horaires, les photos et les avis rassurent avant la réservation.' : needsShop ? 'Les produits sont organisés pour faciliter la commande.' : 'Les prestations sont présentées sans texte inutile, avec une phrase claire par service.' },
-            { title: 'Action principale', text: `Le bouton ${mainCta} reste visible pour guider le visiteur vers l’étape suivante.` },
-        ],
-        services: [
-            { name: needsHotel ? 'Chambres' : 'Présentation claire', description: needsHotel ? 'Présenter chaque chambre avec photos, équipements, capacité et ambiance.' : 'Dire quoi, pour qui, dans quelle zone et avec quel résultat.' },
-            { name: needsHotel ? 'Réservation' : needsRestaurant ? 'Réservation' : needsAppointment ? 'Rendez-vous' : 'Contact direct', description: needsHotel ? 'Ajouter réservation, téléphone, e-mail professionnel et acompte si besoin.' : needsRestaurant ? 'Ajouter réservation, téléphone, horaires et accès.' : needsAppointment ? 'Ajouter un lien de réservation, téléphone ou WhatsApp.' : 'Ajouter e-mail professionnel, téléphone ou lien WhatsApp.' },
-            ...(needsHotel ? [{ name: 'Localisation et avis', description: 'Google Maps, accès, points d’intérêt, galerie et avis clients.' }] : []),
-        ],
-        ctas: [mainCta, needsHotel ? 'Voir les disponibilités' : needsRestaurant ? 'Voir le menu' : 'Voir les prestations', 'Contacter maintenant'],
+        recommendedOffer: ['saas', 'real-estate', 'gaming', 'music', 'kids-app'].includes(sectorKey) ? 'Projet spécifique' : 'Offre Pro',
+        pages: cloneKirbyTemplateArray(template.pages),
+        homeSections: cloneKirbyTemplateArray(template.sections),
+        services: cloneKirbyTemplateArray(template.services),
+        ctas: [primaryCta, secondaryCta, tertiaryCta],
         seo: {
-            keywords: [activity, `${activity} professionnel`, `${activity} local`, 'site web professionnel'],
-            searchExpressions: needsHotel ? [`${activity} + ville`, 'chambre + ville', 'réservation hôtel', 'séjour touristique'] : needsRestaurant ? ['restaurant + ville', 'menu restaurant', 'réservation restaurant', 'horaires restaurant'] : [`${activity} près de moi`, `${activity} tarifs`, `${activity} contact`, needsAppointment ? `${activity} rendez-vous` : `${activity} professionnel`],
-            titles: [`${siteName} - ${needsAppointment ? 'Prestations et rendez-vous' : needsShop ? 'Catalogue et commandes' : 'Site officiel'}`, `${activity} - Services et contact`],
-            metaDescription: `${siteName} présente ${activity}, ses services, ses informations utiles et un contact direct pour ${mainCta.toLowerCase()}.`,
+            keywords: [template.activity, `${template.activity} moderne`, `${template.activity} professionnel`, 'site web 2026'],
+            searchExpressions: [
+                `${template.activity} + ville`,
+                `${template.activity} professionnel`,
+                `${template.activity} prise de rendez-vous`,
+                `${template.activity} haut de gamme`,
+            ],
+            titles: [`${siteName} - ${template.projectType}`, `${template.activity} - site moderne 2026`],
+            metaDescription: `${siteName} propose une expérience ${template.activity} claire, moderne et orientée conversion.`,
         },
-        seoKeywords: [activity, `${activity} professionnel`, `${activity} local`, 'site web professionnel'],
-        recommendedServices: [
-            { name: needsShop ? 'Boutique en ligne simple' : 'Site vitrine', reason: 'Le projet a besoin d’une page claire et partageable.', priceFrom: needsShop ? 'À partir de 712 € selon le catalogue' : 'À partir de 392 €' },
-            { name: 'Adresse e-mail professionnelle', reason: 'Une adresse contact@ renforce la confiance.', priceFrom: 'À partir de 49 €' },
-            ...(needsQr ? [{ name: 'QR code professionnel', reason: 'Le besoin parle de scan, carte ou support imprimé.', priceFrom: '39 €' }] : []),
-            ...(needsHotel ? [
-                { name: 'Réservation en ligne', reason: 'Pour afficher disponibilités, dates et réservation directement.', priceFrom: 'Projet spécifique' },
-                { name: 'Google Maps et avis clients', reason: 'Pour rassurer et aider le visiteur à choisir.', priceFrom: 'Inclus selon offre' },
-                { name: 'Paiement ou acompte', reason: 'Pour confirmer une réservation en ligne si nécessaire.', priceFrom: 'Projet spécifique' },
-            ] : []),
-            ...(needsRestaurant ? [
-                { name: 'Réservation en ligne', reason: 'Utile si le client doit réserver une table rapidement.', priceFrom: 'Inclus selon offre' },
-                { name: 'Galerie photos', reason: 'Les photos donnent envie avant la visite.', priceFrom: 'Inclus selon offre' },
-                { name: 'Google Maps et avis clients', reason: 'Adresse, accès et avis rassurent avant de se déplacer.', priceFrom: 'Inclus selon offre' },
-            ] : []),
-            ...(needsWordPress ? [{ name: 'WordPress', reason: 'Installation, configuration, refonte ou accompagnement.', priceFrom: 'Projet spécifique' }] : []),
-            ...(needsClientSpace ? [{ name: 'Espace client simple', reason: 'Utile pour centraliser suivi, documents ou informations privées.', priceFrom: 'Projet spécifique' }] : []),
-            ...(needsAiAssistant ? [{ name: 'Assistant IA métier', reason: 'Utile pour guider les visiteurs et répondre aux questions fréquentes.', priceFrom: 'Projet spécifique' }] : []),
-        ],
+        seoKeywords: [template.activity, `${template.activity} professionnel`, 'site web 2026'],
+        recommendedServices: cloneKirbyTemplateArray(template.recommendedServices),
         clientAcquisition: [
-            'Mettre un bouton d’action visible dès le premier écran.',
-            'Ajouter un QR code sur carte, vitrine, flyer ou réseaux sociaux.',
-            'Travailler les mots-clés locaux pour les recherches Google.',
-            'Afficher des preuves simples : photos, avis, réalisations ou exemples.',
+            'Mettre en avant la valeur métier dès le premier écran.',
+            'Rendre le parcours actionnable en 2 à 3 clics.',
+            'Afficher preuves de confiance et points différenciants.',
+            'Mesurer les conversions sur CTA principal.',
         ],
         explanation: [
-            'La structure commence par ce que le visiteur cherche.',
-            'Les boutons sont choisis pour pousser vers une action réelle.',
-            'Les options sont ajoutées seulement quand elles rendent le projet plus simple à utiliser.',
+            'Kirby déduit la direction graphique depuis la demande libre.',
+            'Les blocs incompatibles sont retirés avant le rendu.',
+            'La proposition repart d’une base propre pour chaque brief.',
         ],
         contactMessage: [
             'Bonjour,',
             '',
-            `Le générateur SA a préparé une première proposition pour : ${siteName}.`,
+            `Le générateur SA a préparé une proposition pour : ${siteName}.`,
             `Besoin de départ : ${brief}`,
-            `Type de projet : ${needsShop ? 'boutique en ligne simple' : needsAppointment ? 'site avec rendez-vous' : 'site vitrine professionnel'}`,
-            `Pages proposées : ${pages.map((page) => page.name).join(', ')}`,
-            `Actions conseillées : ${[mainCta, 'Voir les prestations', 'Contacter maintenant'].join(', ')}`,
+            `Type de projet : ${template.projectType}`,
+            `Pages proposées : ${cloneKirbyTemplateArray(template.pages).map((page) => page.name).join(', ')}`,
+            `Actions conseillées : ${[primaryCta, secondaryCta, tertiaryCta].join(', ')}`,
             '',
-            'Merci de me dire ce qu’il faut ajuster pour lancer le projet.'
+            'Merci de me dire ce qu’il faut ajuster pour lancer le projet.',
         ].join('\n'),
     };
+
+    if (needsAppointment && !proposal.pages.some((page) => normalizeKirbyFallbackText(page.name).includes('rendez'))) {
+        proposal.pages.push({ name: 'Prise de rendez-vous', goal: 'Permettre une prise de rendez-vous directe.' });
+    }
+
+    if (needsQr) {
+        proposal.recommendedServices.unshift({
+            name: 'QR code professionnel',
+            reason: 'Partager rapidement une page clé du site.',
+            priceFrom: '39 €',
+        });
+    }
+
+    filterKirbyProposalByIntent(proposal, sectorKey, brief);
+    removeKirbyIncompatibleBlocks(proposal, sectorKey);
+    getKirbySectorCoherenceScore(proposal, sectorKey, brief);
+
+    return proposal;
 };
 
 const renderKirbyList = (items, renderItem, emptyText = 'A compléter ensemble.') => {
@@ -11904,6 +12504,148 @@ const buildKirbyBriefFromForm = () => {
     return aiBriefInput.value.trim();
 };
 
+let kirbyConceptNonce = 0;
+
+const getKirbyBusinessSector = (brief = '') => {
+    const source = normalizeKirbyText(brief);
+    const signals = getKirbyBriefSignals(brief);
+
+    if (/medical|cabinet medical|docteur|medecin|infirmier|kine|dentiste|sante/.test(source)) {
+        return 'medical';
+    }
+
+    if (/immobilier|agence immobiliere|agence immobilière|bien immobilier|annonce|location/.test(source)) {
+        return 'real-estate';
+    }
+
+    if (/cv|portfolio|recruteur|candidature/.test(source)) {
+        return 'cv';
+    }
+
+    if (signals.isAccountingApp) return 'accounting';
+    if (signals.isEducationKids) return 'kids-app';
+    if (signals.isRestaurant) return 'restaurant';
+    if (signals.isCraft) return 'craft';
+    if (signals.isBeauty) return 'beauty';
+    if (signals.isArchitecture) return 'architecture';
+
+    return 'service';
+};
+
+const isKirbyHardRebuildRequest = (revision = '') => {
+    const source = normalizeKirbyText(revision);
+    return /change de metier|changer de metier|change completement de metier|changement de metier|nouveau metier|nouvelle activite|completement different|totalement different|reconstruire|refaire de zero|repartir de zero|nouveau secteur|nouvelle architecture|changer l architecture|changer la maquette/.test(source);
+};
+
+const getKirbyRevisionRebuildContext = (brief = '', revision = '') => {
+    const baseSector = getKirbyBusinessSector(brief);
+    const revisedBrief = String(revision || '').trim();
+    const revisedSector = getKirbyBusinessSector(revision);
+    const hardRebuildAsked = isKirbyHardRebuildRequest(revision);
+    const sectorChanged = baseSector !== revisedSector;
+    const typeChanged = /(nouveau site|nouveau type|passe en|transforme en|deviens|devient|au lieu de)/.test(normalizeKirbyText(revision));
+
+    return {
+        baseSector,
+        revisedSector,
+        hardRebuildAsked,
+        sectorChanged,
+        shouldRebuild: hardRebuildAsked || sectorChanged || typeChanged,
+        rebuiltBrief: revisedBrief,
+    };
+};
+
+const applyKirbySectorSignature = (proposal, sector = 'service') => {
+    if (!proposal || typeof proposal !== 'object') {
+        return proposal;
+    }
+
+    if (sector === 'medical') {
+        addKirbyPage(proposal, { name: 'Prise de rendez-vous', goal: 'Permettre une demande rapide et rassurante.' });
+        addKirbyPage(proposal, { name: 'Horaires', goal: 'Afficher les jours, heures et urgences.' });
+        addKirbyService(proposal, { name: 'Agenda de consultation', reason: 'Centraliser les demandes de créneau.', priceFrom: 'Selon projet' }, true);
+    }
+
+    if (sector === 'real-estate') {
+        addKirbyPage(proposal, { name: 'Biens disponibles', goal: 'Présenter les annonces avec filtres.' });
+        addKirbyPage(proposal, { name: 'Carte des secteurs', goal: 'Visualiser les zones de recherche.' });
+        addKirbyService(proposal, { name: 'Filtres avancés', reason: 'Accélérer la recherche du bon bien.', priceFrom: 'Selon projet' }, true);
+    }
+
+    if (sector === 'craft') {
+        addKirbyPage(proposal, { name: 'Réalisations', goal: 'Montrer les chantiers terminés.' });
+        addKirbyPage(proposal, { name: 'Avant / Après', goal: 'Valoriser la transformation visuelle.' });
+        addKirbyService(proposal, { name: 'Demande de devis', reason: 'Transformer la visite en demande qualifiée.', priceFrom: 'Inclus selon offre' }, true);
+    }
+
+    if (sector === 'restaurant') {
+        addKirbyPage(proposal, { name: 'Menu / carte', goal: 'Afficher la carte rapidement.' });
+        addKirbyPage(proposal, { name: 'Réservation', goal: 'Permettre la réservation en quelques clics.' });
+        addKirbyService(proposal, { name: 'Réservation en ligne', reason: 'Réduire les frictions côté client.', priceFrom: 'Inclus selon offre' }, true);
+    }
+
+    if (sector === 'accounting') {
+        addKirbyPage(proposal, { name: 'Tableau de bord', goal: 'Afficher KPI, revenus et échéances.' });
+        addKirbyService(proposal, { name: 'Graphiques financiers', reason: 'Rendre les données immédiatement lisibles.', priceFrom: 'Selon projet' }, true);
+    }
+
+    if (sector === 'kids-app') {
+        addKirbyPage(proposal, { name: 'Jeux', goal: 'Présenter les mini-jeux éducatifs.' });
+        addKirbyPage(proposal, { name: 'Espace parent', goal: 'Suivre les progrès et gérer les profils.' });
+        addKirbyService(proposal, { name: 'Interface produit sur mesure', reason: 'Créer une vraie expérience applicative enfant.', priceFrom: 'Projet spécifique' }, true);
+    }
+
+    if (sector === 'cv') {
+        addKirbyPage(proposal, { name: 'Profil', goal: 'Mettre en avant le positionnement du candidat.' });
+        addKirbyPage(proposal, { name: 'Expériences', goal: 'Structurer les preuves de parcours.' });
+        addKirbyService(proposal, { name: 'Version PDF optimisée', reason: 'Faciliter l’envoi vers recruteurs.', priceFrom: 'Inclus selon offre' }, true);
+    }
+
+    return proposal;
+};
+
+const getKirbyConceptCount = (brief = '') => {
+    const size = String(brief || '').trim().length;
+    if (size > 220) return 5;
+    if (size > 90) return 4;
+    return 3;
+};
+
+const buildKirbyConceptSeries = ({ baseProposal = {}, brief = '', seed = 0 } = {}) => {
+    const sourceProposal = cloneKirbyProposal(baseProposal);
+    const sectorKey = detectKirbySectorTemplate(brief);
+
+    sourceProposal.visualSeed = getKirbyHash(`${brief}::single-direction::${seed}`);
+    sourceProposal.sectorKey = sectorKey;
+    filterKirbyProposalByIntent(sourceProposal, sectorKey, brief);
+    removeKirbyIncompatibleBlocks(sourceProposal, sectorKey);
+    getKirbySectorCoherenceScore(sourceProposal, sectorKey, brief);
+
+    return [{
+        id: 'single-direction',
+        label: 'Direction unique',
+        personality: 'Direction reconstruite depuis la demande libre utilisateur.',
+        proposal: sourceProposal,
+    }];
+};
+
+const renderKirbyConceptExperience = ({
+    baseProposal = {},
+    brief = '',
+    runtime = {},
+    seed = 0,
+    activeIndex = 0,
+} = {}) => {
+    const concepts = buildKirbyConceptSeries({ baseProposal, brief, seed });
+    const safeIndex = Math.min(Math.max(activeIndex || 0, 0), Math.max(concepts.length - 1, 0));
+    const activeConcept = concepts[safeIndex] || { proposal: baseProposal, label: 'Concept' };
+
+    renderKirbyProposal(activeConcept.proposal, brief, {
+        ...runtime,
+        source: runtime?.source,
+    });
+};
+
 const normalizeKirbyText = (value = '') => String(value || '')
     .toLowerCase()
     .normalize('NFD')
@@ -11943,12 +12685,16 @@ const getKirbyBriefSignals = (brief = '') => {
     const isHotel = /hotel|chambre|hebergement|gite|sejour|touristique/.test(source);
     const isArchitecture = /architect|architecture|architecte|arquitecto|interieur|intérieur|design d interieur|design d'intérieur|decorateur|decoratrice|decoration|décoration|studio de design|maitre d oeuvre|maître d oeuvre/.test(source);
     const isAccountingApp = /contadirect|compta|comptabilite|comptable|facture|facturation|devis|tva|revenu|revenus|depense|depenses|charge|charges|banque|transaction|transactions|tresorerie|resultat net|bilan|logiciel de compta|logiciel comptable|tableau de bord|dashboard/.test(source);
+    const isEducationKids = /enfant|enfants|kids?|educatif|educative|education|ecole|maternelle|apprendre|apprentissage|comptine|comptines|histoire|histoires|parent|parents|mini jeu|mini-jeu|application enfant|app enfant|luna|leo|léo/.test(source);
+    const isFutureExperience = /figma|luma|futur|future|futuriste|3d|immersif|immersive|interactif|interaction|motion|anime|animé|univers|personnalite|personnalité|waouh|wow/.test(source);
 
     return {
         source,
         isAccountingApp,
         isArchitecture,
-        isDigital: /sa creation|creation web|site web|sites web|generateur|ia|digital|agence|developpement|référencement|referencement|qr code|maintenance|support technique|logiciel|application|saas|plateforme/.test(source),
+        isEducationKids,
+        isFutureExperience,
+        isDigital: isFutureExperience || /sa creation|creation web|site web|sites web|generateur|ia|digital|agence|developpement|référencement|referencement|qr code|maintenance|support technique|logiciel|application|saas|plateforme/.test(source),
         isHotel,
         isRestaurant,
         isShop: !isBeauty && !isRestaurant && !isHotel && /boutique|vendre|vente|commande|produit|panier|paiement|catalogue|mode|vetement/.test(source),
@@ -12057,8 +12803,6 @@ const setKirbyPreviewSummary = (proposal, title, items = []) => {
     };
 };
 
-const isOpenAiKirbyProposal = (proposal = {}) => normalizeKirbyText(proposal.mode || proposal.source) === 'openai';
-
 const hasRichKirbyProposal = (proposal = {}) =>
     getKirbyArray(proposal.pages, 8).length >= 4 &&
     getKirbyArray(proposal.homeSections, 6).length >= 2 &&
@@ -12084,7 +12828,9 @@ const applyGeneratedKirbyVisualHints = (proposal, signals, brief = '') => {
     ].filter(Boolean).join(' '));
 
     if (!proposal.visualMood) {
-        proposal.visualMood = signals.isAccountingApp || /dashboard|logiciel|saas|comptable|facturation/.test(visualSource)
+        proposal.visualMood = signals.isEducationKids || /kids-future|enfant|educatif|educative|comptine|histoire|parent|mini-jeu|mini jeu/.test(visualSource)
+            ? 'kids-future'
+            : signals.isAccountingApp || /dashboard|logiciel|saas|comptable|facturation/.test(visualSource)
             ? 'accounting-dashboard'
             : signals.isDigital || /digital|ia|generateur|premium|bleu nuit|etoile|verre|halo/.test(visualSource)
                 ? 'tech-premium'
@@ -12210,10 +12956,106 @@ const applyKirbyAccountingModel = (proposal, brief = '') => {
     return proposal;
 };
 
+const applyKirbyKidsEducationModel = (proposal, brief = '', preserveContent = false) => {
+    const source = normalizeKirbyText(`${brief} ${proposal.siteName || ''}`);
+    const appName = /luna|leo|léo/.test(source)
+        ? 'Luna & Léo'
+        : formatKirbySiteName(proposal.siteName) || 'LudoNova';
+    const hasSpecificPages = getKirbyArray(proposal.pages, 8)
+        .some((page) => /jeux|histoires|comptines|parent/.test(normalizeKirbyText(getKirbyItemTitle(page))));
+    const hasSpecificSections = getKirbyArray(proposal.homeSections, 6)
+        .some((section) => /jeu|histoire|comptine|parent|apprentissage|monde/.test(normalizeKirbyText(getKirbyItemTitle(section))));
+
+    proposal.siteName = appName;
+    proposal.sectorKey = 'kids-app';
+    proposal.projectType = 'Application éducative immersive enfant';
+    proposal.visualMood = 'kids-future';
+    proposal.layoutVariant = 'story-world';
+    proposal.designVariant = getKirbyHash(`${brief} ${appName} kids-future`) % 5;
+    proposal.visualSeed = proposal.visualSeed || getKirbyHash(`${brief}::kids-story-world`);
+    proposal.showGallery = true;
+    proposal.slogan = preserveContent && proposal.slogan
+        ? proposal.slogan
+        : 'Apprendre en jouant, tout doucement.';
+    proposal.summary = preserveContent && proposal.summary
+        ? proposal.summary
+        : `${appName} devient une expérience éducative avec jeux, histoires, comptines et espace parent.`;
+    proposal.valueProposition = 'Un univers applicatif qui donne envie à l’enfant d’explorer et rassure les parents par un suivi clair.';
+    proposal.positioning = {
+        audience: 'Parents, enfants et encadrants éducatifs.',
+        promise: 'Faire apprendre par le jeu dans un cadre doux, sécurisé et vivant.',
+        tone: 'Futur doux, ludique, immersif et rassurant.',
+        differentiator: 'Un vrai produit visible dès le premier écran : modules enfant, progression et contrôle parent.',
+    };
+    proposal.styleGuide = {
+        direction: 'Univers produit immersif, futur doux, modules de jeu visibles, panneau parent et animations légères.',
+        colors: 'Indigo profond, menthe lumineuse, corail doux, jaune soleil, lilas interactif et surfaces translucides.',
+        typography: 'Sans-serif ronde et expressive, titres larges, libellés courts.',
+        layout: 'Story-world applicatif : hero produit, écran enfant, cartes jeux/histoires/comptines, espace parent.',
+    };
+    proposal.visualConcept = {
+        heroComposition: 'Premier écran comme un monde applicatif avec écran enfant, cartes jeux, histoires, comptines et panneau parent.',
+        ambience: 'Futur doux, ludique, immersif et rassurant pour les parents.',
+        colorPalette: ['nuit indigo', 'menthe interactive', 'jaune soleil', 'corail doux', 'lilas futur'],
+        imageKeywords: ['interface app enfant', 'univers educatif futur doux', 'cartes jeux histoires comptines', 'espace parent'],
+        layoutSignature: 'Story-world avec modules applicatifs, progression parent et parcours lumineux entre les activités.',
+        microInteractions: ['cartes jeux qui respirent', 'progression parent animée', 'parcours lumineux entre les activités'],
+        wowFactor: 'Le premier écran ressemble à un produit éducatif vivant, pas à une vitrine générique.',
+    };
+    proposal.siteModel = {
+        name: 'Direction story-world éducatif',
+        description: 'Une expérience applicative qui donne envie à l’enfant d’explorer et rassure les parents par un suivi clair.',
+        sections: ['Monde applicatif', 'Jeux', 'Histoires', 'Comptines', 'Espace parent'],
+    };
+
+    if (!preserveContent || !hasSpecificPages) {
+        proposal.pages = [
+            { name: 'Accueil', goal: 'Présenter l’univers, la promesse éducative et l’entrée vers le jeu.' },
+            { name: 'Jeux', goal: 'Afficher les mini-jeux, niveaux et compétences travaillées.' },
+            { name: 'Histoires', goal: 'Présenter les récits interactifs, personnages et choix simples.' },
+            { name: 'Comptines', goal: 'Proposer un espace audio doux, sécurisé et rassurant.' },
+            { name: 'Espace parent', goal: 'Montrer progression, profils, temps d’écran et réglages.' },
+            { name: 'Contact', goal: 'Permettre aux parents ou partenaires de poser une question.' },
+        ];
+    }
+
+    if (!preserveContent || !hasSpecificSections) {
+        proposal.homeSections = [
+            { title: 'Monde à explorer', text: 'L’enfant choisit jeux, histoires et comptines dans une interface visuelle et douce.' },
+            { title: 'Apprentissage progressif', text: 'Les activités courtes guident la découverte sans pression.' },
+            { title: 'Espace parent', text: 'Les parents suivent les progrès, les profils et les contenus favoris.' },
+        ];
+    }
+
+    proposal.ctas = ['Commencer à jouer', 'Espace parent', 'Découvrir les histoires'];
+    proposal.recommendedOffer = 'Projet spécifique';
+    proposal.recommendedServices = [
+        { name: 'Interface produit sur mesure', reason: 'Le projet demande une vraie application enfant, pas une vitrine.', priceFrom: 'Projet spécifique' },
+        { name: 'Espace client simple', reason: 'Utile pour les profils enfants, parents et préférences.', priceFrom: 'Projet spécifique' },
+        { name: 'Assistant IA métier', reason: 'Peut adapter histoires, activités ou parcours selon l’âge.', priceFrom: 'Projet spécifique' },
+        { name: 'Galerie animée', reason: 'L’univers doit être visible dès le premier écran.', priceFrom: 'Projet spécifique' },
+    ];
+    proposal.services = [
+        { name: 'Mini-jeux éducatifs', description: 'Activités courtes avec objectifs, niveaux et récompenses douces.' },
+        { name: 'Histoires interactives', description: 'Récits, choix simples et univers visuel pour garder l’enfant engagé.' },
+        { name: 'Suivi parent', description: 'Progression, temps d’usage, profils et préférences dans une vue claire.' },
+    ];
+    setKirbyPreviewSummary(proposal, 'Produit à créer', [
+        'Jeux éducatifs',
+        'Histoires interactives',
+        'Comptines',
+        'Espace parent',
+        'Progression',
+    ]);
+
+    return proposal;
+};
+
 const normalizeKirbyProposalForBrief = (currentProposal, brief = '') => {
     const proposal = cloneKirbyProposal(currentProposal);
     const signals = getKirbyBriefSignals(brief);
-    const preserveGeneratedProposal = isOpenAiKirbyProposal(proposal) && hasRichKirbyProposal(proposal);
+    const sectorKey = detectKirbySectorTemplate(brief);
+    const preserveGeneratedProposal = hasRichKirbyProposal(proposal);
 
     if (preserveGeneratedProposal) {
         applyGeneratedKirbyVisualHints(proposal, signals, brief);
@@ -12280,7 +13122,11 @@ const normalizeKirbyProposalForBrief = (currentProposal, brief = '') => {
         applyKirbyAccountingModel(proposal, brief);
     }
 
-    if (signals.isDigital && !signals.isAccountingApp && !preserveGeneratedProposal) {
+    if (signals.isEducationKids) {
+        applyKirbyKidsEducationModel(proposal, brief, preserveGeneratedProposal);
+    }
+
+    if (signals.isDigital && !signals.isAccountingApp && !preserveGeneratedProposal && sectorKey === 'corporate') {
         proposal.siteName = /sa creation|sacreation|création web|creation web/.test(signals.source)
             ? 'SA Création Web'
             : formatKirbySiteName(proposal.siteName) || 'Studio Digital IA';
@@ -12364,13 +13210,27 @@ const applyKirbyRevision = (currentProposal, revision, brief = '') => {
         markApplied('Textes raccourcis');
     }
 
+    if (/mise en page|layout|maquette|structure|plus creatif|plus créatif|original|different|différente|changer le style|change le style|design/.test(requested)) {
+        const layoutCycle = ['classic-conversion', 'gallery-focus', 'minimal-editorial', 'luxury-asymmetric', 'warm-editorial', 'cinematic-video'];
+        const currentLayout = normalizeKirbyLayoutVariant(proposal.layoutVariant);
+        const currentIndex = Math.max(layoutCycle.indexOf(currentLayout), 0);
+        const nextLayout = layoutCycle[(currentIndex + 1 + (getKirbyHash(requested) % 2)) % layoutCycle.length];
+        proposal.layoutVariant = nextLayout;
+        proposal.designVariant = (Number(proposal.designVariant) || 0) + 2;
+        proposal.visualSeed = getKirbyHash(`${revision}::${brief}::${nextLayout}`);
+        proposal.styleGuide = proposal.styleGuide && typeof proposal.styleGuide === 'object' ? proposal.styleGuide : {};
+        proposal.styleGuide.layout = nextLayout;
+        markApplied('Mise en page retravaillée');
+    }
+
     if (/image|photo|galerie|visuel|portfolio/.test(requested)) {
         const beauty = getKirbyBriefSignals(source).isBeauty;
-        addKirbyPage(proposal, { name: beauty ? 'Galerie avant / après' : 'Photos', goal: beauty ? 'Montrer les résultats ou l’ambiance des soins avec sobriété.' : 'Montrer des images fortes du lieu, des produits ou des réalisations.' });
-        addKirbySection(proposal, { title: beauty ? 'Galerie soins' : 'Galerie visuelle', text: beauty ? 'Des visuels doux montrent l’univers, les accessoires et les résultats.' : 'Une section image met en avant les preuves visuelles du projet.' });
-        addKirbyService(proposal, { name: beauty ? 'Galerie avant / après' : 'Galerie photos', reason: beauty ? 'Utile pour rendre les prestations plus concrètes et rassurantes.' : 'Utile pour rendre la proposition plus concrète et rassurante.', priceFrom: 'Inclus selon offre' });
-        addKirbyModelSection(proposal, beauty ? 'Galerie avant / après' : 'Galerie photos');
-        proposal.visualMood = beauty ? 'beauty-wellness' : 'image-led';
+        const wellness = beauty || /yoga|pilates|bien etre|bien-être|meditation|méditation|relaxation/.test(source);
+        addKirbyPage(proposal, { name: wellness ? 'Le lieu' : 'Photos', goal: wellness ? 'Montrer l’ambiance, la lumière, les matières et les détails du lieu.' : 'Montrer des images fortes du lieu, des produits ou des réalisations.' });
+        addKirbySection(proposal, { title: wellness ? 'Ambiance du lieu' : 'Galerie visuelle', text: wellness ? 'Des images larges montrent l’atmosphère, les détails et la qualité de l’expérience.' : 'Une section image met en avant les preuves visuelles du projet.' });
+        addKirbyService(proposal, { name: wellness ? 'Galerie immersive' : 'Galerie photos', reason: wellness ? 'Utile pour rendre le lieu concret et désirable.' : 'Utile pour rendre la proposition plus concrète et rassurante.', priceFrom: 'Inclus selon offre' });
+        addKirbyModelSection(proposal, wellness ? 'Ambiance du lieu' : 'Galerie photos');
+        proposal.visualMood = wellness ? 'beauty-wellness' : 'image-led';
         proposal.showGallery = true;
         markApplied('Galerie ajoutée');
     }
@@ -12380,7 +13240,7 @@ const applyKirbyRevision = (currentProposal, revision, brief = '') => {
         proposal.siteModel = proposal.siteModel && typeof proposal.siteModel === 'object' ? proposal.siteModel : {};
         proposal.siteModel.name = /premium|signature|luxe|elegant|elegance/.test(normalizeKirbyText(proposal.siteModel.name || ''))
             ? proposal.siteModel.name
-            : `Version premium - ${proposal.siteModel.name || proposal.projectType || 'site professionnel'}`;
+            : `Direction premium - ${proposal.siteModel.name || proposal.projectType || 'site professionnel'}`;
         proposal.slogan = /restaurant|menu|carte/.test(source)
             ? 'Une expérience élégante à chaque visite.'
             : 'Une présence élégante, claire et mémorable.';
@@ -12390,7 +13250,7 @@ const applyKirbyRevision = (currentProposal, revision, brief = '') => {
             ? 'accounting-dashboard'
             : /sa creation|creation web|generateur|ia|digital|site web/.test(source) ? 'tech-premium' : revisionSignals.isBeauty ? 'beauty-wellness' : 'premium';
         proposal.designVariant = (Number(proposal.designVariant) || 0) + 1;
-        markApplied('Version premium');
+        markApplied('Direction premium');
     }
 
     if (/rassurant|confiance|clair|claire|professionnel|professionnelle/.test(requested)) {
@@ -12570,6 +13430,27 @@ const applyKirbyRevision = (currentProposal, revision, brief = '') => {
     return proposal;
 };
 
+const buildKirbyCleanRevisionProposal = ({ brief = '', revision = '', currentProposal = null } = {}) => {
+    const rebuildContext = getKirbyRevisionRebuildContext(brief, revision);
+    const shouldRebuild = rebuildContext.shouldRebuild;
+    const targetBrief = shouldRebuild
+        ? rebuildContext.rebuiltBrief || revision
+        : `${brief}\n\nModification demandée à Kirby : ${revision}`;
+    const cleanBase = buildBrowserKirbyProposal(targetBrief);
+    const revisedProposal = applyKirbyRevision(cleanBase, revision, targetBrief);
+    const currentName = formatKirbySiteName(currentProposal?.siteName || '');
+    const renameAsked = /renomme|renommer|nom|marque|appelle|s'appelle|s’appelle/.test(normalizeKirbyText(revision));
+
+    if (!shouldRebuild && currentName && !renameAsked) {
+        revisedProposal.siteName = currentName;
+    }
+
+    revisedProposal.revisionMode = shouldRebuild ? 'clean-rebuild' : 'clean-regeneration';
+    revisedProposal.visualSeed = getKirbyHash(`${targetBrief}::${revision}::clean-regeneration`);
+
+    return normalizeKirbyProposalForBrief(revisedProposal, shouldRebuild ? targetBrief : brief);
+};
+
 const getKirbyPreviewStyle = (proposal = {}) => {
     const visualConcept = getKirbyVisualConcept(proposal);
     const source = normalizeKirbyText([
@@ -12586,6 +13467,14 @@ const getKirbyPreviewStyle = (proposal = {}) => {
         getKirbyArray(visualConcept.colorPalette, 6).join(' '),
         getKirbyArray(proposal.appliedChanges, 5).join(' '),
     ].filter(Boolean).join(' '));
+
+    if (/kids-future|enfant|educatif|educative|education|comptine|histoire|parent|mini-jeu|mini jeu|luna|leo|léo/.test(source)) {
+        return {
+            canvas: 'background: linear-gradient(145deg, #101842, #1f2556 48%, #fff8df);',
+            hero: 'background: linear-gradient(140deg, rgba(17, 24, 67, 0.96), rgba(56, 44, 121, 0.92) 56%, rgba(255, 196, 112, 0.92));',
+            visual: 'background: linear-gradient(145deg, rgba(255, 255, 255, 0.18), rgba(87, 238, 209, 0.18));',
+        };
+    }
 
     if (/accounting-dashboard|comptabilite|comptable|facturation|logiciel|saas|tableau de bord/.test(source)) {
         return {
@@ -12669,6 +13558,10 @@ const getKirbyPreviewImageStyle = (proposal = {}, brief = '') => {
         proposal.siteModel && proposal.siteModel.name,
         proposal.styleGuide && proposal.styleGuide.direction,
         proposal.styleGuide && proposal.styleGuide.colors,
+        proposal.layoutVariant,
+        proposal.conceptLabel,
+        proposal.designVariant,
+        proposal.visualSeed,
         visualConcept.ambience,
         visualConcept.heroComposition,
         visualConcept.layoutSignature,
@@ -12676,7 +13569,10 @@ const getKirbyPreviewImageStyle = (proposal = {}, brief = '') => {
         getKirbyArray(proposal.pages, 6).map((page) => getKirbyItemTitle(page)).join(' '),
         getKirbyArray(proposal.recommendedServices, 6).map((service) => getKirbyItemTitle(service)).join(' '),
     ].filter(Boolean).join(' '));
-    const index = getKirbyHash(`${brief} ${proposal.siteName} ${proposal.visualMood} ${source}`) % 17;
+    const index = getKirbyHash(`${brief} ${proposal.siteName} ${proposal.visualMood} ${proposal.layoutVariant || ''} ${proposal.visualSeed || ''} ${source}`) % 17;
+    if (signals.isEducationKids || /kids-future|enfant|educatif|educative|education|comptine|histoire|parent|mini-jeu|mini jeu|luna|leo|léo/.test(source)) {
+        return 'background-image: linear-gradient(135deg, rgba(37, 50, 130, 0.94), rgba(111, 87, 214, 0.82) 48%, rgba(255, 190, 103, 0.9));';
+    }
     const imageSets = [
         {
             test: () => signals.isArchitecture || /architect|architecture|architecte|arquitecto|interieur|intérieur|design d interieur|design d'intérieur|decorateur|decoratrice|decoration|décoration|maitre d oeuvre|maître d oeuvre/.test(source),
@@ -12772,6 +13668,10 @@ const getKirbyGalleryImageStyles = (proposal = {}, brief = '') => {
         proposal.projectType,
         proposal.siteName,
         proposal.siteModel && proposal.siteModel.name,
+        proposal.layoutVariant,
+        proposal.conceptLabel,
+        proposal.designVariant,
+        proposal.visualSeed,
         proposal.styleGuide && proposal.styleGuide.direction,
         proposal.styleGuide && proposal.styleGuide.colors,
         visualConcept.ambience,
@@ -12780,6 +13680,13 @@ const getKirbyGalleryImageStyles = (proposal = {}, brief = '') => {
         getKirbyArray(visualConcept.imageKeywords, 8).join(' '),
         getKirbyArray(proposal.pages, 8).map((page) => getKirbyItemTitle(page)).join(' '),
     ].filter(Boolean).join(' '));
+    if (signals.isEducationKids || /kids-future|enfant|educatif|educative|education|comptine|histoire|parent|mini-jeu|mini jeu|luna|leo|léo/.test(source)) {
+        return [
+            'background: linear-gradient(145deg, rgba(81, 229, 210, 0.92), rgba(98, 96, 232, 0.78));',
+            'background: linear-gradient(145deg, rgba(255, 214, 109, 0.96), rgba(255, 130, 143, 0.86));',
+            'background: linear-gradient(145deg, rgba(185, 142, 255, 0.92), rgba(91, 226, 166, 0.82));',
+        ];
+    }
     const imageSets = signals.isArchitecture || /architect|architecture|architecte|arquitecto|interieur|intérieur|design d interieur|design d'intérieur|decorateur|decoratrice|decoration|décoration|maitre d oeuvre|maître d oeuvre/.test(source)
         ? [
             'https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=700&q=80',
@@ -12842,7 +13749,7 @@ const getKirbyGalleryImageStyles = (proposal = {}, brief = '') => {
                             'https://images.unsplash.com/photo-1553877522-43269d4ea984?auto=format&fit=crop&w=700&q=80',
                             'https://images.unsplash.com/photo-1483058712412-4245e9b90334?auto=format&fit=crop&w=700&q=80',
                         ];
-    const offset = getKirbyHash(`${brief} ${proposal.siteName || ''} ${source}`) % imageSets.length;
+    const offset = getKirbyHash(`${brief} ${proposal.siteName || ''} ${proposal.layoutVariant || ''} ${proposal.visualSeed || ''} ${source}`) % imageSets.length;
     const selectedUrls = [0, 1, 2].map((index) => imageSets[(offset + index) % imageSets.length]);
 
     return selectedUrls.map((url) => `background-image: linear-gradient(145deg, rgba(255, 255, 255, 0.02), rgba(15, 18, 29, 0.12)), url('${url}');`);
@@ -12949,25 +13856,6 @@ const getKirbyRuntimeLabel = (payload = {}) => {
     return 'Kirby en préparation';
 };
 
-const getKirbyPilotMission = (proposal = {}) => {
-    const safeProposal = proposal && typeof proposal === 'object' ? proposal : {};
-    const pages = getKirbyArray(safeProposal.pages, 7).map((page) => getKirbyItemTitle(page)).filter(Boolean);
-    const seo = getKirbySeo(safeProposal);
-
-    return [
-        safeProposal.styleGuide?.direction || safeProposal.visualConcept?.layoutSignature || 'Direction visuelle définie',
-        pages.length ? `${pages.length} pages structurées : ${pages.slice(0, 3).join(', ')}` : 'Parcours du site structuré',
-        seo.metaDescription ? 'SEO de départ rédigé' : 'SEO à renforcer',
-        safeProposal.ctas?.[0] ? `Action principale : ${safeProposal.ctas[0]}` : 'Conversion à renforcer',
-    ].filter(Boolean).slice(0, 4);
-};
-
-const kirbyPilotActions = {
-    brand: 'Reprends la direction artistique complète : rends le projet plus distinctif, mémorable et cohérent avec l’activité. Mets à jour le visuel, la hiérarchie, les textes et les appels à l’action.',
-    conversion: 'Audite le parcours client et améliore la conversion : clarifie la promesse, les preuves de confiance, les actions principales et les sections qui doivent déclencher une prise de contact ou une réservation.',
-    launch: 'Prépare le lancement : complète les pages et le SEO, vérifie les informations indispensables, priorise les éléments à finaliser et propose une version prête à valider.',
-};
-
 const normalizeKirbyLayoutVariant = (value = '') => {
     const variant = normalizeKirbyText(value).replace(/_/g, '-').replace(/\s+/g, '-');
     const aliases = {
@@ -12985,11 +13873,16 @@ const normalizeKirbyLayoutVariant = (value = '') => {
         asymetrique: 'luxury-asymmetric',
         dashboard: 'product-dashboard',
         app: 'product-dashboard',
+        story: 'story-world',
+        storytelling: 'story-world',
+        enfant: 'story-world',
+        educatif: 'story-world',
+        'kids-app': 'story-world',
         warm: 'warm-editorial',
         editorial: 'warm-editorial',
         classic: 'classic-conversion',
     };
-    const allowed = ['cinematic-video', 'gallery-focus', 'minimal-editorial', 'luxury-asymmetric', 'product-dashboard', 'warm-editorial', 'classic-conversion'];
+    const allowed = ['story-world', 'cinematic-video', 'gallery-focus', 'minimal-editorial', 'luxury-asymmetric', 'product-dashboard', 'warm-editorial', 'classic-conversion'];
 
     return allowed.includes(variant) ? variant : aliases[variant] || '';
 };
@@ -13014,6 +13907,12 @@ const getKirbyLayoutVariant = (proposal = {}, brief = '', isDashboardPreview = f
         visualConcept.wowFactor,
     ].filter(Boolean).join(' '));
     const requestedVariant = normalizeKirbyLayoutVariant(proposal.layoutVariant || visualConcept.layoutVariant || visualConcept.layoutSignature);
+
+    if (signals.isEducationKids || /kids-future|enfant|educatif|educative|comptine|histoire|parent|mini-jeu|mini jeu|story-world/.test(source)) {
+        if (!requestedVariant || ['product-dashboard', 'classic-conversion', 'warm-editorial'].includes(requestedVariant)) {
+            return 'story-world';
+        }
+    }
 
     if (requestedVariant) {
         return requestedVariant;
@@ -13053,15 +13952,11 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
     const pages = getKirbyArray(safeProposal.pages, 7);
     const homeSections = getKirbyArray(safeProposal.homeSections, 3);
     const ctas = getKirbyArray(safeProposal.ctas, 3);
-    const contactMessage = safeProposal.contactMessage || buildBrowserKirbyProposal(brief).contactMessage;
     const quoteParams = new URLSearchParams({
         service: safeProposal.recommendedOffer || 'Projet site web',
-        message: contactMessage,
     });
     const builderPanel = aiBriefOutput.closest('.ai-brief-panel');
     const siteName = formatKirbySiteName(safeProposal.siteName) || 'Nom de site à valider';
-    const runtimeLabel = getKirbyRuntimeLabel(runtime);
-    const pilotMission = getKirbyPilotMission(safeProposal);
     const domain = getKirbyDomain(siteName);
     const email = `contact@${domain}`;
     const cleanPages = pages.filter((page) => getKirbyItemTitle(page));
@@ -13083,8 +13978,13 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
         ...visiblePages.map((page) => getKirbyItemTitle(page)).filter(Boolean).slice(0, 3),
     ].filter(Boolean).slice(0, 6);
     const visiblePageNames = visiblePages.map((page) => getKirbyItemTitle(page)).filter(Boolean).slice(0, 6);
+    const featureNames = getKirbyArray(safeProposal.recommendedServices, 8)
+        .map((service) => getKirbyItemTitle(service))
+        .filter(Boolean)
+        .slice(0, 6);
     const primaryCta = ctas[0] || 'Découvrir';
     const secondaryCta = ctas[1] || 'Contacter';
+    const tertiaryCta = ctas[2] || 'Contacter maintenant';
     const previewStyle = getKirbyPreviewStyle(safeProposal);
     const previewImageStyle = getKirbyPreviewImageStyle(safeProposal, brief);
     const galleryImageStyles = getKirbyGalleryImageStyles(safeProposal, brief);
@@ -13095,16 +13995,40 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
         brief,
     ].filter(Boolean).join(' '));
     const briefSignals = getKirbyBriefSignals(brief);
-    const isDashboardPreview = /accounting-dashboard|comptabilite|comptable|facturation|logiciel de compta|logiciel comptable|tableau de bord|dashboard|contadirect/.test(toneSource);
-    const layoutVariant = getKirbyLayoutVariant(safeProposal, brief, isDashboardPreview);
-    const previewTone = isDashboardPreview
+    const layoutVariant = getKirbyLayoutVariant(safeProposal, brief, false);
+    const isDashboardPreview = layoutVariant === 'product-dashboard';
+    const isKidsFuturePreview = layoutVariant === 'story-world' || briefSignals.isEducationKids || /kids-future|enfant|educatif|educative|education|comptine|histoire|parent|mini-jeu|mini jeu|luna|leo|léo/.test(toneSource);
+    const previewTone = isKidsFuturePreview
+        ? 'is-kids-future'
+        : isDashboardPreview
         ? 'is-dashboard'
         : /tech-premium|digital|generateur|ia|site web|creation web/.test(toneSource)
         ? 'is-tech'
         : !briefSignals.isHotel && /beauty-wellness|estheticien|estheticienne|esthetique|beaute|massage|soin|epilation|spa|bien etre|bien-etre/.test(toneSource)
             ? 'is-beauty'
             : '';
+    const sectorClass = `sector-${normalizeKirbyText(safeProposal.sectorKey || 'generic').replace(/[^a-z0-9-]/g, '-') || 'generic'}`;
     const dashboardBrand = cleanHtml(safeProposal.siteName || siteName).replace(/Direct$/i, '<b>Direct</b>');
+    const projectSummary = [
+        `Activite : ${getKirbyShortText(brief || 'Projet a preciser', 170)}`,
+        `Type de site : ${safeProposal.projectType || siteModel.name || 'Site professionnel'}`,
+        `Objectif : ${getKirbyShortText(primaryCta || 'Generer une premiere base de site claire.', 120)}`,
+        `Style souhaite : ${getKirbyShortText(safeProposal.visualMood || safeProposal.styleGuide?.direction || 'Style professionnel et lisible', 120)}`,
+        `Pages proposees : ${visiblePageNames.length ? visiblePageNames.join(', ') : 'Accueil, Services, Contact'}`,
+        `Fonctionnalites souhaitees : ${featureNames.length ? featureNames.join(', ') : 'Formulaire de contact et sections services'}`,
+    ].join('\n');
+    const coherentContactMessage = [
+        'Bonjour,',
+        '',
+        `Le générateur SA a préparé une proposition pour : ${siteName}.`,
+        `Besoin de départ : ${brief || 'Projet à préciser'}`,
+        `Type de projet : ${safeProposal.projectType || siteModel.name || 'Site professionnel'}`,
+        `Pages proposées : ${visiblePageNames.length ? visiblePageNames.join(', ') : 'Accueil, Services, Contact'}`,
+        `Actions conseillées : ${[primaryCta, secondaryCta, tertiaryCta].filter(Boolean).join(', ')}`,
+        '',
+        'Merci de me dire ce qu’il faut ajuster pour lancer le projet.',
+    ].join('\n');
+    quoteParams.set('message', coherentContactMessage);
     const dashboardMenuItems = ['Tableau de bord', 'Revenus', 'Depenses', 'Devis', 'Factures', 'Banque', 'Documents', 'TVA & Charges'];
     const dashboardPreview = `
         <div class="kirby-dashboard-app" aria-label="Apercu application ${cleanHtml(siteName)}">
@@ -13277,6 +14201,69 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
             ${actionsMarkup}
         </div>
     `;
+    const kidsModuleCards = visibleSections.slice(0, 3).map((section, index) => ({
+        title: getKirbyItemTitle(section) || ['Jeux', 'Histoires', 'Comptines'][index] || 'Activité',
+        text: getKirbyItemText(section) || 'Un module court, animé et adapté au rythme de l’enfant.',
+        tag: ['Jouer', 'Lire', 'Écouter'][index] || 'Explorer',
+    }));
+    const kidsQuickPages = visiblePageNames.length
+        ? visiblePageNames.slice(0, 5)
+        : ['Jeux', 'Histoires', 'Comptines', 'Parents'];
+    const kidsWorldPreview = `
+        ${navMarkup}
+        <section class="kirby-kids-world">
+            <div class="kirby-kids-copy">
+                <p class="signal-label">${cleanHtml(siteModel.name)}</p>
+                <h3>${cleanHtml(siteName)}</h3>
+                <p>${cleanHtml(safeProposal.slogan || safeProposal.valueProposition || 'Apprendre en jouant, tout doucement.')}</p>
+                ${actionsMarkup}
+                <div class="kirby-kids-progress" aria-hidden="true">
+                    <span><b></b></span>
+                    <small>Parcours du jour · 3 activités</small>
+                </div>
+            </div>
+            <div class="kirby-kids-stage" aria-hidden="true">
+                <span class="kirby-kids-trail"></span>
+                <span class="kirby-kids-spark spark-one"></span>
+                <span class="kirby-kids-spark spark-two"></span>
+                <article class="kirby-kids-device">
+                    <div class="kids-device-top">
+                        <span></span><span></span><span></span>
+                    </div>
+                    <strong>${cleanHtml(primaryCta)}</strong>
+                    <div class="kids-device-scene">
+                        <i></i><i></i><i></i>
+                    </div>
+                    <div class="kids-device-list">
+                        ${kidsQuickPages.slice(0, 3).map((item) => `<span>${cleanHtml(item)}</span>`).join('')}
+                    </div>
+                </article>
+                <article class="kirby-kids-float-card card-a">
+                    <small>${cleanHtml(kidsModuleCards[0]?.tag || 'Jouer')}</small>
+                    <strong>${cleanHtml(kidsModuleCards[0]?.title || 'Mini-jeux')}</strong>
+                </article>
+                <article class="kirby-kids-float-card card-b">
+                    <small>${cleanHtml(kidsModuleCards[1]?.tag || 'Lire')}</small>
+                    <strong>${cleanHtml(kidsModuleCards[1]?.title || 'Histoires')}</strong>
+                </article>
+                <article class="kirby-kids-parent-panel">
+                    <small>Espace parent</small>
+                    <strong>78% progression</strong>
+                    <span></span>
+                </article>
+            </div>
+        </section>
+        <div class="kirby-kids-modules">
+            ${kidsModuleCards.map((section, index) => `
+                <article>
+                    <em>${String(index + 1).padStart(2, '0')}</em>
+                    <strong>${cleanHtml(section.title)}</strong>
+                    <span>${cleanHtml(getKirbyShortText(section.text, 78))}</span>
+                </article>
+            `).join('')}
+        </div>
+        ${footerMarkup}
+    `;
     const classicPreview = `
         ${navMarkup}
         <section class="kirby-live-hero" style="${previewStyle.hero}">
@@ -13384,7 +14371,8 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
         ${sectionsMarkup}
         ${footerMarkup}
     `;
-    const websitePreview = isDashboardPreview ? dashboardPreview : ({
+    const websitePreview = isKidsFuturePreview ? kidsWorldPreview : isDashboardPreview ? dashboardPreview : ({
+        'story-world': kidsWorldPreview,
         'cinematic-video': cinematicPreview,
         'gallery-focus': galleryPreview,
         'minimal-editorial': minimalPreview,
@@ -13396,26 +14384,14 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
     if (quoteItems.length) {
         quoteParams.set('items', quoteItems.join('|'));
     }
+    quoteParams.set('project', projectSummary);
 
     builderPanel?.classList.add('has-proposal');
     aiBriefOutput.classList.remove('is-loading');
     aiBriefOutput.innerHTML = `
         <div class="kirby-generated-clean">
-            <p class="signal-label">${cleanHtml(runtimeLabel)}</p>
-            <section class="kirby-pilot-panel" aria-label="Mission Kirby">
-                <div>
-                    <p class="signal-label">Mission Kirby</p>
-                    <strong>La première version est pilotée.</strong>
-                </div>
-                <ul>${pilotMission.map((item) => `<li>${cleanHtml(item)}</li>`).join('')}</ul>
-                <div class="kirby-pilot-actions" aria-label="Actions Kirby">
-                    <button class="button button-secondary" type="button" data-kirby-pilot-action="brand">Renforcer l'identité</button>
-                    <button class="button button-secondary" type="button" data-kirby-pilot-action="conversion">Optimiser la conversion</button>
-                    <button class="button button-primary" type="button" data-kirby-pilot-action="launch">Préparer le lancement</button>
-                </div>
-            </section>
             <div class="kirby-generated-website kirby-editor-workspace">
-                <div class="kirby-preview-browser kirby-live-browser kirby-site-canvas ${previewTone} layout-${layoutVariant}" style="${previewStyle.canvas}" aria-label="Prévisualisation du site">
+                <div class="kirby-preview-browser kirby-live-browser kirby-site-canvas ${previewTone} ${sectorClass} layout-${layoutVariant}" style="${previewStyle.canvas}" aria-label="Prévisualisation du site">
                     <div class="kirby-preview-chrome"><span></span><span></span><span></span></div>
                     ${websitePreview}
                 </div>
@@ -13423,12 +14399,12 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
 
             <form class="kirby-revision-form kirby-revision-compact">
                 <label class="field">
-                    <span class="sr-only">Demander un ajustement à Kirby</span>
-                    <textarea rows="2" name="revision" placeholder="Demander un ajustement à Kirby"></textarea>
+                    <span class="sr-only">Demander une modification à Kirby</span>
+                    <textarea rows="2" name="revision" placeholder="Demander une modification à Kirby"></textarea>
                 </label>
                 <div class="kirby-generated-actions">
                     <button class="button button-secondary" type="submit">Modifier</button>
-                    <a class="button button-primary" data-kirby-next-link href="contact.html?${quoteParams.toString()}">Continuer</a>
+                    <a class="button button-primary" data-kirby-next-link href="contact.html?${quoteParams.toString()}">Continuer avec SA Création Web</a>
                 </div>
             </form>
         </div>
@@ -13446,34 +14422,36 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
         }
 
         setKirbyLoading();
+        const rebuildContext = getKirbyRevisionRebuildContext(brief, revision);
+        const targetBrief = rebuildContext.shouldRebuild ? rebuildContext.rebuiltBrief : brief;
+        const shouldResetArchitecture = rebuildContext.shouldRebuild;
 
         try {
-            const payload = await requestKirbyProposal({ brief, revision, currentProposal: safeProposal });
-            renderKirbyProposal(applyKirbyRevision(payload.proposal || safeProposal, revision, brief), brief, payload);
+            const payload = shouldResetArchitecture
+                ? await requestKirbyProposal({ brief: targetBrief, revision: '', currentProposal: null })
+                : await requestKirbyProposal({ brief, revision, currentProposal: safeProposal });
+            const revisedProposal = normalizeKirbyProposalForBrief(
+                payload.proposal || buildKirbyCleanRevisionProposal({ brief, revision, currentProposal: safeProposal }),
+                targetBrief,
+            );
+            kirbyConceptNonce += 1;
+            renderKirbyConceptExperience({
+                baseProposal: revisedProposal,
+                brief: targetBrief,
+                runtime: payload,
+                seed: kirbyConceptNonce,
+            });
         } catch (error) {
             console.warn('Kirby revision fallback:', error);
-            renderKirbyProposal(applyKirbyRevision(safeProposal, revision, brief), brief, { source: 'fallback' });
+            const fallbackProposal = buildKirbyCleanRevisionProposal({ brief, revision, currentProposal: safeProposal });
+            kirbyConceptNonce += 1;
+            renderKirbyConceptExperience({
+                baseProposal: fallbackProposal,
+                brief: targetBrief,
+                runtime: { source: 'fallback' },
+                seed: kirbyConceptNonce,
+            });
         }
-    });
-
-    aiBriefOutput.querySelectorAll('[data-kirby-pilot-action]').forEach((button) => {
-        button.addEventListener('click', async () => {
-            const action = button.dataset.kirbyPilotAction || '';
-            const revision = kirbyPilotActions[action];
-
-            if (!revision) {
-                return;
-            }
-
-            setKirbyLoading('Kirby prend le sujet en main…');
-            try {
-                const payload = await requestKirbyProposal({ brief, revision, currentProposal: safeProposal });
-                renderKirbyProposal(applyKirbyRevision(payload.proposal || safeProposal, revision, brief), brief, payload);
-            } catch (error) {
-                console.warn('Kirby pilot fallback:', error);
-                renderKirbyProposal(applyKirbyRevision(safeProposal, revision, brief), brief, { source: 'fallback' });
-            }
-        });
     });
 };
 
@@ -13514,15 +14492,27 @@ kirbyAutopilotButtons.forEach((button) => {
             return;
         }
 
-        const brief = `${baseBrief}\n\nMission Kirby : prends le projet en main. Choisis la meilleure direction de marque et de design, construis le parcours client complet, rédige les contenus prioritaires, prépare le SEO et livre une première version forte à ajuster.`;
+        const brief = `${baseBrief}\n\nMission Kirby : prends le projet en main. Déduis la direction de marque et de design depuis la demande, construis le parcours client complet, rédige les contenus prioritaires, prépare le SEO et livre une première version forte à ajuster.`;
         setKirbyLoading('Kirby prend le projet en main…');
 
         try {
             const payload = await requestKirbyProposal({ brief });
-            renderKirbyProposal(payload.proposal || buildBrowserKirbyProposal(brief), brief, payload);
+            kirbyConceptNonce += 1;
+            renderKirbyConceptExperience({
+                baseProposal: payload.proposal || buildBrowserKirbyProposal(brief),
+                brief,
+                runtime: payload,
+                seed: kirbyConceptNonce,
+            });
         } catch (error) {
             console.warn('Kirby autopilot fallback:', error);
-            renderKirbyProposal(buildBrowserKirbyProposal(brief), brief, { source: 'fallback' });
+            kirbyConceptNonce += 1;
+            renderKirbyConceptExperience({
+                baseProposal: buildBrowserKirbyProposal(brief),
+                brief,
+                runtime: { source: 'fallback' },
+                seed: kirbyConceptNonce,
+            });
         }
     });
 });
@@ -13548,10 +14538,22 @@ if (aiBriefForm && aiBriefInput && aiBriefOutput) {
 
         try {
             const payload = await requestKirbyProposal({ brief });
-            renderKirbyProposal(payload.proposal || buildBrowserKirbyProposal(brief), brief, payload);
+            kirbyConceptNonce += 1;
+            renderKirbyConceptExperience({
+                baseProposal: payload.proposal || buildBrowserKirbyProposal(brief),
+                brief,
+                runtime: payload,
+                seed: kirbyConceptNonce,
+            });
         } catch (error) {
             console.warn('Kirby assistant fallback:', error);
-            renderKirbyProposal(buildBrowserKirbyProposal(brief), brief, { source: 'fallback' });
+            kirbyConceptNonce += 1;
+            renderKirbyConceptExperience({
+                baseProposal: buildBrowserKirbyProposal(brief),
+                brief,
+                runtime: { source: 'fallback' },
+                seed: kirbyConceptNonce,
+            });
         }
     });
 }

@@ -10,8 +10,17 @@
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Lato:wght@400;700&family=Libre+Baskerville:wght@400;700&family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <link rel="stylesheet" href="style.css?v=20260614-platform-v4">
+    <style>
+        .method-page .method-link-button {
+            border: 1px solid rgba(255, 255, 255, 0.26);
+            background: rgba(255, 255, 255, 0.03);
+            color: rgba(247, 243, 234, 0.95);
+            box-shadow: none;
+            backdrop-filter: blur(4px);
+        }
+    </style>
 </head>
-<body class="is-preload studio-home">
+<body class="is-preload studio-home method-page">
     <div class="page-shell">
         <header class="page-header" id="top">
             <nav class="topbar" aria-label="Navigation principale">
@@ -24,7 +33,6 @@
                     <div class="site-menu-links">
                         <a href="index.html">Accueil</a>
                         <a href="prestations.html">Prestations</a>
-                        <a href="prestations.html#petits-services">Services rapides</a>
                         <a href="methode.html">Methode</a>
                         <a href="realisations.html">Exemples</a>
                         <a href="contact.html">Contact</a>
@@ -42,65 +50,32 @@
             </nav>
             <div class="page-intro">
                 <p class="eyebrow">Méthode</p>
-                <h1>Décrire, générer, valider, mettre en ligne.</h1>
-                <p>Kirby prépare une première proposition de site. L'accompagnement humain garde le projet clair, cohérent et réaliste.</p>
-                <div class="page-pills" aria-label="Rythme de creation">
-                    <span>Décrire</span>
-                    <span>Générer</span>
-                    <span>Valider</span>
-                    <span>Mettre en ligne</span>
-                </div>
+                <h1>Comment ça fonctionne ?</h1>
             </div>
         </header>
 
         <main>
             <section class="section reveal-section">
-                <div class="method-grid">
-                    <article class="method-card card">
-                        <span>01</span>
-                        <h2>Décrire le besoin</h2>
-                        <p>Activité, client visé, zone, prestations, photos, tarifs et action attendue.</p>
-                    </article>
-                    <article class="method-card card">
-                        <span>02</span>
-                        <h2>Générer une proposition</h2>
-                        <p>Kirby prépare nom, slogan, pages, textes d'accueil, boutons, SEO et options utiles.</p>
-                    </article>
-                    <article class="method-card card">
-                        <span>03</span>
-                        <h2>Valider humainement</h2>
-                        <p>On ajuste le ton, les informations, les priorités et le service adapté.</p>
-                    </article>
-                    <article class="method-card card">
-                        <span>04</span>
-                        <h2>Mettre en ligne</h2>
-                        <p>Site, e-mail professionnel, domaine, QR code ou portfolio sont finalisés selon le besoin.</p>
-                    </article>
-                </div>
-            </section>
-
-            <section class="section reveal-section">
-                <div class="flow-panel">
-                    <div class="flow-step">
-                        <span>01</span>
-                        <h3>Besoin</h3>
-                        <p>Le visiteur sait exactement quel service demander : site, e-mail, QR code, boutique, CV ou portfolio.</p>
-                    </div>
-                    <div class="flow-step">
-                        <span>02</span>
-                        <h3>Proposition</h3>
-                        <p>Kirby transforme l'idée en base de projet exploitable avant le contact.</p>
-                    </div>
-                    <div class="flow-step">
-                        <span>03</span>
-                        <h3>Validation</h3>
-                        <p>L'humain vérifie les choix, retire le superflu et confirme la bonne offre.</p>
-                    </div>
-                    <div class="flow-step">
-                        <span>04</span>
-                        <h3>Livraison</h3>
-                        <p>Le résultat doit être lisible, responsive, partageable et simple à présenter.</p>
-                    </div>
+                <ol class="method-steps-list" aria-label="Parcours client">
+                    <li>
+                        <strong>Choisissez votre formule</strong>
+                        <p>Sélectionnez la prestation adaptée à votre activité.</p>
+                    </li>
+                    <li>
+                        <strong>Transmettez votre projet</strong>
+                        <p>Envoyez vos informations, textes et visuels.</p>
+                    </li>
+                    <li>
+                        <strong>Nous réalisons votre site</strong>
+                        <p>Le site est préparé et adapté au mobile et à l’ordinateur.</p>
+                    </li>
+                    <li>
+                        <strong>Vous validez la mise en ligne</strong>
+                        <p>Vous vérifiez le résultat avant la publication finale.</p>
+                    </li>
+                </ol>
+                <div class="hero-actions">
+                    <a class="button method-link-button" href="prestations.html">Voir les prestations</a>
                 </div>
             </section>
         </main>
