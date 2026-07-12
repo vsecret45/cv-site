@@ -9999,12 +9999,12 @@ body.studio-home .platform-product-card p {
 }
 
 .kirby-live-hero h3 {
-    max-width: 10ch;
+    max-width: 14ch;
     color: #10131d;
     font-family: "Playfair Display", Georgia, serif;
-    font-size: clamp(2.7rem, 7vw, 5.8rem);
-    line-height: 0.86;
-    letter-spacing: 0;
+    font-size: clamp(1.6rem, 3.6vw, 2.9rem);
+    line-height: 1.05;
+    letter-spacing: -0.01em;
     overflow-wrap: anywhere;
 }
 
@@ -10021,11 +10021,11 @@ body.studio-home .section .kirby-live-hero h3 {
 }
 
 .kirby-live-browser.is-tech .kirby-live-hero h3 {
-    max-width: 12ch;
+    max-width: 14ch;
     font-family: "Manrope", sans-serif;
-    font-size: clamp(3rem, 6.4vw, 6rem);
+    font-size: clamp(1.8rem, 4vw, 3.2rem);
     font-weight: 950;
-    line-height: 0.92;
+    line-height: 1.0;
 }
 
 body.studio-home .section .kirby-live-browser.is-tech .kirby-live-hero h3 {
@@ -10766,35 +10766,79 @@ body.studio-home[data-theme="day"] .kirby-production-summary span {
 .kirby-live-sections article {
     position: relative;
     display: grid;
-    align-content: end;
-    gap: 0.35rem;
-    min-height: 7.3rem;
-    padding: 0.9rem;
-    border: 1px solid rgba(20, 25, 38, 0.08);
-    border-radius: 18px;
-    background: rgba(255, 255, 255, 0.78);
-    overflow: hidden;
+    align-content: start;
+    gap: 0.32rem;
+    min-height: 8.5rem;
+    padding: 1.05rem 1.05rem 0.9rem;
+    border: 1px solid rgba(20, 25, 38, 0.07);
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.84);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 18px rgba(16, 20, 38, 0.06);
 }
 
 .kirby-live-sections article::before {
     content: "";
     position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 3px;
-    background: linear-gradient(90deg, rgba(var(--kirby-accent-rgb), 0.76), rgba(255, 220, 120, 0.7));
+    left: 1.05rem;
+    bottom: 0;
+    width: 2rem;
+    height: 2px;
+    border-radius: 999px;
+    background: rgba(var(--kirby-accent-rgb), 0.55);
+}
+
+.kirby-live-sections em {
+    display: block;
+    font-style: normal;
+    font-size: 0.64rem;
+    font-weight: 950;
+    letter-spacing: 0.07em;
+    color: rgba(var(--kirby-accent-rgb), 0.78);
+    margin-bottom: 0.2rem;
 }
 
 .kirby-live-sections strong {
     color: #10131d;
-    font-size: 0.98rem;
+    font-size: 0.94rem;
+    font-weight: 900;
+    line-height: 1.2;
 }
 
 .kirby-live-sections span {
+    color: rgba(16, 19, 29, 0.56);
+    font-size: 0.78rem;
+    line-height: 1.38;
+    margin-top: 0.1rem;
+}
+
+.kirby-hero-chip {
+    position: absolute;
+    bottom: 1rem;
+    right: 1rem;
+    padding: 0.42rem 0.78rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(14px);
+    border: 1px solid rgba(var(--kirby-accent-rgb), 0.15);
+    color: rgba(var(--kirby-accent-rgb), 1);
+    font-size: 0.7rem;
+    font-weight: 950;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
+    z-index: 4;
+    pointer-events: none;
+}
+
+.kirby-hero-meta {
+    margin-top: 0.35rem;
+    padding: 0.46rem 0.68rem;
+    border-radius: 10px;
+    border: 1px solid rgba(var(--kirby-accent-rgb), 0.1);
+    background: rgba(var(--kirby-accent-rgb), 0.05);
     color: rgba(16, 19, 29, 0.58);
-    font-size: 0.8rem;
-    line-height: 1.35;
+    font-size: 0.74rem;
+    line-height: 1.42;
+    font-weight: 700;
 }
 
 .kirby-live-footer {
@@ -10932,6 +10976,98 @@ body.studio-home[data-theme="day"] .kirby-production-summary span {
     font-family: "Playfair Display", "Libre Baskerville", serif;
 }
 
+.kirby-live-browser.sector-bridal {
+    --kirby-accent: #7b8fbd;
+    --kirby-accent-rgb: 123, 143, 189;
+    background:
+        radial-gradient(circle at 12% 6%, rgba(189, 223, 255, 0.26), transparent 19rem),
+        radial-gradient(circle at 88% 10%, rgba(255, 192, 218, 0.2), transparent 18rem),
+        linear-gradient(145deg, #f9fbff, #edf0f7 54%, #f7f2f8);
+}
+
+.kirby-live-browser.sector-bridal::after {
+    opacity: 0.18;
+}
+
+.kirby-live-browser.sector-bridal .kirby-live-nav strong {
+    color: #1f2534;
+    font-family: var(--font-display);
+}
+
+.kirby-live-browser.sector-bridal .kirby-live-nav span {
+    border-color: rgba(123, 143, 189, 0.18);
+    color: rgba(31, 37, 52, 0.68);
+    background: rgba(255, 255, 255, 0.56);
+    backdrop-filter: blur(14px);
+}
+
+.kirby-live-browser.sector-bridal .kirby-gallery-lead,
+.kirby-live-browser.sector-bridal .kirby-asym-copy {
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background:
+        radial-gradient(circle at 18% 14%, rgba(255, 255, 255, 0.18), transparent 16rem),
+        linear-gradient(145deg, #161a24, #2b2f3b 58%, #4a4051);
+    box-shadow: 0 24px 70px rgba(48, 52, 68, 0.24);
+}
+
+.kirby-live-browser.sector-bridal .kirby-gallery-lead h3,
+.kirby-live-browser.sector-bridal .kirby-asym-copy h3,
+.kirby-live-browser.sector-bridal .kirby-warm-copy h3,
+.kirby-live-browser.sector-bridal .kirby-lumina-copy h3 {
+    max-width: 11ch;
+    font-family: var(--font-display);
+    font-size: clamp(2.15rem, 4.65vw, 4.35rem);
+    font-weight: 780;
+    line-height: 1;
+}
+
+.kirby-live-browser.sector-bridal .kirby-gallery-mosaic span,
+.kirby-live-browser.sector-bridal .kirby-live-gallery span,
+.kirby-live-browser.sector-bridal .kirby-asym-image {
+    border: 1px solid rgba(255, 255, 255, 0.42);
+    border-radius: 32px;
+    box-shadow:
+        inset 0 -7rem 8rem rgba(20, 22, 30, 0.16),
+        0 24px 70px rgba(74, 64, 81, 0.18);
+}
+
+.kirby-live-browser.sector-bridal .kirby-live-sections article,
+.kirby-live-browser.sector-bridal .kirby-asym-stack article,
+.kirby-live-browser.sector-bridal .kirby-lumina-modules article {
+    border-color: rgba(123, 143, 189, 0.18);
+    background: rgba(255, 255, 255, 0.66);
+    box-shadow: 0 20px 54px rgba(76, 87, 112, 0.12);
+    backdrop-filter: blur(18px);
+}
+
+.kirby-live-browser.sector-bridal .kirby-live-sections strong,
+.kirby-live-browser.sector-bridal .kirby-asym-stack strong {
+    color: #171b25;
+}
+
+.kirby-live-browser.sector-bridal .kirby-live-sections span,
+.kirby-live-browser.sector-bridal .kirby-asym-stack span {
+    color: rgba(31, 37, 52, 0.64);
+}
+
+.kirby-live-browser.sector-bridal .kirby-preview-actions span:first-child {
+    border-color: rgba(255, 255, 255, 0.32);
+    background: linear-gradient(135deg, #17202f, #6f82b2);
+    color: #ffffff;
+    box-shadow: 0 18px 44px rgba(111, 130, 178, 0.28);
+}
+
+.kirby-live-browser.sector-bridal .kirby-preview-actions span:nth-child(2) {
+    border-color: rgba(123, 143, 189, 0.18);
+    color: #1f2534;
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(16px);
+}
+
+.kirby-live-browser.sector-bridal .kirby-live-footer {
+    color: rgba(31, 37, 52, 0.62);
+}
+
 .kirby-live-browser.sector-medical {
     --kirby-accent: #188b79;
     --kirby-accent-rgb: 24, 139, 121;
@@ -11058,6 +11194,131 @@ body.studio-home[data-theme="day"] .kirby-production-summary span {
     color: #ffffff;
 }
 
+.kirby-live-browser.is-artisan {
+    --kirby-accent: #c47c30;
+    --kirby-accent-rgb: 196, 124, 48;
+}
+
+.kirby-live-browser.is-artisan .kirby-live-hero {
+    background:
+        radial-gradient(circle at 82% 10%, rgba(210, 140, 60, 0.22), transparent 14rem),
+        linear-gradient(135deg, #201e1a, #2f2922);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 18px 52px rgba(14, 10, 6, 0.38);
+}
+
+.kirby-live-browser.is-artisan .kirby-live-hero h3,
+.kirby-live-browser.is-artisan .kirby-live-sections strong {
+    color: #f5f0e8;
+    font-family: "Manrope", sans-serif;
+    font-weight: 900;
+}
+
+.kirby-live-browser.is-artisan .kirby-live-sections article {
+    background: rgba(40, 34, 26, 0.78);
+    border-color: rgba(210, 160, 80, 0.2);
+    backdrop-filter: blur(12px);
+}
+
+.kirby-live-browser.is-artisan .kirby-live-sections span {
+    color: rgba(240, 224, 196, 0.68);
+}
+
+.kirby-live-browser.is-artisan .kirby-live-nav span,
+.kirby-live-browser.is-artisan .kirby-live-footer {
+    color: rgba(240, 228, 208, 0.8);
+}
+
+.kirby-live-browser.is-artisan .kirby-live-nav strong {
+    color: #e8c87a;
+}
+
+.kirby-live-browser.is-artisan .kirby-hero-chip {
+    background: rgba(40, 34, 26, 0.88);
+    color: #e8c87a;
+    border-color: rgba(210, 160, 80, 0.3);
+}
+
+.kirby-live-browser.is-sport {
+    --kirby-accent: #ff5c20;
+    --kirby-accent-rgb: 255, 92, 32;
+}
+
+.kirby-live-browser.is-sport .kirby-live-hero {
+    background:
+        radial-gradient(circle at 82% 8%, rgba(255, 80, 20, 0.26), transparent 14rem),
+        linear-gradient(135deg, #141822, #1c2330);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 18px 52px rgba(8, 10, 20, 0.4);
+}
+
+.kirby-live-browser.is-sport .kirby-live-hero h3,
+.kirby-live-browser.is-sport .kirby-live-sections strong {
+    color: #f5f6fa;
+    font-family: "Manrope", "IBM Plex Sans", sans-serif;
+    font-weight: 950;
+}
+
+.kirby-live-browser.is-sport .kirby-live-sections article {
+    background: rgba(20, 24, 36, 0.78);
+    border-color: rgba(255, 80, 20, 0.2);
+    backdrop-filter: blur(12px);
+}
+
+.kirby-live-browser.is-sport .kirby-live-sections span {
+    color: rgba(220, 224, 240, 0.68);
+}
+
+.kirby-live-browser.is-sport .kirby-live-nav span,
+.kirby-live-browser.is-sport .kirby-live-footer {
+    color: rgba(220, 228, 248, 0.8);
+}
+
+.kirby-live-browser.is-sport .kirby-live-nav strong {
+    color: #ff7040;
+}
+
+.kirby-live-browser.is-sport .kirby-hero-chip {
+    background: rgba(20, 24, 36, 0.88);
+    color: #ff7040;
+    border-color: rgba(255, 80, 20, 0.3);
+}
+
+.kirby-live-browser.is-hotel {
+    --kirby-accent: #4a9fd4;
+    --kirby-accent-rgb: 74, 159, 212;
+}
+
+.kirby-live-browser.is-hotel .kirby-live-hero {
+    background:
+        radial-gradient(circle at 80% 10%, rgba(100, 180, 255, 0.2), transparent 14rem),
+        linear-gradient(135deg, #0d1f38, #1a3a5c);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 18px 52px rgba(6, 14, 28, 0.42);
+}
+
+.kirby-live-browser.is-hotel .kirby-live-hero h3,
+.kirby-live-browser.is-hotel .kirby-live-sections strong {
+    color: #e8f2ff;
+    font-family: "Playfair Display", Georgia, serif;
+}
+
+.kirby-live-browser.is-hotel .kirby-live-sections article {
+    background: rgba(14, 30, 54, 0.76);
+    border-color: rgba(100, 160, 220, 0.2);
+    backdrop-filter: blur(12px);
+}
+
+.kirby-live-browser.is-hotel .kirby-live-sections span {
+    color: rgba(200, 218, 245, 0.7);
+}
+
+.kirby-live-browser.is-hotel .kirby-live-nav span,
+.kirby-live-browser.is-hotel .kirby-live-footer {
+    color: rgba(200, 220, 248, 0.8);
+}
+
+.kirby-live-browser.is-hotel .kirby-live-nav strong {
+    color: #88c8f0;
+}
+
 body.studio-home[data-theme="day"] .kirby-live-browser::after {
     opacity: 0.12;
 }
@@ -11111,9 +11372,10 @@ body.studio-home[data-theme="day"] .kirby-live-nav span {
 .kirby-asym-copy h3,
 .kirby-warm-copy h3 {
     color: #ffffff;
-    font-family: "Playfair Display", Georgia, serif;
-    font-size: clamp(3rem, 7vw, 6.8rem);
-    line-height: 0.88;
+    font-family: var(--font-display);
+    font-size: clamp(2.35rem, 5.15vw, 4.85rem);
+    font-weight: 850;
+    line-height: 0.98;
     letter-spacing: 0;
 }
 
@@ -11246,9 +11508,10 @@ body.studio-home .section .kirby-warm-copy h3 {
 .kirby-minimal-editorial h3 {
     max-width: 13ch;
     color: #10131d;
-    font-family: "Playfair Display", Georgia, serif;
-    font-size: clamp(3.6rem, 8vw, 7.4rem);
-    line-height: 0.88;
+    font-family: var(--font-display);
+    font-size: clamp(2.4rem, 5.4vw, 5rem);
+    font-weight: 850;
+    line-height: 0.98;
 }
 
 body.studio-home .section .kirby-minimal-editorial h3 {
@@ -11364,6 +11627,746 @@ body.studio-home .section .kirby-minimal-editorial h3 {
     align-content: center;
     gap: 0.75rem;
     padding: clamp(1rem, 3vw, 2rem);
+}
+
+.kirby-live-browser.is-lumina,
+.kirby-live-browser.layout-lumina-showcase {
+    position: relative;
+    overflow: hidden;
+    border-color: rgba(156, 230, 255, 0.18);
+    background: #070b13;
+    color: #f6fbff;
+}
+
+.kirby-live-browser.is-lumina::before {
+    opacity: 0.28;
+}
+
+.kirby-lumina-showcase {
+    position: relative;
+    display: grid;
+    gap: clamp(0.8rem, 2vw, 1.15rem);
+    min-height: clamp(560px, 56vw, 760px);
+    padding: clamp(0.85rem, 2vw, 1.2rem);
+    border-radius: 32px;
+    background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+        linear-gradient(145deg, rgba(8, 14, 27, 0.82), rgba(12, 25, 44, 0.64));
+    background-size: 5.2rem 5.2rem, 5.2rem 5.2rem, auto;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.kirby-lumina-nav {
+    position: relative;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-height: 3.15rem;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.07);
+    box-shadow: 0 20px 70px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(24px);
+}
+
+.kirby-lumina-nav strong {
+    color: #ffffff;
+    font-size: 0.92rem;
+    font-weight: 950;
+}
+
+.kirby-lumina-nav div {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.35rem;
+}
+
+.kirby-lumina-nav span,
+.kirby-lumina-nav em {
+    display: inline-flex;
+    min-height: 2rem;
+    align-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    color: rgba(246, 251, 255, 0.72);
+    font-size: 0.72rem;
+    font-style: normal;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+.kirby-lumina-nav span {
+    padding: 0 0.7rem;
+    background: rgba(255, 255, 255, 0.055);
+}
+
+.kirby-lumina-nav span.is-active,
+.kirby-lumina-nav em {
+    color: #08111f;
+    background: linear-gradient(135deg, #7cf6f2, #f6ff9a);
+    box-shadow: 0 12px 38px rgba(124, 246, 242, 0.22);
+}
+
+.kirby-lumina-nav em {
+    padding: 0 0.8rem;
+}
+
+.kirby-lumina-hero {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: minmax(0, 0.72fr) minmax(300px, 1fr);
+    gap: clamp(1rem, 3vw, 2.4rem);
+    align-items: center;
+    min-height: clamp(390px, 42vw, 560px);
+    padding: clamp(1rem, 4vw, 3rem);
+}
+
+.kirby-lumina-copy {
+    display: grid;
+    gap: 0.85rem;
+    max-width: 42rem;
+}
+
+.kirby-lumina-copy .signal-label {
+    color: rgba(124, 246, 242, 0.9);
+}
+
+.kirby-lumina-copy h3 {
+    max-width: 10ch;
+    color: #ffffff;
+    font-family: var(--font-display);
+    font-size: clamp(2.6rem, 5.8vw, 5.35rem);
+    line-height: 0.96;
+    letter-spacing: 0;
+}
+
+body.studio-home .section .kirby-lumina-copy h3 {
+    color: #ffffff;
+}
+
+.kirby-lumina-copy p:not(.signal-label) {
+    max-width: 36rem;
+    color: rgba(233, 244, 255, 0.74);
+    font-size: clamp(1rem, 1.55vw, 1.22rem);
+    line-height: 1.42;
+}
+
+.kirby-live-browser.is-lumina .kirby-preview-actions span:first-child {
+    color: #08111f;
+    background: linear-gradient(135deg, #f3ff75, #66f2db);
+    box-shadow: 0 18px 60px rgba(102, 242, 219, 0.25);
+}
+
+.kirby-live-browser.is-lumina .kirby-preview-actions span:nth-child(2) {
+    border-color: rgba(255, 255, 255, 0.18);
+    color: #f6fbff;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(18px);
+}
+
+.kirby-lumina-stage {
+    position: relative;
+    min-height: clamp(330px, 36vw, 520px);
+    perspective: 1200px;
+}
+
+.kirby-lumina-surface {
+    position: absolute;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 30px;
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 34px 100px rgba(0, 0, 0, 0.34);
+    backdrop-filter: blur(22px) saturate(1.2);
+}
+
+.main-surface {
+    inset: 7% 5% 9% 8%;
+    background-size: cover;
+    background-position: center;
+    transform: rotateY(-11deg) rotateX(5deg);
+    animation: luminaFloat 6s ease-in-out infinite;
+}
+
+.main-surface::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(120deg, rgba(5, 10, 20, 0.22), rgba(5, 10, 20, 0.02) 42%, rgba(5, 10, 20, 0.52)),
+        linear-gradient(90deg, rgba(124, 246, 242, 0.22), transparent 38%, rgba(255, 132, 197, 0.16));
+}
+
+.main-surface span {
+    position: absolute;
+    inset: 1.1rem;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 24px;
+}
+
+.main-surface strong {
+    position: absolute;
+    right: 1.1rem;
+    bottom: 1.1rem;
+    max-width: 13rem;
+    padding: 0.72rem 0.9rem;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 999px;
+    color: #08111f;
+    background: rgba(246, 255, 154, 0.86);
+    font-size: 0.8rem;
+    font-weight: 950;
+    text-align: center;
+}
+
+.insight-surface {
+    left: 0;
+    top: 3%;
+    display: grid;
+    gap: 0.4rem;
+    width: clamp(10rem, 18vw, 14rem);
+    padding: 1rem;
+    background: rgba(12, 30, 52, 0.72);
+    transform: translateZ(90px) rotate(-5deg);
+    animation: luminaFloat 7s ease-in-out infinite reverse;
+}
+
+.ai-surface {
+    right: 0;
+    bottom: 0;
+    display: grid;
+    gap: 0.4rem;
+    width: clamp(12rem, 22vw, 18rem);
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.13);
+    transform: translateZ(130px) rotate(4deg);
+    animation: luminaFloat 8s ease-in-out infinite;
+}
+
+.kirby-lumina-surface small,
+.kirby-lumina-surface span {
+    color: rgba(233, 244, 255, 0.68);
+    font-size: 0.72rem;
+    font-weight: 900;
+    line-height: 1.35;
+}
+
+.kirby-lumina-surface small {
+    color: rgba(124, 246, 242, 0.92);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.kirby-lumina-surface strong {
+    color: #ffffff;
+    font-size: clamp(0.98rem, 1.7vw, 1.25rem);
+    line-height: 1.12;
+}
+
+.kirby-lumina-route {
+    position: absolute;
+    left: 14%;
+    right: 12%;
+    bottom: 16%;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, rgba(124, 246, 242, 0.8), rgba(246, 255, 154, 0.72), transparent);
+    transform: rotate(-7deg);
+}
+
+.kirby-lumina-route i {
+    position: absolute;
+    top: 50%;
+    width: 0.62rem;
+    aspect-ratio: 1;
+    border-radius: 999px;
+    background: #ffffff;
+    box-shadow: 0 0 0 0.45rem rgba(124, 246, 242, 0.15), 0 0 38px rgba(124, 246, 242, 0.8);
+    transform: translateY(-50%);
+}
+
+.kirby-lumina-route i:nth-child(1) { left: 8%; }
+.kirby-lumina-route i:nth-child(2) { left: 52%; }
+.kirby-lumina-route i:nth-child(3) { right: 7%; }
+
+.kirby-lumina-modules {
+    display: grid;
+    grid-template-columns: 1.2fr 0.9fr 1fr 0.82fr;
+    gap: 0.7rem;
+}
+
+.kirby-lumina-modules article {
+    display: grid;
+    align-content: end;
+    gap: 0.4rem;
+    min-height: clamp(8rem, 12vw, 12rem);
+    padding: 0.95rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 24px;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.045));
+    box-shadow: 0 22px 70px rgba(0, 0, 0, 0.22);
+    backdrop-filter: blur(20px);
+}
+
+.kirby-lumina-modules article:nth-child(2) {
+    transform: translateY(1.3rem);
+}
+
+.kirby-lumina-modules article:nth-child(3) {
+    transform: translateY(-0.6rem);
+}
+
+.kirby-lumina-modules em {
+    color: rgba(124, 246, 242, 0.88);
+    font-size: 0.72rem;
+    font-style: normal;
+    font-weight: 950;
+}
+
+.kirby-lumina-modules strong {
+    color: #ffffff;
+    font-size: clamp(0.98rem, 1.5vw, 1.2rem);
+    line-height: 1.12;
+}
+
+.kirby-lumina-modules span {
+    color: rgba(233, 244, 255, 0.62);
+    font-size: 0.78rem;
+    line-height: 1.35;
+}
+
+.kirby-live-browser.is-lumina .kirby-live-footer {
+    color: rgba(233, 244, 255, 0.66);
+}
+
+.kirby-live-browser.is-dream-portal {
+    position: relative;
+    overflow: hidden;
+    border-color: rgba(180, 142, 255, 0.28);
+    background:
+        radial-gradient(circle at 50% 12%, rgba(113, 94, 255, 0.22), transparent 20rem),
+        radial-gradient(circle at 82% 74%, rgba(255, 143, 215, 0.14), transparent 18rem),
+        #050617 !important;
+    color: #fbf8ff;
+}
+
+.kirby-live-browser.is-dream-portal::before {
+    opacity: 0.42;
+    background-image:
+        radial-gradient(circle, rgba(255, 255, 255, 0.42) 0 1px, transparent 1.5px),
+        linear-gradient(rgba(185, 167, 255, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(185, 167, 255, 0.05) 1px, transparent 1px);
+    background-size: 5rem 5rem, 4.5rem 4.5rem, 4.5rem 4.5rem;
+}
+
+.kirby-dream-portal {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    gap: clamp(0.8rem, 2vw, 1.1rem);
+    min-height: clamp(650px, 62vw, 860px);
+    overflow: hidden;
+    padding: clamp(0.85rem, 2vw, 1.2rem);
+    border: 1px solid rgba(211, 196, 255, 0.16);
+    border-radius: 32px;
+    background:
+        radial-gradient(circle at 64% 44%, rgba(133, 89, 255, 0.26), transparent 20rem),
+        radial-gradient(circle at 40% 72%, rgba(99, 255, 224, 0.12), transparent 18rem),
+        linear-gradient(145deg, rgba(9, 12, 35, 0.88), rgba(22, 17, 58, 0.72));
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 34px 100px rgba(4, 6, 22, 0.42);
+}
+
+.kirby-dream-nav {
+    position: relative;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.7rem;
+    min-height: 3.2rem;
+    padding: 0.56rem 0.7rem;
+    border: 1px solid rgba(232, 224, 255, 0.14);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.075);
+    backdrop-filter: blur(24px);
+}
+
+.kirby-dream-nav strong,
+.kirby-dream-copy h3,
+.kirby-dream-modules strong,
+.dream-glass-card strong {
+    color: #ffffff;
+}
+
+.kirby-dream-nav strong {
+    font-size: 0.9rem;
+    font-weight: 950;
+}
+
+.kirby-dream-nav div {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.34rem;
+    min-width: 0;
+}
+
+.kirby-dream-nav span,
+.kirby-dream-nav em {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2rem;
+    padding: 0 0.7rem;
+    border: 1px solid rgba(232, 224, 255, 0.14);
+    border-radius: 999px;
+    color: rgba(244, 240, 255, 0.72);
+    font-size: 0.7rem;
+    font-style: normal;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+.kirby-dream-nav span.is-active,
+.kirby-dream-nav em {
+    color: #0b1028;
+    background: linear-gradient(135deg, #a4fff0, #f6ff9a);
+    box-shadow: 0 16px 48px rgba(164, 255, 240, 0.22);
+}
+
+.kirby-dream-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 0.72fr) minmax(300px, 1fr);
+    gap: clamp(1rem, 3vw, 2.4rem);
+    align-items: center;
+    min-height: clamp(430px, 46vw, 620px);
+    padding: clamp(1rem, 4vw, 3rem);
+}
+
+.kirby-dream-copy {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    gap: 0.85rem;
+    max-width: 42rem;
+}
+
+.kirby-dream-copy .signal-label,
+.dream-glass-card small,
+.kirby-dream-modules em {
+    color: rgba(134, 255, 239, 0.9);
+}
+
+.kirby-dream-copy h3 {
+    max-width: 9ch;
+    font-family: var(--font-display);
+    font-size: clamp(2.8rem, 6vw, 5.45rem);
+    line-height: 0.94;
+    letter-spacing: 0;
+}
+
+body.studio-home .section .kirby-dream-copy h3 {
+    color: #ffffff;
+}
+
+.kirby-dream-copy p:not(.signal-label) {
+    max-width: 34rem;
+    color: rgba(244, 240, 255, 0.74);
+    font-size: clamp(1rem, 1.55vw, 1.22rem);
+    line-height: 1.45;
+}
+
+.kirby-live-browser.is-dream-portal .kirby-preview-actions span:first-child {
+    color: #0b1028;
+    background: linear-gradient(135deg, #f6ff9a, #6fffea 58%, #b69cff);
+    box-shadow: 0 18px 60px rgba(111, 255, 234, 0.25);
+}
+
+.kirby-live-browser.is-dream-portal .kirby-preview-actions span:nth-child(2) {
+    border-color: rgba(232, 224, 255, 0.18);
+    color: #fbf8ff;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(18px);
+}
+
+.kirby-dream-stage {
+    position: relative;
+    min-height: clamp(360px, 38vw, 550px);
+    perspective: 1200px;
+}
+
+.dream-rift {
+    position: absolute;
+    inset: 4% 8% 5% 10%;
+    border: 1px solid rgba(233, 224, 255, 0.18);
+    border-radius: 42% 58% 48% 52% / 50% 45% 55% 50%;
+    background:
+        radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.95) 0 5%, rgba(210, 191, 255, 0.54) 13%, rgba(112, 70, 255, 0.36) 30%, transparent 58%),
+        conic-gradient(from 130deg, rgba(113, 94, 255, 0.9), rgba(255, 143, 215, 0.64), rgba(99, 255, 224, 0.58), rgba(113, 94, 255, 0.9));
+    box-shadow:
+        inset 0 0 60px rgba(255, 255, 255, 0.2),
+        0 0 110px rgba(137, 104, 255, 0.35);
+    transform: rotate(-6deg) translateZ(10px);
+    animation: dreamRiftPulse 7s ease-in-out infinite;
+}
+
+.dream-rift i {
+    position: absolute;
+    inset: var(--inset);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: inherit;
+    transform: rotate(var(--r));
+}
+
+.dream-rift i:nth-child(1) { --inset: 8%; --r: 12deg; }
+.dream-rift i:nth-child(2) { --inset: 18%; --r: -18deg; }
+.dream-rift i:nth-child(3) { --inset: 29%; --r: 28deg; }
+.dream-rift i:nth-child(4) { --inset: 41%; --r: -34deg; }
+
+.dream-glass-card {
+    position: absolute;
+    z-index: 3;
+    display: grid;
+    gap: 0.35rem;
+    min-width: 0;
+    padding: 0.9rem;
+    border: 1px solid rgba(232, 224, 255, 0.16);
+    border-radius: 22px;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.08));
+    box-shadow: 0 28px 78px rgba(4, 6, 22, 0.32);
+    backdrop-filter: blur(24px) saturate(1.22);
+}
+
+.dream-glass-card small {
+    overflow: hidden;
+    font-size: 0.68rem;
+    font-weight: 950;
+    letter-spacing: 0.08em;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.dream-glass-card strong {
+    font-size: clamp(0.95rem, 1.7vw, 1.22rem);
+    line-height: 1.15;
+}
+
+.dream-card-a {
+    left: 0;
+    top: 8%;
+    width: min(50%, 20rem);
+    transform: translateZ(95px) rotate(-6deg);
+}
+
+.dream-card-b {
+    right: 0;
+    bottom: 9%;
+    width: min(48%, 18rem);
+    transform: translateZ(130px) rotate(5deg);
+}
+
+.dream-card-b span {
+    height: 0.42rem;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #6fffea 52%, rgba(255, 255, 255, 0.18) 52%);
+}
+
+.dream-card-c {
+    left: 17%;
+    bottom: 0;
+    width: min(42%, 14rem);
+    transform: translateZ(70px) rotate(3deg);
+}
+
+.kirby-dream-modules {
+    display: grid;
+    grid-template-columns: 1.1fr 0.92fr 1fr 0.86fr;
+    gap: 0.7rem;
+}
+
+.kirby-dream-modules article {
+    display: grid;
+    align-content: end;
+    gap: 0.4rem;
+    min-height: clamp(8rem, 12vw, 11.5rem);
+    padding: 0.95rem;
+    border: 1px solid rgba(232, 224, 255, 0.12);
+    border-radius: 24px;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.045));
+    backdrop-filter: blur(20px);
+}
+
+.kirby-dream-modules span {
+    color: rgba(244, 240, 255, 0.62);
+    font-size: 0.78rem;
+    line-height: 1.35;
+}
+
+.kirby-live-browser.is-dream-portal .kirby-live-footer {
+    color: rgba(244, 240, 255, 0.66);
+}
+
+.kirby-live-browser.is-adventure,
+.kirby-live-browser.sector-explorer-academy {
+    --kirby-accent: #4ee7c8;
+    --kirby-accent-rgb: 78, 231, 200;
+    border-color: rgba(116, 255, 221, 0.18);
+    background:
+        radial-gradient(circle at 76% 18%, rgba(93, 226, 173, 0.18), transparent 18rem),
+        radial-gradient(circle at 22% 70%, rgba(253, 186, 116, 0.14), transparent 20rem),
+        linear-gradient(145deg, #06131c, #101526) !important;
+}
+
+.kirby-live-browser.is-climate-lab,
+.kirby-live-browser.sector-climate-lab {
+    --kirby-accent: #8bf5c4;
+    --kirby-accent-rgb: 139, 245, 196;
+    border-color: rgba(139, 245, 196, 0.18);
+    background:
+        radial-gradient(circle at 76% 22%, rgba(91, 255, 184, 0.16), transparent 18rem),
+        radial-gradient(circle at 18% 78%, rgba(73, 170, 255, 0.12), transparent 20rem),
+        linear-gradient(145deg, #06140f, #0b1724) !important;
+}
+
+.kirby-live-browser.sector-underwater-hotel {
+    --kirby-accent: #67e8f9;
+    --kirby-accent-rgb: 103, 232, 249;
+    border-color: rgba(103, 232, 249, 0.2);
+    background:
+        radial-gradient(circle at 72% 18%, rgba(103, 232, 249, 0.2), transparent 19rem),
+        radial-gradient(circle at 18% 82%, rgba(14, 165, 233, 0.16), transparent 20rem),
+        linear-gradient(145deg, #02131e, #071b2e) !important;
+}
+
+.kirby-live-browser.sector-space-station-tourism {
+    --kirby-accent: #a5b4fc;
+    --kirby-accent-rgb: 165, 180, 252;
+    border-color: rgba(165, 180, 252, 0.22);
+    background:
+        radial-gradient(circle at 76% 18%, rgba(165, 180, 252, 0.18), transparent 18rem),
+        radial-gradient(circle at 28% 72%, rgba(56, 189, 248, 0.12), transparent 19rem),
+        linear-gradient(145deg, #030617, #0d1024) !important;
+}
+
+.kirby-live-browser.sector-floating-city {
+    --kirby-accent: #86efac;
+    --kirby-accent-rgb: 134, 239, 172;
+    border-color: rgba(134, 239, 172, 0.2);
+    background:
+        radial-gradient(circle at 78% 20%, rgba(45, 212, 191, 0.14), transparent 18rem),
+        radial-gradient(circle at 18% 76%, rgba(187, 247, 208, 0.12), transparent 20rem),
+        linear-gradient(145deg, #041311, #0c1c24) !important;
+}
+
+.kirby-live-browser.sector-future-museum {
+    --kirby-accent: #f7c873;
+    --kirby-accent-rgb: 247, 200, 115;
+    border-color: rgba(247, 200, 115, 0.22);
+    background:
+        radial-gradient(circle at 74% 18%, rgba(247, 200, 115, 0.16), transparent 18rem),
+        radial-gradient(circle at 18% 80%, rgba(168, 85, 247, 0.12), transparent 18rem),
+        linear-gradient(145deg, #160f0a, #211527) !important;
+}
+
+.kirby-live-browser.sector-future-bank {
+    --kirby-accent: #93c5fd;
+    --kirby-accent-rgb: 147, 197, 253;
+}
+
+.kirby-live-browser.is-adventure .kirby-live-nav strong,
+.kirby-live-browser.is-adventure .kirby-live-nav span,
+.kirby-live-browser.is-adventure .kirby-live-footer,
+.kirby-live-browser.sector-underwater-hotel .kirby-live-nav strong,
+.kirby-live-browser.sector-underwater-hotel .kirby-live-nav span,
+.kirby-live-browser.sector-underwater-hotel .kirby-live-footer,
+.kirby-live-browser.sector-space-station-tourism .kirby-live-nav strong,
+.kirby-live-browser.sector-space-station-tourism .kirby-live-nav span,
+.kirby-live-browser.sector-space-station-tourism .kirby-live-footer,
+.kirby-live-browser.sector-floating-city .kirby-live-nav strong,
+.kirby-live-browser.sector-floating-city .kirby-live-nav span,
+.kirby-live-browser.sector-floating-city .kirby-live-footer,
+.kirby-live-browser.sector-future-museum .kirby-live-nav strong,
+.kirby-live-browser.sector-future-museum .kirby-live-nav span,
+.kirby-live-browser.sector-future-museum .kirby-live-footer,
+.kirby-live-browser.sector-explorer-academy .kirby-live-nav strong,
+.kirby-live-browser.sector-explorer-academy .kirby-live-nav span,
+.kirby-live-browser.sector-explorer-academy .kirby-live-footer,
+.kirby-live-browser.is-climate-lab .kirby-live-nav strong,
+.kirby-live-browser.is-climate-lab .kirby-live-nav span,
+.kirby-live-browser.is-climate-lab .kirby-live-footer,
+.kirby-live-browser.sector-climate-lab .kirby-live-nav strong,
+.kirby-live-browser.sector-climate-lab .kirby-live-nav span,
+.kirby-live-browser.sector-climate-lab .kirby-live-footer {
+    color: rgba(248, 252, 255, 0.84);
+}
+
+.kirby-live-browser.is-adventure .kirby-live-nav span,
+.kirby-live-browser.sector-underwater-hotel .kirby-live-nav span,
+.kirby-live-browser.sector-space-station-tourism .kirby-live-nav span,
+.kirby-live-browser.sector-floating-city .kirby-live-nav span,
+.kirby-live-browser.sector-future-museum .kirby-live-nav span,
+.kirby-live-browser.sector-explorer-academy .kirby-live-nav span,
+.kirby-live-browser.is-climate-lab .kirby-live-nav span,
+.kirby-live-browser.sector-climate-lab .kirby-live-nav span {
+    border-color: rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(16px);
+}
+
+.kirby-live-browser.is-adventure .kirby-live-video-hero,
+.kirby-live-browser.sector-underwater-hotel .kirby-live-video-hero,
+.kirby-live-browser.sector-space-station-tourism .kirby-live-video-hero,
+.kirby-live-browser.sector-floating-city .kirby-live-video-hero,
+.kirby-live-browser.sector-future-museum .kirby-live-video-hero,
+.kirby-live-browser.sector-explorer-academy .kirby-live-video-hero,
+.kirby-live-browser.is-climate-lab .kirby-live-video-hero,
+.kirby-live-browser.sector-climate-lab .kirby-live-video-hero {
+    min-height: clamp(500px, 52vw, 730px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow:
+        inset 0 -22rem 18rem rgba(3, 5, 12, 0.72),
+        0 30px 90px rgba(0, 0, 0, 0.28);
+}
+
+.kirby-live-browser.is-adventure .kirby-live-rail article,
+.kirby-live-browser.sector-underwater-hotel .kirby-live-rail article,
+.kirby-live-browser.sector-space-station-tourism .kirby-live-rail article,
+.kirby-live-browser.sector-floating-city .kirby-live-rail article,
+.kirby-live-browser.sector-future-museum .kirby-live-rail article,
+.kirby-live-browser.sector-explorer-academy .kirby-live-rail article,
+.kirby-live-browser.is-climate-lab .kirby-live-rail article,
+.kirby-live-browser.sector-climate-lab .kirby-live-rail article {
+    background: rgba(255, 255, 255, 0.075);
+    backdrop-filter: blur(18px);
+}
+
+@keyframes luminaFloat {
+    0%, 100% {
+        translate: 0 0;
+    }
+
+    50% {
+        translate: 0 -0.7rem;
+    }
+}
+
+@keyframes dreamRiftPulse {
+    0%, 100% {
+        filter: hue-rotate(0deg);
+        transform: rotate(-6deg) translateZ(10px) scale(1);
+    }
+
+    50% {
+        filter: hue-rotate(18deg);
+        transform: rotate(-3deg) translateZ(10px) scale(1.035);
+    }
 }
 
 .kirby-live-services,
@@ -12730,6 +13733,512 @@ body.studio-home[data-theme="day"] .kirby-next-step.is-unlocked {
     background: rgba(236, 253, 245, 0.68);
 }
 
+.kirby-live-browser.is-finance-os {
+    position: relative;
+    gap: 0.8rem;
+    min-height: clamp(720px, 62vw, 900px);
+    overflow: hidden;
+    padding: 0.75rem;
+    border-color: rgba(124, 231, 255, 0.22);
+    background:
+        linear-gradient(120deg, rgba(34, 211, 238, 0.08), transparent 32%),
+        linear-gradient(235deg, rgba(124, 58, 237, 0.12), transparent 42%),
+        #07111f !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.14),
+        0 34px 120px rgba(2, 8, 23, 0.45);
+    color: #f8fbff;
+}
+
+.kirby-live-browser.is-finance-os::before {
+    opacity: 0.7;
+    background:
+        linear-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px) 0 0 / 3.5rem 3.5rem,
+        linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px) 0 0 / 3.5rem 3.5rem;
+}
+
+.kirby-live-browser.is-finance-os .kirby-preview-chrome span {
+    background: rgba(196, 231, 255, 0.64);
+}
+
+.kirby-finance-os {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    gap: 1rem;
+    min-height: clamp(680px, 58vw, 850px);
+    color: #f8fbff;
+    font-family: "Inter", "Manrope", sans-serif;
+}
+
+.kirby-finance-nav {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 1rem;
+    min-width: 0;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid rgba(185, 230, 255, 0.18);
+    border-radius: 16px;
+    background: rgba(7, 17, 31, 0.58);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(22px);
+}
+
+.kirby-finance-nav strong {
+    overflow: hidden;
+    color: #ffffff;
+    font-size: 0.86rem;
+    font-weight: 950;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.kirby-finance-nav div {
+    display: flex;
+    justify-content: center;
+    gap: 0.38rem;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.kirby-finance-nav span,
+.kirby-finance-nav em {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.85rem;
+    padding: 0.35rem 0.55rem;
+    border: 1px solid rgba(185, 230, 255, 0.16);
+    border-radius: 999px;
+    color: rgba(234, 247, 255, 0.78);
+    font-size: 0.66rem;
+    font-style: normal;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.kirby-finance-nav em {
+    color: #07111f;
+    background: linear-gradient(135deg, #b9fff4, #7dd3fc);
+    box-shadow: 0 0 28px rgba(45, 212, 191, 0.24);
+}
+
+.kirby-finance-hero {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(210px, 0.72fr) minmax(0, 1.28fr);
+    gap: clamp(1rem, 3vw, 2rem);
+    align-items: center;
+    min-height: clamp(430px, 42vw, 620px);
+    overflow: hidden;
+    padding: clamp(1rem, 3vw, 2.2rem);
+    border: 1px solid rgba(185, 230, 255, 0.16);
+    border-radius: 24px;
+    background:
+        radial-gradient(circle at 80% 18%, rgba(45, 212, 191, 0.16), transparent 18rem),
+        linear-gradient(135deg, rgba(12, 25, 48, 0.86), rgba(9, 31, 60, 0.66));
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 28px 90px rgba(2, 8, 23, 0.34);
+}
+
+.kirby-finance-copy {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    align-content: center;
+    gap: 0.9rem;
+    min-width: 0;
+}
+
+.kirby-finance-copy .signal-label {
+    color: #9ff8ef;
+}
+
+.kirby-finance-copy h3 {
+    max-width: 8ch;
+    color: #ffffff;
+    font-family: "Inter", "Manrope", sans-serif;
+    font-size: clamp(3.2rem, 8vw, 6.6rem);
+    line-height: 0.86;
+    letter-spacing: 0;
+}
+
+body.studio-home .section .kirby-finance-copy h3 {
+    color: #ffffff;
+}
+
+.kirby-finance-copy p:not(.signal-label) {
+    max-width: 31rem;
+    margin: 0;
+    color: rgba(233, 246, 255, 0.78);
+    font-size: clamp(0.88rem, 1.2vw, 1.05rem);
+    font-weight: 650;
+    line-height: 1.55;
+}
+
+.kirby-live-browser.is-finance-os .kirby-preview-actions span:first-child {
+    color: #07111f;
+    background: linear-gradient(135deg, #d8fff9, #75f5db 54%, #8bc8ff);
+    box-shadow: 0 18px 48px rgba(45, 212, 191, 0.28);
+}
+
+.kirby-live-browser.is-finance-os .kirby-preview-actions span:nth-child(2) {
+    color: #eaf7ff;
+    border-color: rgba(185, 230, 255, 0.18);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.kirby-finance-stage {
+    position: relative;
+    min-height: clamp(360px, 38vw, 540px);
+    perspective: 1200px;
+}
+
+.finance-window {
+    position: absolute;
+    display: grid;
+    min-width: 0;
+    border: 1px solid rgba(209, 242, 255, 0.2);
+    border-radius: 18px;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.2), rgba(95, 173, 255, 0.08));
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        0 28px 80px rgba(1, 8, 20, 0.34);
+    backdrop-filter: blur(24px);
+}
+
+.finance-window-main {
+    inset: 7% 6% auto 2%;
+    min-height: 62%;
+    padding: 0.8rem;
+    transform: rotateX(8deg) rotateY(-8deg) rotateZ(-1deg);
+}
+
+.finance-window-ai {
+    right: 0;
+    bottom: 6%;
+    width: min(45%, 19rem);
+    min-height: 15rem;
+    padding: 0.75rem;
+    transform: rotateX(8deg) rotateY(-14deg) translateZ(70px);
+}
+
+.finance-window-bank {
+    left: 7%;
+    bottom: 1%;
+    width: min(40%, 16rem);
+    min-height: 11rem;
+    padding: 0.75rem;
+    transform: rotateX(8deg) rotateY(12deg) translateZ(45px);
+}
+
+.finance-window-top {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+    margin-bottom: 0.7rem;
+}
+
+.finance-window-top span {
+    width: 0.52rem;
+    height: 0.52rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.62);
+}
+
+.finance-window-top span:first-child {
+    background: #ff6b7a;
+}
+
+.finance-window-top span:nth-child(2) {
+    background: #ffd166;
+}
+
+.finance-window-top span:nth-child(3) {
+    background: #50e3b4;
+}
+
+.finance-window-top b {
+    overflow: hidden;
+    margin-left: 0.25rem;
+    color: rgba(255, 255, 255, 0.84);
+    font-size: 0.68rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.finance-window-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.55rem;
+}
+
+.finance-window-grid div {
+    display: grid;
+    gap: 0.2rem;
+    min-height: 5.8rem;
+    padding: 0.55rem;
+    border: 1px solid rgba(209, 242, 255, 0.14);
+    border-radius: 8px;
+    background: rgba(6, 18, 34, 0.44);
+}
+
+.finance-window-grid small,
+.finance-window-grid em,
+.finance-window-ai p,
+.finance-window-ai li,
+.finance-window-bank span,
+.finance-floating-docs small {
+    color: rgba(231, 246, 255, 0.68);
+    font-size: 0.62rem;
+    font-style: normal;
+    font-weight: 780;
+}
+
+.finance-window-grid strong {
+    color: #ffffff;
+    font-size: clamp(0.9rem, 1.4vw, 1.16rem);
+    line-height: 1.05;
+}
+
+.finance-window-grid em {
+    color: #7df7c8;
+}
+
+.finance-chart {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    align-items: end;
+    gap: 0.52rem;
+    min-height: 8rem;
+    margin-top: 0.8rem;
+    padding: 0.75rem 0.35rem 0.2rem;
+    border-radius: 12px;
+    background:
+        linear-gradient(rgba(185, 230, 255, 0.08) 1px, transparent 1px) 0 30% / 100% 33%;
+}
+
+.finance-chart i {
+    height: var(--h);
+    min-height: 2rem;
+    border-radius: 999px 999px 6px 6px;
+    background: linear-gradient(180deg, #b9fff4, #2dd4bf 45%, rgba(59, 130, 246, 0.28));
+    animation: financeBarRise 3.8s ease-in-out infinite alternate;
+}
+
+.finance-window-ai strong {
+    color: #ffffff;
+    font-size: 0.96rem;
+    line-height: 1.2;
+}
+
+.finance-window-ai p {
+    margin: 0.45rem 0;
+    line-height: 1.45;
+}
+
+.finance-window-ai ul {
+    display: grid;
+    gap: 0.35rem;
+    margin: 0.45rem 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.finance-window-ai li {
+    display: flex;
+    align-items: center;
+    gap: 0.38rem;
+}
+
+.finance-window-ai li::before {
+    content: "";
+    width: 0.44rem;
+    height: 0.44rem;
+    border-radius: 999px;
+    background: #75f5db;
+    box-shadow: 0 0 16px rgba(117, 245, 219, 0.52);
+}
+
+.finance-window-bank {
+    gap: 0.36rem;
+}
+
+.finance-window-bank p {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0.4rem 0.48rem;
+    border: 1px solid rgba(209, 242, 255, 0.12);
+    border-radius: 8px;
+    background: rgba(6, 18, 34, 0.38);
+}
+
+.finance-window-bank strong {
+    color: #a7ffe8;
+    font-size: 0.7rem;
+}
+
+.finance-floating-docs span {
+    position: absolute;
+    z-index: 4;
+    display: grid;
+    gap: 0.14rem;
+    min-width: 9.4rem;
+    padding: 0.58rem 0.68rem;
+    border: 1px solid rgba(209, 242, 255, 0.2);
+    border-radius: 10px;
+    background: rgba(248, 251, 255, 0.16);
+    box-shadow: 0 18px 44px rgba(2, 8, 23, 0.24);
+    backdrop-filter: blur(20px);
+    animation: financeFloat 5.8s ease-in-out infinite;
+}
+
+.finance-floating-docs strong {
+    color: #ffffff;
+    font-size: 0.68rem;
+}
+
+.finance-floating-docs .doc-1 {
+    top: 0;
+    right: 8%;
+}
+
+.finance-floating-docs .doc-2 {
+    top: 37%;
+    left: 0;
+    animation-delay: -1.6s;
+}
+
+.finance-floating-docs .doc-3 {
+    right: 4%;
+    bottom: 36%;
+    animation-delay: -3.1s;
+}
+
+.finance-floating-docs .doc-4 {
+    left: 28%;
+    bottom: 0;
+    animation-delay: -4.2s;
+}
+
+.finance-glow-orbit {
+    position: absolute;
+    right: 8%;
+    bottom: 11%;
+    width: 46%;
+    aspect-ratio: 1;
+    border: 1px solid rgba(117, 245, 219, 0.22);
+    border-radius: 50%;
+    box-shadow:
+        inset 0 0 52px rgba(45, 212, 191, 0.06),
+        0 0 62px rgba(45, 212, 191, 0.08);
+    transform: rotateX(74deg) rotateZ(-12deg);
+}
+
+.kirby-finance-story {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr 1fr;
+    gap: 0.75rem;
+}
+
+.kirby-finance-story article,
+.kirby-finance-automation {
+    display: grid;
+    gap: 0.45rem;
+    min-width: 0;
+    padding: 0.85rem;
+    border: 1px solid rgba(185, 230, 255, 0.14);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.075);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(18px);
+}
+
+.kirby-finance-story span {
+    color: #75f5db;
+    font-size: 0.66rem;
+    font-weight: 950;
+}
+
+.kirby-finance-story strong,
+.kirby-finance-automation strong {
+    color: #ffffff;
+    font-size: 0.9rem;
+    line-height: 1.2;
+}
+
+.kirby-finance-story p {
+    margin: 0;
+    color: rgba(231, 246, 255, 0.68);
+    font-size: 0.68rem;
+    font-weight: 650;
+    line-height: 1.42;
+}
+
+.kirby-finance-automation {
+    grid-template-columns: minmax(180px, 0.5fr) minmax(0, 1fr);
+    align-items: center;
+}
+
+.kirby-finance-automation .signal-label {
+    margin-bottom: 0.2rem;
+    color: #9ff8ef;
+}
+
+.kirby-finance-automation ol {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.45rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.kirby-finance-automation li {
+    min-height: 3.25rem;
+    padding: 0.55rem;
+    border: 1px solid rgba(185, 230, 255, 0.12);
+    border-radius: 8px;
+    background: rgba(6, 18, 34, 0.38);
+    color: rgba(231, 246, 255, 0.76);
+    font-size: 0.66rem;
+    font-weight: 820;
+}
+
+.kirby-live-browser.is-finance-os .kirby-live-footer {
+    color: rgba(231, 246, 255, 0.7);
+    border-color: rgba(185, 230, 255, 0.14);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+@keyframes financeFloat {
+    0%, 100% {
+        transform: translate3d(0, 0, 0) rotate(-1deg);
+    }
+
+    50% {
+        transform: translate3d(0.25rem, -0.55rem, 0) rotate(1deg);
+    }
+}
+
+@keyframes financeBarRise {
+    from {
+        opacity: 0.76;
+        transform: scaleY(0.86);
+        transform-origin: bottom;
+    }
+
+    to {
+        opacity: 1;
+        transform: scaleY(1);
+        transform-origin: bottom;
+    }
+}
+
 .kirby-live-browser.is-dashboard {
     gap: 0.6rem;
     min-height: clamp(600px, 58vw, 780px);
@@ -13388,6 +14897,10 @@ body.studio-home .section .kirby-dashboard-title h3 {
     .kirby-dashboard-kpis,
     .kirby-dashboard-content,
     .dash-donut-wrap,
+    .kirby-finance-hero,
+    .kirby-finance-story,
+    .kirby-finance-automation,
+    .kirby-finance-automation ol,
     .kirby-gallery-focus,
     .kirby-minimal-editorial,
     .kirby-minimal-list,
@@ -13395,14 +14908,164 @@ body.studio-home .section .kirby-dashboard-title h3 {
     .kirby-asym-stack,
     .kirby-warm-editorial,
     .kirby-live-rail,
+    .kirby-lumina-hero,
+    .kirby-lumina-modules,
+    .kirby-dream-hero,
+    .kirby-dream-modules,
     .kirby-kids-world,
     .kirby-kids-modules {
         grid-template-columns: 1fr;
     }
 
+    .kirby-lumina-showcase {
+        min-height: auto;
+        padding: 0.85rem;
+    }
+
+    .kirby-dream-portal {
+        min-height: auto;
+        padding: 0.85rem;
+    }
+
+    .kirby-lumina-nav {
+        align-items: stretch;
+        border-radius: 24px;
+        flex-direction: column;
+    }
+
+    .kirby-dream-nav {
+        align-items: stretch;
+        border-radius: 24px;
+        flex-direction: column;
+    }
+
+    .kirby-lumina-nav div {
+        justify-content: flex-start;
+        overflow-x: auto;
+    }
+
+    .kirby-dream-nav div {
+        justify-content: flex-start;
+        overflow-x: auto;
+    }
+
+    .kirby-lumina-hero {
+        min-height: auto;
+        padding: 1.2rem;
+    }
+
+    .kirby-dream-hero {
+        min-height: auto;
+        padding: 1.2rem;
+    }
+
+    .kirby-lumina-copy h3 {
+        max-width: 9ch;
+        font-size: clamp(2.35rem, 12vw, 3.8rem);
+    }
+
+    .kirby-dream-copy h3 {
+        max-width: 9ch;
+        font-size: clamp(2.35rem, 12vw, 3.8rem);
+    }
+
+    .kirby-lumina-stage {
+        min-height: 470px;
+    }
+
+    .kirby-dream-stage {
+        min-height: 470px;
+    }
+
+    .main-surface {
+        inset: 9% 4% 18% 4%;
+        transform: rotateY(-5deg) rotateX(3deg);
+    }
+
+    .insight-surface {
+        left: 0;
+        top: 0;
+        width: 48%;
+    }
+
+    .ai-surface {
+        right: 0;
+        bottom: 0;
+        width: 58%;
+    }
+
+    .kirby-lumina-modules article:nth-child(2),
+    .kirby-lumina-modules article:nth-child(3) {
+        transform: none;
+    }
+
+    .dream-card-a {
+        left: 0;
+        width: 54%;
+    }
+
+    .dream-card-b {
+        right: 0;
+        width: 58%;
+    }
+
+    .dream-card-c {
+        left: 4%;
+        width: 45%;
+    }
+
     .kirby-kids-world {
         min-height: auto;
         padding: 1.2rem;
+    }
+
+    .kirby-live-browser.is-finance-os {
+        min-height: auto;
+    }
+
+    .kirby-finance-nav {
+        grid-template-columns: 1fr auto;
+    }
+
+    .kirby-finance-nav div {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        justify-content: flex-start;
+        overflow-x: auto;
+    }
+
+    .kirby-finance-hero {
+        min-height: auto;
+        padding: 1.2rem;
+    }
+
+    .kirby-finance-copy h3 {
+        max-width: 9ch;
+        font-size: clamp(3.1rem, 16vw, 5rem);
+    }
+
+    .kirby-finance-stage {
+        min-height: 500px;
+    }
+
+    .finance-window-main {
+        inset: 6% 0 auto 0;
+    }
+
+    .finance-window-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .finance-window-ai {
+        right: 0;
+        bottom: 9%;
+        width: 58%;
+    }
+
+    .finance-window-bank {
+        left: 0;
+        bottom: 0;
+        width: 48%;
     }
 
     .kirby-kids-copy h3 {
@@ -13501,21 +15164,85 @@ body.studio-home .section .kirby-dashboard-title h3 {
     .kirby-gallery-lead h3,
     .kirby-asym-copy h3,
     .kirby-warm-copy h3,
-    .kirby-minimal-editorial h3 {
-        font-size: clamp(2.6rem, 16vw, 4.4rem);
+    .kirby-minimal-editorial h3,
+    .kirby-lumina-copy h3 {
+        font-size: clamp(2.15rem, 11.5vw, 3.55rem);
         overflow-wrap: anywhere;
+    }
+
+    .kirby-live-browser.sector-bridal .kirby-gallery-lead h3,
+    .kirby-live-browser.sector-bridal .kirby-asym-copy h3,
+    .kirby-live-browser.sector-bridal .kirby-warm-copy h3,
+    .kirby-live-browser.sector-bridal .kirby-lumina-copy h3 {
+        font-size: clamp(2rem, 10.5vw, 3.25rem);
     }
 
     .kirby-live-video-hero,
     .kirby-gallery-lead,
     .kirby-asym-copy,
     .kirby-warm-editorial,
+    .kirby-lumina-showcase,
     .kirby-kids-world {
         border-radius: 22px;
     }
 
     .kirby-kids-copy h3 {
         font-size: 2.55rem;
+    }
+
+    .kirby-finance-copy h3 {
+        font-size: clamp(2.7rem, 17vw, 4.1rem);
+    }
+
+    .kirby-finance-stage {
+        min-height: 470px;
+    }
+
+    .kirby-lumina-stage {
+        min-height: 420px;
+    }
+
+    .main-surface strong {
+        left: 1rem;
+        right: 1rem;
+        max-width: none;
+    }
+
+    .insight-surface,
+    .ai-surface {
+        width: min(78%, 18rem);
+    }
+
+    .finance-window-main {
+        min-height: 55%;
+        transform: none;
+    }
+
+    .finance-window-ai,
+    .finance-window-bank {
+        transform: none;
+    }
+
+    .finance-window-ai {
+        width: 62%;
+        min-height: 13rem;
+    }
+
+    .finance-window-bank {
+        width: 54%;
+    }
+
+    .finance-floating-docs span {
+        min-width: 7.8rem;
+        padding: 0.48rem 0.55rem;
+    }
+
+    .finance-floating-docs .doc-2 {
+        left: -0.35rem;
+    }
+
+    .finance-floating-docs .doc-3 {
+        right: -0.35rem;
     }
 
     .kirby-kids-copy p:not(.signal-label) {

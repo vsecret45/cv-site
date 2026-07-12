@@ -11663,6 +11663,72 @@ const normalizeKirbyFallbackText = (value = '') => String(value || '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
 
+const isKirbyKidsEducationBrief = (value = '') => {
+    const source = normalizeKirbyFallbackText(value);
+    const explicitKids = /\b(enfant|enfants|kid|kids|application enfant|app enfant|ecole maternelle|maternelle|creche|crèche|comptine|comptines|mini jeu|mini-jeu|jeux educatifs?|jeu educatif|espace parent|luna|leo|léo)\b/.test(source);
+    const educationTerms = /\b(educatif|educative|education|apprendre|apprentissage|histoire|histoires|parent|parents)\b/.test(source);
+    const childContext = /\b(enfant|enfants|kid|kids|maternelle|ecole|creche|crèche|comptine|comptines|mini jeu|mini-jeu|jeux?|luna|leo|léo)\b/.test(source);
+
+    return explicitKids || (educationTerms && childContext);
+};
+
+const hasKirbyLuminaIntent = (value = '') => /\b(figma make|make de figma|make figma|canvas|canvas pro|apple|macos|figma|lumina|luma|futur|future|futuriste|3d|4d|immersif|immersive|motion|anime|animé|animation|animations|waouh|wow|glass|glassmorphism|verre depoli|verre dépoli|transparent|transparence|translucide|surface|surfaces|holographique|artistique)\b/.test(normalizeKirbyFallbackText(value));
+const hasKirbySurfaceDesignIntent = (value = '') => /\b(figma make|make de figma|make figma|canvas pro|apple|macos|figma|lumina|luma|glass|glassmorphism|verre depoli|verre dépoli|transparent|transparence|translucide|surface|surfaces|4d|holographique)\b/.test(normalizeKirbyFallbackText(value));
+const hasKirbyLegalIntent = (value = '') => /\b(avocat|avocats|cabinet d avocat|cabinet d'avocat|juridique|droit|juriste|notaire|honoraires|contentieux)\b/.test(normalizeKirbyFallbackText(value));
+const hasKirbySportIntent = (value = '') => /\b(salle de sport|fitness|sport|coaching|coach sportif|nutrition|musculation|performance|performances|cours collectifs|crossfit|yoga|pilates)\b/.test(normalizeKirbyFallbackText(value));
+const hasKirbyTravelIntent = (value = '') => /\b(voyage|voyages|tourisme|destination|destinations|itineraire|itinéraire|sejour sur mesure|séjour sur mesure|road trip|circuit|circuits|safari|agence de voyage|agence voyages|voyage sur mesure|voyages sur mesure)\b/.test(normalizeKirbyFallbackText(value));
+const hasKirbyVeterinaryIntent = (value = '') => /\b(veterinaire|vétérinaire|clinique veterinaire|clinique vétérinaire|urgence veterinaire|urgences veterinaires|soins veterinaires|fiches animaux|animaux)\b/.test(normalizeKirbyFallbackText(value));
+const hasKirbyBridalIntent = (value = '') => /\b(robe|robes|robe de mariee|robe de mariage|mariee|mariée|mariage|couture|haute couture|atelier couture|createur de robe|créateur de robe|creatrice de robe|créatrice de robe|collection mariee|collection mariée|bridal|wedding dress|essayage|essayages|voile|voiles|dentelle|soie|broderie|tulle|satin)\b/.test(normalizeKirbyFallbackText(value));
+const hasKirbyLibraryIntent = (value = '') => /\b(bibliotheque|bibliothèque|mediatheque|médiathèque|livre|livres|lecture|lecteur|lecteurs|librairie|rayonnage|rayonnages|archives|culturel|culturelle)\b/.test(normalizeKirbyFallbackText(value));
+const hasKirbyUrbanFarmIntent = (value = '') => /\b(ferme urbaine|ferme verticale|vertical farm|agritech|agriculture urbaine|hydropon|aeropon|aéropon|serre|serres|culture eclair|culture éclair|jardin|jardins|plante|plantes|potager|vegetal|végétal|capteur|capteurs|balcon|terrasse)\b/.test(normalizeKirbyFallbackText(value));
+const hasKirbyUnderwaterHotelIntent = (value = '') => {
+    const source = normalizeKirbyFallbackText(value);
+    return /\b(hotel|hôtel|suite|suites|restaurant|spa|sejour|séjour)\b/.test(source)
+        && /\b(sous marin|sous-marin|sous l ocean|sous l océan|sous ocean|sous océan|immerge|immergé|immergee|immergée|ocean|océan|faune marine|marin|aquatique)\b/.test(source);
+};
+const hasKirbySpaceTourismIntent = (value = '') => {
+    const source = normalizeKirbyFallbackText(value);
+    return /\b(station spatiale|tourisme spatial|sejour orbital|séjour orbital|orbital|orbite|apesanteur|gravite zero|gravité zéro|vue sur la terre|voyageurs spatiaux|capsule|cosmos)\b/.test(source)
+        || (/\b(station|hotel|hôtel|voyage|sejour|séjour|reservation|réservation)\b/.test(source) && /\b(spatial|spatiale|espace|orbite|terre|lune|mars)\b/.test(source));
+};
+const hasKirbyFloatingCityIntent = (value = '') => {
+    const source = normalizeKirbyFallbackText(value);
+    return /\b(ville flottante|cite flottante|cité flottante|quartiers flottants|ville autonome|cite autonome|cité autonome|habitat flottant|transport flottant|energie renouvelable|énergie renouvelable|autonome oceanique|autonome océanique)\b/.test(source);
+};
+const hasKirbyImmersiveMuseumIntent = (value = '') => {
+    const source = normalizeKirbyFallbackText(value);
+    return /\b(musee|musée|civilisations disparues|civilisation disparue|archeologie|archéologie|realite augmentee|réalité augmentée|mondes perdus|monde perdu|artefacts|reconstitution|ruines|temple|temples)\b/.test(source);
+};
+const hasKirbyFutureBankIntent = (value = '') => {
+    const source = normalizeKirbyFallbackText(value);
+    return /\b(banque|bank|credits|crédits|coffres|coffre|identite financiere|identité financière|financier|finance)\b/.test(source)
+        && /\b(lune|lunaire|mars|colonies|colonie|interplanetaire|interplanétaire|orbital|spatial|spatiale|cosmos)\b/.test(source);
+};
+const hasKirbyExplorerAcademyIntent = (value = '') => {
+    const source = normalizeKirbyFallbackText(value);
+    const directExploration = /\b(academie des explorateurs|ecole des explorateurs|explorateur|explorateurs|exploration|aventurier|aventuriers|aventure|expedition|expeditions|boussole|cartographie)\b/.test(source);
+    const terrainTraining = /\b(ocean|oceans|desert|deserts|jungle|montagne|montagnes|spatial|cosmos|orbite|planete|planetes)\b/.test(source)
+        && /\b(ecole|academie|formation|former|campus|programme|apprendre)\b/.test(source);
+
+    return directExploration || terrainTraining;
+};
+const hasKirbyDreamPortalIntent = (value = '') => /\b(portail des reves|portail de reves|portail reve|reves|reve|dream|dreams|onirique|oniriques|sommeil|lucide|lucin|mysterieux|mystere|nuit|cauchemar|cauchemars)\b/.test(normalizeKirbyFallbackText(value));
+const hasKirbyClimateLabIntent = (value = '') => {
+    const source = normalizeKirbyFallbackText(value);
+    const climateSignal = /\b(clima terra|climat|climate|ecosysteme|ecosystemes|biodiversite|regeneration|environnement|carbone|captation|reforestation|milieux naturels|restaurer les ecosystemes)\b/.test(source);
+    const labSignal = /\b(laboratoire|lab|recherche|scientifique|science|terrain|capteurs|satellite|modelisation)\b/.test(source);
+
+    return climateSignal || (labSignal && /\b(terre|terra|vivant|nature|naturel|foret|forets|ocean|sols|agriculture)\b/.test(source));
+};
+const hasKirbyAccountingIntent = (value = '') => {
+    const source = normalizeKirbyFallbackText(value);
+    const accountingTerms = /\b(contadirect|compta|comptabilite|comptable|facture|factures|facturation|devis|tva|revenu|revenus|depense|depenses|charge|charges|transaction|transactions|tresorerie|resultat net|bilan|logiciel de compta|logiciel comptable|tableau de bord comptable|documents comptables)\b/.test(source);
+    const bankAccountingContext = /\b(banque|bank|transactions?)\b/.test(source)
+        && /\b(facture|factures|tva|compta|comptable|depense|depenses|revenu|revenus|tresorerie|devis|justificatif|justificatifs)\b/.test(source);
+
+    return accountingTerms || bankAccountingContext;
+};
+
 const toKirbyTitleCase = (value = '') => String(value || '')
     .split(/\s+/)
     .filter(Boolean)
@@ -11671,6 +11737,247 @@ const toKirbyTitleCase = (value = '') => String(value || '')
     .trim();
 
 const KIRBY_SECTOR_TEMPLATES = {
+    'underwater-hotel': {
+        activity: 'hôtel sous-marin de luxe',
+        projectType: 'Site hôtel sous-marin premium',
+        layoutVariants: ['cinematic-video', 'luxury-asymmetric', 'gallery-focus'],
+        visualMood: 'underwater-luxury',
+        modelName: 'Direction hôtel sous-marin',
+        pages: [
+            { name: 'Accueil', goal: 'Créer l’immersion sous l’océan et mener vers la réservation.' },
+            { name: 'Suites panoramiques', goal: 'Montrer vues, confort, sécurité et expérience.' },
+            { name: 'Restaurant immergé', goal: 'Présenter la table comme un moment rare sous l’eau.' },
+            { name: 'Spa marin', goal: 'Valoriser calme, soin, lumière filtrée et relaxation.' },
+            { name: 'Faune marine', goal: 'Expliquer l’observation et la protection du vivant.' },
+            { name: 'Réservation', goal: 'Convertir vers demande de séjour ou disponibilité.' },
+        ],
+        sections: [
+            { title: 'Dormir sous l’océan', text: 'Suites vitrées, lumière filtrée et silence marin structurent le premier écran.' },
+            { title: 'Expérience immergée', text: 'Restaurant, spa et observation deviennent des moments distincts du parcours.' },
+            { title: 'Technologie discrète', text: 'Sécurité, pression, accès et confort restent premium sans casser la magie.' },
+        ],
+        services: [
+            { name: 'Suites panoramiques', description: 'Chambres immergées avec vue sur la faune et confort haut de gamme.' },
+            { name: 'Séjour expérientiel', description: 'Restaurant, spa, observation marine et réservation.' },
+        ],
+        recommendedServices: [
+            { name: 'Site hôtel premium', reason: 'Transformer la curiosité en demande de séjour.', priceFrom: 'Offre Signature' },
+            { name: 'Galerie immersive', reason: 'Faire ressentir la lumière et le calme sous l’eau.', priceFrom: 'Projet spécifique' },
+            { name: 'Réservation en ligne', reason: 'Qualifier dates, suites et demandes particulières.', priceFrom: 'Projet spécifique' },
+        ],
+        ctas: ['Réserver mon séjour', 'Découvrir les suites', 'Voir l’expérience'],
+        coherenceKeywords: ['sous-marin', 'océan', 'suite', 'restaurant', 'spa', 'faune marine', 'réservation'],
+    },
+    'space-station-tourism': {
+        activity: 'station spatiale touristique',
+        projectType: 'Site tourisme spatial premium',
+        layoutVariants: ['cinematic-video', 'lumina-showcase', 'luxury-asymmetric'],
+        visualMood: 'orbital-luxury',
+        modelName: 'Direction séjour orbital',
+        pages: [
+            { name: 'Accueil', goal: 'Montrer la Terre depuis l’orbite et l’appel à réserver.' },
+            { name: 'Séjours orbitaux', goal: 'Présenter durées, cabines, expériences et conditions.' },
+            { name: 'Apesanteur', goal: 'Valoriser les moments en gravité zéro.' },
+            { name: 'Vue Terre', goal: 'Faire de la vue panoramique la preuve centrale.' },
+            { name: 'Technologies', goal: 'Rassurer sur sécurité, transport et accompagnement.' },
+            { name: 'Réservation', goal: 'Qualifier les voyageurs et disponibilités.' },
+        ],
+        sections: [
+            { title: 'La Terre comme horizon', text: 'Le hero doit montrer orbite, hublots, cabines et promesse de séjour.' },
+            { title: 'Vivre l’apesanteur', text: 'Les expériences sont concrètes : sommeil, repas, observation, sorties guidées.' },
+            { title: 'Technologie rassurante', text: 'Sécurité, formation et assistance rendent l’aventure crédible.' },
+        ],
+        services: [
+            { name: 'Séjour orbital', description: 'Cabines, observation, repas et activités en apesanteur.' },
+            { name: 'Préparation voyageur', description: 'Formation, santé, sécurité et calendrier de départ.' },
+        ],
+        recommendedServices: [
+            { name: 'Site concept premium', reason: 'Rendre le tourisme orbital crédible et désirable.', priceFrom: 'Offre Signature' },
+            { name: 'Parcours réservation', reason: 'Qualifier dates, budget, santé et niveau d’accompagnement.', priceFrom: 'Projet spécifique' },
+        ],
+        ctas: ['Réserver l’orbite', 'Découvrir les séjours', 'Voir la Terre'],
+        coherenceKeywords: ['station spatiale', 'orbite', 'Terre', 'apesanteur', 'séjour', 'cabine', 'technologie'],
+    },
+    'floating-city': {
+        activity: 'cité flottante autonome',
+        projectType: 'Site ville flottante écologique',
+        layoutVariants: ['cinematic-video', 'gallery-focus', 'lumina-showcase'],
+        visualMood: 'eco-city-future',
+        modelName: 'Direction cité autonome',
+        pages: [
+            { name: 'Accueil', goal: 'Présenter la cité comme un monde habitable et crédible.' },
+            { name: 'Quartiers', goal: 'Montrer logements, écoles, commerces et espaces publics.' },
+            { name: 'Mobilités', goal: 'Expliquer transports, navettes, passerelles et accès.' },
+            { name: 'Énergie', goal: 'Valoriser solaire, eau, stockage et autonomie.' },
+            { name: 'Espaces verts', goal: 'Montrer biodiversité, jardins et confort quotidien.' },
+            { name: 'Vie quotidienne', goal: 'Rendre la ville désirable pour habitants et investisseurs.' },
+        ],
+        sections: [
+            { title: 'Habiter sur l’eau', text: 'Le site montre une ville vivante, pas seulement un rendu architectural.' },
+            { title: 'Autonomie visible', text: 'Énergie, transports, eau et espaces verts deviennent des preuves visuelles.' },
+            { title: 'Quartiers humains', text: 'Vie quotidienne, écoles, places et mobilités donnent l’échelle du projet.' },
+        ],
+        services: [
+            { name: 'Quartiers autonomes', description: 'Organisation urbaine, services, mobilité et espaces publics.' },
+            { name: 'Énergie renouvelable', description: 'Production solaire, gestion de l’eau et résilience.' },
+        ],
+        recommendedServices: [
+            { name: 'Présentation premium', reason: 'Expliquer un projet urbain complexe sans le rendre froid.', priceFrom: 'Offre Signature' },
+            { name: 'Carte interactive', reason: 'Rendre quartiers, transports et énergie explorables.', priceFrom: 'Projet spécifique' },
+        ],
+        ctas: ['Explorer la cité', 'Voir les quartiers', 'Devenir partenaire'],
+        coherenceKeywords: ['ville flottante', 'quartiers', 'transports', 'énergie', 'espaces verts', 'autonome'],
+    },
+    'future-museum': {
+        activity: 'musée immersif des civilisations disparues',
+        projectType: 'Site musée interactif premium',
+        layoutVariants: ['gallery-focus', 'cinematic-video', 'lumina-showcase'],
+        visualMood: 'archeology-immersive',
+        modelName: 'Direction musée augmenté',
+        pages: [
+            { name: 'Accueil', goal: 'Faire entrer dans les mondes perdus dès le premier écran.' },
+            { name: 'Collections', goal: 'Présenter artefacts, périodes et civilisations.' },
+            { name: 'Expériences AR', goal: 'Montrer réalité augmentée, reconstitutions et parcours.' },
+            { name: 'Expositions', goal: 'Mettre en avant expositions temporaires et événements.' },
+            { name: 'Billetterie', goal: 'Convertir vers réservation ou visite.' },
+            { name: 'Recherche', goal: 'Valoriser archéologie, archives et médiation scientifique.' },
+        ],
+        sections: [
+            { title: 'Mondes perdus vivants', text: 'Artefacts, ruines et reconstitutions augmentées composent la scène centrale.' },
+            { title: 'Archéologie augmentée', text: 'Le visiteur comprend comment le passé devient expérience interactive.' },
+            { title: 'Parcours de visite', text: 'Billetterie, expositions, ateliers et recherche restent clairement accessibles.' },
+        ],
+        services: [
+            { name: 'Exposition immersive', description: 'Parcours mêlant artefacts, AR et reconstitutions.' },
+            { name: 'Billetterie', description: 'Réservation de visite, ateliers et événements.' },
+        ],
+        recommendedServices: [
+            { name: 'Site culturel premium', reason: 'Faire ressentir l’expérience avant la visite.', priceFrom: 'Offre Signature' },
+            { name: 'Billetterie / réservation', reason: 'Transformer l’envie en visite.', priceFrom: 'Projet spécifique' },
+        ],
+        ctas: ['Découvrir les mondes', 'Réserver une visite', 'Voir les expositions'],
+        coherenceKeywords: ['musée', 'civilisations', 'archéologie', 'réalité augmentée', 'artefacts', 'mondes perdus'],
+    },
+    'future-bank': {
+        activity: 'banque interplanétaire',
+        projectType: 'Site finance futuriste pour colonies spatiales',
+        layoutVariants: ['finance-os', 'lumina-showcase', 'product-dashboard'],
+        visualMood: 'orbital-finance',
+        modelName: 'Direction finance interplanétaire',
+        pages: [
+            { name: 'Accueil', goal: 'Présenter la banque comme infrastructure financière lunaire et martienne.' },
+            { name: 'Crédits interplanétaires', goal: 'Expliquer prêts, garanties et colonies.' },
+            { name: 'Coffres numériques', goal: 'Valoriser sécurité, actifs et identité financière.' },
+            { name: 'Identité orbitale', goal: 'Rassurer sur accès, conformité et preuve d’identité.' },
+            { name: 'Colonies', goal: 'Montrer usages Lune, Mars et stations.' },
+            { name: 'Démo', goal: 'Déclencher une demande d’accès ou simulation.' },
+        ],
+        sections: [
+            { title: 'Finance hors Terre', text: 'Soldes, crédits, coffres et identités apparaissent dans une interface orbitale.' },
+            { title: 'Crédits coloniaux', text: 'Le site montre financement d’habitat, transport, énergie et équipements.' },
+            { title: 'Sécurité spatiale', text: 'Coffres numériques, accès biométrique et preuve interplanétaire structurent la confiance.' },
+        ],
+        services: [
+            { name: 'Crédit interplanétaire', description: 'Gestion de prêts, garanties et remboursements pour colonies.' },
+            { name: 'Coffre numérique', description: 'Actifs, identité, sécurité et accès hors Terre.' },
+        ],
+        recommendedServices: [
+            { name: 'Interface produit sur mesure', reason: 'Le projet doit ressembler à une banque du futur utilisable.', priceFrom: 'Projet spécifique' },
+            { name: 'Assistant IA métier', reason: 'Simuler crédits, risques et actifs selon la colonie.', priceFrom: 'Projet spécifique' },
+        ],
+        ctas: ['Ouvrir un coffre', 'Simuler un crédit', 'Voir les colonies'],
+        coherenceKeywords: ['banque', 'lunaire', 'Mars', 'colonies', 'crédits', 'coffres numériques', 'interplanétaire'],
+    },
+    'explorer-academy': {
+        activity: 'académie internationale d’exploration',
+        projectType: 'Site école aventure premium',
+        layoutVariants: ['cinematic-video', 'gallery-focus', 'luxury-asymmetric'],
+        visualMood: 'adventure-cinematic',
+        modelName: 'Direction académie explorateurs',
+        pages: [
+            { name: 'Accueil', goal: 'Installer la promesse d’aventure et d’école internationale.' },
+            { name: 'Terrains d’exploration', goal: 'Présenter océan, désert, jungle, montagne et espace.' },
+            { name: 'Programme', goal: 'Montrer les parcours, niveaux et compétences.' },
+            { name: 'Expéditions', goal: 'Mettre en scène les missions et sorties terrain.' },
+            { name: 'Campus', goal: 'Présenter les bases, laboratoires et simulateurs.' },
+            { name: 'Admissions', goal: 'Guider les candidatures et demandes d’information.' },
+        ],
+        sections: [
+            { title: 'Cinq mondes à maîtriser', text: 'Océan, désert, jungle, montagne et espace deviennent un parcours visuel clair.' },
+            { title: 'Former les futurs explorateurs', text: 'Le site montre entraînement, orientation, science terrain et esprit d’équipe.' },
+            { title: 'Expéditions réelles', text: 'Chaque module donne envie de rejoindre une mission plutôt que lire une brochure.' },
+        ],
+        services: [
+            { name: 'Programme international', description: 'Parcours structuré par terrains, compétences et expéditions.' },
+            { name: 'Admissions', description: 'Candidature, entretien et demande d’information simplifiés.' },
+        ],
+        recommendedServices: [
+            { name: 'Site vitrine premium', reason: 'Transformer l’école en univers d’aventure crédible.', priceFrom: 'Offre Signature' },
+            { name: 'Galerie immersive', reason: 'Montrer les terrains d’exploration et missions.', priceFrom: 'Projet spécifique' },
+            { name: 'Formulaire admissions', reason: 'Qualifier les candidats et demandes familles.', priceFrom: 'Projet spécifique' },
+        ],
+        ctas: ['Découvrir les terrains', 'Candidater', 'Voir le programme'],
+        coherenceKeywords: ['exploration', 'aventure', 'océan', 'désert', 'jungle', 'montagne', 'espace'],
+    },
+    'dream-portal': {
+        activity: 'expérience immersive de rêve',
+        projectType: 'Site concept onirique immersif',
+        layoutVariants: ['lumina-showcase', 'cinematic-video', 'luxury-asymmetric'],
+        visualMood: 'dream-portal',
+        modelName: 'Direction portail onirique',
+        pages: [
+            { name: 'Accueil', goal: 'Mettre en scène le passage vers les rêves.' },
+            { name: 'L’expérience', goal: 'Expliquer le rituel d’entrée et le parcours utilisateur.' },
+            { name: 'Univers de rêves', goal: 'Présenter les typologies de mondes visitables.' },
+            { name: 'Technologie onirique', goal: 'Rendre crédible l’interface immersive et la sécurité.' },
+            { name: 'Réserver une traversée', goal: 'Convertir vers une session guidée.' },
+        ],
+        sections: [
+            { title: 'Un passage lumineux', text: 'La scène principale montre un portail vivant, mystérieux et lisible.' },
+            { title: 'Cartographier le rêve', text: 'L’interface transforme souvenirs, sons et émotions en parcours explorables.' },
+            { title: 'Traversée guidée', text: 'Le visiteur comprend comment réserver, vivre puis retrouver son rêve.' },
+        ],
+        services: [
+            { name: 'Session immersive', description: 'Préparation, entrée guidée et restitution visuelle du rêve.' },
+            { name: 'Interface onirique', description: 'Portail, carte émotionnelle et journal de traversée.' },
+        ],
+        recommendedServices: [
+            { name: 'Site concept premium', reason: 'Rendre une idée fictive crédible et désirable.', priceFrom: 'Offre Signature' },
+            { name: 'Animation immersive', reason: 'Le portail doit vivre par la lumière et le mouvement.', priceFrom: 'Projet spécifique' },
+        ],
+        ctas: ['Ouvrir le portail', 'Réserver une traversée', 'Explorer les univers'],
+        coherenceKeywords: ['rêve', 'portail', 'onirique', 'sommeil', 'mystère', 'lumière'],
+    },
+    'climate-lab': {
+        activity: 'laboratoire climat et écosystèmes',
+        projectType: 'Site laboratoire climat premium',
+        layoutVariants: ['cinematic-video', 'gallery-focus', 'lumina-showcase'],
+        visualMood: 'climate-lab',
+        modelName: 'Direction recherche climat',
+        pages: [
+            { name: 'Accueil', goal: 'Présenter la mission scientifique et l’impact.' },
+            { name: 'Recherche', goal: 'Montrer axes, terrains et méthodes.' },
+            { name: 'Impact', goal: 'Rendre visibles les résultats sur les écosystèmes.' },
+            { name: 'Partenariats', goal: 'Attirer financeurs, institutions et talents.' },
+            { name: 'Publications', goal: 'Valoriser études, données et preuves.' },
+            { name: 'Contact', goal: 'Déclencher une prise de contact qualifiée.' },
+        ],
+        sections: [
+            { title: 'Science du vivant', text: 'Le site montre sols, eau, biodiversité, capteurs et données terrain.' },
+            { title: 'Recherche appliquée', text: 'Chaque bloc relie expérience, modèle, satellite et impact mesurable.' },
+            { title: 'Partenariats utiles', text: 'La proposition parle aux institutions, chercheurs, financeurs et talents.' },
+        ],
+        services: [
+            { name: 'Recherche climat', description: 'Axes scientifiques, terrains d’observation et résultats.' },
+            { name: 'Données environnementales', description: 'Capteurs, cartes et indicateurs pour rendre l’impact lisible.' },
+        ],
+        recommendedServices: [
+            { name: 'Site institutionnel premium', reason: 'Installer crédibilité scientifique et impact concret.', priceFrom: 'Offre Signature' },
+            { name: 'Bibliothèque de publications', reason: 'Structurer études, rapports et preuves.', priceFrom: 'Projet spécifique' },
+        ],
+        ctas: ['Découvrir nos recherches', 'Proposer un partenariat', 'Voir les publications'],
+        coherenceKeywords: ['climat', 'laboratoire', 'écosystèmes', 'biodiversité', 'capteurs', 'satellite'],
+    },
     'real-estate': {
         activity: 'agence immobilière',
         projectType: 'Site immobilier premium',
@@ -11798,6 +12105,232 @@ const KIRBY_SECTOR_TEMPLATES = {
         ],
         ctas: ['Commencer à jouer', 'Espace parent', 'Découvrir les histoires'],
         coherenceKeywords: ['enfant', 'educatif', 'jeu', 'histoire', 'comptine', 'parent', 'application'],
+    },
+    architecture: {
+        activity: 'cabinet d’architecture',
+        projectType: 'Site premium pour cabinet d’architecture',
+        layoutVariants: ['lumina-showcase', 'gallery-focus', 'luxury-asymmetric'],
+        visualMood: 'lumina-future',
+        modelName: 'Direction architecture immersive',
+        pages: [
+            { name: 'Accueil', goal: 'Installer la signature du cabinet et ouvrir vers les projets.' },
+            { name: 'Projets', goal: 'Montrer villas, plans, matières, photos et détails.' },
+            { name: 'Méthode', goal: 'Expliquer conception, permis, suivi et accompagnement.' },
+            { name: 'Matières', goal: 'Valoriser béton, verre, lumière et choix durables.' },
+            { name: 'Studio', goal: 'Présenter l’équipe, la vision et les références.' },
+            { name: 'Contact projet', goal: 'Déclencher une demande d’étude qualifiée.' },
+        ],
+        sections: [
+            { title: 'Villas contemporaines', text: 'Un hero visuel montre volumes, lumière, béton et verre sans effet catalogue.' },
+            { title: 'Projets en profondeur', text: 'Chaque réalisation devient une scène avec photos, plans, contraintes et résultat.' },
+            { title: 'Méthode studio', text: 'Le parcours explique cadrage, conception, autorisations, chantier et livraison.' },
+        ],
+        services: [
+            { name: 'Galerie projets', description: 'Présenter les réalisations avec une vraie respiration visuelle.' },
+            { name: 'Étude de projet', description: 'Guider vers une demande qualifiée dès le premier écran.' },
+            { name: 'Pages réalisations', description: 'Transformer chaque villa en preuve premium.' },
+        ],
+        recommendedServices: [
+            { name: 'Portfolio premium', reason: 'Les villas doivent être montrées par images, plans et détails.', priceFrom: 'Offre Signature' },
+            { name: 'Formulaire projet', reason: 'Qualifier budget, terrain, style et calendrier.', priceFrom: 'Projet spécifique' },
+            { name: 'Galerie immersive', reason: 'Donner envie avec grandes images, transitions et surfaces élégantes.', priceFrom: 'Projet spécifique' },
+        ],
+        ctas: ['Découvrir les projets', 'Présenter mon projet', 'Voir la méthode'],
+        coherenceKeywords: ['architecture', 'architecte', 'villa', 'projet', 'béton', 'verre'],
+    },
+    hotel: {
+        activity: 'hôtel de luxe',
+        projectType: 'Site hôtel premium avec réservation',
+        layoutVariants: ['cinematic-video', 'lumina-showcase', 'gallery-focus'],
+        visualMood: 'premium',
+        modelName: 'Direction hôtellerie immersive',
+        pages: [
+            { name: 'Accueil', goal: 'Faire sentir le lieu, la vue et l’expérience dès le premier écran.' },
+            { name: 'Suites', goal: 'Présenter chambres, vues, équipements et disponibilités.' },
+            { name: 'Spa', goal: 'Montrer soins, ambiance et réservation.' },
+            { name: 'Restaurant', goal: 'Valoriser la table, le chef et les moments.' },
+            { name: 'Réservation', goal: 'Mettre les dates et disponibilités au centre du parcours.' },
+            { name: 'Localisation', goal: 'Rassurer avec accès, carte et points d’intérêt.' },
+        ],
+        sections: [
+            { title: 'Vue immersive', text: 'Grand visuel d’ouverture, atmosphère raffinée et réservation immédiatement visible.' },
+            { title: 'Séjour signature', text: 'Suites, spa et restaurant sont présentés comme une expérience complète.' },
+            { title: 'Réservation fluide', text: 'Le visiteur voit dates, offres, disponibilité et contact sans chercher.' },
+        ],
+        services: [
+            { name: 'Réservation en ligne', description: 'Transformer l’envie en demande de séjour.' },
+            { name: 'Galerie immersive', description: 'Montrer chambres, spa, table et vue.' },
+            { name: 'Carte & accès', description: 'Faciliter l’arrivée et la projection.' },
+        ],
+        recommendedServices: [
+            { name: 'Module réservation', reason: 'Centraliser dates, demandes et disponibilités.', priceFrom: 'Projet spécifique' },
+            { name: 'Galerie premium', reason: 'La décision dépend fortement de la projection visuelle.', priceFrom: 'Offre Signature' },
+            { name: 'Google Maps et avis', reason: 'Renforcer confiance, accès et preuve sociale.', priceFrom: 'Inclus selon offre' },
+        ],
+        ctas: ['Réserver un séjour', 'Explorer les suites', 'Découvrir le spa'],
+        coherenceKeywords: ['hôtel', 'suite', 'spa', 'restaurant', 'réservation', 'vue'],
+    },
+    bridal: {
+        activity: 'atelier de robes de mariée haute couture',
+        projectType: 'Site couture mariage haut de gamme',
+        layoutVariants: ['lumina-showcase', 'gallery-focus', 'luxury-asymmetric'],
+        visualMood: 'bridal-couture',
+        modelName: 'Direction couture mariage',
+        pages: [
+            { name: 'Accueil', goal: 'Installer l’univers couture et orienter vers les collections ou l’essayage.' },
+            { name: 'Collections', goal: 'Présenter robes de mariée, silhouettes, matières et détails.' },
+            { name: 'Sur mesure', goal: 'Expliquer création, prises de mesures, retouches et accompagnement.' },
+            { name: 'Essayages privés', goal: 'Donner envie de réserver un rendez-vous personnalisé.' },
+            { name: 'Atelier', goal: 'Montrer savoir-faire, dentelle, soie, broderie et gestes couture.' },
+            { name: 'Galerie', goal: 'Afficher robes portées, détails de matières et inspirations.' },
+            { name: 'Rendez-vous', goal: 'Permettre une demande d’essayage claire et élégante.' },
+        ],
+        sections: [
+            { title: 'Collection Mariée', text: 'Silhouettes couture, dentelles, voiles et matières sont montrés comme une vraie collection.' },
+            { title: 'Essayage privé', text: 'Le parcours donne envie de réserver un moment calme, accompagné et personnalisé.' },
+            { title: 'Atelier & matières', text: 'Détails de broderie, tulle, soie et finitions rendent le savoir-faire visible.' },
+        ],
+        services: [
+            { name: 'Collection couture', description: 'Galerie éditoriale de robes, silhouettes et détails de matières.' },
+            { name: 'Création sur mesure', description: 'Parcours clair entre inspiration, essayage, retouches et livraison.' },
+            { name: 'Rendez-vous essayage', description: 'Action directe pour réserver un moment en atelier ou showroom.' },
+        ],
+        recommendedServices: [
+            { name: 'Galerie premium', reason: 'Les robes doivent être désirables dès le premier écran.', priceFrom: 'Offre Signature' },
+            { name: 'Prise de rendez-vous', reason: 'Transformer l’envie en essayage privé.', priceFrom: 'Projet spécifique' },
+            { name: 'Catalogue / collection', reason: 'Présenter robes, matières et inspirations sans e-commerce forcé.', priceFrom: 'Projet spécifique' },
+            { name: 'Formulaire essayage', reason: 'Qualifier date du mariage, style, budget et disponibilités.', priceFrom: 'Projet spécifique' },
+        ],
+        ctas: ['Réserver un essayage', 'Découvrir les collections', 'Voir l’atelier'],
+        coherenceKeywords: ['robe', 'mariée', 'mariage', 'couture', 'collection', 'essayage', 'atelier', 'dentelle'],
+    },
+    veterinary: {
+        activity: 'clinique vétérinaire',
+        projectType: 'Site clinique avec rendez-vous',
+        layoutVariants: ['lumina-showcase', 'classic-conversion', 'minimal-editorial'],
+        visualMood: 'care-premium',
+        modelName: 'Direction clinique rassurante',
+        pages: [
+            { name: 'Accueil', goal: 'Rassurer et orienter vers rendez-vous ou urgence.' },
+            { name: 'Rendez-vous', goal: 'Permettre une demande rapide et lisible.' },
+            { name: 'Urgences', goal: 'Afficher les consignes et contacts prioritaires.' },
+            { name: 'Équipe', goal: 'Présenter les praticiens et la relation humaine.' },
+            { name: 'Conseils', goal: 'Regrouper prévention, suivi et fiches utiles.' },
+            { name: 'Contact', goal: 'Donner accès, horaires, téléphone et formulaire.' },
+        ],
+        sections: [
+            { title: 'Soins de confiance', text: 'Un accueil humain, clair, avec rendez-vous et urgences visibles.' },
+            { title: 'Équipe proche', text: 'Les praticiens, spécialités et conseils créent une présence rassurante.' },
+            { title: 'Parcours pratique', text: 'Horaires, accès, documents et contacts utiles sont organisés simplement.' },
+        ],
+        services: [
+            { name: 'Agenda de rendez-vous', description: 'Réduire les appels répétitifs et fluidifier la prise en charge.' },
+            { name: 'Pages conseils', description: 'Publier prévention, soins et fiches pratiques.' },
+            { name: 'Urgence visible', description: 'Rendre les informations critiques accessibles vite.' },
+        ],
+        recommendedServices: [
+            { name: 'Prise de rendez-vous', reason: 'Le besoin prioritaire est l’accès rapide aux soins.', priceFrom: 'Projet spécifique' },
+            { name: 'Pages conseils', reason: 'Rassurer et répondre aux questions fréquentes.', priceFrom: 'Inclus selon offre' },
+            { name: 'Google Maps et horaires', reason: 'Faciliter l’accès au cabinet.', priceFrom: 'Inclus selon offre' },
+        ],
+        ctas: ['Prendre rendez-vous', 'Voir les urgences', 'Contacter la clinique'],
+        coherenceKeywords: ['vétérinaire', 'clinique', 'rendez-vous', 'urgences', 'équipe', 'conseils'],
+    },
+    travel: {
+        activity: 'agence de voyages sur mesure',
+        projectType: 'Site premium voyage sur mesure',
+        layoutVariants: ['cinematic-video', 'lumina-showcase', 'gallery-focus'],
+        visualMood: 'travel-premium',
+        modelName: 'Direction voyage immersif',
+        pages: [
+            { name: 'Accueil', goal: 'Créer l’envie avec vidéo, destinations et action sur mesure.' },
+            { name: 'Destinations', goal: 'Présenter les univers de voyage par ambiance.' },
+            { name: 'Itinéraires', goal: 'Montrer des parcours personnalisables et étapes clés.' },
+            { name: 'Carte interactive', goal: 'Explorer les destinations, trajets et points d’intérêt.' },
+            { name: 'Assistant IA', goal: 'Guider budget, envies, dates et style de séjour.' },
+            { name: 'Contact voyage', goal: 'Transformer l’envie en demande qualifiée.' },
+        ],
+        sections: [
+            { title: 'Destinations immersives', text: 'Grandes vidéos, lieux désirables et narration visuelle dès le premier écran.' },
+            { title: 'Itinéraires personnalisés', text: 'Chaque voyage devient un parcours avec étapes, rythme, budget et envies.' },
+            { title: 'Assistant IA voyage', text: 'L’IA aide à choisir destination, saison, durée et expériences à vivre.' },
+        ],
+        services: [
+            { name: 'Carte interactive', description: 'Explorer destinations, trajets et étapes.' },
+            { name: 'Assistant IA voyage', description: 'Qualifier les demandes et proposer des idées sur mesure.' },
+            { name: 'Formulaire itinéraire', description: 'Recueillir envies, dates, budget et profil voyageur.' },
+        ],
+        recommendedServices: [
+            { name: 'Galerie vidéo immersive', reason: 'Le voyage se vend par projection et émotion visuelle.', priceFrom: 'Offre Signature' },
+            { name: 'Carte interactive', reason: 'Rendre les destinations explorables.', priceFrom: 'Projet spécifique' },
+            { name: 'Assistant IA métier', reason: 'Aider le visiteur à construire un itinéraire personnalisé.', priceFrom: 'Projet spécifique' },
+        ],
+        ctas: ['Créer mon itinéraire', 'Explorer les destinations', 'Parler à un expert'],
+        coherenceKeywords: ['voyage', 'destination', 'itinéraire', 'carte', 'séjour', 'assistant'],
+    },
+    sport: {
+        activity: 'salle de sport',
+        projectType: 'Plateforme fitness avec espace membre',
+        layoutVariants: ['lumina-showcase', 'product-dashboard', 'cinematic-video'],
+        visualMood: 'performance-premium',
+        modelName: 'Direction performance',
+        pages: [
+            { name: 'Accueil', goal: 'Montrer énergie, coaching et action d’essai.' },
+            { name: 'Cours', goal: 'Afficher planning, réservation et niveaux.' },
+            { name: 'Coaching', goal: 'Présenter accompagnement, nutrition et objectifs.' },
+            { name: 'Espace membre', goal: 'Suivre performances, séances et progression.' },
+            { name: 'Abonnements', goal: 'Comparer offres et accès.' },
+            { name: 'Contact', goal: 'Réserver un essai ou poser une question.' },
+        ],
+        sections: [
+            { title: 'Performance visible', text: 'Le premier écran montre énergie, suivi et réservation de cours.' },
+            { title: 'Coaching & nutrition', text: 'Les parcours expliquent objectifs, programmes et accompagnement.' },
+            { title: 'Espace membre', text: 'Progression, séances, réservations et abonnements sont connectés.' },
+        ],
+        services: [
+            { name: 'Réservation de cours', description: 'Planning clair et action rapide.' },
+            { name: 'Espace membre', description: 'Suivi des performances et historique.' },
+            { name: 'Abonnements', description: 'Comparer les offres sans friction.' },
+        ],
+        recommendedServices: [
+            { name: 'Espace membre simple', reason: 'Suivre réservations, progression et abonnements.', priceFrom: 'Projet spécifique' },
+            { name: 'Planning de cours', reason: 'Rendre les séances réservables facilement.', priceFrom: 'Projet spécifique' },
+            { name: 'Tunnel essai', reason: 'Convertir les visiteurs en séances découverte.', priceFrom: 'Offre Pro' },
+        ],
+        ctas: ['Réserver un essai', 'Voir les cours', 'Découvrir les abonnements'],
+        coherenceKeywords: ['sport', 'fitness', 'coaching', 'cours', 'nutrition', 'performance'],
+    },
+    legal: {
+        activity: 'cabinet d’avocats',
+        projectType: 'Site juridique professionnel',
+        layoutVariants: ['lumina-showcase', 'minimal-editorial', 'classic-conversion'],
+        visualMood: 'legal-premium',
+        modelName: 'Direction juridique claire',
+        pages: [
+            { name: 'Accueil', goal: 'Installer crédibilité, clarté et prise de rendez-vous.' },
+            { name: 'Expertises', goal: 'Présenter les domaines de droit et cas traités.' },
+            { name: 'Équipe', goal: 'Mettre en avant les avocats et expériences.' },
+            { name: 'Honoraires', goal: 'Rassurer sur les modalités et étapes.' },
+            { name: 'Actualités', goal: 'Publier analyses et informations juridiques.' },
+            { name: 'Rendez-vous', goal: 'Permettre une demande confidentielle.' },
+        ],
+        sections: [
+            { title: 'Droit lisible', text: 'Une entrée sobre, crédible et orientée rendez-vous.' },
+            { title: 'Expertises claires', text: 'Les domaines sont structurés par besoin, urgence et niveau d’accompagnement.' },
+            { title: 'Confiance & méthode', text: 'L’équipe, les étapes et les honoraires réduisent l’incertitude.' },
+        ],
+        services: [
+            { name: 'Prise de rendez-vous', description: 'Faciliter un premier échange confidentiel.' },
+            { name: 'Actualités juridiques', description: 'Publier contenus et preuves d’expertise.' },
+            { name: 'Pages expertises', description: 'Rendre les domaines de droit compréhensibles.' },
+        ],
+        recommendedServices: [
+            { name: 'Site vitrine premium', reason: 'Créer confiance et clarté sans effet décoratif.', priceFrom: 'Offre Pro' },
+            { name: 'Prise de rendez-vous', reason: 'Transformer une visite en demande confidentielle.', priceFrom: 'Projet spécifique' },
+            { name: 'Blog / actualités', reason: 'Valoriser l’expertise et le référencement.', priceFrom: 'Option' },
+        ],
+        ctas: ['Prendre rendez-vous', 'Découvrir nos expertises', 'Poser une question'],
+        coherenceKeywords: ['avocat', 'droit', 'juridique', 'expertise', 'honoraires', 'rendez-vous'],
     },
     corporate: {
         activity: 'entreprise de services',
@@ -11945,10 +12478,25 @@ const KIRBY_SECTOR_TEMPLATES = {
 };
 
 const KIRBY_SECTOR_DETECTION = [
-    { key: 'real-estate', regex: /immobilier|agence immobiliere|agence immobilière|annonce|bien immobilier|estimation|vendeur|acquereur|acquéreur|mandat|carte interactive/ },
+    { key: 'future-bank', regex: /banque lunaire|banque interplanetaire|banque interplanétaire|credits interplanetaires|crédits interplanétaires|coffres numeriques|coffres numériques|colonies lunaires|colonies martiennes|finance lunaire/ },
+    { key: 'space-station-tourism', regex: /station spatiale|tourisme spatial|sejour orbital|séjour orbital|orbital|orbite|apesanteur|vue sur la terre|voyageurs spatiaux/ },
+    { key: 'floating-city', regex: /ville flottante|cite flottante|cité flottante|ville autonome|cite autonome|cité autonome|quartiers flottants|habitat flottant|energie renouvelable|énergie renouvelable/ },
+    { key: 'future-museum', regex: /musee|musée|civilisations disparues|civilisation disparue|archeologie|archéologie|realite augmentee|réalité augmentée|mondes perdus|artefacts|ruines/ },
+    { key: 'underwater-hotel', regex: /hotel sous marin|hotel sous-marin|hotel sous l ocean|suites panoramiques|restaurant immerge|spa marin|faune marine/ },
+    { key: 'dream-portal', regex: /portail des reves|portail de reves|portail reve|reves|reve|onirique|sommeil|lucide|mysterieux|mystere/ },
+    { key: 'explorer-academy', regex: /academie des explorateurs|ecole des explorateurs|explorateur|explorateurs|exploration|aventurier|aventure|expedition|boussole|cartographie/ },
+    { key: 'climate-lab', regex: /clima terra|climat|climate|ecosysteme|biodiversite|regeneration|environnement|carbone|reforestation|laboratoire climat|lab climat|recherche climat/ },
+    { key: 'real-estate', regex: /immobilier|agence immobiliere|agence immobilière|annonce|bien immobilier|estimation|vendeur|acquereur|acquéreur|mandat/ },
+    { key: 'architecture', regex: /architect|architecture|architecte|villa|villas|beton|béton|verre|maitre d oeuvre|maître d oeuvre|design d interieur|design d'intérieur/ },
+    { key: 'hotel', regex: /hotel|hôtel|chambre|suite|spa|restaurant gastronomique|vue mer|reservation sejour|réservation séjour|hebergement|hébergement|gite|gîte/ },
+    { key: 'veterinary', regex: /veterinaire|vétérinaire|clinique veterinaire|clinique vétérinaire|urgence veterinaire|urgences veterinaires|fiches animaux|soins veterinaires/ },
+    { key: 'travel', regex: /voyage|voyages|tourisme|destination|destinations|itineraire|itinéraire|road trip|circuit|safari|agence de voyage|voyage sur mesure|voyages sur mesure/ },
+    { key: 'sport', regex: /salle de sport|fitness|coach sportif|coaching|nutrition|musculation|cours collectifs|performance|performances|espace membre/ },
+    { key: 'legal', regex: /avocat|avocats|cabinet d avocat|cabinet d'avocat|juridique|droit|juriste|notaire|honoraires|contentieux/ },
+    { key: 'bridal', regex: /robe de mariee|robe de mariage|mariee|mariée|mariage|haute couture|atelier couture|collection mariee|collection mariée|essayage|dentelle|soie|voile|broderie|tulle|satin|bridal|wedding dress|couture/ },
     { key: 'restaurant', regex: /restaurant|menu|carte|table|reservation|réservation|plat|cuisine|brasserie/ },
-    { key: 'kids-app', regex: /enfant|enfants|kids?|educatif|educative|education|ecole|maternelle|apprendre|apprentissage|comptine|comptines|histoire|histoires|parent|parents|mini jeu|mini-jeu|application enfant|app enfant|luna|leo|léo/ },
-    { key: 'saas', regex: /saas|logiciel|dashboard|crm|erp|fintech|plateforme|application web|facturation|api|automatisation/ },
+    { key: 'kids-app', regex: /enfant|enfants|kids?|application enfant|app enfant|ecole maternelle|maternelle|creche|crèche|comptine|comptines|mini jeu|mini-jeu|jeux educatifs?|jeu educatif|espace parent|luna|leo|léo/ },
+    { key: 'saas', regex: /saas|logiciel|dashboard|crm|erp|fintech|facturation/ },
     { key: 'medical', regex: /medical|médical|cabinet|docteur|medecin|médecin|patient|sante|santé|infirmier|dentiste|kine|kiné/ },
     { key: 'gaming', regex: /jeu video|jeu vidéo|gaming|studio de jeu|steam|trailer|gameplay|esport/ },
     { key: 'music', regex: /musique|artiste|album|single|concert|tournee|tournée|discographie|clip/ },
@@ -11959,12 +12507,27 @@ const KIRBY_SECTOR_DETECTION = [
 const KIRBY_INCOMPATIBLE_BLOCKS = {
     'real-estate': [/tva|facture|depenses|revenus|banque|comptable|dashboard/],
     restaurant: [/annonce immobiliere|bien immobilier|estimation gratuite|mandat|agent immobilier/],
-    saas: [/menu du jour|plats|reservation table|annonce immobiliere|agents immobiliers/],
+    saas: [/menu du jour|plats|reservation table|annonce immobiliere|agents immobiliers|comptine|comptines|histoires|commencer a jouer|monde a explorer|espace parent|activites du jour/],
     medical: [/jeu video|trailer|discographie|steam|esport|annonce immobiliere/],
     gaming: [/tva|facturation|agenda medical|patient|estimation immobiliere/],
     music: [/tva|facturation|dashboard comptable|annonce immobiliere|agenda medical/],
     'kids-app': [/tva|facturation|annonce immobiliere|reservation table|menu du jour|chambres hotel|mandat immobilier/],
     portfolio: [/tva|facture|annonce immobiliere|agenda medical/],
+    architecture: [/menu du jour|reservation table|chambres hotel|agenda medical|jeux educatifs|espace parent/],
+    hotel: [/cabinet d avocat|honoraires|facturation tva|jeux educatifs|tableau de bord comptable/],
+    veterinary: [/menu du jour|restaurant gastronomique|honoraires avocat|biens immobiliers|dashboard comptable/],
+    travel: [/menu du jour|honoraires avocat|facturation tva|bien immobilier|agenda medical|jeux educatifs/],
+    sport: [/menu du jour|chambres hotel|honoraires avocat|bien immobilier|comptines/],
+    legal: [/menu du jour|restaurant gastronomique|chambres hotel|jeux educatifs|espace parent|bien immobilier/],
+    bridal: [/ordinateur|dashboard|logiciel|saas|cabinet d avocat|menu du jour|chambres hotel|bien immobilier|clinique veterinaire|salle de sport|bureau corporate|reunion/],
+    'underwater-hotel': [/cabinet d avocat|facturation tva|jeux educatifs|espace parent|piscine tropicale|resort tropical/],
+    'space-station-tourism': [/cabinet d avocat|facturation tva|restaurant gastronomique|clinique veterinaire|piscine tropicale|espace parent/],
+    'floating-city': [/cabinet d avocat|facturation tva|restaurant gastronomique|robe de mariee|clinique veterinaire|espace parent/],
+    'future-museum': [/facturation tva|chambres hotel|restaurant gastronomique|robe de mariee|clinique veterinaire|espace parent/],
+    'future-bank': [/facture|factures|tva|comptabilite|comptable|devis|restaurant gastronomique|robe de mariee|espace parent/],
+    'explorer-academy': [/facturation tva|cabinet d avocat|reservation table|chambres hotel|espace parent|assistant comptable/],
+    'dream-portal': [/facturation tva|cabinet d avocat|reservation table|chambres hotel|bien immobilier|comptines|espace parent/],
+    'climate-lab': [/restaurant gastronomique|reservation table|chambres hotel|robe de mariee|dashboard comptable|comptines/],
     corporate: [/jeu video|discographie|reservation table|tva a reverser|biens immobiliers/],
 };
 
@@ -12146,6 +12709,9 @@ const getKirbySectorCoherenceScore = (proposal = {}, sectorKey = 'corporate', br
     proposal.sectorCoherence = {
         sector: sectorKey,
         score,
+        contentHits: positiveHits,
+        briefHits,
+        mismatch,
         notes: [
             `Mots métier détectés : ${positiveHits + briefHits}`,
             `Blocs incompatibles restants : ${mismatch}`,
@@ -12166,22 +12732,102 @@ const getKirbyFreeformDesignModel = (brief = '', sectorKey = 'corporate', templa
     const baseLayouts = getKirbyArray(template.layoutVariants, 4);
     const wantsImmersive = /immersif|immersive|cinematic|video|plein ecran|impact|waouh|wow|lancement|event|événement|evenement/.test(source);
     const wantsGallery = /photo|image|galerie|portfolio|realisations|réalisations|book|avant apres|avant\/apres|projets/.test(source);
-    const wantsProduct = /saas|logiciel|dashboard|tableau de bord|application|plateforme|crm|erp|fintech|outil|interface/.test(source);
+    const wantsProduct = /saas|logiciel|dashboard|tableau de bord|crm|erp|fintech/.test(source);
+    const wantsAccounting = hasKirbyAccountingIntent(source);
+    const wantsInterplanetaryFinance = hasKirbyFutureBankIntent(source) || sectorKey === 'future-bank';
     const wantsMinimal = /minimal|sobre|epure|épuré|simple|clair|calme|editorial/.test(source);
     const wantsPremium = /premium|luxe|haut de gamme|elegant|élégant|signature|exclusif/.test(source);
     const wantsWarm = /chaleureux|chaleureuse|convivial|restaurant|terroir|italien|artisan|local|famille/.test(source);
     const wantsBold = /sport|fitness|energie|énergie|gaming|musique|festival|mode|street|créatif|creatif/.test(source);
-    const wantsKidsEducation = /enfant|enfants|kids?|educatif|educative|education|ecole|maternelle|apprendre|apprentissage|comptine|comptines|histoire|histoires|parent|parents|mini jeu|mini-jeu|luna|leo|léo/.test(source);
-    const wantsFutureExperience = /figma|luma|futur|future|futuriste|3d|immersif|immersive|interaction|interactif|motion|anime|animé|univers|personnalite|personnalité|waouh|wow/.test(source);
+    const wantsDesignCraft = /\b(figma make|make de figma|canvas pro|lumina|super design|beau design|design premium|design unique|personnalite|personnalité|waouh|whaou|wow|surface|surfaces|4d|transparent|transparence|creative|creatif|créatif|artistique)\b/.test(source);
+    const wantsKidsEducation = isKirbyKidsEducationBrief(source);
+    const wantsFutureExperience = hasKirbyLuminaIntent(source) || wantsDesignCraft;
+    const wantsSurfaceExperience = hasKirbySurfaceDesignIntent(source);
+    const wantsBridal = sectorKey === 'bridal' || hasKirbyBridalIntent(source);
+    const métierScenario = {
+        sector: sectorKey,
+        centralObject: wantsKidsEducation
+            ? 'monde éducatif interactif'
+            : wantsAccounting
+            ? 'tableau financier vivant'
+            : wantsInterplanetaryFinance
+            ? 'coffre numérique orbital'
+            : wantsBridal
+            ? 'robe de mariée en lumière'
+            : sectorKey === 'underwater-hotel'
+            ? 'suite panoramique sous l’océan'
+            : sectorKey === 'space-station-tourism'
+            ? 'hublot orbital avec vue Terre'
+            : sectorKey === 'floating-city'
+            ? 'quartier flottant autonome'
+            : sectorKey === 'future-museum'
+            ? 'artefact augmenté dans une salle immersive'
+            : sectorKey === 'explorer-academy'
+            ? 'carte d’expédition multi-terrains'
+            : sectorKey === 'climate-lab'
+            ? 'écosystème restauré suivi par capteurs'
+            : sectorKey === 'dream-portal'
+            ? 'portail lumineux vers un rêve'
+            : sectorKey === 'travel'
+            ? 'carte de voyage vivante'
+            : sectorKey === 'architecture'
+            ? 'maquette de villa et matière'
+            : sectorKey === 'hotel'
+            ? 'vue et réservation de séjour'
+            : sectorKey === 'legal'
+            ? 'dossier juridique clair'
+            : sectorKey === 'sport'
+            ? 'progression de performance'
+            : sectorKey === 'veterinary'
+            ? 'parcours de soin rassurant'
+            : template.activity || 'objet métier principal',
+        clientRitual: wantsBridal
+            ? 'choisir une silhouette, toucher les matières, réserver un essayage'
+            : wantsInterplanetaryFinance
+            ? 'vérifier son identité orbitale, simuler un crédit, sécuriser un coffre'
+            : sectorKey === 'underwater-hotel'
+            ? 'choisir une suite, ressentir le calme sous l’eau, réserver un séjour'
+            : sectorKey === 'space-station-tourism'
+            ? 'choisir une orbite, préparer le voyage, réserver une cabine'
+            : sectorKey === 'floating-city'
+            ? 'explorer les quartiers, comprendre l’autonomie, rejoindre le projet'
+            : sectorKey === 'future-museum'
+            ? 'choisir une civilisation, activer l’AR, réserver une visite'
+            : sectorKey === 'explorer-academy'
+            ? 'choisir un terrain, comprendre la formation, candidater'
+            : sectorKey === 'climate-lab'
+            ? 'voir les preuves terrain, comprendre la recherche, proposer un partenariat'
+            : sectorKey === 'dream-portal'
+            ? 'préparer sa traversée, ouvrir le portail, retrouver son rêve'
+            : sectorKey === 'travel'
+            ? 'choisir une destination, construire un itinéraire, parler à un expert'
+            : sectorKey === 'restaurant'
+            ? 'découvrir la carte, ressentir l’ambiance, réserver une table'
+            : sectorKey === 'architecture'
+            ? 'explorer les projets, comprendre la méthode, présenter son terrain'
+            : sectorKey === 'legal'
+            ? 'identifier son besoin, comprendre les expertises, demander un rendez-vous confidentiel'
+            : sectorKey === 'sport'
+            ? 'voir les cours, choisir un objectif, réserver un essai'
+            : 'comprendre l’offre, voir une preuve, passer à l’action',
+    };
     const selectedLayout = wantsKidsEducation
         ? 'story-world'
+        : wantsAccounting || wantsInterplanetaryFinance
+        ? 'finance-os'
+        : wantsBridal
+        ? (wantsFutureExperience ? 'lumina-showcase' : 'gallery-focus')
+        : (wantsSurfaceExperience && !['hotel', 'underwater-hotel', 'space-station-tourism', 'floating-city', 'travel', 'restaurant', 'architecture', 'future-museum'].includes(sectorKey))
+        ? 'lumina-showcase'
         : wantsProduct
         ? 'product-dashboard'
         : wantsImmersive
             ? 'cinematic-video'
             : wantsGallery
                 ? 'gallery-focus'
-                : wantsPremium
+        : wantsDesignCraft
+        ? 'lumina-showcase'
+        : wantsPremium
                     ? 'luxury-asymmetric'
                     : wantsWarm
                         ? 'warm-editorial'
@@ -12190,6 +12836,14 @@ const getKirbyFreeformDesignModel = (brief = '', sectorKey = 'corporate', templa
                             : baseLayouts[getKirbyHash(`${brief}::${sectorKey}::freeform`) % Math.max(baseLayouts.length, 1)] || 'classic-conversion';
     const visualMood = wantsKidsEducation
         ? 'kids-future'
+        : wantsAccounting
+        ? 'accounting-neural'
+        : wantsInterplanetaryFinance
+        ? 'orbital-finance'
+        : wantsBridal
+        ? (wantsFutureExperience ? 'lumina-couture' : 'bridal-couture')
+        : wantsFutureExperience
+        ? 'lumina-future'
         : wantsProduct
         ? 'tech-premium'
         : wantsWarm
@@ -12200,9 +12854,19 @@ const getKirbyFreeformDesignModel = (brief = '', sectorKey = 'corporate', templa
                     ? 'creative'
                     : wantsPremium
                         ? 'premium'
-                        : template.visualMood || 'corporate';
+        : wantsDesignCraft
+            ? 'crafted-premium'
+            : template.visualMood || 'crafted-premium';
     const colorPalette = wantsKidsEducation
         ? ['nuit indigo profonde', 'menthe lumineuse', 'corail doux', 'jaune soleil', 'lilas interactif', 'surfaces translucides']
+        : wantsAccounting
+        ? ['bleu nuit logiciel', 'verre depoli', 'turquoise IA', 'blanc lumineux', 'vert tresorerie', 'violet securite']
+        : wantsInterplanetaryFinance
+        ? ['noir spatial', 'cyan orbital', 'argent lunaire', 'violet Mars', 'verre sécurisé', 'blanc cockpit']
+        : wantsBridal
+        ? ['ivoire froid', 'noir couture', 'perle lumineuse', 'rose quartz', 'argent doux', 'cyan verre']
+        : wantsFutureExperience
+        ? ['carbone profond', 'verre translucide', 'cyan lumineux', 'vert menthe', 'rose froid', 'blanc optique']
         : wantsProduct
         ? ['fond clair operationnel', 'bleu profond structurel', 'vert pour les statuts', 'accent violet discret']
         : wantsWarm
@@ -12216,8 +12880,16 @@ const getKirbyFreeformDesignModel = (brief = '', sectorKey = 'corporate', templa
                         : ['fond lumineux', 'texte graphite', 'accent de marque', 'surface douce'];
     const typography = wantsKidsEducation
         ? 'Sans-serif ronde et expressive, titres larges, libellés très courts et hiérarchie ludique.'
+        : wantsBridal
+        ? 'Sans-serif couture très lisible, titres élégants contenus, détails éditoriaux fins et aucune typographie vulgaire.'
+        : wantsInterplanetaryFinance
+        ? 'Sans-serif cockpit bancaire, chiffres orbitaux nets, libellés courts et sécurité très lisible.'
+        : wantsFutureExperience
+        ? 'Sans-serif premium très lisible, titres nets, grande respiration, aucun effet magazine.'
         : wantsPremium || wantsGallery
         ? 'Titres éditoriaux courts, sans-serif premium pour les textes et hiérarchie très espacée.'
+        : wantsAccounting
+            ? 'Sans-serif premium facon interface macOS, chiffres tres lisibles, libelles courts et hierarchy claire.'
         : wantsProduct
             ? 'Sans-serif produit, chiffres forts, libellés compacts et lecture rapide.'
             : 'Sans-serif moderne, titres nets et textes courts adaptés mobile.';
@@ -12225,8 +12897,16 @@ const getKirbyFreeformDesignModel = (brief = '', sectorKey = 'corporate', templa
         ? wantsFutureExperience
             ? 'Futur doux, ludique, immersif et rassurant pour les parents.'
             : 'Ludique, éducative, douce et immédiatement compréhensible.'
+        : wantsBridal
+        ? 'Couture, lumineuse, délicate, moderne et désirable sans effet magazine.'
         : wantsWarm
         ? 'Chaleureuse, sensorielle et proche du client.'
+        : wantsAccounting
+            ? 'Logiciel financier futuriste, premium, lumineux, fiable et pilote par IA.'
+        : wantsInterplanetaryFinance
+            ? 'Finance orbitale ultra futuriste, fiable, froide, lumineuse et institutionnelle.'
+        : wantsFutureExperience
+            ? 'Futuriste, premium, transparent, profond, lisible et conçu comme une interface vivante.'
         : wantsProduct
             ? 'Produit digital clair, fiable et immédiatement utilisable.'
             : wantsBold
@@ -12241,44 +12921,106 @@ const getKirbyFreeformDesignModel = (brief = '', sectorKey = 'corporate', templa
         colorPalette,
         typography,
         ambience,
-        direction: `${ambience} Direction déduite du brief, sans style prédéfini.`,
+        direction: wantsDesignCraft
+            ? `${ambience} Direction Canvas pro/Lumina : surface principale travaillée, objet métier focal, rythme Figma Make et détails premium.`
+            : `${ambience} Direction déduite du brief, sans style prédéfini.`,
         heroComposition: wantsKidsEducation
             ? 'Premier écran comme un monde applicatif : écran enfant, cartes jeux, histoires flottantes, suivi parent et micro-animations.'
+            : wantsAccounting
+            ? 'Scene produit immersive avec fenetres macOS superposees, assistant IA, factures flottantes, flux bancaires et widgets financiers.'
+            : wantsInterplanetaryFinance
+            ? 'Interface bancaire orbitale avec coffre numérique, crédits coloniaux, identité biométrique, carte Lune/Mars et panneaux de risque.'
+            : sectorKey === 'underwater-hotel'
+            ? 'Grand hero sous-marin avec suites vitrées, lumière filtrée par l’eau, silhouettes de faune marine et réservation intégrée.'
+            : sectorKey === 'space-station-tourism'
+            ? 'Vue orbitale spectaculaire à travers un hublot, cabines premium, apesanteur et module de réservation.'
+            : sectorKey === 'floating-city'
+            ? 'Cité flottante en coupe : quartiers, transports, énergie solaire, espaces verts et vie quotidienne visibles ensemble.'
+            : sectorKey === 'future-museum'
+            ? 'Galerie immersive avec artefact central, ruines reconstituées, hologrammes AR et billetterie visible.'
+            : sectorKey === 'explorer-academy'
+            ? 'Carte d’expédition vivante reliant océan, désert, jungle, montagne et espace autour du programme.'
+            : sectorKey === 'climate-lab'
+            ? 'Laboratoire terrain avec capteurs, serre, données satellite et écosystème restauré en scène principale.'
+            : sectorKey === 'dream-portal'
+            ? 'Portail lumineux en profondeur avec cartes de rêves, interface de traversée et ambiance mystérieuse.'
+            : wantsBridal
+            ? 'Scène couture avec grande robe en lumière, détails de dentelle, panneau collection flottant, rendez-vous essayage et surface de verre.'
+            : wantsFutureExperience
+            ? 'Scène Lumina avec grande surface transparente, image métier en profondeur, modules flottants, lumière contrôlée et micro-animations.'
             : wantsProduct
-            ? 'Premier écran applicatif avec navigation, modules métier, chiffres et action principale.'
+            ? 'Premier écran applicatif avec modules métier, chiffres et action principale.'
             : wantsGallery
                 ? 'Premier écran très visuel avec image forte, promesse courte et accès aux preuves.'
                 : wantsImmersive
                     ? 'Hero immersif plein impact avec visuel sectoriel, message court et CTA net.'
-                    : 'Hero clair avec promesse, preuve visuelle et action principale visible.',
+                    : `Hero focal sur ${template.activity || 'le métier'} avec objet, geste ou matière en premier plan, surface premium et action intégrée.`,
         layoutSignature: wantsKidsEducation
             ? 'Univers produit immersif avec scène illustrée CSS, modules de jeu, rail d’histoires et panneau parent.'
+            : wantsAccounting
+            ? 'Presentation Apple/Figma avec immense logiciel flottant, documents, graphiques animes, notifications et panneaux de securite.'
+            : wantsInterplanetaryFinance
+            ? 'Finance OS orbital : coffre, crédits, colonies et sécurité dans des panneaux de cockpit futuriste.'
+            : wantsBridal
+            ? 'Showcase couture : galerie asymétrique, surfaces translucides, détails matières, collection et essayage sans blocs répétitifs.'
+            : wantsFutureExperience
+            ? 'Showcase Lumina : surfaces de verre, profondeur 4D, scène asymétrique, modules non répétitifs et narration sectorielle.'
             : wantsProduct
-            ? 'Interface dense avec sidebar, KPI, cartes métier et assistant.'
+            ? 'Interface produit avec modules métier, mesures clés et assistant, sans reprendre automatiquement la même grille.'
             : wantsGallery
                 ? 'Composition galerie avec blocs visuels et sections courtes.'
                 : wantsPremium
                     ? 'Grille asymétrique premium avec respiration et détails de confiance.'
                     : wantsWarm
                         ? 'Parcours éditorial chaleureux autour des offres, preuves et contact.'
-                        : 'Parcours de conversion clair, modulaire et responsive.',
+                        : 'Composition Canvas pro avec scène métier, sections différenciées, respiration généreuse et conversion claire.',
         imageKeywords: [
             template.activity || 'activité professionnelle',
-            wantsKidsEducation ? 'univers applicatif éducatif enfant' : wantsProduct ? 'interface produit' : wantsGallery ? 'réalisation réelle' : 'visuel métier authentique',
+            wantsKidsEducation ? 'univers applicatif éducatif enfant' : wantsAccounting ? 'logiciel comptable futuriste' : wantsInterplanetaryFinance ? 'banque lunaire interface orbitale' : wantsBridal ? 'robe de mariée couture en atelier' : wantsProduct ? 'interface produit' : wantsGallery ? 'réalisation réelle' : 'visuel métier authentique',
             wantsWarm ? 'ambiance chaleureuse' : wantsPremium ? 'détail premium' : 'preuve concrète',
         ],
+        métierScenario,
         microInteractions: wantsKidsEducation
             ? ['cartes jeux qui respirent', 'parcours lumineux entre les activités', 'panneau parent qui s’ouvre en douceur']
+            : wantsAccounting
+            ? ['fenetres flottantes qui respirent', 'graphiques financiers animes', 'assistant IA qui met en evidence les echeances']
+            : wantsInterplanetaryFinance
+            ? ['coffre orbital qui pulse', 'risque de crédit recalculé', 'carte Lune Mars synchronisée']
+            : wantsBridal
+            ? ['reflets sur les tissus', 'cartes collection qui flottent', 'bouton essayage lumineux et discret']
+            : wantsFutureExperience
+            ? ['surface principale qui flotte doucement', 'reflets transparents au survol', 'modules métier qui se révèlent en profondeur']
             : wantsProduct
-            ? ['cartes KPI qui se révèlent', 'états actifs dans la navigation', 'assistant discret prêt à ouvrir']
+            ? ['mesures clés qui se révèlent', 'états actifs dans la navigation', 'assistant discret prêt à ouvrir']
             : ['bouton principal réactif', 'apparition douce des sections', 'survol visuel des cartes'],
+        signatureMoment: wantsKidsEducation
+            ? 'Un chemin lumineux relie jeux, histoires et espace parent comme une petite carte d’aventure.'
+            : wantsAccounting
+            ? 'Une facture flottante se transforme visuellement en graphique de trésorerie sous l’œil de l’assistant IA.'
+            : wantsInterplanetaryFinance
+            ? 'Un coffre numérique lunaire s’ouvre sur une carte Lune/Mars pendant que l’IA simule un crédit colonial.'
+            : wantsBridal
+            ? 'Une robe centrale sert de scène : les détails de dentelle, le voile et la carte essayage gravitent autour comme une vitrine couture vivante.'
+            : wantsFutureExperience
+            ? 'Un objet métier devient la surface principale, avec modules flottants et lumière qui révèlent le parcours utilisateur.'
+            : wantsGallery
+            ? 'La preuve visuelle principale devient le décor du premier écran, avec navigation intégrée dans l’image.'
+            : 'Un détail métier devient le repère visuel de l’accueil pour éviter l’effet template.',
         wowFactor: wantsKidsEducation
             ? 'Le visiteur voit immédiatement un vrai produit enfant avec univers, parcours et contrôle parent.'
+            : wantsAccounting
+            ? 'Le visiteur voit un logiciel comptable nouvelle generation, pas une page SaaS standard.'
+            : wantsInterplanetaryFinance
+            ? 'Le visiteur voit une banque interplanétaire utilisable, pas une finance générique rebaptisée.'
+            : wantsBridal
+            ? 'Le visiteur voit immédiatement une maison couture mariage avec robes, matières et essayage, pas un site boutique générique.'
+            : wantsFutureExperience
+            ? 'Le visiteur voit une direction nouvelle génération adaptée au métier, pas une page magazine ou Bootstrap.'
             : wantsProduct
             ? 'Le visiteur voit un produit utilisable dès le premier écran.'
             : wantsGallery
                 ? 'Les images donnent immédiatement la preuve du niveau attendu.'
-                : 'La première impression semble conçue pour ce projet précis.',
+                : `La première impression semble dessinée pour ${template.activity || 'ce métier'}, pas remplie par un modèle générique.`,
     };
 };
 
@@ -12290,8 +13032,13 @@ const buildBrowserKirbyProposal = (brief) => {
     const activity = template.activity || guessKirbyActivity(brief);
     const needsAppointment = /rdv|rendez|reservation|agenda|consultation|booking/.test(source);
     const needsQr = /\b(qr|qrcode|scan|scanner|flyer|partager)\b/.test(source);
-    const requestedBrand = (String(brief || '').match(/(?:appelee|appelée|appele|appelé|appelle|nommee|nommée|nomme|nommé|nom|marque)\s+["“']?([^.,\n]{2,48})/i)?.[1] || '')
+    const requestedBrand = (
+        String(brief || '').match(/(?:appelee|appelée|appele|appelé|appelle|nommee|nommée|nomme|nommé|nom|marque)\s+["“']?([^.,\n]{2,48})/i)?.[1] ||
+        (hasKirbyBridalIntent(brief) ? String(brief || '').match(/(?:pour|site pour)\s+["“']?([A-ZÀ-Ý][A-Za-zÀ-ÿ0-9'’& -]{2,42})/u)?.[1] : '') ||
+        ''
+    )
         .replace(/\s+\b(?:avec|pour|qui|dont|sur|style)\b.*$/i, '')
+        .replace(/\s+\b(?:robe|robes|mariage|mariee|mariée)\b.*$/i, '')
         .replace(/["“”']/g, '')
         .trim();
     const siteName = requestedBrand ? toKirbyTitleCase(requestedBrand) : `Studio ${toKirbyTitleCase(activity)}`;
@@ -12331,6 +13078,7 @@ const buildBrowserKirbyProposal = (brief) => {
             imageKeywords: designModel.imageKeywords,
             layoutSignature: designModel.layoutSignature,
             microInteractions: designModel.microInteractions,
+            signatureMoment: designModel.signatureMoment,
             wowFactor: designModel.wowFactor,
         },
         siteModel: {
@@ -12510,6 +13258,14 @@ const getKirbyBusinessSector = (brief = '') => {
     const source = normalizeKirbyText(brief);
     const signals = getKirbyBriefSignals(brief);
 
+    if (signals.isVeterinary) return 'veterinary';
+    if (signals.isTravel) return 'travel';
+    if (signals.isSport) return 'sport';
+    if (signals.isLegal) return 'legal';
+    if (signals.isBridal) return 'bridal';
+    if (signals.isHotel) return 'hotel';
+    if (signals.isArchitecture) return 'architecture';
+
     if (/medical|cabinet medical|docteur|medecin|infirmier|kine|dentiste|sante/.test(source)) {
         return 'medical';
     }
@@ -12527,7 +13283,6 @@ const getKirbyBusinessSector = (brief = '') => {
     if (signals.isRestaurant) return 'restaurant';
     if (signals.isCraft) return 'craft';
     if (signals.isBeauty) return 'beauty';
-    if (signals.isArchitecture) return 'architecture';
 
     return 'service';
 };
@@ -12582,6 +13337,7 @@ const applyKirbySectorSignature = (proposal, sector = 'service') => {
         addKirbyPage(proposal, { name: 'Menu / carte', goal: 'Afficher la carte rapidement.' });
         addKirbyPage(proposal, { name: 'Réservation', goal: 'Permettre la réservation en quelques clics.' });
         addKirbyService(proposal, { name: 'Réservation en ligne', reason: 'Réduire les frictions côté client.', priceFrom: 'Inclus selon offre' }, true);
+        addKirbyCta(proposal, 'Réserver une table');
     }
 
     if (sector === 'accounting') {
@@ -12593,6 +13349,49 @@ const applyKirbySectorSignature = (proposal, sector = 'service') => {
         addKirbyPage(proposal, { name: 'Jeux', goal: 'Présenter les mini-jeux éducatifs.' });
         addKirbyPage(proposal, { name: 'Espace parent', goal: 'Suivre les progrès et gérer les profils.' });
         addKirbyService(proposal, { name: 'Interface produit sur mesure', reason: 'Créer une vraie expérience applicative enfant.', priceFrom: 'Projet spécifique' }, true);
+    }
+
+    if (sector === 'travel') {
+        addKirbyPage(proposal, { name: 'Destinations', goal: 'Présenter les destinations par ambiance et expérience.' });
+        addKirbyPage(proposal, { name: 'Itinéraires', goal: 'Montrer des parcours sur mesure.' });
+        addKirbyPage(proposal, { name: 'Carte interactive', goal: 'Explorer trajets, étapes et points d’intérêt.' });
+        addKirbyPage(proposal, { name: 'Assistant IA voyage', goal: 'Aider à choisir destination, saison, durée et budget.' });
+        addKirbyService(proposal, { name: 'Carte interactive', reason: 'Rendre les voyages explorables.', priceFrom: 'Projet spécifique' }, true);
+        addKirbyService(proposal, { name: 'Assistant IA métier', reason: 'Qualifier les envies et proposer des itinéraires.', priceFrom: 'Projet spécifique' }, true);
+        addKirbyCta(proposal, 'Créer mon itinéraire');
+    }
+
+    if (sector === 'legal') {
+        addKirbyPage(proposal, { name: 'Expertises', goal: 'Présenter les domaines de droit.' });
+        addKirbyPage(proposal, { name: 'Honoraires', goal: 'Rassurer sur les modalités.' });
+        addKirbyPage(proposal, { name: 'Rendez-vous', goal: 'Permettre une demande confidentielle.' });
+        addKirbyService(proposal, { name: 'Prise de rendez-vous', reason: 'Transformer la visite en premier échange.', priceFrom: 'Projet spécifique' }, true);
+        addKirbyCta(proposal, 'Prendre rendez-vous');
+    }
+
+    if (sector === 'bridal') {
+        addKirbyPage(proposal, { name: 'Collections', goal: 'Présenter robes, silhouettes, voiles et matières.' });
+        addKirbyPage(proposal, { name: 'Essayages privés', goal: 'Permettre une demande de rendez-vous personnalisée.' });
+        addKirbyPage(proposal, { name: 'Atelier', goal: 'Montrer dentelle, soie, broderie et finitions couture.' });
+        addKirbyService(proposal, { name: 'Prise de rendez-vous', reason: 'Transformer l’envie en essayage privé.', priceFrom: 'Projet spécifique' }, true);
+        addKirbyService(proposal, { name: 'Galerie premium', reason: 'Montrer robes, matières et détails dès le premier écran.', priceFrom: 'Offre Signature' }, true);
+        addKirbyCta(proposal, 'Réserver un essayage');
+    }
+
+    if (sector === 'veterinary') {
+        addKirbyPage(proposal, { name: 'Rendez-vous', goal: 'Permettre une demande rapide.' });
+        addKirbyPage(proposal, { name: 'Urgences', goal: 'Afficher les consignes prioritaires.' });
+        addKirbyPage(proposal, { name: 'Conseils', goal: 'Publier des fiches utiles.' });
+        addKirbyService(proposal, { name: 'Prise de rendez-vous', reason: 'Organiser les demandes rapidement.', priceFrom: 'Projet spécifique' }, true);
+        addKirbyCta(proposal, 'Prendre rendez-vous');
+    }
+
+    if (sector === 'sport') {
+        addKirbyPage(proposal, { name: 'Cours', goal: 'Afficher planning, réservation et niveaux.' });
+        addKirbyPage(proposal, { name: 'Espace membre', goal: 'Suivre performances et abonnements.' });
+        addKirbyPage(proposal, { name: 'Abonnements', goal: 'Comparer les offres.' });
+        addKirbyService(proposal, { name: 'Planning de cours', reason: 'Rendre les séances réservables.', priceFrom: 'Projet spécifique' }, true);
+        addKirbyCta(proposal, 'Réserver un essai');
     }
 
     if (sector === 'cv') {
@@ -12682,24 +13481,57 @@ const getKirbyBriefSignals = (brief = '') => {
     const source = normalizeKirbyText(brief);
     const isBeauty = /coiff|beaute|salon|institut|estheticien|estheticienne|esthetique|massage|massages|soin|soins|epilation|ongle|ongles|spa|bien etre|bien-etre/.test(source);
     const isRestaurant = /restaurant|menu|carte|plat|cuisine|table/.test(source);
-    const isHotel = /hotel|chambre|hebergement|gite|sejour|touristique/.test(source);
+    const isTravel = hasKirbyTravelIntent(source);
+    const isHotel = !isTravel && /hotel|chambre|hebergement|gite|sejour|touristique|suite|spa/.test(source);
     const isArchitecture = /architect|architecture|architecte|arquitecto|interieur|intérieur|design d interieur|design d'intérieur|decorateur|decoratrice|decoration|décoration|studio de design|maitre d oeuvre|maître d oeuvre/.test(source);
-    const isAccountingApp = /contadirect|compta|comptabilite|comptable|facture|facturation|devis|tva|revenu|revenus|depense|depenses|charge|charges|banque|transaction|transactions|tresorerie|resultat net|bilan|logiciel de compta|logiciel comptable|tableau de bord|dashboard/.test(source);
-    const isEducationKids = /enfant|enfants|kids?|educatif|educative|education|ecole|maternelle|apprendre|apprentissage|comptine|comptines|histoire|histoires|parent|parents|mini jeu|mini-jeu|application enfant|app enfant|luna|leo|léo/.test(source);
-    const isFutureExperience = /figma|luma|futur|future|futuriste|3d|immersif|immersive|interactif|interaction|motion|anime|animé|univers|personnalite|personnalité|waouh|wow/.test(source);
+    const isLegal = hasKirbyLegalIntent(source);
+    const isSport = hasKirbySportIntent(source);
+    const isVeterinary = hasKirbyVeterinaryIntent(source);
+    const isBridal = hasKirbyBridalIntent(source);
+    const isLibrary = hasKirbyLibraryIntent(source);
+    const isUrbanFarm = hasKirbyUrbanFarmIntent(source);
+    const isUnderwaterHotel = hasKirbyUnderwaterHotelIntent(source);
+    const isSpaceTourism = hasKirbySpaceTourismIntent(source);
+    const isFloatingCity = hasKirbyFloatingCityIntent(source);
+    const isImmersiveMuseum = hasKirbyImmersiveMuseumIntent(source);
+    const isFutureBank = hasKirbyFutureBankIntent(source);
+    const isExplorerAcademy = hasKirbyExplorerAcademyIntent(source);
+    const isDreamPortal = hasKirbyDreamPortalIntent(source);
+    const isClimateLab = hasKirbyClimateLabIntent(source);
+    const isCraft = /plombier|artisan|travaux|chantier|renovation/.test(source);
+    const isAccountingApp = !isFutureBank && hasKirbyAccountingIntent(source);
+    const isEducationKids = !isAccountingApp && isKirbyKidsEducationBrief(source);
+    const isFutureExperience = hasKirbyLuminaIntent(source);
+    const isSectorSpecific = isTravel || isHotel || isRestaurant || isArchitecture || isLegal || isSport || isVeterinary || isBridal || isLibrary || isUrbanFarm || isUnderwaterHotel || isSpaceTourism || isFloatingCity || isImmersiveMuseum || isFutureBank || isExplorerAcademy || isDreamPortal || isClimateLab || isBeauty || isCraft;
+    const isDigitalService = /sa creation|creation web|site web|sites web|generateur|developpement|référencement|referencement|qr code|maintenance|support technique|logiciel|application|saas|plateforme|agence web|agence digitale|agence marketing/.test(source);
 
     return {
         source,
         isAccountingApp,
         isArchitecture,
+        isLegal,
+        isSport,
+        isTravel,
+        isVeterinary,
+        isBridal,
+        isLibrary,
+        isUrbanFarm,
+        isUnderwaterHotel,
+        isSpaceTourism,
+        isFloatingCity,
+        isImmersiveMuseum,
+        isFutureBank,
+        isExplorerAcademy,
+        isDreamPortal,
+        isClimateLab,
         isEducationKids,
         isFutureExperience,
-        isDigital: isFutureExperience || /sa creation|creation web|site web|sites web|generateur|ia|digital|agence|developpement|référencement|referencement|qr code|maintenance|support technique|logiciel|application|saas|plateforme/.test(source),
+        isDigital: isFutureExperience || (!isSectorSpecific && /ia|digital/.test(source)) || isDigitalService,
         isHotel,
         isRestaurant,
-        isShop: !isBeauty && !isRestaurant && !isHotel && /boutique|vendre|vente|commande|produit|panier|paiement|catalogue|mode|vetement/.test(source),
+        isShop: !isBridal && !isBeauty && !isRestaurant && !isHotel && /boutique|vendre|vente|commande|produit|panier|paiement|catalogue|mode|vetement/.test(source),
         isBeauty,
-        isCraft: /plombier|artisan|travaux|chantier|renovation/.test(source),
+        isCraft,
     };
 };
 
@@ -12725,6 +13557,27 @@ const removeKirbyServices = (proposal, patterns = []) => {
 
         return !patterns.some((pattern) => pattern.test(title));
     });
+};
+
+const removeKirbyKidsBlocksUnlessNeeded = (proposal, signals) => {
+    if (signals.isEducationKids) {
+        return;
+    }
+
+    const kidsPattern = /jeux?|mini jeux?|mini-jeux?|comptines?|espace parent|commencer a jouer|commencer à jouer|monde a explorer|monde à explorer|activites du jour|activités du jour|apprentissage progressif|parcours du jour/i;
+    removeKirbyPages(proposal, ['Jeux', 'Histoires', 'Comptines', 'Espace parent']);
+    removeKirbyServices(proposal, [kidsPattern]);
+    proposal.homeSections = getKirbyArray(proposal.homeSections, 8).filter((section) => !kidsPattern.test(normalizeKirbyText(`${getKirbyItemTitle(section)} ${getKirbyItemText(section)}`)));
+    proposal.services = getKirbyArray(proposal.services, 8).filter((service) => !kidsPattern.test(normalizeKirbyText(`${getKirbyItemTitle(service)} ${getKirbyItemText(service)}`)));
+    proposal.ctas = getKirbyArray(proposal.ctas, 5).filter((cta) => !kidsPattern.test(normalizeKirbyText(cta)));
+
+    if (normalizeKirbyLayoutVariant(proposal.layoutVariant) === 'story-world') {
+        proposal.layoutVariant = '';
+    }
+
+    if (/kids-future/.test(normalizeKirbyText(proposal.visualMood))) {
+        proposal.visualMood = '';
+    }
 };
 
 const shortenKirbySentence = (value = '', max = 86) => {
@@ -12822,16 +13675,32 @@ const applyGeneratedKirbyVisualHints = (proposal, signals, brief = '') => {
         visualConcept.ambience,
         visualConcept.heroComposition,
         visualConcept.layoutSignature,
+        visualConcept.signatureMoment,
         visualConcept.wowFactor,
         getKirbyArray(visualConcept.imageKeywords, 8).join(' '),
         brief,
     ].filter(Boolean).join(' '));
+    const wantsLumina = !signals.isAccountingApp && !signals.isEducationKids && hasKirbyLuminaIntent(`${brief} ${visualSource}`);
+
+    if (wantsLumina) {
+        proposal.visualMood = proposal.visualMood && !/corporate|premium|image-led|warm|tech-premium/.test(normalizeKirbyText(proposal.visualMood))
+            ? proposal.visualMood
+            : 'lumina-future';
+        const currentVariant = normalizeKirbyLayoutVariant(proposal.layoutVariant);
+        if (!currentVariant || ['classic-conversion', 'minimal-editorial', 'luxury-asymmetric', 'warm-editorial', 'gallery-focus'].includes(currentVariant)) {
+            proposal.layoutVariant = 'lumina-showcase';
+        }
+    }
 
     if (!proposal.visualMood) {
-        proposal.visualMood = signals.isEducationKids || /kids-future|enfant|educatif|educative|comptine|histoire|parent|mini-jeu|mini jeu/.test(visualSource)
+        proposal.visualMood = signals.isAccountingApp || /accounting-neural|finance-os|comptabilite|comptable|facturation|tva|tresorerie|banque|documents/.test(visualSource)
+            ? 'accounting-neural'
+            : signals.isEducationKids || /kids-future|comptine|mini-jeu|mini jeu/.test(visualSource)
             ? 'kids-future'
-            : signals.isAccountingApp || /dashboard|logiciel|saas|comptable|facturation/.test(visualSource)
-            ? 'accounting-dashboard'
+            : wantsLumina
+            ? 'lumina-future'
+            : /dashboard|logiciel|saas/.test(visualSource)
+            ? 'tech-premium'
             : signals.isDigital || /digital|ia|generateur|premium|bleu nuit|etoile|verre|halo/.test(visualSource)
                 ? 'tech-premium'
                 : signals.isBeauty || /beaute|coiff|soin|spa|bien etre|rose|beige/.test(visualSource)
@@ -12860,6 +13729,7 @@ const applyGeneratedKirbyVisualHints = (proposal, signals, brief = '') => {
             [
                 visualConcept.layoutSignature,
                 visualConcept.heroComposition,
+                visualConcept.signatureMoment,
                 ...getKirbyArray(proposal.pages, 5).map((page) => getKirbyItemTitle(page)),
             ].filter(Boolean),
         );
@@ -12873,65 +13743,79 @@ const applyKirbyAccountingModel = (proposal, brief = '') => {
         : formatKirbySiteName(proposal.siteName) || 'ComptaPilot';
 
     proposal.siteName = appName;
-    proposal.projectType = 'Application SaaS de comptabilite';
-    proposal.visualMood = 'accounting-dashboard';
-    proposal.designVariant = getKirbyHash(`${brief} ${appName}`) % 3;
-    proposal.slogan = 'Pilotez vos finances sans friction.';
-    proposal.summary = `${appName} doit montrer une interface de comptabilite moderne, pas une simple vitrine marketing.`;
-    proposal.valueProposition = 'Un tableau de bord clair pour suivre revenus, depenses, TVA, factures, banque et documents au meme endroit.';
+    proposal.sectorKey = 'accounting';
+    proposal.projectType = 'Application comptable IA premium';
+    proposal.visualMood = 'accounting-neural';
+    proposal.layoutVariant = 'finance-os';
+    proposal.designVariant = getKirbyHash(`${brief} ${appName}`) % 5;
+    proposal.visualSeed = getKirbyHash(`${brief}::${appName}::finance-os`);
+    proposal.showGallery = false;
+    proposal.slogan = 'La compta claire, enfin directe.';
+    proposal.summary = `${appName} doit ressembler a un logiciel comptable nouvelle generation, pas a un template SaaS standard.`;
+    proposal.valueProposition = 'Une interface IA qui relie revenus, depenses, TVA, factures, banque et documents dans un espace visuel unique.';
     proposal.positioning = {
         audience: 'Independants, freelances et petites entreprises qui veulent comprendre vite leur activite.',
         promise: 'Voir les chiffres importants, creer des documents et anticiper la TVA sans perdre de temps.',
-        tone: 'SaaS premium, clair, fiable et operationnel.',
-        differentiator: 'Une interface produit concrete avec donnees, actions rapides et assistant IA integre.',
+        tone: 'Premium, futuriste, fiable et oriente decision.',
+        differentiator: 'Une scene applicative immersive avec assistant IA, documents flottants, flux bancaires et widgets financiers.',
     };
     proposal.styleGuide = {
-        direction: 'Dashboard SaaS lumineux avec sidebar foncee, cartes KPI, graphiques, taches et assistant IA.',
-        colors: 'Bleu profond, blanc, gris tres clair, accents bleu, vert, rouge et violet pour les statuts.',
-        typography: 'Sans-serif moderne, chiffres forts, libelles compacts et lecture rapide.',
-        layout: 'Sidebar fixe, barre de recherche, KPI en haut, graphiques et listes metier dans une grille dense.',
+        direction: 'Interface premium inspiree macOS, Figma et Lumina : verre depoli, profondeur, lumieres bleues et turquoise, fenetres superposees et assistant IA visible.',
+        colors: 'Bleu nuit logiciel, turquoise IA, verre translucide, blanc lumineux, vert tresorerie et violet securite.',
+        typography: 'Sans-serif premium, chiffres tres lisibles, libelles financiers courts et respiration genereuse.',
+        layout: 'Finance OS immersif : hero logiciel, apercu produit, assistant IA, automatisations, integrations bancaires, securite, temoignages, FAQ et CTA.',
+    };
+    proposal.visualConcept = {
+        heroComposition: 'Immense mockup logiciel flottant avec plusieurs fenetres macOS superposees, factures, documents, graphiques, notifications et assistant IA.',
+        ambience: 'Futuriste, premium, transparent, profond et entierement oriente pilotage financier.',
+        colorPalette: ['bleu nuit logiciel', 'turquoise IA', 'verre depoli', 'blanc lumineux', 'vert tresorerie', 'violet securite'],
+        imageKeywords: ['logiciel comptable futuriste', 'factures flottantes', 'assistant IA financier', 'tableaux financiers', 'integration bancaire'],
+        layoutSignature: 'Finance OS immersif avec grandes fenetres superposees, panneaux flottants et sections toutes distinctes.',
+        microInteractions: ['graphiques qui se dessinent', 'documents qui flottent', 'assistant IA qui signale les echeances', 'widgets bancaires qui pulsent'],
+        wowFactor: 'Le visiteur voit immediatement un logiciel comptable nouvelle generation, pas une page SaaS Bootstrap.',
     };
     proposal.siteModel = {
-        name: 'Dashboard comptable SaaS',
-        description: 'Une interface applicative qui donne tout de suite l’impression d’un logiciel utilisable.',
-        sections: ['Tableau de bord', 'Revenus', 'Depenses', 'Devis', 'Factures', 'Banque', 'Documents', 'TVA & Charges'],
+        name: 'Direction Finance OS IA',
+        description: 'Une experience logicielle immersive qui met en scene factures, banque, TVA, documents et assistant IA.',
+        sections: ['Hero logiciel flottant', 'Apercu logiciel', 'Assistant IA', 'Automatisations', 'Integrations bancaires', 'Securite', 'Temoignages', 'FAQ'],
     };
     proposal.pages = [
-        { name: 'Tableau de bord', goal: 'Afficher les KPI, graphiques, taches et alertes prioritaires.' },
-        { name: 'Revenus', goal: 'Suivre chiffre d’affaires, encaissements et clients.' },
-        { name: 'Depenses', goal: 'Classer achats, justificatifs et categories de charges.' },
-        { name: 'Devis', goal: 'Creer, envoyer et relancer les devis.' },
-        { name: 'Factures', goal: 'Gerer factures, statuts, paiements et exports.' },
-        { name: 'Banque', goal: 'Afficher soldes, mouvements et rapprochements.' },
-        { name: 'Documents', goal: 'Centraliser PDF, justificatifs et contrats.' },
-        { name: 'TVA & Charges', goal: 'Anticiper echeances, TVA a reverser et obligations.' },
+        { name: 'Apercu logiciel', goal: 'Montrer les fenetres financieres, les graphiques et les actions rapides.' },
+        { name: 'Factures & devis', goal: 'Creer, envoyer, relancer et suivre les documents commerciaux.' },
+        { name: 'Tresorerie', goal: 'Suivre chiffre d’affaires, depenses, solde et previsions.' },
+        { name: 'Assistant IA', goal: 'Expliquer les depenses, echeances, TVA et anomalies.' },
+        { name: 'Automatisations', goal: 'Importer justificatifs, rapprocher transactions et preparer les echeances.' },
+        { name: 'Integrations bancaires', goal: 'Connecter soldes, mouvements et rapprochements.' },
+        { name: 'Securite', goal: 'Rassurer sur acces, donnees, exports et confidentialite.' },
     ];
     proposal.homeSections = [
-        { title: 'Vue financiere instantanee', text: 'Chiffre d’affaires, depenses, resultat net et TVA visibles en haut du dashboard.' },
-        { title: 'Documents et facturation', text: 'Devis, factures, justificatifs et PDF sont accessibles depuis une meme interface.' },
-        { title: 'Assistant IA comptable', text: 'L’utilisateur peut analyser ses depenses, prevoir son resultat et comprendre ses echeances.' },
+        { title: 'Logiciel nouvelle generation', text: 'Le premier ecran montre un espace de pilotage avec factures, banque, documents et alertes.' },
+        { title: 'Assistant IA comptable', text: 'L’IA explique les depenses, anticipe la TVA et signale les echeances importantes.' },
+        { title: 'Automatisation financiere', text: 'Les justificatifs, transactions, devis et factures se regroupent dans un flux clair.' },
+        { title: 'Integrations bancaires', text: 'Les mouvements bancaires se rapprochent des documents pour limiter les oublis.' },
+        { title: 'Securite & exports', text: 'Les donnees, acces et exports restent lisibles, controles et rassurants.' },
     ];
-    proposal.ctas = ['Nouveau document', 'Analyser mes depenses', 'Importer un justificatif'];
+    proposal.ctas = ['Voir la demo IA', 'Analyser mes finances', 'Importer un document'];
     proposal.recommendedOffer = 'Projet specifique';
     proposal.recommendedServices = [
         { name: 'Interface SaaS sur mesure', reason: 'Le projet demande un vrai logiciel avec navigation, etats et tableaux de bord.', priceFrom: 'Projet spécifique' },
         { name: 'Assistant IA metier', reason: 'Utile pour expliquer les depenses, la TVA et les resultats aux independants.', priceFrom: 'Projet spécifique' },
         { name: 'Espace client simple', reason: 'Necessaire pour sauvegarder documents, donnees et preferences.', priceFrom: 'Projet spécifique' },
-        { name: 'Tableau de bord financier', reason: 'Les KPI et graphiques sont le coeur de l’experience.', priceFrom: 'Projet spécifique' },
+        { name: 'Automatisations comptables', reason: 'Les justificatifs, relances et echeances doivent etre traites sans friction.', priceFrom: 'Projet spécifique' },
         { name: 'Import documents', reason: 'Factures et justificatifs doivent etre centralises.', priceFrom: 'Projet spécifique' },
         { name: 'Connexion bancaire', reason: 'Pertinent pour rapprocher transactions et soldes.', priceFrom: 'Projet spécifique' },
     ];
     proposal.seo = {
         keywords: ['logiciel de comptabilite', 'comptabilite independant', 'facturation freelance', 'suivi TVA'],
-        searchExpressions: ['logiciel comptabilite independant', 'application facturation freelance', 'suivi depenses tva', 'dashboard comptable simple'],
-        titles: [`${appName} - Comptabilite simple pour independants`, 'Dashboard comptable, factures et TVA'],
+        searchExpressions: ['logiciel comptabilite independant', 'application facturation freelance', 'suivi depenses tva', 'assistant comptable ia'],
+        titles: [`${appName} - Comptabilite IA pour independants`, 'Factures, banque, TVA et assistant IA'],
         metaDescription: `${appName} aide les independants a suivre revenus, depenses, TVA, factures et documents depuis un tableau de bord clair.`,
     };
     proposal.seoKeywords = proposal.seo.keywords;
     proposal.services = [
-        { name: 'Tableau de bord', description: 'KPI, graphiques et alertes pour comprendre l’activite.' },
-        { name: 'Facturation', description: 'Devis, factures, relances et documents recents.' },
-        { name: 'TVA & charges', description: 'Echeances, montants a prevoir et taches a traiter.' },
+        { name: 'Pilotage financier', description: 'Chiffre d’affaires, depenses, tresorerie, TVA et echeances visibles rapidement.' },
+        { name: 'Factures & documents', description: 'Devis, factures, justificatifs et exports regroupes dans une interface claire.' },
+        { name: 'Assistant IA comptable', description: 'Questions, anomalies, previsions et recommandations expliquees simplement.' },
     ];
     proposal.clientAcquisition = [
         'Montrer une capture produit des le premier ecran.',
@@ -12942,7 +13826,7 @@ const applyKirbyAccountingModel = (proposal, brief = '') => {
     proposal.explanation = [
         'Le brief parle d’un logiciel : il faut donc afficher une interface produit.',
         'Les KPI et graphiques rendent la valeur visible immediatement.',
-        'La sidebar montre que le projet est une application complete, pas une vitrine.',
+        'La mise en scene doit surprendre visuellement tout en restant comptable.',
     ];
     setKirbyPreviewSummary(proposal, 'Produit a prevoir', [
         'Dashboard financier',
@@ -13051,15 +13935,114 @@ const applyKirbyKidsEducationModel = (proposal, brief = '', preserveContent = fa
     return proposal;
 };
 
+const applyKirbyBridalCoutureModel = (proposal, brief = '', preserveContent = false) => {
+    const source = normalizeKirbyText(`${brief} ${proposal.siteName || ''}`);
+    const siteName = formatKirbySiteName(proposal.siteName) || 'Maison Couture';
+    const hasSpecificPages = getKirbyArray(proposal.pages, 8)
+        .some((page) => /collection|robe|mariee|mariage|essayage|atelier|sur mesure|galerie/.test(normalizeKirbyText(getKirbyItemTitle(page))));
+    const hasSpecificSections = getKirbyArray(proposal.homeSections, 6)
+        .some((section) => /collection|robe|mariee|mariage|essayage|atelier|dentelle|soie|matiere|couture/.test(normalizeKirbyText(`${getKirbyItemTitle(section)} ${getKirbyItemText(section)}`)));
+    const wantsLumina = hasKirbyLuminaIntent(`${brief} ${proposal.visualMood || ''} ${proposal.styleGuide?.direction || ''}`);
+
+    proposal.siteName = siteName;
+    proposal.sectorKey = 'bridal';
+    proposal.projectType = 'Site couture mariage haut de gamme';
+    proposal.visualMood = wantsLumina ? 'lumina-couture' : 'bridal-couture';
+    proposal.layoutVariant = wantsLumina ? 'lumina-showcase' : 'gallery-focus';
+    proposal.designVariant = getKirbyHash(`${brief} ${siteName} couture`) % 5;
+    proposal.visualSeed = getKirbyHash(`${brief}::${siteName}::bridal-couture`);
+    proposal.showGallery = true;
+    proposal.slogan = 'Des robes pour un jour unique.';
+    proposal.summary = `${siteName} doit ressembler à une maison couture mariage, avec robes, matières, atelier et essayage privé.`;
+    proposal.valueProposition = 'Une expérience premium qui donne envie de découvrir les collections, réserver un essayage et comprendre le savoir-faire couture.';
+    proposal.positioning = {
+        audience: 'Futures mariées qui cherchent une robe élégante, personnalisée et accompagnée avec soin.',
+        promise: 'Trouver une silhouette, ressentir les matières et réserver un essayage en toute confiance.',
+        tone: 'Couture, délicat, moderne, lumineux et très premium.',
+        differentiator: 'Un aperçu centré sur la robe, les détails de dentelle, l’atelier et le rendez-vous essayage, jamais sur une photo corporate.',
+    };
+    proposal.styleGuide = {
+        direction: 'Direction Lumina couture : surfaces translucides, lumière perle, détails de robe, dentelle, soie, reflets doux et profondeur moderne.',
+        colors: 'Ivoire froid, noir couture, perle lumineuse, rose quartz, argent doux et cyan verre.',
+        typography: 'Titres élégants mais contenus, sans-serif premium lisible, détails éditoriaux fins et aucun effet énorme ou vulgaire.',
+        layout: 'Hero galerie couture, collection en mosaïque, atelier matières, essayage privé, témoignages, FAQ et CTA final.',
+    };
+    proposal.visualConcept = {
+        heroComposition: 'Grande robe de mariée en lumière, détails de dentelle, carte essayage flottante, collection visible et surface de verre Lumina.',
+        ambience: 'Couture mariage moderne, lumineuse, désirable et calme.',
+        colorPalette: ['ivoire froid', 'noir couture', 'perle lumineuse', 'rose quartz', 'argent doux', 'cyan verre'],
+        imageKeywords: ['robe de mariée haute couture', 'atelier couture mariage', 'dentelle et broderie', 'essayage privé', 'voile et soie'],
+        layoutSignature: 'Galerie asymétrique avec surfaces transparentes, détails matières et CTA essayage visible.',
+        microInteractions: ['cartes collection qui flottent', 'reflets doux sur les tissus', 'bouton essayage lumineux', 'mosaïque robe en mouvement'],
+        wowFactor: 'Le visiteur voit immédiatement une maison couture mariage, pas un template boutique ou une image corporate.',
+    };
+    proposal.siteModel = {
+        name: 'Direction couture mariage',
+        description: 'Une expérience visuelle premium dédiée aux robes de mariée, aux matières et aux essayages privés.',
+        sections: ['Hero robe couture', 'Collections', 'Sur mesure', 'Essayage privé', 'Atelier & matières', 'Galerie', 'Rendez-vous'],
+    };
+
+    if (!preserveContent || !hasSpecificPages) {
+        proposal.pages = [
+            { name: 'Accueil', goal: 'Installer l’univers couture et orienter vers collections ou essayage.' },
+            { name: 'Collections', goal: 'Présenter robes de mariée, silhouettes, matières et détails.' },
+            { name: 'Robes sur mesure', goal: 'Expliquer création, prises de mesures, retouches et accompagnement.' },
+            { name: 'Essayages privés', goal: 'Donner envie de réserver un rendez-vous personnalisé.' },
+            { name: 'Atelier', goal: 'Montrer dentelle, soie, broderie, voile et gestes couture.' },
+            { name: 'Galerie', goal: 'Afficher robes portées, détails de matières et inspirations.' },
+            { name: 'Rendez-vous', goal: 'Permettre une demande d’essayage claire et élégante.' },
+        ];
+    }
+
+    if (!preserveContent || !hasSpecificSections) {
+        proposal.homeSections = [
+            { title: 'Collection Mariée', text: 'Robes, voiles, dentelles et silhouettes sont présentés comme une vraie collection couture.' },
+            { title: 'Essayage privé', text: 'Le parcours donne envie de réserver un moment calme, accompagné et personnalisé.' },
+            { title: 'Atelier & matières', text: 'Broderie, tulle, soie et finitions rendent le savoir-faire visible.' },
+        ];
+    }
+
+    proposal.ctas = ['Réserver un essayage', 'Découvrir les collections', 'Voir l’atelier'];
+    proposal.recommendedOffer = 'Offre Signature';
+    proposal.recommendedServices = [
+        { name: 'Galerie premium', reason: 'Les robes doivent être désirables dès le premier écran.', priceFrom: 'Offre Signature' },
+        { name: 'Prise de rendez-vous', reason: 'Transformer l’envie en essayage privé.', priceFrom: 'Projet spécifique' },
+        { name: 'Catalogue / collection', reason: 'Présenter robes, matières et inspirations sans e-commerce forcé.', priceFrom: 'Projet spécifique' },
+        { name: 'Formulaire essayage', reason: 'Qualifier date du mariage, style, budget et disponibilités.', priceFrom: 'Projet spécifique' },
+    ];
+    proposal.services = [
+        { name: 'Collection couture', description: 'Robes, silhouettes, voiles et détails de matières.' },
+        { name: 'Création sur mesure', description: 'Inspiration, essayage, retouches et accompagnement.' },
+        { name: 'Essayage privé', description: 'Rendez-vous personnalisé en atelier ou showroom.' },
+    ];
+    setKirbyPreviewSummary(proposal, 'Univers couture', [
+        'Robes de mariée',
+        'Collection',
+        'Sur mesure',
+        'Essayage privé',
+        'Atelier',
+        'Dentelle et soie',
+    ]);
+
+    return proposal;
+};
+
 const normalizeKirbyProposalForBrief = (currentProposal, brief = '') => {
     const proposal = cloneKirbyProposal(currentProposal);
     const signals = getKirbyBriefSignals(brief);
     const sectorKey = detectKirbySectorTemplate(brief);
     const preserveGeneratedProposal = hasRichKirbyProposal(proposal);
+    const genericSector = !proposal.sectorKey || /^(generic|service|corporate)$/i.test(String(proposal.sectorKey));
+
+    if (genericSector || sectorKey !== 'corporate') {
+        proposal.sectorKey = sectorKey;
+    }
 
     if (preserveGeneratedProposal) {
         applyGeneratedKirbyVisualHints(proposal, signals, brief);
     }
+
+    removeKirbyKidsBlocksUnlessNeeded(proposal, signals);
 
     if (!signals.isHotel) {
         removeKirbyPages(proposal, ['Chambres', 'Réservation chambres', 'Disponibilités']);
@@ -13072,6 +14055,10 @@ const normalizeKirbyProposalForBrief = (currentProposal, brief = '') => {
     if (!signals.isShop) {
         removeKirbyPages(proposal, ['Boutique', 'Catalogue', 'Panier', 'Mon Compte', 'Commande']);
         removeKirbyServices(proposal, [/boutique/, /catalogue/, /panier/, /commande/, /paiement/]);
+    }
+
+    if (signals.isBridal) {
+        applyKirbyBridalCoutureModel(proposal, brief, preserveGeneratedProposal);
     }
 
     if (signals.isBeauty && !preserveGeneratedProposal) {
@@ -13118,7 +14105,7 @@ const normalizeKirbyProposalForBrief = (currentProposal, brief = '') => {
         ]);
     }
 
-    if (signals.isAccountingApp && !preserveGeneratedProposal) {
+    if (signals.isAccountingApp) {
         applyKirbyAccountingModel(proposal, brief);
     }
 
@@ -13126,7 +14113,27 @@ const normalizeKirbyProposalForBrief = (currentProposal, brief = '') => {
         applyKirbyKidsEducationModel(proposal, brief, preserveGeneratedProposal);
     }
 
-    if (signals.isDigital && !signals.isAccountingApp && !preserveGeneratedProposal && sectorKey === 'corporate') {
+    filterKirbyProposalByIntent(proposal, sectorKey, brief);
+    removeKirbyIncompatibleBlocks(proposal, sectorKey);
+    getKirbySectorCoherenceScore(proposal, sectorKey, brief);
+
+    if (sectorKey !== 'corporate' && !signals.isAccountingApp && !signals.isEducationKids && !signals.isBridal) {
+        const coherence = proposal.sectorCoherence || {};
+        const tooGenericForSector = Number(coherence.contentHits || 0) < 2 || Number(coherence.mismatch || 0) > 0 || Number(coherence.score || 0) < 58;
+
+        if (tooGenericForSector && preserveGeneratedProposal) {
+            const rebuilt = buildBrowserKirbyProposal(brief);
+            const generatedName = formatKirbySiteName(proposal.siteName);
+
+            Object.assign(proposal, rebuilt, {
+                siteName: generatedName && !/^studio\s/i.test(generatedName) ? generatedName : rebuilt.siteName,
+            });
+        }
+    }
+
+    applyKirbySectorSignature(proposal, getKirbyBusinessSector(brief));
+
+    if (signals.isDigital && !signals.isAccountingApp && !preserveGeneratedProposal && sectorKey === 'corporate' && /sa creation|sacreation|création web|creation web|agence web|generateur de site/.test(signals.source)) {
         proposal.siteName = /sa creation|sacreation|création web|creation web/.test(signals.source)
             ? 'SA Création Web'
             : formatKirbySiteName(proposal.siteName) || 'Studio Digital IA';
@@ -13247,8 +14254,11 @@ const applyKirbyRevision = (currentProposal, revision, brief = '') => {
         addKirbySection(proposal, { title: 'Preuves de confiance', text: 'Avis, photos ou réalisations rassurent avant la prise de contact.' });
         addKirbyModelSection(proposal, 'Preuves premium');
         proposal.visualMood = revisionSignals.isAccountingApp
-            ? 'accounting-dashboard'
+            ? 'accounting-neural'
             : /sa creation|creation web|generateur|ia|digital|site web/.test(source) ? 'tech-premium' : revisionSignals.isBeauty ? 'beauty-wellness' : 'premium';
+        if (revisionSignals.isAccountingApp) {
+            proposal.layoutVariant = 'finance-os';
+        }
         proposal.designVariant = (Number(proposal.designVariant) || 0) + 1;
         markApplied('Direction premium');
     }
@@ -13261,8 +14271,11 @@ const applyKirbyRevision = (currentProposal, revision, brief = '') => {
             : 'Une présentation claire qui rassure dès le premier écran.';
         addKirbySection(proposal, { title: 'Pourquoi nous choisir ?', text: 'Une section courte rassure avec les bénéfices, les preuves et le contact.' });
         proposal.visualMood = revisionSignals.isAccountingApp
-            ? 'accounting-dashboard'
+            ? 'accounting-neural'
             : /sa creation|creation web|generateur|ia|digital|site web/.test(source) ? 'tech-premium' : proposal.visualMood;
+        if (revisionSignals.isAccountingApp) {
+            proposal.layoutVariant = 'finance-os';
+        }
         markApplied('Message clarifié');
     }
 
@@ -13463,12 +14476,13 @@ const getKirbyPreviewStyle = (proposal = {}) => {
         visualConcept.ambience,
         visualConcept.heroComposition,
         visualConcept.layoutSignature,
+        visualConcept.signatureMoment,
         visualConcept.wowFactor,
         getKirbyArray(visualConcept.colorPalette, 6).join(' '),
         getKirbyArray(proposal.appliedChanges, 5).join(' '),
     ].filter(Boolean).join(' '));
 
-    if (/kids-future|enfant|educatif|educative|education|comptine|histoire|parent|mini-jeu|mini jeu|luna|leo|léo/.test(source)) {
+    if (/kids-future|comptine|mini-jeu|mini jeu|luna|leo|léo/.test(source)) {
         return {
             canvas: 'background: linear-gradient(145deg, #101842, #1f2556 48%, #fff8df);',
             hero: 'background: linear-gradient(140deg, rgba(17, 24, 67, 0.96), rgba(56, 44, 121, 0.92) 56%, rgba(255, 196, 112, 0.92));',
@@ -13476,11 +14490,27 @@ const getKirbyPreviewStyle = (proposal = {}) => {
         };
     }
 
-    if (/accounting-dashboard|comptabilite|comptable|facturation|logiciel|saas|tableau de bord/.test(source)) {
+    if (/bridal-couture|lumina-couture|robe|mariee|mariage|couture|dentelle|soie|essayage|voile|tulle|broderie/.test(source)) {
         return {
-            canvas: 'background: #f5f7fc;',
-            hero: 'background: #ffffff;',
-            visual: '',
+            canvas: 'background: radial-gradient(ellipse at 14% 8%, rgba(186, 232, 255, 0.28), transparent 30%), radial-gradient(ellipse at 88% 16%, rgba(255, 190, 214, 0.22), transparent 28%), linear-gradient(145deg, #f8fbff, #eceff7 52%, #f7f2f8);',
+            hero: 'background: radial-gradient(circle at 80% 10%, rgba(255, 255, 255, 0.55), transparent 16rem), linear-gradient(135deg, rgba(21, 24, 34, 0.96), rgba(48, 52, 68, 0.88));',
+            visual: 'background: linear-gradient(145deg, rgba(255, 255, 255, 0.74), rgba(190, 228, 255, 0.18));',
+        };
+    }
+
+    if (/lumina-future|lumina-showcase|glassmorphism|verre depoli|transparent|surface|4d|futuriste|figma|apple|macos/.test(source)) {
+        return {
+            canvas: 'background: radial-gradient(ellipse at 14% 10%, rgba(72, 229, 255, 0.18), transparent 34%), radial-gradient(ellipse at 86% 22%, rgba(255, 119, 194, 0.14), transparent 30%), linear-gradient(145deg, #070b13, #0d1424 50%, #111b2c);',
+            hero: 'background: linear-gradient(140deg, rgba(10, 18, 31, 0.82), rgba(14, 28, 50, 0.68));',
+            visual: 'background: linear-gradient(145deg, rgba(255, 255, 255, 0.2), rgba(72, 229, 255, 0.12));',
+        };
+    }
+
+    if (/accounting-neural|finance-os|accounting-dashboard|comptabilite|comptable|facturation|tva|tresorerie|banque|documents/.test(source)) {
+        return {
+            canvas: 'background: radial-gradient(circle at 18% 12%, rgba(48, 213, 255, 0.22), transparent 18rem), radial-gradient(circle at 86% 8%, rgba(132, 88, 255, 0.2), transparent 16rem), linear-gradient(145deg, #07111f, #0b1730 52%, #101a2d);',
+            hero: 'background: radial-gradient(circle at 80% 12%, rgba(48, 213, 255, 0.18), transparent 16rem), linear-gradient(135deg, rgba(8, 20, 42, 0.96), rgba(12, 35, 68, 0.88));',
+            visual: 'background: linear-gradient(145deg, rgba(255, 255, 255, 0.18), rgba(48, 213, 255, 0.1));',
         };
     }
 
@@ -13528,6 +14558,46 @@ const getKirbyPreviewStyle = (proposal = {}) => {
         };
     }
 
+    if (/travel-premium|voyage|destination|itineraire|itinéraire|carte interactive/.test(source)) {
+        return {
+            canvas: 'background: radial-gradient(ellipse at 18% 8%, rgba(76, 225, 207, 0.18), transparent 32%), radial-gradient(ellipse at 92% 18%, rgba(255, 204, 112, 0.14), transparent 28%), linear-gradient(145deg, #06131b, #0a2530 54%, #13233a);',
+            hero: 'background: linear-gradient(135deg, rgba(4, 16, 28, 0.88), rgba(12, 53, 63, 0.7));',
+            visual: 'background: linear-gradient(145deg, rgba(76, 225, 207, 0.18), rgba(255, 204, 112, 0.14));',
+        };
+    }
+
+    if (/legal-premium|avocat|droit|juridique|notaire|honoraires|juriste/.test(source)) {
+        return {
+            canvas: 'background: linear-gradient(145deg, #07111f, #111b2f 52%, #172238);',
+            hero: 'background: linear-gradient(135deg, rgba(7, 17, 31, 0.92), rgba(25, 38, 60, 0.78));',
+            visual: 'background: linear-gradient(145deg, rgba(255, 255, 255, 0.14), rgba(88, 140, 190, 0.12));',
+        };
+    }
+
+    if (/care-premium|veterinaire|vétérinaire|clinique|urgences|soins/.test(source)) {
+        return {
+            canvas: 'background: linear-gradient(145deg, #eefaf6, #e7f2ff);',
+            hero: 'background: radial-gradient(circle at 82% 12%, rgba(64, 190, 168, 0.16), transparent 15rem), linear-gradient(120deg, #ffffff, #eaf8f3);',
+            visual: 'background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(150, 220, 205, 0.34));',
+        };
+    }
+
+    if (/performance-premium|sport|fitness|coach|coaching|salle de sport|musculation|nutrition|performance|cours/.test(source)) {
+        return {
+            canvas: 'background: linear-gradient(145deg, #071015, #101920 54%, #1c252d);',
+            hero: 'background: radial-gradient(circle at 82% 8%, rgba(114, 255, 111, 0.18), transparent 14rem), linear-gradient(135deg, #0a1117, #18222b);',
+            visual: 'background: linear-gradient(145deg, rgba(114, 255, 111, 0.18), rgba(255, 114, 54, 0.16));',
+        };
+    }
+
+    if (/hotel|hebergement|chambre|suite|gite|lodge|spa/.test(source)) {
+        return {
+            canvas: 'background: linear-gradient(145deg, #0d1f38, #162d4e 52%, #1e3a5f);',
+            hero: 'background: radial-gradient(circle at 78% 8%, rgba(180, 215, 255, 0.18), transparent 16rem), linear-gradient(135deg, #0e2541, #1a3a5c);',
+            visual: 'background: linear-gradient(145deg, rgba(255, 255, 255, 0.1), rgba(100, 160, 220, 0.22));',
+        };
+    }
+
     if (/premium|signature|luxe|elegant|elegance/.test(source)) {
         return {
             canvas: 'background: linear-gradient(145deg, #fbfbfd, #f0f2f7);',
@@ -13544,7 +14614,73 @@ const getKirbyPreviewStyle = (proposal = {}) => {
         };
     }
 
-    return { canvas: '', hero: '', visual: '' };
+    if (/hotel|hebergement|chambre|gite|lodge/.test(source)) {
+        return {
+            canvas: 'background: linear-gradient(145deg, #0d1f38, #162d4e 52%, #1e3a5f);',
+            hero: 'background: radial-gradient(circle at 78% 8%, rgba(180, 215, 255, 0.18), transparent 16rem), linear-gradient(135deg, #0e2541, #1a3a5c);',
+            visual: 'background: linear-gradient(145deg, rgba(255, 255, 255, 0.1), rgba(100, 160, 220, 0.22));',
+        };
+    }
+
+    if (/artisan|plombier|electricien|menuisier|peintre|charpentier|maconnerie|renovati|travaux|batiment|btp/.test(source)) {
+        return {
+            canvas: 'background: linear-gradient(145deg, #1c1a17, #2d2620 52%, #3a3028);',
+            hero: 'background: radial-gradient(circle at 82% 10%, rgba(210, 140, 60, 0.22), transparent 14rem), linear-gradient(135deg, #201e1a, #2f2922);',
+            visual: 'background: linear-gradient(145deg, rgba(220, 160, 80, 0.18), rgba(140, 100, 60, 0.28));',
+        };
+    }
+
+    if (/boutique|mode|vetement|styliste|createur|bijoux|accessoire|maroquinerie/.test(source)) {
+        return {
+            canvas: 'background: linear-gradient(145deg, #fff8f5, #f5e8e2);',
+            hero: 'background: radial-gradient(circle at 80% 12%, rgba(220, 160, 140, 0.2), transparent 14rem), linear-gradient(120deg, #fff4ef, #f7e0d8);',
+            visual: 'background: linear-gradient(145deg, rgba(240, 200, 185, 0.42), rgba(255, 240, 234, 0.86));',
+        };
+    }
+
+    if (/sport|fitness|coach|coaching|salle de sport|musculation|yoga|pilates|crossfit|running|performance|remise en forme|well-being/.test(source)) {
+        return {
+            canvas: 'background: linear-gradient(145deg, #0f1318, #181e26 52%, #1e2530);',
+            hero: 'background: radial-gradient(circle at 82% 8%, rgba(255, 100, 30, 0.24), transparent 14rem), linear-gradient(135deg, #141822, #1c2330);',
+            visual: 'background: linear-gradient(145deg, rgba(255, 90, 20, 0.24), rgba(255, 150, 50, 0.16));',
+        };
+    }
+
+    if (/avocat|droit|juridique|notaire|huissier|juriste/.test(source)) {
+        return {
+            canvas: 'background: linear-gradient(145deg, #f4f6fb, #eaeff8);',
+            hero: 'background: radial-gradient(circle at 82% 10%, rgba(50, 80, 140, 0.14), transparent 14rem), linear-gradient(120deg, #ffffff, #edf2fc);',
+            visual: 'background: linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(210, 220, 245, 0.62));',
+        };
+    }
+
+    if (/creative|creatif|studio|design|artiste|graphiste|illustrateur|photographe/.test(source)) {
+        const variant = Number(proposal.designVariant) || 0;
+        return {
+            canvas: variant % 2 === 0
+                ? 'background: linear-gradient(145deg, #0e0e14, #161622 52%, #1e1c2e);'
+                : 'background: linear-gradient(145deg, #f7f5ff, #ede8ff);',
+            hero: variant % 2 === 0
+                ? 'background: radial-gradient(circle at 76% 10%, rgba(160, 100, 255, 0.28), transparent 14rem), linear-gradient(135deg, #111018, #1a1830);'
+                : 'background: radial-gradient(circle at 82% 10%, rgba(140, 80, 240, 0.14), transparent 14rem), linear-gradient(120deg, #ffffff, #f0eaff);',
+            visual: 'background: linear-gradient(145deg, rgba(160, 100, 255, 0.22), rgba(100, 180, 255, 0.18));',
+        };
+    }
+
+    // Fallback intelligent : lit la direction visuelle de Kirby pour générer un fond unique
+    const seed = getKirbyHash(`${proposal.visualMood || ''}::${proposal.siteName || ''}::${source}`) % 8;
+    const fallbackPalettes = [
+        { canvas: 'background: linear-gradient(145deg, #f9fafb, #edf0f5);', hero: 'background: radial-gradient(circle at 82% 10%, rgba(80, 120, 200, 0.12), transparent 14rem), linear-gradient(120deg, #ffffff, #eef2fa);' },
+        { canvas: 'background: linear-gradient(145deg, #faf9f6, #f0ece4);', hero: 'background: radial-gradient(circle at 80% 12%, rgba(180, 140, 80, 0.14), transparent 14rem), linear-gradient(120deg, #ffffff, #f5f0e6);' },
+        { canvas: 'background: linear-gradient(145deg, #f4fbf8, #e6f5ee);', hero: 'background: radial-gradient(circle at 82% 8%, rgba(30, 160, 100, 0.14), transparent 14rem), linear-gradient(120deg, #ffffff, #eaf7f0);' },
+        { canvas: 'background: linear-gradient(145deg, #fdf8f4, #f4e8dc);', hero: 'background: radial-gradient(circle at 82% 10%, rgba(200, 110, 60, 0.14), transparent 14rem), linear-gradient(120deg, #ffffff, #f7ede2);' },
+        { canvas: 'background: linear-gradient(145deg, #f7f4fb, #ece6f7);', hero: 'background: radial-gradient(circle at 82% 8%, rgba(120, 80, 200, 0.14), transparent 14rem), linear-gradient(120deg, #ffffff, #f0e8ff);' },
+        { canvas: 'background: linear-gradient(145deg, #f6fafe, #e6f0fc);', hero: 'background: radial-gradient(circle at 80% 10%, rgba(40, 100, 220, 0.12), transparent 14rem), linear-gradient(120deg, #ffffff, #e8f2ff);' },
+        { canvas: 'background: linear-gradient(145deg, #fafaf7, #eff0e8);', hero: 'background: radial-gradient(circle at 82% 12%, rgba(100, 130, 60, 0.14), transparent 14rem), linear-gradient(120deg, #ffffff, #f0f3e6);' },
+        { canvas: 'background: linear-gradient(145deg, #fbf8f4, #f2eade);', hero: 'background: radial-gradient(circle at 82% 8%, rgba(180, 150, 80, 0.14), transparent 14rem), linear-gradient(120deg, #ffffff, #f5eedc);' },
+    ];
+    const fp = fallbackPalettes[seed];
+    return { canvas: fp.canvas, hero: fp.hero, visual: '' };
 };
 
 const getKirbyPreviewImageStyle = (proposal = {}, brief = '') => {
@@ -13565,17 +14701,135 @@ const getKirbyPreviewImageStyle = (proposal = {}, brief = '') => {
         visualConcept.ambience,
         visualConcept.heroComposition,
         visualConcept.layoutSignature,
+        visualConcept.signatureMoment,
         getKirbyArray(visualConcept.imageKeywords, 8).join(' '),
         getKirbyArray(proposal.pages, 6).map((page) => getKirbyItemTitle(page)).join(' '),
         getKirbyArray(proposal.recommendedServices, 6).map((service) => getKirbyItemTitle(service)).join(' '),
     ].filter(Boolean).join(' '));
     const index = getKirbyHash(`${brief} ${proposal.siteName} ${proposal.visualMood} ${proposal.layoutVariant || ''} ${proposal.visualSeed || ''} ${source}`) % 17;
-    if (signals.isEducationKids || /kids-future|enfant|educatif|educative|education|comptine|histoire|parent|mini-jeu|mini jeu|luna|leo|léo/.test(source)) {
+    if (signals.isDreamPortal || hasKirbyDreamPortalIntent(source)) {
+        return 'background-image: radial-gradient(circle at 48% 38%, rgba(255, 255, 255, 0.78), rgba(169, 120, 255, 0.34) 13%, transparent 31%), radial-gradient(circle at 30% 70%, rgba(97, 245, 220, 0.34), transparent 24%), conic-gradient(from 120deg at 50% 52%, rgba(53, 28, 128, 0.92), rgba(119, 76, 255, 0.78), rgba(255, 154, 212, 0.66), rgba(18, 28, 68, 0.96), rgba(53, 28, 128, 0.92));';
+    }
+    if (signals.isEducationKids || /kids-future|comptine|mini-jeu|mini jeu|luna|leo|léo/.test(source)) {
         return 'background-image: linear-gradient(135deg, rgba(37, 50, 130, 0.94), rgba(111, 87, 214, 0.82) 48%, rgba(255, 190, 103, 0.9));';
     }
     const imageSets = [
         {
-            test: () => signals.isArchitecture || /architect|architecture|architecte|arquitecto|interieur|intérieur|design d interieur|design d'intérieur|decorateur|decoratrice|decoration|décoration|maitre d oeuvre|maître d oeuvre/.test(source),
+            test: () => signals.isUnderwaterHotel || hasKirbyUnderwaterHotelIntent(source),
+            urls: [
+                'https://source.unsplash.com/900x900/?underwater,ocean,light',
+                'https://source.unsplash.com/900x900/?aquarium,ocean,glass',
+                'https://source.unsplash.com/900x900/?underwater,marine-life,blue',
+                'https://source.unsplash.com/900x900/?luxury-suite,ocean-view,blue',
+                'https://images.unsplash.com/photo-1437622368342-7a3d73a34c8f?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=900&q=80',
+            ],
+        },
+        {
+            test: () => signals.isSpaceTourism || hasKirbySpaceTourismIntent(source),
+            urls: [
+                'https://source.unsplash.com/900x900/?space,earth,orbit',
+                'https://source.unsplash.com/900x900/?space-station,earth,stars',
+                'https://source.unsplash.com/900x900/?astronaut,space,window',
+                'https://source.unsplash.com/900x900/?earth,space,nasa',
+                'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=900&q=80',
+            ],
+        },
+        {
+            test: () => signals.isFloatingCity || hasKirbyFloatingCityIntent(source),
+            urls: [
+                'https://source.unsplash.com/900x900/?floating-city,ocean,architecture',
+                'https://source.unsplash.com/900x900/?sustainable-city,water,architecture',
+                'https://source.unsplash.com/900x900/?modern-architecture,waterfront,green',
+                'https://source.unsplash.com/900x900/?solar,city,water',
+                'https://images.unsplash.com/photo-1518005020951-eccb494ad742?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=900&q=80',
+            ],
+        },
+        {
+            test: () => signals.isImmersiveMuseum || hasKirbyImmersiveMuseumIntent(source),
+            urls: [
+                'https://source.unsplash.com/900x900/?museum,artifact,exhibition',
+                'https://source.unsplash.com/900x900/?archaeology,ruins,artifact',
+                'https://source.unsplash.com/900x900/?ancient,temple,museum',
+                'https://source.unsplash.com/900x900/?immersive,museum,light',
+                'https://images.unsplash.com/photo-1564399579883-451a5d44ec08?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1544967082-d9d25d867d66?auto=format&fit=crop&w=900&q=80',
+            ],
+        },
+        {
+            test: () => signals.isExplorerAcademy || hasKirbyExplorerAcademyIntent(source),
+            urls: [
+                'https://source.unsplash.com/900x900/?exploration,compass,map,expedition',
+                'https://source.unsplash.com/900x900/?mountain,expedition,adventure',
+                'https://source.unsplash.com/900x900/?desert,explorer,expedition',
+                'https://source.unsplash.com/900x900/?jungle,expedition,river',
+                'https://source.unsplash.com/900x900/?ocean,expedition,diver',
+                'https://source.unsplash.com/900x900/?astronaut,space,stars',
+                'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=900&q=80',
+            ],
+        },
+        {
+            test: () => signals.isClimateLab || hasKirbyClimateLabIntent(source),
+            urls: [
+                'https://source.unsplash.com/900x900/?climate-science,field-research,ecosystem',
+                'https://source.unsplash.com/900x900/?environmental-research,scientist,nature',
+                'https://source.unsplash.com/900x900/?satellite,earth,climate',
+                'https://source.unsplash.com/900x900/?forest-restoration,ecology,biodiversity',
+                'https://source.unsplash.com/900x900/?laboratory,plants,science',
+                'https://source.unsplash.com/900x900/?soil,water,ecosystem,research',
+                'https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1473773508845-188df298d2d1?auto=format&fit=crop&w=900&q=80',
+            ],
+        },
+        {
+            test: () => signals.isBridal || hasKirbyBridalIntent(source),
+            urls: [
+                'https://source.unsplash.com/900x900/?wedding-dress,bridal-gown,atelier',
+                'https://source.unsplash.com/900x900/?bridal,couture,lace',
+                'https://source.unsplash.com/900x900/?wedding-gown,lace,dress',
+                'https://source.unsplash.com/900x900/?bride,dress,window-light',
+                'https://source.unsplash.com/900x900/?bridal-boutique,wedding-dress',
+                'https://source.unsplash.com/900x900/?sewing,lace,couture',
+            ],
+        },
+        {
+            test: () => signals.isLibrary || hasKirbyLibraryIntent(source),
+            urls: [
+                'https://source.unsplash.com/900x900/?library,books,reading-room',
+                'https://source.unsplash.com/900x900/?bookstore,bookshelves,books',
+                'https://images.unsplash.com/photo-1521587760476-6c12a4b040da?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1481627834876-b7833e8f5571b?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1519682337058-a94d519337bc?auto=format&fit=crop&w=900&q=80',
+            ],
+        },
+        {
+            test: () => signals.isUrbanFarm || hasKirbyUrbanFarmIntent(source),
+            urls: [
+                'https://source.unsplash.com/900x900/?vertical-farm,hydroponic,greenhouse',
+                'https://source.unsplash.com/900x900/?urban-farming,plants,greenhouse',
+                'https://source.unsplash.com/900x900/?hydroponics,lettuce,technology',
+                'https://images.unsplash.com/photo-1464226184884-fa280b87c399?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1471193945509-9ad0617afabf?auto=format&fit=crop&w=900&q=80',
+            ],
+        },
+        {
+            test: () => !signals.isUnderwaterHotel && signals.isHotel && /abyss|abyssal|sous marin|sous-marin|sous la surface|ocean|océan|mer|marine|sea|horizon/.test(source),
+            urls: [
+                'https://source.unsplash.com/900x900/?underwater,luxury-resort,ocean',
+                'https://source.unsplash.com/900x900/?ocean,luxury-hotel,interior',
+                'https://source.unsplash.com/900x900/?sea-view,hotel-suite,luxury',
+                'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1564501049412-61c2a3083791?auto=format&fit=crop&w=900&q=80',
+            ],
+        },
+        {
+            test: () => !signals.isHotel && !signals.isTravel && !signals.isLibrary && !signals.isUrbanFarm && !signals.isUnderwaterHotel && !signals.isSpaceTourism && !signals.isFloatingCity && !signals.isImmersiveMuseum && !signals.isExplorerAcademy && !signals.isClimateLab && (signals.isArchitecture || /architect|architecture|architecte|arquitecto|villa|villas|beton|béton|maitre d oeuvre|maître d oeuvre|design d interieur|design d'intérieur/.test(source)),
             urls: [
                 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=900&q=80',
                 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=900&q=80',
@@ -13586,7 +14840,51 @@ const getKirbyPreviewImageStyle = (proposal = {}, brief = '') => {
             ],
         },
         {
-            test: () => signals.isDigital || /tech-premium|digital|generateur|ia|site web|creation web|referencement|maintenance|support technique/.test(source),
+            test: () => signals.isTravel || hasKirbyTravelIntent(source),
+            urls: [
+                'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1526772662000-3f88f10405ff?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1512100356356-de1b84283e18?auto=format&fit=crop&w=900&q=80',
+            ],
+        },
+        {
+            test: () => signals.isLegal || hasKirbyLegalIntent(source),
+            urls: [
+                'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1505664194779-8beaceb93744?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1521791055366-0d553872125f?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1562564055-71e051d33c19?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=900&q=80',
+            ],
+        },
+        {
+            test: () => signals.isSport || hasKirbySportIntent(source),
+            urls: [
+                'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=900&q=80',
+            ],
+        },
+        {
+            test: () => signals.isVeterinary || hasKirbyVeterinaryIntent(source),
+            urls: [
+                'https://images.unsplash.com/photo-1576201836106-db1758fd1c97?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1628009368231-7bb7cfcb0def?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1581888227599-779811939961?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1558944351-c4f0d74d0dd5?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1537151608828-ea2b11777ee8?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1527526029430-319f10814151?auto=format&fit=crop&w=900&q=80',
+            ],
+        },
+        {
+            test: () => signals.isDigital && !signals.isRestaurant && !signals.isBeauty && !signals.isHotel && !signals.isCraft && !signals.isTravel && !signals.isLegal && !signals.isSport && !signals.isVeterinary && !signals.isBridal && !signals.isLibrary && !signals.isUrbanFarm && !signals.isUnderwaterHotel && !signals.isSpaceTourism && !signals.isFloatingCity && !signals.isImmersiveMuseum && !signals.isExplorerAcademy && !signals.isDreamPortal && !signals.isClimateLab && !signals.isFutureBank,
             urls: [
                 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=900&q=80',
                 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=900&q=80',
@@ -13619,7 +14917,7 @@ const getKirbyPreviewImageStyle = (proposal = {}, brief = '') => {
             ],
         },
         {
-            test: () => signals.isShop || /boutique|mode|vetement|vetement|catalogue|panier|produit/.test(source),
+            test: () => !signals.isBridal && (signals.isShop || /boutique|mode|vetement|vetement|catalogue|panier|produit/.test(source)),
             urls: [
                 'https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=900&q=80',
                 'https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=900&q=80',
@@ -13641,7 +14939,7 @@ const getKirbyPreviewImageStyle = (proposal = {}, brief = '') => {
             ],
         },
         {
-            test: () => signals.isCraft || /plombier|artisan|travaux|service/.test(source),
+            test: () => signals.isCraft || /plombier|artisan|travaux|chantier|renovation|rénovation/.test(source),
             urls: [
                 'https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?auto=format&fit=crop&w=900&q=80',
                 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&w=900&q=80',
@@ -13653,7 +14951,19 @@ const getKirbyPreviewImageStyle = (proposal = {}, brief = '') => {
         },
     ];
     const imageSet = imageSets.find((set) => set.test());
-    const urls = imageSet ? imageSet.urls : imageSets[0].urls;
+    const conceptKeywords = getKirbyArray(visualConcept.imageKeywords, 5)
+        .concat([proposal.projectType, proposal.siteModel && proposal.siteModel.name])
+        .map((item) => normalizeKirbyText(item))
+        .filter((item) => item && !/professionnel au travail|bureau|ordinateur|startup|corporate/.test(item))
+        .slice(0, 4);
+    const dynamicQuery = encodeURIComponent(conceptKeywords.join(',') || 'premium,real,place,detail');
+    const urls = imageSet ? imageSet.urls : [
+        `https://source.unsplash.com/900x900/?${dynamicQuery}`,
+        `https://source.unsplash.com/900x900/?${encodeURIComponent(`${proposal.projectType || 'concept'} real scene`)}`,
+        `https://source.unsplash.com/900x900/?${encodeURIComponent(`${proposal.siteName || 'premium project'} detail`)}`,
+        'https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=900&q=80',
+        'https://images.unsplash.com/photo-1518005020951-eccb494ad742?auto=format&fit=crop&w=900&q=80',
+    ];
     const url = urls[index % urls.length];
 
     return `background-image: linear-gradient(145deg, rgba(255, 255, 255, 0.04), rgba(15, 18, 29, 0.1)), url('${url}');`;
@@ -13677,17 +14987,115 @@ const getKirbyGalleryImageStyles = (proposal = {}, brief = '') => {
         visualConcept.ambience,
         visualConcept.heroComposition,
         visualConcept.layoutSignature,
+        visualConcept.signatureMoment,
         getKirbyArray(visualConcept.imageKeywords, 8).join(' '),
         getKirbyArray(proposal.pages, 8).map((page) => getKirbyItemTitle(page)).join(' '),
     ].filter(Boolean).join(' '));
-    if (signals.isEducationKids || /kids-future|enfant|educatif|educative|education|comptine|histoire|parent|mini-jeu|mini jeu|luna|leo|léo/.test(source)) {
+    if (signals.isDreamPortal || hasKirbyDreamPortalIntent(source)) {
+        return [
+            'background: radial-gradient(circle at 50% 44%, rgba(255, 255, 255, 0.76), rgba(166, 120, 255, 0.38) 16%, transparent 36%), linear-gradient(145deg, rgba(57, 37, 130, 0.96), rgba(18, 28, 68, 0.88));',
+            'background: radial-gradient(circle at 38% 32%, rgba(98, 245, 220, 0.58), transparent 32%), radial-gradient(circle at 80% 76%, rgba(255, 154, 212, 0.42), transparent 28%), #12183f;',
+            'background: conic-gradient(from 210deg at 55% 48%, rgba(255, 245, 191, 0.82), rgba(125, 82, 255, 0.72), rgba(10, 16, 49, 0.96), rgba(255, 245, 191, 0.82));',
+        ];
+    }
+    if (signals.isEducationKids || /kids-future|comptine|mini-jeu|mini jeu|luna|leo|léo/.test(source)) {
         return [
             'background: linear-gradient(145deg, rgba(81, 229, 210, 0.92), rgba(98, 96, 232, 0.78));',
             'background: linear-gradient(145deg, rgba(255, 214, 109, 0.96), rgba(255, 130, 143, 0.86));',
             'background: linear-gradient(145deg, rgba(185, 142, 255, 0.92), rgba(91, 226, 166, 0.82));',
         ];
     }
-    const imageSets = signals.isArchitecture || /architect|architecture|architecte|arquitecto|interieur|intérieur|design d interieur|design d'intérieur|decorateur|decoratrice|decoration|décoration|maitre d oeuvre|maître d oeuvre/.test(source)
+    const imageSets = signals.isUnderwaterHotel || hasKirbyUnderwaterHotelIntent(source)
+        ? [
+            'https://source.unsplash.com/700x700/?underwater,ocean,light',
+            'https://source.unsplash.com/700x700/?aquarium,ocean,glass',
+            'https://source.unsplash.com/700x700/?underwater,marine-life,blue',
+            'https://source.unsplash.com/700x700/?luxury-suite,ocean-view,blue',
+            'https://images.unsplash.com/photo-1437622368342-7a3d73a34c8f?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=700&q=80',
+        ]
+        : signals.isSpaceTourism || hasKirbySpaceTourismIntent(source)
+        ? [
+            'https://source.unsplash.com/700x700/?space,earth,orbit',
+            'https://source.unsplash.com/700x700/?space-station,earth,stars',
+            'https://source.unsplash.com/700x700/?astronaut,space,window',
+            'https://source.unsplash.com/700x700/?earth,space,nasa',
+            'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=700&q=80',
+        ]
+        : signals.isFloatingCity || hasKirbyFloatingCityIntent(source)
+        ? [
+            'https://source.unsplash.com/700x700/?floating-city,ocean,architecture',
+            'https://source.unsplash.com/700x700/?sustainable-city,water,architecture',
+            'https://source.unsplash.com/700x700/?modern-architecture,waterfront,green',
+            'https://source.unsplash.com/700x700/?solar,city,water',
+            'https://images.unsplash.com/photo-1518005020951-eccb494ad742?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=700&q=80',
+        ]
+        : signals.isImmersiveMuseum || hasKirbyImmersiveMuseumIntent(source)
+        ? [
+            'https://source.unsplash.com/700x700/?museum,artifact,exhibition',
+            'https://source.unsplash.com/700x700/?archaeology,ruins,artifact',
+            'https://source.unsplash.com/700x700/?ancient,temple,museum',
+            'https://source.unsplash.com/700x700/?immersive,museum,light',
+            'https://images.unsplash.com/photo-1564399579883-451a5d44ec08?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1544967082-d9d25d867d66?auto=format&fit=crop&w=700&q=80',
+        ]
+        : signals.isExplorerAcademy || hasKirbyExplorerAcademyIntent(source)
+        ? [
+            'https://source.unsplash.com/700x700/?exploration,compass,map,expedition',
+            'https://source.unsplash.com/700x700/?mountain,expedition,adventure',
+            'https://source.unsplash.com/700x700/?desert,explorer,expedition',
+            'https://source.unsplash.com/700x700/?jungle,expedition,river',
+            'https://source.unsplash.com/700x700/?ocean,expedition,diver',
+            'https://source.unsplash.com/700x700/?astronaut,space,stars',
+        ]
+        : signals.isClimateLab || hasKirbyClimateLabIntent(source)
+        ? [
+            'https://source.unsplash.com/700x700/?climate-science,field-research,ecosystem',
+            'https://source.unsplash.com/700x700/?environmental-research,scientist,nature',
+            'https://source.unsplash.com/700x700/?satellite,earth,climate',
+            'https://source.unsplash.com/700x700/?forest-restoration,ecology,biodiversity',
+            'https://source.unsplash.com/700x700/?laboratory,plants,science',
+            'https://source.unsplash.com/700x700/?soil,water,ecosystem,research',
+        ]
+        : signals.isBridal || hasKirbyBridalIntent(source)
+        ? [
+            'https://source.unsplash.com/700x700/?wedding-dress,bridal-gown,atelier',
+            'https://source.unsplash.com/700x700/?bridal,couture,lace',
+            'https://source.unsplash.com/700x700/?wedding-gown,lace,dress',
+            'https://source.unsplash.com/700x700/?bride,dress,window-light',
+            'https://source.unsplash.com/700x700/?bridal-boutique,wedding-dress',
+            'https://source.unsplash.com/700x700/?sewing,lace,couture',
+        ]
+        : signals.isLibrary || hasKirbyLibraryIntent(source)
+        ? [
+            'https://source.unsplash.com/700x700/?library,books,reading-room',
+            'https://source.unsplash.com/700x700/?bookstore,bookshelves,books',
+            'https://images.unsplash.com/photo-1521587760476-6c12a4b040da?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1481627834876-b7833e8f5571b?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1519682337058-a94d519337bc?auto=format&fit=crop&w=700&q=80',
+        ]
+        : signals.isUrbanFarm || hasKirbyUrbanFarmIntent(source)
+        ? [
+            'https://source.unsplash.com/700x700/?vertical-farm,hydroponic,greenhouse',
+            'https://source.unsplash.com/700x700/?urban-farming,plants,greenhouse',
+            'https://source.unsplash.com/700x700/?hydroponics,lettuce,technology',
+            'https://images.unsplash.com/photo-1464226184884-fa280b87c399?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1523348837708-15d4a09cfac2?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1471193945509-9ad0617afabf?auto=format&fit=crop&w=700&q=80',
+        ]
+        : !signals.isUnderwaterHotel && signals.isHotel && /abyss|abyssal|sous marin|sous-marin|sous la surface|ocean|océan|mer|marine|sea|horizon/.test(source)
+        ? [
+            'https://source.unsplash.com/700x700/?underwater,luxury-resort,ocean',
+            'https://source.unsplash.com/700x700/?ocean,luxury-hotel,interior',
+            'https://source.unsplash.com/700x700/?sea-view,hotel-suite,luxury',
+            'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1564501049412-61c2a3083791?auto=format&fit=crop&w=700&q=80',
+        ]
+        : !signals.isHotel && !signals.isTravel && !signals.isLibrary && !signals.isUrbanFarm && !signals.isUnderwaterHotel && !signals.isSpaceTourism && !signals.isFloatingCity && !signals.isImmersiveMuseum && !signals.isExplorerAcademy && !signals.isClimateLab && (signals.isArchitecture || /architect|architecture|architecte|arquitecto|villa|villas|beton|béton|maitre d oeuvre|maître d oeuvre|design d interieur|design d'intérieur/.test(source))
         ? [
             'https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=700&q=80',
             'https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=700&q=80',
@@ -13695,6 +15103,42 @@ const getKirbyGalleryImageStyles = (proposal = {}, brief = '') => {
             'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=700&q=80',
             'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=700&q=80',
             'https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=700&q=80',
+        ]
+        : signals.isTravel || hasKirbyTravelIntent(source)
+        ? [
+            'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1526772662000-3f88f10405ff?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1512100356356-de1b84283e18?auto=format&fit=crop&w=700&q=80',
+        ]
+        : signals.isLegal || hasKirbyLegalIntent(source)
+        ? [
+            'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1505664194779-8beaceb93744?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1521791055366-0d553872125f?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1562564055-71e051d33c19?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=700&q=80',
+        ]
+        : signals.isSport || hasKirbySportIntent(source)
+        ? [
+            'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1540497077202-7c8a3999166f?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=700&q=80',
+        ]
+        : signals.isVeterinary || hasKirbyVeterinaryIntent(source)
+        ? [
+            'https://images.unsplash.com/photo-1576201836106-db1758fd1c97?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1628009368231-7bb7cfcb0def?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1581888227599-779811939961?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1558944351-c4f0d74d0dd5?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1537151608828-ea2b11777ee8?auto=format&fit=crop&w=700&q=80',
+            'https://images.unsplash.com/photo-1527526029430-319f10814151?auto=format&fit=crop&w=700&q=80',
         ]
         : signals.isBeauty || /beauty-wellness|estheticien|estheticienne|esthetique|beaute|massage|soin|epilation|spa|bien etre|bien-etre/.test(source)
         ? [
@@ -13714,7 +15158,7 @@ const getKirbyGalleryImageStyles = (proposal = {}, brief = '') => {
                 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=700&q=80',
                 'https://images.unsplash.com/photo-1544148103-0773bf10d330?auto=format&fit=crop&w=700&q=80',
             ]
-            : signals.isShop || /boutique|mode|vetement|catalogue|panier|produit/.test(source)
+            : !signals.isBridal && (signals.isShop || /boutique|mode|vetement|catalogue|panier|produit/.test(source))
                 ? [
                     'https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=700&q=80',
                     'https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=700&q=80',
@@ -13732,7 +15176,7 @@ const getKirbyGalleryImageStyles = (proposal = {}, brief = '') => {
                         'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=700&q=80',
                         'https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=700&q=80',
                     ]
-                    : signals.isCraft || /plombier|artisan|travaux|service/.test(source)
+                    : signals.isCraft || /plombier|artisan|travaux|chantier|renovation|rénovation/.test(source)
                         ? [
                             'https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?auto=format&fit=crop&w=700&q=80',
                             'https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&w=700&q=80',
@@ -13741,14 +15185,22 @@ const getKirbyGalleryImageStyles = (proposal = {}, brief = '') => {
                             'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=700&q=80',
                             'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=700&q=80',
                         ]
-                        : [
-                            'https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=700&q=80',
-                            'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=700&q=80',
-                            'https://images.unsplash.com/photo-1551434678-e076c223a692?auto=format&fit=crop&w=700&q=80',
-                            'https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&w=700&q=80',
-                            'https://images.unsplash.com/photo-1553877522-43269d4ea984?auto=format&fit=crop&w=700&q=80',
-                            'https://images.unsplash.com/photo-1483058712412-4245e9b90334?auto=format&fit=crop&w=700&q=80',
-                        ];
+                        : (() => {
+                            const conceptKeywords = getKirbyArray(visualConcept.imageKeywords, 5)
+                                .concat([proposal.projectType, proposal.siteModel && proposal.siteModel.name])
+                                .map((item) => normalizeKirbyText(item))
+                                .filter((item) => item && !/professionnel au travail|bureau|ordinateur|startup|corporate/.test(item))
+                                .slice(0, 4);
+                            const query = encodeURIComponent(conceptKeywords.join(',') || 'premium,real,place,detail');
+
+                            return [
+                                `https://source.unsplash.com/700x700/?${query}`,
+                                `https://source.unsplash.com/700x700/?${encodeURIComponent(`${proposal.projectType || 'concept'} real scene`)}`,
+                                `https://source.unsplash.com/700x700/?${encodeURIComponent(`${proposal.siteName || 'premium project'} detail`)}`,
+                                'https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=700&q=80',
+                                'https://images.unsplash.com/photo-1518005020951-eccb494ad742?auto=format&fit=crop&w=700&q=80',
+                            ];
+                        })();
     const offset = getKirbyHash(`${brief} ${proposal.siteName || ''} ${proposal.layoutVariant || ''} ${proposal.visualSeed || ''} ${source}`) % imageSets.length;
     const selectedUrls = [0, 1, 2].map((index) => imageSets[(offset + index) % imageSets.length]);
 
@@ -13865,6 +15317,17 @@ const normalizeKirbyLayoutVariant = (value = '') => {
         galerie: 'gallery-focus',
         gallery: 'gallery-focus',
         portfolio: 'gallery-focus',
+        lumina: 'lumina-showcase',
+        luma: 'lumina-showcase',
+        figma: 'lumina-showcase',
+        apple: 'lumina-showcase',
+        macos: 'lumina-showcase',
+        futur: 'lumina-showcase',
+        future: 'lumina-showcase',
+        futuriste: 'lumina-showcase',
+        glass: 'lumina-showcase',
+        transparent: 'lumina-showcase',
+        '4d': 'lumina-showcase',
         minimal: 'minimal-editorial',
         minimalist: 'minimal-editorial',
         luxe: 'luxury-asymmetric',
@@ -13873,6 +15336,11 @@ const normalizeKirbyLayoutVariant = (value = '') => {
         asymetrique: 'luxury-asymmetric',
         dashboard: 'product-dashboard',
         app: 'product-dashboard',
+        finance: 'finance-os',
+        fintech: 'finance-os',
+        comptabilite: 'finance-os',
+        comptable: 'finance-os',
+        accounting: 'finance-os',
         story: 'story-world',
         storytelling: 'story-world',
         enfant: 'story-world',
@@ -13882,7 +15350,7 @@ const normalizeKirbyLayoutVariant = (value = '') => {
         editorial: 'warm-editorial',
         classic: 'classic-conversion',
     };
-    const allowed = ['story-world', 'cinematic-video', 'gallery-focus', 'minimal-editorial', 'luxury-asymmetric', 'product-dashboard', 'warm-editorial', 'classic-conversion'];
+    const allowed = ['finance-os', 'story-world', 'lumina-showcase', 'cinematic-video', 'gallery-focus', 'minimal-editorial', 'luxury-asymmetric', 'product-dashboard', 'warm-editorial', 'classic-conversion'];
 
     return allowed.includes(variant) ? variant : aliases[variant] || '';
 };
@@ -13904,18 +15372,68 @@ const getKirbyLayoutVariant = (proposal = {}, brief = '', isDashboardPreview = f
         proposal.styleGuide && proposal.styleGuide.direction,
         visualConcept.layoutSignature,
         visualConcept.heroComposition,
+        visualConcept.signatureMoment,
         visualConcept.wowFactor,
     ].filter(Boolean).join(' '));
     const requestedVariant = normalizeKirbyLayoutVariant(proposal.layoutVariant || visualConcept.layoutVariant || visualConcept.layoutSignature);
+    const invalidRequestedVariant = (requestedVariant === 'story-world' && !signals.isEducationKids)
+        || (requestedVariant === 'finance-os' && !signals.isAccountingApp && !signals.isFutureBank)
+        || (requestedVariant === 'product-dashboard' && !signals.isSport && !signals.isAccountingApp && !/logiciel|application|dashboard|plateforme|app\b/.test(source));
+    const safeRequestedVariant = invalidRequestedVariant ? '' : requestedVariant;
+    const explicitSurfaceIntent = hasKirbySurfaceDesignIntent(brief);
 
-    if (signals.isEducationKids || /kids-future|enfant|educatif|educative|comptine|histoire|parent|mini-jeu|mini jeu|story-world/.test(source)) {
-        if (!requestedVariant || ['product-dashboard', 'classic-conversion', 'warm-editorial'].includes(requestedVariant)) {
+    if (signals.isAccountingApp || /accounting-neural|comptabilite|comptable|facturation|tva|tresorerie/.test(source)) {
+        if (!safeRequestedVariant || ['product-dashboard', 'story-world', 'classic-conversion', 'warm-editorial', 'lumina-showcase'].includes(safeRequestedVariant)) {
+            return 'finance-os';
+        }
+    }
+
+    if (signals.isFutureBank) {
+        return 'finance-os';
+    }
+
+    if (signals.isEducationKids || /kids-future|comptine|mini-jeu|mini jeu/.test(source)) {
+        if (!safeRequestedVariant || ['product-dashboard', 'classic-conversion', 'warm-editorial', 'lumina-showcase'].includes(safeRequestedVariant)) {
             return 'story-world';
         }
     }
 
-    if (requestedVariant) {
-        return requestedVariant;
+    if (signals.isDreamPortal) {
+        return 'lumina-showcase';
+    }
+
+    if (!explicitSurfaceIntent) {
+        if (signals.isUnderwaterHotel || signals.isSpaceTourism || signals.isFloatingCity || signals.isExplorerAcademy || signals.isClimateLab || signals.isHotel || signals.isTravel || signals.isUrbanFarm) {
+            return 'cinematic-video';
+        }
+
+        if (signals.isImmersiveMuseum || signals.isArchitecture || signals.isLibrary) {
+            return 'gallery-focus';
+        }
+
+        if (signals.isRestaurant) {
+            return 'warm-editorial';
+        }
+
+        if (signals.isSport) {
+            return 'product-dashboard';
+        }
+
+        if (signals.isLegal || signals.isVeterinary) {
+            return safeRequestedVariant && safeRequestedVariant !== 'lumina-showcase'
+                ? safeRequestedVariant
+                : 'minimal-editorial';
+        }
+    }
+
+    if ((explicitSurfaceIntent || /lumina-future|lumina-showcase/.test(source)) && !signals.isAccountingApp && !signals.isEducationKids) {
+        if (!safeRequestedVariant || ['classic-conversion', 'minimal-editorial', 'luxury-asymmetric', 'warm-editorial', 'gallery-focus', 'story-world'].includes(safeRequestedVariant)) {
+            return 'lumina-showcase';
+        }
+    }
+
+    if (safeRequestedVariant) {
+        return safeRequestedVariant;
     }
 
     if (/video|cinematic|immersif|immersive|plein ecran|full bleed/.test(source) || signals.isHotel) {
@@ -13997,16 +15515,35 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
     const briefSignals = getKirbyBriefSignals(brief);
     const layoutVariant = getKirbyLayoutVariant(safeProposal, brief, false);
     const isDashboardPreview = layoutVariant === 'product-dashboard';
-    const isKidsFuturePreview = layoutVariant === 'story-world' || briefSignals.isEducationKids || /kids-future|enfant|educatif|educative|education|comptine|histoire|parent|mini-jeu|mini jeu|luna|leo|léo/.test(toneSource);
-    const previewTone = isKidsFuturePreview
+    const isFinancePreview = layoutVariant === 'finance-os';
+    const isDreamPreview = briefSignals.isDreamPortal;
+    const isLuminaPreview = !isDreamPreview && (layoutVariant === 'lumina-showcase' || /lumina-future|lumina-showcase/.test(toneSource));
+    const isKidsFuturePreview = !isFinancePreview && !isDreamPreview && ((layoutVariant === 'story-world' && briefSignals.isEducationKids) || briefSignals.isEducationKids || /kids-future|comptine|mini-jeu|mini jeu|luna|leo|léo/.test(toneSource));
+    const previewTone = isFinancePreview
+        ? 'is-finance-os'
+        : isKidsFuturePreview
         ? 'is-kids-future'
+        : isDreamPreview
+        ? 'is-dream-portal'
+        : briefSignals.isExplorerAcademy
+        ? 'is-adventure'
+        : briefSignals.isClimateLab
+        ? 'is-climate-lab'
+        : isLuminaPreview
+        ? 'is-lumina'
         : isDashboardPreview
         ? 'is-dashboard'
         : /tech-premium|digital|generateur|ia|site web|creation web/.test(toneSource)
         ? 'is-tech'
         : !briefSignals.isHotel && /beauty-wellness|estheticien|estheticienne|esthetique|beaute|massage|soin|epilation|spa|bien etre|bien-etre/.test(toneSource)
             ? 'is-beauty'
-            : '';
+            : /artisan|plombier|electricien|menuisier|peintre|charpentier|maconnerie|renovation|rge|travaux|btp/.test(toneSource)
+                ? 'is-artisan'
+                : /sport|fitness|coach|coaching|salle de sport|musculation|yoga|pilates|crossfit|running|performance/.test(toneSource)
+                    ? 'is-sport'
+                    : /hotel|hebergement|chambre|gite|lodge/.test(toneSource)
+                        ? 'is-hotel'
+                        : '';
     const sectorClass = `sector-${normalizeKirbyText(safeProposal.sectorKey || 'generic').replace(/[^a-z0-9-]/g, '-') || 'generic'}`;
     const dashboardInitials = cleanHtml(siteName
         .split(/\s+/)
@@ -14036,6 +15573,18 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
         'Merci de me dire ce qu’il faut ajuster pour lancer le projet.',
     ].join('\n');
     quoteParams.set('message', coherentContactMessage);
+    const actionsMarkup = `
+        <div class="kirby-preview-actions">
+            <span>${cleanHtml(primaryCta)}</span>
+            <span>${cleanHtml(secondaryCta)}</span>
+        </div>
+    `;
+    const footerMarkup = `
+        <footer class="kirby-live-footer">
+            <span>${cleanHtml(email)}</span>
+            <span>${cleanHtml(domain)}</span>
+        </footer>
+    `;
     const dashboardMenuItems = (visiblePageNames.length ? visiblePageNames : ['Vue d’ensemble', 'Offres', 'Clients', 'Contenus', 'Paramètres']).slice(0, 8);
     const dashboardKpis = [
         { label: visibleSections[0]?.title || 'Promesse', value: getKirbyShortText(primaryCta, 22), trend: safeProposal.positioning?.promise || safeProposal.valueProposition || 'Action principale visible' },
@@ -14052,6 +15601,141 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
         value: getKirbyShortText(getKirbyItemText(page), 34) || 'Page clé',
     }));
     const dashboardSegments = visibleSections.slice(0, 4).map((section) => getKirbyItemTitle(section)).filter(Boolean);
+    const isOrbitalFinancePreview = briefSignals.isFutureBank;
+    const financeMetrics = isOrbitalFinancePreview ? [
+        { label: 'Crédits lunaires', value: '4.2 M LCR', trend: '+12%' },
+        { label: 'Coffres actifs', value: '1 284', trend: 'Sécurisés' },
+        { label: 'Risque orbital', value: '2.8%', trend: 'Stable' },
+        { label: 'Colonies reliées', value: '7', trend: 'Lune + Mars' },
+    ] : [
+        { label: 'Chiffre d’affaires', value: '24 860 €', trend: '+18%' },
+        { label: 'Tresorerie', value: '12 430 €', trend: 'Stable' },
+        { label: 'TVA estimee', value: '3 180 €', trend: 'A prevoir' },
+        { label: 'Factures dues', value: '7', trend: '2 relances' },
+    ];
+    const financeDocs = isOrbitalFinancePreview ? [
+        { title: 'Coffre Luna-42', meta: 'Actif · scellé' },
+        { title: 'Crédit habitat', meta: 'Mars · prévalidé' },
+        { title: 'Identité orbitale', meta: 'Biométrie · OK' },
+        { title: 'Transit actifs', meta: 'Échéance · 3 cycles' },
+    ] : [
+        { title: 'Facture #2048', meta: 'Payee · 1 240 €' },
+        { title: 'Devis creation', meta: 'Signe · aujourd’hui' },
+        { title: 'Justificatif banque', meta: 'Importe · IA OK' },
+        { title: 'TVA juillet', meta: 'Echeance · 12 jours' },
+    ];
+    const financeWorkflow = isOrbitalFinancePreview ? [
+        'Vérifier identité orbitale',
+        'Simuler crédit colonie',
+        'Sceller le coffre',
+        'Synchroniser Mars',
+    ] : [
+        'Importer un justificatif',
+        'Rapprocher la transaction',
+        'Preparer la TVA',
+        'Exporter le dossier',
+    ];
+    const financeNavFallback = isOrbitalFinancePreview
+        ? ['Crédits', 'Coffres', 'Colonies', 'Identité', 'Sécurité']
+        : ['Apercu logiciel', 'Factures', 'Tresorerie', 'Assistant IA'];
+    const financeAssistantItems = isOrbitalFinancePreview
+        ? ['Risque orbital calculé', 'Identité validée', 'Coffre synchronisé']
+        : ['TVA anticipee', 'Anomalie detectee', 'Relance proposee'];
+    const financeBankRows = isOrbitalFinancePreview
+        ? [
+            ['Lune Alpha', '+840 LCR'],
+            ['Mars Nord', '2.1 M LCR'],
+            ['Coffres', '99.8%'],
+        ]
+        : [
+            ['Stripe', '+2 840 €'],
+            ['Compte pro', '12 430 €'],
+            ['Rapprochement', '96%'],
+        ];
+    const financePreview = `
+        <div class="kirby-finance-os" aria-label="Apercu interface finance ${cleanHtml(siteName)}">
+            <nav class="kirby-finance-nav">
+                <strong>${cleanHtml(siteName)}</strong>
+                <div>
+                    ${(visiblePageNames.length ? visiblePageNames : financeNavFallback).slice(0, 5).map((item) => `<span>${cleanHtml(getKirbyShortText(item, 18))}</span>`).join('')}
+                </div>
+                <em>IA active</em>
+            </nav>
+            <section class="kirby-finance-hero">
+                <div class="kirby-finance-copy">
+                    <p class="signal-label">${cleanHtml(siteModel.name)}</p>
+                    <h3>${cleanHtml(siteName)}</h3>
+                    <p>${cleanHtml(getKirbyShortText(safeProposal.valueProposition || safeProposal.slogan || (isOrbitalFinancePreview ? 'La banque des colonies lunaires et martiennes.' : 'La compta claire, enfin directe.'), 138))}</p>
+                    ${actionsMarkup}
+                </div>
+                <div class="kirby-finance-stage" aria-hidden="true">
+                    <article class="finance-window finance-window-main">
+                        <div class="finance-window-top"><span></span><span></span><span></span><b>${cleanHtml(getKirbyShortText(siteName, 18))}</b></div>
+                        <div class="finance-window-grid">
+                            ${financeMetrics.map((metric) => `
+                                <div>
+                                    <small>${cleanHtml(metric.label)}</small>
+                                    <strong>${cleanHtml(metric.value)}</strong>
+                                    <em>${cleanHtml(metric.trend)}</em>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <div class="finance-chart">
+                            <i style="--h: 48%"></i><i style="--h: 64%"></i><i style="--h: 58%"></i><i style="--h: 76%"></i><i style="--h: 70%"></i><i style="--h: 88%"></i>
+                        </div>
+                    </article>
+                    <article class="finance-window finance-window-ai">
+                        <div class="finance-window-top"><span></span><span></span><span></span><b>Assistant IA</b></div>
+                        <strong>${cleanHtml(getKirbyShortText(visibleSections[1]?.title || (isOrbitalFinancePreview ? 'IA de crédit orbital' : 'Assistant comptable'), 30))}</strong>
+                        <p>${cleanHtml(getKirbyShortText(visibleSections[1]?.text || (isOrbitalFinancePreview ? 'Crédits, coffres et risques de colonie sont simulés en temps réel.' : 'TVA, depenses et echeances expliquees en langage simple.'), 84))}</p>
+                        <ul>
+                            ${financeAssistantItems.map((item) => `<li>${cleanHtml(item)}</li>`).join('')}
+                        </ul>
+                    </article>
+                    <article class="finance-window finance-window-bank">
+                        <div class="finance-window-top"><span></span><span></span><span></span><b>${isOrbitalFinancePreview ? 'Colonies' : 'Banque'}</b></div>
+                        ${financeBankRows.map(([label, value]) => `<p><span>${cleanHtml(label)}</span><strong>${cleanHtml(value)}</strong></p>`).join('')}
+                    </article>
+                    <div class="finance-floating-docs">
+                        ${financeDocs.map((doc, index) => `
+                            <span class="doc-${index + 1}">
+                                <strong>${cleanHtml(doc.title)}</strong>
+                                <small>${cleanHtml(doc.meta)}</small>
+                            </span>
+                        `).join('')}
+                    </div>
+                    <div class="finance-glow-orbit"></div>
+                </div>
+            </section>
+            <section class="kirby-finance-story">
+                <article>
+                    <span>01</span>
+                    <strong>${cleanHtml(visibleSections[0]?.title || 'Apercu logiciel')}</strong>
+                    <p>${cleanHtml(getKirbyShortText(visibleSections[0]?.text || 'Une interface immersive montre les chiffres utiles sans tableau de bord generique.', 96))}</p>
+                </article>
+                <article>
+                    <span>02</span>
+                    <strong>${cleanHtml(visibleSections[2]?.title || 'Automatisation')}</strong>
+                    <p>${cleanHtml(getKirbyShortText(visibleSections[2]?.text || 'Documents, factures et transactions avancent dans un flux lisible.', 96))}</p>
+                </article>
+                <article>
+                    <span>03</span>
+                    <strong>Securite</strong>
+                    <p>Acces, exports, donnees et historique restent clairs pour chaque dossier.</p>
+                </article>
+            </section>
+            <section class="kirby-finance-automation">
+                <div>
+                    <p class="signal-label">${isOrbitalFinancePreview ? 'Infrastructure orbitale' : 'Automatisation'}</p>
+                    <strong>${isOrbitalFinancePreview ? 'Flux financier interplanétaire' : 'Flux comptable en direct'}</strong>
+                </div>
+                <ol>
+                    ${financeWorkflow.map((item) => `<li>${cleanHtml(item)}</li>`).join('')}
+                </ol>
+            </section>
+            ${footerMarkup}
+        </div>
+    `;
     const dashboardPreview = `
         <div class="kirby-dashboard-app" aria-label="Apercu application ${cleanHtml(siteName)}">
             <aside class="kirby-dashboard-sidebar">
@@ -14169,18 +15853,13 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
             </div>
         </nav>
     `;
-    const actionsMarkup = `
-        <div class="kirby-preview-actions">
-            <span>${cleanHtml(primaryCta)}</span>
-            <span>${cleanHtml(secondaryCta)}</span>
-        </div>
-    `;
     const sectionsMarkup = `
         <div class="kirby-live-sections">
-            ${visibleSections.slice(0, 3).map((section) => `
+            ${visibleSections.slice(0, 3).map((section, index) => `
                 <article>
+                    <em>${String(index + 1).padStart(2, '0')}</em>
                     <strong>${cleanHtml(getKirbyItemTitle(section))}</strong>
-                    <span>${cleanHtml(getKirbyShortText(getKirbyItemText(section), 68))}</span>
+                    <span>${cleanHtml(getKirbyShortText(getKirbyItemText(section), 72))}</span>
                 </article>
             `).join('')}
         </div>
@@ -14190,18 +15869,14 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
             ${galleryImageStyles.map((style) => `<span style="${style}"></span>`).join('')}
         </div>
     `;
-    const footerMarkup = `
-        <footer class="kirby-live-footer">
-            <span>${cleanHtml(email)}</span>
-            <span>${cleanHtml(domain)}</span>
-        </footer>
-    `;
+    const heroMetaText = cleanHtml(getKirbyShortText(safeProposal.positioning?.promise || safeProposal.valueProposition || '', 44));
     const heroCopyMarkup = `
         <div class="kirby-live-hero-copy">
             <p class="signal-label">${cleanHtml(siteModel.name)}</p>
             <h3>${cleanHtml(siteName)}</h3>
             <p class="kirby-slogan">${cleanHtml(safeProposal.slogan || '')}</p>
             ${actionsMarkup}
+            ${heroMetaText ? `<p class="kirby-hero-meta">${heroMetaText}</p>` : ''}
         </div>
     `;
     const kidsModuleCards = visibleSections.slice(0, 3).map((section, index) => ({
@@ -14267,12 +15942,139 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
         </div>
         ${footerMarkup}
     `;
+    const dreamModules = (visibleSections.length ? visibleSections : [
+        { title: 'Entrée onirique', text: 'Le visiteur comprend le rituel avant de traverser.' },
+        { title: 'Carte des rêves', text: 'Souvenirs, émotions et paysages deviennent explorables.' },
+        { title: 'Traversée guidée', text: 'La session reste mystérieuse, mais cadrée et rassurante.' },
+    ]).slice(0, 4);
+    const dreamPreview = `
+        <div class="kirby-dream-portal" aria-label="Aperçu immersif ${cleanHtml(siteName)}">
+            <nav class="kirby-dream-nav">
+                <strong>${cleanHtml(siteName)}</strong>
+                <div>
+                    ${visiblePageNames.slice(0, 4).map((pageName, index) => `<span class="${index === 0 ? 'is-active' : ''}">${cleanHtml(getKirbyShortText(pageName, 20))}</span>`).join('')}
+                </div>
+                <em>Portail actif</em>
+            </nav>
+            <section class="kirby-dream-hero">
+                <div class="kirby-dream-copy">
+                    <p class="signal-label">${cleanHtml(siteModel.name)}</p>
+                    <h3>${cleanHtml(siteName)}</h3>
+                    <p>${cleanHtml(getKirbyShortText(safeProposal.valueProposition || safeProposal.slogan || 'Visiter ses rêves comme une destination intérieure.', 150))}</p>
+                    ${actionsMarkup}
+                </div>
+                <div class="kirby-dream-stage" aria-hidden="true">
+                    <div class="dream-rift">
+                        <i></i><i></i><i></i><i></i>
+                    </div>
+                    <article class="dream-glass-card dream-card-a">
+                        <small>${cleanHtml(getKirbyShortText(dreamModules[0]?.title || 'Passage', 24))}</small>
+                        <strong>${cleanHtml(getKirbyShortText(dreamModules[0]?.text || 'Un passage lumineux se stabilise.', 70))}</strong>
+                    </article>
+                    <article class="dream-glass-card dream-card-b">
+                        <small>Carte onirique</small>
+                        <strong>${cleanHtml(getKirbyShortText(dreamModules[1]?.title || 'Univers de rêves', 34))}</strong>
+                        <span></span>
+                    </article>
+                    <article class="dream-glass-card dream-card-c">
+                        <small>Traversée</small>
+                        <strong>${cleanHtml(getKirbyShortText(primaryCta, 30))}</strong>
+                    </article>
+                </div>
+            </section>
+            <section class="kirby-dream-modules">
+                ${dreamModules.slice(0, 4).map((section, index) => `
+                    <article>
+                        <em>${String(index + 1).padStart(2, '0')}</em>
+                        <strong>${cleanHtml(getKirbyItemTitle(section))}</strong>
+                        <span>${cleanHtml(getKirbyShortText(getKirbyItemText(section), 78))}</span>
+                    </article>
+                `).join('')}
+            </section>
+            ${footerMarkup}
+        </div>
+    `;
+    const luminaModules = (visibleSections.length ? visibleSections : [
+        { title: primaryCta, text: safeProposal.valueProposition || safeProposal.summary || 'Direction construite depuis le brief.' },
+        { title: secondaryCta, text: safeProposal.positioning?.promise || 'Parcours clair et mémorable.' },
+        { title: tertiaryCta, text: safeProposal.visualConcept?.wowFactor || 'Expérience premium et lisible.' },
+    ]).slice(0, 4);
+    const luminaBadge = briefSignals.isHotel
+        ? 'Réservation'
+        : briefSignals.isTravel
+        ? 'Itinéraire'
+        : briefSignals.isLibrary
+        ? 'Lieu vivant'
+        : briefSignals.isUrbanFarm
+        ? 'Culture pilotée'
+        : /assistant|ia\b/.test(toneSource)
+        ? 'IA active'
+        : 'Concept vivant';
+    const luminaSupportLabel = /assistant|ia\b/.test(toneSource)
+        ? 'Assistant IA'
+        : briefSignals.isHotel
+        ? 'Séjour'
+        : briefSignals.isTravel
+        ? 'Parcours'
+        : briefSignals.isLibrary
+        ? 'Expérience'
+        : briefSignals.isUrbanFarm
+        ? 'Pilotage'
+        : 'Parcours';
+    const luminaPreview = `
+        <div class="kirby-lumina-showcase" aria-label="Aperçu premium ${cleanHtml(siteName)}">
+            <nav class="kirby-lumina-nav">
+                <strong>${cleanHtml(siteName)}</strong>
+                <div>
+                    ${visiblePageNames.slice(0, 5).map((pageName, index) => `<span class="${index === 0 ? 'is-active' : ''}">${cleanHtml(getKirbyShortText(pageName, 18))}</span>`).join('')}
+                </div>
+                <em>${cleanHtml(luminaBadge)}</em>
+            </nav>
+            <section class="kirby-lumina-hero">
+                <div class="kirby-lumina-copy">
+                    <p class="signal-label">${cleanHtml(siteModel.name)}</p>
+                    <h3>${cleanHtml(siteName)}</h3>
+                    <p>${cleanHtml(getKirbyShortText(safeProposal.valueProposition || safeProposal.slogan || 'Une expérience premium, claire et mémorable.', 150))}</p>
+                    ${actionsMarkup}
+                </div>
+                <div class="kirby-lumina-stage" aria-hidden="true">
+                    <div class="kirby-lumina-surface main-surface kirby-hero-image" style="${previewImageStyle}">
+                        <span></span>
+                        <strong>${cleanHtml(getKirbyShortText(primaryCta, 28))}</strong>
+                    </div>
+                    <article class="kirby-lumina-surface insight-surface">
+                        <small>${cleanHtml(getKirbyShortText(luminaModules[0]?.title || 'Signal', 22))}</small>
+                        <strong>${cleanHtml(getKirbyShortText(luminaModules[0]?.text || safeProposal.visualConcept?.wowFactor || 'Direction sur mesure.', 58))}</strong>
+                    </article>
+                    <article class="kirby-lumina-surface ai-surface">
+                        <small>${cleanHtml(luminaSupportLabel)}</small>
+                        <strong>${cleanHtml(getKirbyShortText(luminaModules[1]?.title || secondaryCta, 26))}</strong>
+                        <span>${cleanHtml(getKirbyShortText(luminaModules[1]?.text || safeProposal.positioning?.promise || 'Aide à choisir la bonne action.', 64))}</span>
+                    </article>
+                    <div class="kirby-lumina-route">
+                        <i></i><i></i><i></i>
+                    </div>
+                </div>
+            </section>
+            <section class="kirby-lumina-modules">
+                ${luminaModules.slice(0, 4).map((section, index) => `
+                    <article>
+                        <em>${String(index + 1).padStart(2, '0')}</em>
+                        <strong>${cleanHtml(getKirbyItemTitle(section))}</strong>
+                        <span>${cleanHtml(getKirbyShortText(getKirbyItemText(section), 78))}</span>
+                    </article>
+                `).join('')}
+            </section>
+            ${footerMarkup}
+        </div>
+    `;
     const classicPreview = `
         ${navMarkup}
         <section class="kirby-live-hero" style="${previewStyle.hero}">
             ${heroCopyMarkup}
             <div class="kirby-hero-visual kirby-hero-image" style="${previewStyle.visual} ${previewImageStyle}" aria-hidden="true">
                 <span></span><span></span><span></span>
+                <div class="kirby-hero-chip">${cleanHtml(getKirbyShortText(primaryCta, 22))}</div>
             </div>
         </section>
         ${sectionsMarkup}
@@ -14329,8 +16131,9 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
             </div>
         </section>
         <div class="kirby-minimal-list">
-            ${visibleSections.slice(0, 4).map((section) => `
+            ${visibleSections.slice(0, 4).map((section, index) => `
                 <article>
+                    <em>${String(index + 1).padStart(2, '0')}</em>
                     <strong>${cleanHtml(getKirbyItemTitle(section))}</strong>
                     <span>${cleanHtml(getKirbyShortText(getKirbyItemText(section), 92))}</span>
                 </article>
@@ -14347,10 +16150,13 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
                 <p>${cleanHtml(safeProposal.slogan || '')}</p>
                 ${actionsMarkup}
             </div>
-            <div class="kirby-asym-image kirby-hero-image" style="${previewImageStyle}" aria-hidden="true"></div>
+            <div class="kirby-asym-image kirby-hero-image" style="${previewImageStyle}" aria-hidden="true">
+                <div class="kirby-hero-chip">${cleanHtml(getKirbyShortText(primaryCta, 22))}</div>
+            </div>
             <div class="kirby-asym-stack">
-                ${visibleSections.slice(0, 2).map((section) => `
+                ${visibleSections.slice(0, 2).map((section, index) => `
                     <article>
+                        <em>${String(index + 1).padStart(2, '0')}</em>
                         <strong>${cleanHtml(getKirbyItemTitle(section))}</strong>
                         <span>${cleanHtml(getKirbyShortText(getKirbyItemText(section), 74))}</span>
                     </article>
@@ -14374,8 +16180,10 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
         ${sectionsMarkup}
         ${footerMarkup}
     `;
-    const websitePreview = isKidsFuturePreview ? kidsWorldPreview : isDashboardPreview ? dashboardPreview : ({
+    const websitePreview = isFinancePreview ? financePreview : isKidsFuturePreview ? kidsWorldPreview : isDreamPreview ? dreamPreview : isLuminaPreview ? luminaPreview : isDashboardPreview ? dashboardPreview : ({
+        'finance-os': financePreview,
         'story-world': kidsWorldPreview,
+        'lumina-showcase': luminaPreview,
         'cinematic-video': cinematicPreview,
         'gallery-focus': galleryPreview,
         'minimal-editorial': minimalPreview,

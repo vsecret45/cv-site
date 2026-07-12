@@ -24,6 +24,30 @@ const readBody = (request) =>
 const normalize = (value) => (typeof value === 'string' ? value.trim() : '');
 const normalizeText = (value) => normalize(value).replace(/\s+/g, ' ');
 const stripAccents = (value) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const isKidsEducationBrief = (value = '') => {
+    const source = stripAccents(normalizeText(value).toLowerCase());
+    const explicitKids = /\b(enfant|enfants|kid|kids|application enfant|app enfant|ecole maternelle|maternelle|creche|crèche|comptine|comptines|mini jeu|mini-jeu|jeux educatifs?|jeu educatif|espace parent|luna|leo|léo)\b/.test(source);
+    const educationTerms = /\b(educatif|educative|education|apprendre|apprentissage|histoire|histoires|parent|parents)\b/.test(source);
+    const childContext = /\b(enfant|enfants|kid|kids|maternelle|ecole|creche|crèche|comptine|comptines|mini jeu|mini-jeu|jeux?|luna|leo|léo)\b/.test(source);
+
+    return explicitKids || (educationTerms && childContext);
+};
+const hasLuminaCreativeIntent = (value = '') => /\b(figma make|make de figma|make figma|canvas|canvas pro|apple|macos|figma|lumina|luma|futur|future|futuriste|3d|4d|immersif|immersive|motion|anime|animé|animation|animations|waouh|wow|glass|glassmorphism|verre depoli|verre dépoli|transparent|transparence|translucide|surface|surfaces|holographique|artistique)\b/.test(stripAccents(normalizeText(value).toLowerCase()));
+const hasSurfaceDesignIntent = (value = '') => /\b(figma make|make de figma|make figma|canvas pro|apple|macos|figma|lumina|luma|glass|glassmorphism|verre depoli|verre dépoli|transparent|transparence|translucide|surface|surfaces|4d|holographique)\b/.test(stripAccents(normalizeText(value).toLowerCase()));
+const isBridalCoutureBrief = (value = '') => /\b(robe|robes|robe de mariee|robe de mariage|mariee|mariée|mariage|couture|haute couture|atelier couture|createur de robe|créateur de robe|creatrice de robe|créatrice de robe|collection mariee|collection mariée|bridal|wedding dress|essayage|essayages|voile|voiles|dentelle|soie|broderie|tulle|satin)\b/.test(stripAccents(normalizeText(value).toLowerCase()));
+const hasFutureBankIntent = (value = '') => {
+    const source = stripAccents(normalizeText(value).toLowerCase());
+    return /\b(banque|bank|credits|crédits|coffres|coffre|financier|finance)\b/.test(source)
+        && /\b(lune|lunaire|mars|colonies|colonie|interplanetaire|interplanétaire|orbital|spatial|spatiale|cosmos)\b/.test(source);
+};
+const hasAccountingIntent = (value = '') => {
+    const source = stripAccents(normalizeText(value).toLowerCase());
+    const accountingTerms = /\b(contadirect|compta|comptabilite|comptable|facture|factures|facturation|devis|tva|revenu|revenus|depense|depenses|charge|charges|transaction|transactions|tresorerie|resultat net|bilan|logiciel de compta|logiciel comptable|tableau de bord comptable|documents comptables)\b/.test(source);
+    const bankAccountingContext = /\b(banque|bank|transactions?)\b/.test(source)
+        && /\b(facture|factures|tva|compta|comptable|depense|depenses|revenu|revenus|tresorerie|devis|justificatif|justificatifs)\b/.test(source);
+
+    return !hasFutureBankIntent(value) && (accountingTerms || bankAccountingContext);
+};
 const cleanGeneratedText = (value) => normalize(value)
     .replace(/```[\s\S]*?```/g, ' ')
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
@@ -80,8 +104,22 @@ Priorite creativite :
 - Si une information manque, prends une initiative creative plausible et indique-la dans la proposition au lieu de rester vague.
 - Cree une direction visuelle premium specifique au projet : composition du hero, ambiance, contraste, rythme des sections, type d'images, micro-interactions, details de confiance.
 - Le resultat doit avoir un effet "waouh" commercial : moderne, clair, desirable, oriente action, jamais une page magazine decorative ni un formulaire pose sur un fond.
+- Une generation doit parfois surprendre l'utilisateur par une composition, une mise en scene ou une idee visuelle qu'il n'aurait pas imaginee lui-meme, tout en restant adaptee au metier. Cette surprise doit venir du secteur : matiere, lieu, geste, objet, parcours, donnees ou rituel client, jamais d'un effet gratuit.
+- Si le metier est rare, hybride ou invente, ne le ramene pas a "services / prestations / contact" par defaut. Extrais les indices concrets du brief, choisis un objet ou rituel central plausible, invente une mise en scene premium coherente, puis cree des pages et sections propres a ce monde.
+- Separe toujours le nom/marque du scenario metier. Le nom peut etre invente ou peu important ; il ne doit pas dicter la maquette. Ce qui guide le rendu : le metier demande, le rituel client, les objets visibles, les preuves, l'ambiance et l'action attendue.
 - Varie les sections, images conseillees, noms, CTA et mises en page selon le brief. Ne recycle pas toujours Accueil/Prestations/Contact si le projet appelle un parcours plus fort.
-- Choisis une vraie variante de layout adaptee au secteur : cinematic-video, gallery-focus, minimal-editorial, luxury-asymmetric, product-dashboard, warm-editorial ou classic-conversion.
+- Choisis d'abord une direction visuelle, puis seulement ensuite les sections : Apple/macOS glass, Figma/Lumina premium, startup futuriste, hotel premium, restaurant chaleureux, education enfant, cabinet juridique, comptabilite moderne, etc. Ces familles sont des inspirations, pas des templates figes.
+- Les rendus ambitieux doivent tendre vers deux familles premium : Canvas pro ou Lumina. Canvas pro = composition éditoriale très visuelle, grandes images, modules superposés, scène métier claire, rythme de présentation type design deck haut de gamme. Lumina = surfaces transparentes, verre, profondeur 4D, lumière cyan/turquoise, panneaux flottants, assistant IA ou données visibles. Choisis la famille selon le métier et le brief.
+- Niveau de finition attendu : une maquette doit donner l'impression d'une creation Figma Make/Canvas pro, avec surface principale travaillée, hierarchie nette, produit ou metier impossible a quitter des yeux, espacements maitrises, contraste lisible, détails premium et aucune zone remplie par habitude.
+- Avant de retourner le JSON, fais un controle qualite interne : si le premier ecran pourrait convenir a cinq autres metiers en changeant seulement le texte, il est trop generique. Recompose autour d'un objet, d'un geste, d'une matiere, d'un lieu ou d'une promesse propres au brief.
+- Ne decores pas un concept : prouve-le. Pour chaque brief, compare la sortie avec le metier demande et verifie trois preuves visibles : scene centrale propre au metier, actions/fonctions propres au metier, images ou objets propres au metier. Si une preuve manque, change la composition avant de repondre.
+- Pour les demandes inattendues ou fictives, raisonne en monde utile : lieu, utilisateur, rituel, technologie, preuve, conversion. Exemple : hotel sous-marin = suites, lumiere filtree, faune, reservation ; station spatiale = orbite, Terre, apesanteur, sejour ; ville flottante = quartiers, energie, mobilite, vie quotidienne ; musee augmente = artefacts, AR, billetterie ; banque lunaire = credits interplanetaires, coffres, identite, colonies ; reve = portail, traversee, carte onirique. Ne transforme pas ces univers en vitrine abstraite.
+- La personnalite vient du metier : une robe doit montrer couture et essayage, un hotel doit montrer sejour et reservation, une idee inventee doit montrer son objet central et son rituel d'usage. N'utilise jamais une photo de bureau, ordinateur ou reunion comme visuel par defaut sauf si le brief concerne vraiment un metier digital ou administratif.
+- La mise en page doit mettre en valeur ce que l'utilisateur vend ou imagine : hero focal, scene immersive, surfaces superposees, navigation adaptee, sections toutes differentes, puis conversion claire. Les cartes repetees sont seulement autorisees si elles servent une collection, une galerie ou un comparatif precis.
+- "Futuriste", "waouh" ou "premium" ne veut pas dire Lumina partout. Pour hotel, voyage, restaurant, bibliotheque, ferme urbaine, architecture ou metier sensoriel, garde une composition sectorielle forte sauf si l'utilisateur demande explicitement Lumina/Figma/Canvas/glass/surface/transparence.
+- Le champ signatureMoment sert a guider l'idee creative. Ne cree pas un bloc visible nomme "Signature" dans les textes ou sections, sauf si l'utilisateur le demande explicitement.
+- Les imageKeywords doivent etre concrets et non generiques : bibliotheque = livres, rayonnages, salle de lecture ; hotel sous-marin = ocean, suite vitree, lumiere aquatique, faune marine ; station spatiale = Terre, orbite, hublot, apesanteur ; ferme urbaine = plantes, serre, hydroponie, capteurs ; restaurant = assiette, cuisine, table ; jamais "professionnel au travail" par defaut.
+- Choisis une vraie variante de layout adaptee au secteur : finance-os, lumina-showcase, cinematic-video, gallery-focus, minimal-editorial, luxury-asymmetric, product-dashboard, warm-editorial ou classic-conversion.
 - Tu peux proposer une structure originale si elle sert mieux l'objectif client, mais garde le parcours compréhensible.
 
 Services disponibles :
@@ -113,11 +151,16 @@ Regles strictes :
 - Chaque proposition doit avoir une direction artistique identifiable et adaptee au metier : SaaS/digital, restaurant, coiffure, artisan, hotel, boutique, portfolio, etc.
 - Ne propose jamais de page hors sujet. Exemple : pas de "Chambres" sauf hotel, gite, chambre d'hote ou hebergement.
 - Pour un service digital, agence web, createur de site, IA, referencement, QR code, maintenance ou support technique : style moderne premium type SaaS, pages Accueil, Generateur IA ou Methode, Services, Exemples, Contact. Pas de boutique, pas de chambres, pas d'image mode.
-- Pour un logiciel, une application SaaS ou un dashboard, surtout comptabilite, facturation, devis, depenses, TVA, banque ou documents : ne genere pas une vitrine marketing. Genere un produit applicatif avec sidebar, tableau de bord, KPI, graphiques, listes, taches, assistant IA et modules metier.
-- Pour une application enfant, educative, apprentissage, jeux, histoires, comptines ou espace parent : ne genere jamais une page corporate ni une photo de bureau. Genere un univers produit immersif avec layoutVariant "story-world", visualMood "kids-future", modules Jeux/Histoires/Comptines, panneau Espace parent, couleurs futures douces, micro-interactions et parcours applicatif.
+- Une reference esthetique ne doit jamais contaminer le contenu metier. Exemple : si l'utilisateur cite Lumina, Apple ou Figma pour la qualite visuelle, tu peux reprendre profondeur, verre, lumiere, panneaux flottants et rythme premium, mais jamais les menus, mots ou scenarios d'un autre secteur.
+- Pour un logiciel, une application SaaS ou un dashboard, surtout comptabilite, facturation, devis, depenses, TVA, tresorerie ou documents : ne genere pas une vitrine marketing et ne force pas toujours la sidebar SaaS. Pour la comptabilite moderne, privilegie layoutVariant "finance-os" : scene applicative immersive avec grandes fenetres macOS superposees, factures, documents flottants, flux bancaires, widgets financiers, assistant IA visible, graphiques vivants, securite et automatisations. Tous les textes doivent rester lies a la comptabilite.
+- Le mot "banque" seul ne veut pas dire comptabilite. Si le brief parle de banque lunaire, colonies, Mars, Lune, credits interplanetaires ou coffres numeriques, produis une banque futuriste avec credits, coffres, identite, colonies et securite, sans TVA, factures ni devis.
+- Pour une demande explicitement Lumina, Figma, Apple/macOS, glassmorphism, transparent, 3D/4D ou surface : applique une direction "lumina-showcase" ou "lumina-future" au metier demande. Pour une demande seulement futuriste, immersive ou waouh, choisis d'abord le layout sectoriel le plus fort, puis ajoute profondeur, lumière et détails premium. N'utilise pas une page magazine classique, une grille Bootstrap ou des cartes repetitives.
+- Pour une application enfant seulement si le brief parle explicitement d'enfants, comptines, mini-jeux, ecole maternelle, espace parent ou application enfant : ne genere jamais une page corporate ni une photo de bureau. Genere un univers produit immersif avec layoutVariant "story-world", visualMood "kids-future", modules Jeux/Histoires/Comptines, panneau Espace parent, couleurs futures douces, micro-interactions et parcours applicatif. Le mot "histoire" seul, par exemple "histoire du chef", ne doit jamais declencher ce secteur.
+- Si le brief concerne comptabilite, factures, TVA, devis, tresorerie ou documents comptables, il est interdit d'utiliser : Jeux, Histoires, Comptines, Espace parent, Commencer a jouer, Apprentissage progressif, Monde a explorer ou Activites du jour.
 - Les images ou visuels conseilles doivent correspondre au secteur. Pour SA Creation Web : environnement digital, ordinateur, interface, equipe, maquette web, automatisation IA.
 - Pour une estheticienne, institut, soins, massage, epilation, beaute ou bien-etre : style doux et elegant, couleurs beige/rose poudre/dore leger, sections Soins du visage, Massages, Epilations, Tarifs, Zone d'intervention, Prise de rendez-vous, Avis clientes, Galerie avant/apres si pertinent. Le mot "boutique" peut simplement vouloir dire activite : ne propose pas e-commerce, panier ou catalogue sauf si la demande parle clairement de vendre des produits en ligne.
-- Pour un cabinet d'avocat : ambiance sobre, bleu fonce, blanc, confiance, pages Expertise, Honoraires, Rendez-vous, Contact. Pour une salle de sport : style energique, noir/orange, planning, coachs, abonnements, essai. Pour un restaurant italien : ambiance chaude, menu, reservation, photos, horaires, avis.
+- Pour un cabinet d'avocat : ambiance sobre, bleu fonce, blanc, confiance, pages Expertise, Honoraires, Rendez-vous, Contact, et images juridiques uniquement. Pour une salle de sport : style energique, planning, coachs, nutrition, abonnements, espace membre. Pour un restaurant gastronomique : ambiance sensorielle, menu interactif, reservation, photos culinaires, histoire du chef et jamais story-world enfant. Pour une agence de voyages : grandes videos, destinations, carte interactive, itineraires, assistant IA voyage.
+- Pour robe de mariee, mariage, couture, haute couture, atelier, essayage ou collection mariee : direction couture mariage premium. Pages Collections, Robes sur mesure, Essayages prives, Atelier, Galerie, Rendez-vous. Visuels robes, tissus, dentelle, soie, broderie, voile, mannequin, showroom ou essayage. Interdiction stricte : ordinateur, reunion, bureau corporate, dashboard, SaaS, photo de consultant ou image de startup.
 - Reste clair, concret, commercial, simple a comprendre.
 - Ecris court : les textes visibles doivent etre premium, directs, sans gros paragraphes.
 - Les titres doivent etre courts et forts. Les slogans doivent tenir en 8 mots maximum.
@@ -162,9 +205,10 @@ Schema JSON attendu :
     "imageKeywords": ["type d'image sectorielle a utiliser"],
     "layoutSignature": "signature de mise en page differenciante",
     "microInteractions": ["interaction discrete premium"],
+    "signatureMoment": "idee visuelle memorable propre au metier",
     "wowFactor": "detail qui rend l'aperçu memorable"
   },
-  "layoutVariant": "story-world | cinematic-video | gallery-focus | minimal-editorial | luxury-asymmetric | product-dashboard | warm-editorial | classic-conversion",
+  "layoutVariant": "finance-os | story-world | lumina-showcase | cinematic-video | gallery-focus | minimal-editorial | luxury-asymmetric | product-dashboard | warm-editorial | classic-conversion",
   "siteModel": {
     "name": "nom du modele de site",
     "description": "description courte du modele",
@@ -336,12 +380,66 @@ Schema JSON obligatoire :
 
 const getActivityWords = (brief) => {
     const cleanBrief = stripAccents(brief.toLowerCase());
+    if (hasFutureBankIntent(brief)) {
+        return 'banque interplanetaire';
+    }
+
+    if (hasAccountingIntent(brief)) {
+        return 'logiciel de comptabilite';
+    }
+
+    if (isKidsEducationBrief(brief)) {
+        return 'application educative enfant';
+    }
+
+    if (isBridalCoutureBrief(brief)) {
+        return 'atelier de robes de mariee haute couture';
+    }
+
     const knownActivities = [
         ['coiffeuse', 'salon de coiffure'],
         ['coiffeur', 'salon de coiffure'],
         ['fleuriste', 'fleuriste'],
         ['restaurant', 'restaurant'],
         ['menu', 'restaurant'],
+        ['bibliotheque', 'bibliotheque immersive'],
+        ['bibliothèque', 'bibliotheque immersive'],
+        ['mediatheque', 'bibliotheque immersive'],
+        ['médiathèque', 'bibliotheque immersive'],
+        ['livres', 'bibliotheque immersive'],
+        ['lecture', 'bibliotheque immersive'],
+        ['ferme urbaine', 'ferme urbaine intelligente'],
+        ['ferme verticale', 'ferme urbaine intelligente'],
+        ['station spatiale', 'station spatiale touristique'],
+        ['tourisme spatial', 'station spatiale touristique'],
+        ['ville flottante', 'cite flottante autonome'],
+        ['cité flottante', 'cite flottante autonome'],
+        ['musee', 'musee immersif'],
+        ['musée', 'musee immersif'],
+        ['archeologie', 'musee immersif'],
+        ['archéologie', 'musee immersif'],
+        ['portail des reves', 'experience de reve immersive'],
+        ['portail des rêves', 'experience de reve immersive'],
+        ['hotel sous marin', 'hotel sous-marin de luxe'],
+        ['hôtel sous-marin', 'hotel sous-marin de luxe'],
+        ['hydropon', 'ferme urbaine intelligente'],
+        ['agriculture urbaine', 'ferme urbaine intelligente'],
+        ['agence de voyage', 'agence de voyages sur mesure'],
+        ['voyage', 'agence de voyages sur mesure'],
+        ['destination', 'agence de voyages sur mesure'],
+        ['jardin suspendu', 'jardins suspendus intelligents'],
+        ['jardins suspendus', 'jardins suspendus intelligents'],
+        ['balcon', 'jardins suspendus intelligents'],
+        ['plante', 'jardins suspendus intelligents'],
+        ['capteur', 'jardins connectés'],
+        ['architecte', 'cabinet d architecture'],
+        ['architecture', 'cabinet d architecture'],
+        ['avocat', 'cabinet d avocats'],
+        ['juridique', 'cabinet d avocats'],
+        ['veterinaire', 'clinique veterinaire'],
+        ['vétérinaire', 'clinique veterinaire'],
+        ['salle de sport', 'salle de sport'],
+        ['fitness', 'salle de sport'],
         ['coach', 'coach'],
         ['photographe', 'photographe'],
         ['artisan', 'artisan'],
@@ -359,12 +457,6 @@ const getActivityWords = (brief) => {
         ['boutique', 'boutique'],
         ['cv', 'CV et portfolio'],
         ['portfolio', 'portfolio'],
-        ['enfant', 'application educative enfant'],
-        ['educatif', 'application educative enfant'],
-        ['educative', 'application educative enfant'],
-        ['comptine', 'application educative enfant'],
-        ['histoires', 'application educative enfant'],
-        ['apprentissage', 'application educative enfant'],
     ];
     const found = knownActivities.find(([keyword]) => cleanBrief.includes(keyword));
 
@@ -375,7 +467,7 @@ const getActivityWords = (brief) => {
     const compact = brief
         .replace(/[^\p{L}\p{N}\s'-]/gu, ' ')
         .split(/\s+/)
-        .filter((word) => word.length > 3 && !/^(pour|avec|dans|faire|veux|avoir|site|page|client|clients|projet)$/i.test(word));
+        .filter((word) => word.length > 3 && !/^(creer|créer|concevoir|realiser|réaliser|pour|avec|dans|faire|veux|avoir|site|page|client|clients|projet|premium|moderne|futuriste|immersif|immersive)$/i.test(word));
 
     return compact.slice(0, 3).join(' ') || 'activité professionnelle';
 };
@@ -392,22 +484,37 @@ const buildFallbackProposal = (brief) => {
     const lowerBrief = stripAccents(brief.toLowerCase());
     const sectorKey = detectFallbackSector(brief);
     const needsAppointment = /\b(rdv|rendez|reservation|creneau|agenda|coiff|coach|institut|beaute|consultation)\b/.test(lowerBrief);
-    const needsHotel = /\b(hotel|hôtel|chambre|hebergement|hébergement|gite|gîte|sejour|séjour|touristique)\b/.test(lowerBrief);
+    const needsTravelAgency = /\b(voyage|voyages|tourisme|destination|destinations|itineraire|itinéraire|sejour sur mesure|séjour sur mesure|road trip|circuit|circuits|safari|agence de voyage|agence voyages|voyage sur mesure|voyages sur mesure)\b/.test(lowerBrief);
+    const needsHotel = !needsTravelAgency && /\b(hotel|hôtel|chambre|hebergement|hébergement|gite|gîte|sejour|séjour|touristique)\b/.test(lowerBrief);
     const needsWordPress = /\b(wordpress|wp|cms|refonte)\b/.test(lowerBrief);
-    const needsShop = /\b(boutique|vendre|vente|commande|produit|panier|paiement|catalogue)\b/.test(lowerBrief);
+    const needsBridalCouture = isBridalCoutureBrief(brief);
+    const needsShop = !needsBridalCouture && /\b(boutique|vendre|vente|commande|produit|panier|paiement|catalogue)\b/.test(lowerBrief);
     const needsMenu = /\b(menu|restaurant|carte|plat|tarif|prix)\b/.test(lowerBrief);
     const needsPortfolio = /\b(cv|portfolio|book|realisations|candidat|candidate)\b/.test(lowerBrief);
     const needsArchitecture = /\b(architect|architecture|architecte|arquitecto|interieur|intérieur|design d interieur|design d'intérieur|decorateur|decoratrice|decoration|décoration|maitre d oeuvre|maître d oeuvre)\b/.test(lowerBrief);
+    const needsLegal = /\b(avocat|avocats|cabinet d avocat|cabinet d'avocat|juridique|droit|juriste|notaire|honoraires|contentieux)\b/.test(lowerBrief);
+    const needsSport = /\b(salle de sport|fitness|coach sportif|coaching|nutrition|musculation|performance|performances|cours collectifs|espace membre)\b/.test(lowerBrief);
+    const needsVeterinary = /\b(veterinaire|vétérinaire|clinique veterinaire|clinique vétérinaire|urgence veterinaire|urgences veterinaires|fiches animaux|soins veterinaires)\b/.test(lowerBrief);
     const needsQr = /\b(qr|qrcode|scan|scanner|flyer|partager)\b/.test(lowerBrief);
     const needsClientSpace = /\b(espace client|compte client|suivi|document|documents|connexion|prive|privé)\b/.test(lowerBrief);
     const needsAiAssistant = /\b(assistant|ia|automatiser|automatisation|questions|support|chat)\b/.test(lowerBrief);
+    const needsFutureBank = hasFutureBankIntent(brief);
+    const needsAccountingApp = !needsFutureBank && hasAccountingIntent(brief);
     const needsWellness = /\b(yoga|pilates|bien etre|bien-être|spa|massage|meditation|méditation|relaxation|soin|soins)\b/.test(lowerBrief);
     const needsWorkshops = /\b(atelier|ateliers|stage|stages|evenement|événement|evenements|événements|session speciale|session spéciale)\b/.test(lowerBrief);
     const needsPricing = /\b(tarif|tarifs|prix|formule|formules|abonnement|abonnements|offre|offres)\b/.test(lowerBrief);
     const needsGallery = /\b(photo|photos|image|images|galerie|portfolio|realisation|réalisation|realisations|réalisations|lieu|local|avant apres|avant-apres)\b/.test(lowerBrief);
     const needsImmersive = /\b(immersif|immersive|grande image|grandes images|plein ecran|plein écran|cinematic|impact|waouh|wow)\b/.test(lowerBrief);
-    const needsKidsEducation = /\b(enfant|enfants|kid|kids|educatif|educative|education|ecole|maternelle|apprendre|apprentissage|comptine|comptines|histoire|histoires|parent|parents|mini jeu|mini-jeu|application enfant|app enfant|luna|leo|léo)\b/.test(lowerBrief);
-    const needsFutureExperience = /\b(figma|luma|futur|future|futuriste|3d|immersif|immersive|interactif|interaction|motion|anime|animé|univers|personnalite|personnalité|waouh|wow)\b/.test(lowerBrief);
+    const needsKidsEducation = !needsAccountingApp && isKidsEducationBrief(brief);
+    const needsFutureExperience = hasLuminaCreativeIntent(brief);
+    const needsDesignCraft = /\b(figma make|make de figma|canvas pro|lumina|super design|beau design|design premium|design unique|personnalite|personnalité|waouh|whaou|wow|surface|surfaces|4d|transparent|transparence|creative|creatif|créatif|artistique)\b/.test(lowerBrief);
+    const needsSurfaceDesign = hasSurfaceDesignIntent(brief);
+    const needsLuminaCreative = !needsAccountingApp && !needsFutureBank && !needsKidsEducation && needsFutureExperience;
+    const needsLibraryConcept = /\b(bibliotheque|bibliothèque|mediatheque|médiathèque|livre|livres|lecture|lecteur|lecteurs|librairie|rayonnage|rayonnages|archives)\b/.test(lowerBrief);
+    const needsUrbanFarmConcept = /\b(ferme urbaine|ferme verticale|agritech|agriculture urbaine|hydropon|aeropon|aéropon|serre|serres|culture eclair|culture éclair)\b/.test(lowerBrief);
+    const needsGardenConcept = /\b(jardin|jardins|plante|plantes|balcon|balcons|vegetal|végétal|terrasse|capteur|capteurs|diagnostic ia|rendu 3d)\b/.test(lowerBrief);
+    const needsCustomConcept = !needsAccountingApp && !needsFutureBank && !needsKidsEducation && !needsTravelAgency && !needsLegal && !needsVeterinary && !needsSport && !needsHotel && !needsMenu && !needsArchitecture && !needsShop && !needsPortfolio && (needsLibraryConcept || needsUrbanFarmConcept || needsGardenConcept || needsFutureExperience || lowerBrief.length > 120);
+    const customConceptName = needsLibraryConcept ? 'bibliotheque immersive' : needsUrbanFarmConcept ? 'ferme urbaine intelligente' : needsGardenConcept ? 'jardins suspendus intelligents' : activity;
     const inferredContext = inferOpenAiBriefContext(brief);
     const styleHint = inferredContext.styleHints[0] || inferredContext.moodHints[0] || 'direction moderne claire';
     const sectionHint = inferredContext.sectionHints.length ? inferredContext.sectionHints.join(', ') : 'sections utiles au parcours client';
@@ -423,14 +530,60 @@ const buildFallbackProposal = (brief) => {
         : nameBase.length > 28
             ? `Studio ${nameBase.split(/\s+/)[0]}`
             : nameBase;
-    const mainAction = needsKidsEducation ? 'Commencer à jouer' : needsHotel ? 'Réserver une chambre' : needsMenu && needsAppointment ? 'Réserver une table' : needsMenu ? 'Voir la carte' : needsShop ? 'Commander en ligne' : needsAppointment ? 'Prendre rendez-vous' : 'Demander une information';
-    const pages = needsKidsEducation ? [
+    const mainAction = needsAccountingApp ? 'Voir la démo IA' : needsFutureBank ? 'Ouvrir un coffre' : needsKidsEducation ? 'Commencer à jouer' : needsBridalCouture ? 'Réserver un essayage' : needsCustomConcept ? 'Créer mon concept' : needsTravelAgency ? 'Créer mon itinéraire' : needsSport ? 'Réserver un essai' : needsLegal || needsVeterinary ? 'Prendre rendez-vous' : needsHotel ? 'Réserver une chambre' : needsMenu && needsAppointment ? 'Réserver une table' : needsMenu ? 'Voir la carte' : needsShop ? 'Commander en ligne' : needsAppointment ? 'Prendre rendez-vous' : 'Demander une information';
+    const pages = needsAccountingApp ? [
+        { name: 'Aperçu logiciel', goal: 'Montrer l’interface, les fenêtres financières et les actions rapides.' },
+        { name: 'Factures & devis', goal: 'Créer, envoyer, relancer et suivre les documents commerciaux.' },
+        { name: 'Trésorerie', goal: 'Suivre chiffre d’affaires, dépenses, solde et prévisions.' },
+        { name: 'Assistant IA', goal: 'Expliquer les dépenses, échéances, TVA et anomalies.' },
+        { name: 'Automatisations', goal: 'Importer justificatifs, rapprocher transactions et préparer les échéances.' },
+        { name: 'Sécurité', goal: 'Rassurer sur accès, données, exports et confidentialité.' },
+        { name: 'Contact', goal: 'Prévoir une demande de démo ou cadrage projet.' },
+    ] : needsKidsEducation ? [
         { name: 'Accueil', goal: 'Présenter l’univers, la promesse éducative et l’entrée vers le jeu.' },
         { name: 'Jeux', goal: 'Afficher les mini-jeux, niveaux et compétences travaillées.' },
         { name: 'Histoires', goal: 'Présenter les récits interactifs, personnages et choix simples.' },
         { name: 'Comptines', goal: 'Proposer un espace audio doux, sécurisé et rassurant.' },
         { name: 'Espace parent', goal: 'Montrer progression, profils, temps d’écran et réglages.' },
         { name: 'Contact', goal: 'Permettre aux parents ou partenaires de poser une question.' },
+    ] : needsCustomConcept ? [
+        { name: 'Accueil', goal: `Mettre en scène le concept ${customConceptName} avec un visuel signature.` },
+        { name: needsGardenConcept ? 'Diagnostic balcon IA' : 'Diagnostic IA', goal: 'Comprendre la situation, les contraintes et le besoin avant recommandation.' },
+        { name: needsGardenConcept ? 'Rendu 3D' : 'Simulation', goal: 'Projeter le résultat avec une scène visuelle claire et désirable.' },
+        { name: needsGardenConcept ? 'Abonnement plantes' : 'Offres évolutives', goal: 'Présenter les formules, le suivi et les services récurrents.' },
+        { name: needsGardenConcept ? 'Suivi capteurs' : 'Suivi intelligent', goal: 'Rendre visible l’accompagnement, les alertes et les données utiles.' },
+        { name: 'Réalisations', goal: 'Montrer des exemples, preuves visuelles ou transformations.' },
+        { name: 'Contact', goal: 'Déclencher une demande qualifiée.' },
+    ] : needsTravelAgency ? [
+        { name: 'Accueil', goal: 'Créer l’envie avec une scène immersive, vidéo et action sur mesure.' },
+        { name: 'Destinations', goal: 'Présenter les destinations par ambiance, saison et expérience.' },
+        { name: 'Itinéraires', goal: 'Montrer des parcours personnalisables, étapes et temps forts.' },
+        { name: 'Carte interactive', goal: 'Explorer destinations, trajets et points d’intérêt.' },
+        { name: 'Assistant IA voyage', goal: 'Guider les envies, dates, budget et style de séjour.' },
+        { name: 'Témoignages', goal: 'Rassurer avec des retours clients et preuves de confiance.' },
+        { name: 'Contact voyage', goal: 'Transformer l’envie en demande qualifiée.' },
+    ] : needsLegal ? [
+        { name: 'Accueil', goal: 'Installer crédibilité, clarté et rendez-vous confidentiel.' },
+        { name: 'Expertises', goal: 'Présenter les domaines de droit et les situations accompagnées.' },
+        { name: 'Équipe', goal: 'Mettre en avant les avocats, parcours et spécialités.' },
+        { name: 'Honoraires', goal: 'Expliquer les modalités et lever les inquiétudes.' },
+        { name: 'Actualités juridiques', goal: 'Publier analyses, informations et preuves d’expertise.' },
+        { name: 'Rendez-vous', goal: 'Permettre une demande confidentielle et structurée.' },
+        { name: 'Contact', goal: 'Donner accès, coordonnées et formulaire.' },
+    ] : needsVeterinary ? [
+        { name: 'Accueil', goal: 'Rassurer et orienter vers rendez-vous ou urgence.' },
+        { name: 'Rendez-vous', goal: 'Permettre une demande rapide et lisible.' },
+        { name: 'Urgences', goal: 'Afficher les consignes et contacts prioritaires.' },
+        { name: 'Équipe', goal: 'Présenter les praticiens et la relation humaine.' },
+        { name: 'Conseils', goal: 'Regrouper prévention, suivi et fiches utiles.' },
+        { name: 'Contact', goal: 'Donner accès, horaires, téléphone et formulaire.' },
+    ] : needsSport ? [
+        { name: 'Accueil', goal: 'Montrer énergie, coaching et essai visible.' },
+        { name: 'Cours', goal: 'Afficher planning, réservation et niveaux.' },
+        { name: 'Coaching', goal: 'Présenter accompagnement, nutrition et objectifs.' },
+        { name: 'Espace membre', goal: 'Suivre performances, séances et progression.' },
+        { name: 'Abonnements', goal: 'Comparer offres et accès.' },
+        { name: 'Contact', goal: 'Réserver un essai ou poser une question.' },
     ] : needsHotel ? [
         { name: 'Accueil', goal: "Présenter l'hôtel, l'ambiance et le bouton de réservation." },
         { name: 'Chambres', goal: 'Montrer les chambres, équipements, photos et capacités.' },
@@ -504,6 +657,75 @@ const buildFallbackProposal = (brief) => {
         );
     }
 
+    if (needsTravelAgency) {
+        recommendedServices.splice(
+            0,
+            recommendedServices.length,
+            { name: 'Site vitrine premium', reason: 'Installer une image haut de gamme et donner envie de voyager.', priceFrom: 'Offre Signature' },
+            { name: 'Galerie vidéo immersive', reason: 'Le voyage se vend par projection visuelle et émotion.', priceFrom: 'Projet spécifique' },
+            { name: 'Carte interactive', reason: 'Rendre destinations, étapes et trajets explorables.', priceFrom: 'Projet spécifique' },
+            { name: 'Assistant IA métier', reason: 'Aider le visiteur à construire un itinéraire personnalisé.', priceFrom: 'Projet spécifique' },
+            { name: 'Formulaire voyage sur mesure', reason: 'Qualifier envies, dates, budget et niveau d’accompagnement.', priceFrom: 'Projet spécifique' },
+        );
+    }
+
+    if (needsLegal) {
+        recommendedServices.splice(
+            0,
+            recommendedServices.length,
+            { name: 'Site vitrine premium', reason: 'Créer confiance, clarté et crédibilité.', priceFrom: 'Offre Pro' },
+            { name: 'Prise de rendez-vous', reason: 'Transformer une visite en demande confidentielle.', priceFrom: 'Projet spécifique' },
+            { name: 'Actualités juridiques', reason: 'Valoriser l’expertise et le référencement.', priceFrom: 'Option' },
+            { name: 'Pages expertises', reason: 'Structurer les domaines de droit de manière lisible.', priceFrom: 'Inclus selon offre' },
+        );
+    }
+
+    if (needsVeterinary) {
+        recommendedServices.splice(
+            0,
+            recommendedServices.length,
+            { name: 'Prise de rendez-vous', reason: 'Organiser les demandes rapidement.', priceFrom: 'Projet spécifique' },
+            { name: 'Page urgences', reason: 'Rendre les informations prioritaires accessibles vite.', priceFrom: 'Inclus selon offre' },
+            { name: 'Pages conseils', reason: 'Rassurer et répondre aux questions fréquentes.', priceFrom: 'Option' },
+            { name: 'Google Maps et horaires', reason: 'Faciliter l’accès à la clinique.', priceFrom: 'Inclus selon offre' },
+        );
+    }
+
+    if (needsSport) {
+        recommendedServices.splice(
+            0,
+            recommendedServices.length,
+            { name: 'Planning de cours', reason: 'Rendre les séances visibles et réservables.', priceFrom: 'Projet spécifique' },
+            { name: 'Espace membre simple', reason: 'Suivre réservations, progression et abonnements.', priceFrom: 'Projet spécifique' },
+            { name: 'Tunnel essai', reason: 'Convertir les visiteurs en séance découverte.', priceFrom: 'Offre Pro' },
+            { name: 'Formules d’abonnement', reason: 'Comparer les offres clairement.', priceFrom: 'Inclus selon offre' },
+        );
+    }
+
+    if (needsCustomConcept) {
+        recommendedServices.splice(
+            0,
+            recommendedServices.length,
+            { name: 'Site vitrine premium', reason: 'Expliquer un concept atypique avec un scénario visuel clair.', priceFrom: 'Offre Signature' },
+            { name: 'Assistant IA métier', reason: 'Guider le visiteur dans le diagnostic et la recommandation.', priceFrom: 'Projet spécifique' },
+            { name: 'Galerie immersive', reason: 'Montrer le résultat attendu au lieu de rester abstrait.', priceFrom: 'Projet spécifique' },
+            { name: 'Formulaire intelligent', reason: 'Qualifier contraintes, objectifs, budget et suivi souhaité.', priceFrom: 'Projet spécifique' },
+            { name: 'Espace client simple', reason: 'Suivre demandes, abonnements, documents ou données utiles.', priceFrom: 'Projet spécifique' },
+        );
+    }
+
+    if (needsAccountingApp) {
+        recommendedServices.splice(
+            0,
+            recommendedServices.length,
+            { name: 'Interface produit sur mesure', reason: 'Le projet doit montrer un vrai logiciel comptable, pas une vitrine.', priceFrom: 'Projet spécifique' },
+            { name: 'Assistant IA métier', reason: 'Utile pour expliquer dépenses, TVA, échéances et anomalies.', priceFrom: 'Projet spécifique' },
+            { name: 'Espace client simple', reason: 'Nécessaire pour sauvegarder documents, préférences et historiques.', priceFrom: 'Projet spécifique' },
+            { name: 'Import documents', reason: 'Factures, justificatifs et contrats doivent être centralisés.', priceFrom: 'Projet spécifique' },
+            { name: 'Connexion bancaire', reason: 'Pertinent pour rapprocher transactions, soldes et trésorerie.', priceFrom: 'Projet spécifique' },
+        );
+    }
+
     if (needsKidsEducation) {
         recommendedServices.splice(
             0,
@@ -560,56 +782,89 @@ const buildFallbackProposal = (brief) => {
         metaDescription: `${siteName} présente ${activity}, les services, les informations utiles et un contact direct pour ${mainAction.toLowerCase()}.`,
     };
 
-    return {
+    const sanitized = {
         mode: 'fallback',
         sectorKey,
-        projectType: needsKidsEducation ? 'Application éducative immersive enfant' : needsHotel ? 'Site hôtel avec réservation' : needsArchitecture ? 'Site premium pour studio d’architecture' : needsShop ? 'Boutique en ligne simple' : needsPortfolio ? 'CV ou portfolio en ligne' : needsAppointment ? 'Site avec prise de rendez-vous' : needsWordPress ? 'Site WordPress professionnel' : 'Site vitrine professionnel',
-        layoutVariant: needsKidsEducation ? 'story-world' : needsImmersive || needsHotel ? 'cinematic-video' : needsArchitecture || needsGallery ? 'gallery-focus' : needsMenu || needsWellness ? 'warm-editorial' : needsShop ? 'classic-conversion' : 'classic-conversion',
-        visualMood: needsKidsEducation ? 'kids-future' : needsArchitecture ? 'image-led' : needsHotel ? 'premium' : needsMenu ? 'warm' : needsWellness ? 'beauty-wellness' : needsAiAssistant ? 'tech-premium' : needsPortfolio ? 'image-led' : 'corporate',
+        projectType: needsAccountingApp ? 'Application comptable IA premium' : needsFutureBank ? 'Banque interplanétaire futuriste' : needsKidsEducation ? 'Application éducative immersive enfant' : needsCustomConcept ? 'Site concept métier immersif' : needsTravelAgency ? 'Site premium voyage sur mesure' : needsLegal ? 'Site juridique professionnel' : needsVeterinary ? 'Site clinique avec rendez-vous' : needsSport ? 'Plateforme fitness avec espace membre' : needsHotel ? 'Site hôtel avec réservation' : needsMenu ? 'Site restaurant avec réservation' : needsArchitecture ? 'Site premium pour studio d’architecture' : needsShop ? 'Boutique en ligne simple' : needsPortfolio ? 'CV ou portfolio en ligne' : needsAppointment ? 'Site avec prise de rendez-vous' : needsWordPress ? 'Site WordPress professionnel' : 'Site vitrine professionnel',
+        layoutVariant: needsAccountingApp || needsFutureBank ? 'finance-os' : needsKidsEducation ? 'story-world' : needsTravelAgency || needsImmersive || needsHotel || needsUrbanFarmConcept ? 'cinematic-video' : needsArchitecture || needsGallery || needsLibraryConcept ? 'gallery-focus' : needsSport ? 'product-dashboard' : needsMenu || needsWellness ? 'warm-editorial' : needsCustomConcept ? (needsSurfaceDesign ? 'lumina-showcase' : 'luxury-asymmetric') : needsLuminaCreative && needsSurfaceDesign ? 'lumina-showcase' : needsShop ? 'classic-conversion' : 'luxury-asymmetric',
+        visualMood: needsAccountingApp ? 'accounting-neural' : needsFutureBank ? 'orbital-finance' : needsKidsEducation ? 'kids-future' : needsCustomConcept ? 'concept-lumina' : needsLuminaCreative ? 'lumina-future' : needsTravelAgency ? 'travel-premium' : needsLegal ? 'legal-premium' : needsVeterinary ? 'care-premium' : needsSport ? 'performance-premium' : needsArchitecture ? 'image-led' : needsHotel ? 'premium' : needsMenu ? 'warm' : needsWellness ? 'beauty-wellness' : needsAiAssistant ? 'tech-premium' : needsPortfolio ? 'image-led' : needsDesignCraft ? 'crafted-premium' : 'crafted-premium',
         designVariant: lowerBrief.length % 5,
         visualSeed: `${activity}:${lowerBrief.length}:${mainAction}`,
-        showGallery: needsKidsEducation || needsHotel || needsArchitecture || needsMenu || needsPortfolio || needsGallery,
+        showGallery: needsKidsEducation || needsCustomConcept || needsLuminaCreative || needsDesignCraft || needsTravelAgency || needsHotel || needsArchitecture || needsMenu || needsPortfolio || needsGallery,
         siteName,
-        slogan: needsKidsEducation ? 'Apprendre en jouant, tout doucement.' : needsArchitecture ? 'Concevoir des espaces singuliers, durables et mémorables.' : needsShop ? `Des produits clairs, faciles à découvrir et commander.` : `Une présence claire pour présenter ${activity} et recevoir des contacts.`,
+        slogan: needsAccountingApp ? 'La compta claire, enfin directe.' : needsFutureBank ? 'La finance des colonies, sans frontière.' : needsKidsEducation ? 'Apprendre en jouant, tout doucement.' : needsCustomConcept ? (needsGardenConcept ? 'Des balcons minuscules, des jardins vivants.' : 'Une idée rare, rendue visible.') : needsTravelAgency ? 'Des voyages dessinés autour de vous.' : needsLegal ? 'Défendre. Conseiller. Rassurer.' : needsVeterinary ? 'Soigner avec confiance et douceur.' : needsSport ? 'Progressez avec un vrai suivi.' : needsArchitecture ? 'Concevoir des espaces singuliers, durables et mémorables.' : needsShop ? `Des produits clairs, faciles à découvrir et commander.` : `Une présence claire pour présenter ${activity} et recevoir des contacts.`,
         summary: `Kirby reconstruit une proposition propre autour de ${activity}, avec une structure, une ambiance et des actions adaptées à la demande.`,
-        valueProposition: needsKidsEducation ? 'Une expérience éducative qui combine jeux, histoires, comptines et suivi parent dans un univers doux et futuriste.' : `Un projet digital clair qui aide ${activity} à être compris, désiré et contacté plus facilement.`,
+        valueProposition: needsAccountingApp ? 'Un logiciel comptable qui montre revenus, dépenses, TVA, documents, banque et assistant IA dans une interface premium.' : needsFutureBank ? 'Une interface bancaire orbitale qui relie crédits interplanétaires, coffres numériques, identité et colonies dans un espace sécurisé.' : needsKidsEducation ? 'Une expérience éducative qui combine jeux, histoires, comptines et suivi parent dans un univers doux et futuriste.' : needsCustomConcept ? (needsGardenConcept ? 'Une expérience qui transforme un balcon en jardin suspendu grâce au diagnostic IA, au rendu 3D, aux abonnements plantes et au suivi capteurs.' : `Une expérience qui rend ${activity} concret grâce à une scène visuelle, un diagnostic et un parcours d’action clair.`) : needsTravelAgency ? 'Une expérience immersive qui relie destinations, itinéraires, carte interactive et assistant IA pour créer un voyage sur mesure.' : needsLegal ? 'Un site clair qui rend les expertises compréhensibles, rassure et facilite la prise de rendez-vous.' : needsVeterinary ? 'Une présence rassurante qui guide vers rendez-vous, urgences, équipe et conseils utiles.' : needsSport ? 'Une plateforme qui relie coaching, nutrition, réservation de cours, performance et espace membre.' : `Un projet digital clair qui aide ${activity} à être compris, désiré et contacté plus facilement.`,
         positioning: {
-            audience: needsKidsEducation ? 'Parents, enfants et équipes éducatives qui veulent apprendre dans un cadre rassurant.' : inferredContext.likelyTarget || 'Clients locaux, visiteurs qui cherchent une solution rapide et prospects à rassurer.',
-            promise: needsKidsEducation ? 'Faire entrer l’enfant dans un monde de jeux, histoires et comptines tout en donnant le contrôle aux parents.' : needsShop ? 'Découvrir les produits et passer à la commande sans friction.' : needsAppointment ? 'Comprendre les prestations et réserver un créneau facilement.' : 'Comprendre l’activité et contacter rapidement.',
-            tone: needsKidsEducation ? (needsFutureExperience ? 'Futur doux, ludique, immersif et rassurant.' : 'Ludique, doux, éducatif et rassurant.') : styleHint,
-            differentiator: needsKidsEducation ? 'Un aperçu qui montre un vrai produit applicatif : modules enfants, progression et espace parent.' : 'Une structure simple, des options utiles et un accompagnement humain après la proposition IA.',
+            audience: needsAccountingApp ? 'Indépendants, freelances et petites entreprises qui veulent piloter leur activité sans tableur lourd.' : needsKidsEducation ? 'Parents, enfants et équipes éducatives qui veulent apprendre dans un cadre rassurant.' : needsCustomConcept ? (needsGardenConcept ? 'Habitants en ville qui veulent végétaliser un petit balcon sans se tromper.' : inferredContext.likelyTarget || 'Curieux, early adopters et clients qui doivent comprendre un concept nouveau.') : needsTravelAgency ? 'Voyageurs exigeants qui veulent un itinéraire personnalisé, inspirant et simple à cadrer.' : inferredContext.likelyTarget || 'Clients locaux, visiteurs qui cherchent une solution rapide et prospects à rassurer.',
+            promise: needsAccountingApp ? 'Voir les chiffres, documents, échéances et alertes utiles dans une interface compréhensible.' : needsKidsEducation ? 'Faire entrer l’enfant dans un monde de jeux, histoires et comptines tout en donnant le contrôle aux parents.' : needsCustomConcept ? (needsGardenConcept ? 'Voir comment son balcon peut devenir un jardin vivant, puis choisir installation et suivi.' : `Comprendre ${activity}, visualiser le résultat et passer à l’action.`) : needsTravelAgency ? 'Explorer des destinations et construire un itinéraire sur mesure avec un accompagnement expert.' : needsShop ? 'Découvrir les produits et passer à la commande sans friction.' : needsAppointment ? 'Comprendre les prestations et réserver un créneau facilement.' : 'Comprendre l’activité et contacter rapidement.',
+            tone: needsAccountingApp ? 'Premium, futuriste, fiable et orienté décision.' : needsKidsEducation ? (needsFutureExperience ? 'Futur doux, ludique, immersif et rassurant.' : 'Ludique, doux, éducatif et rassurant.') : needsCustomConcept ? 'Futuriste, vivant, concret, très visuel et pédagogique.' : needsTravelAgency ? 'Immersif, premium, inspirant et très visuel.' : styleHint,
+            differentiator: needsAccountingApp ? 'Un aperçu qui ressemble à un logiciel nouvelle génération, avec IA, documents et données vivantes.' : needsKidsEducation ? 'Un aperçu qui montre un vrai produit applicatif : modules enfants, progression et espace parent.' : needsCustomConcept ? 'Le métier est mis en scène comme un parcours concret, avec objet central, simulation et suivi intelligent.' : needsTravelAgency ? 'Une expérience qui montre destinations, carte, itinéraires et assistant IA dès le premier écran.' : 'Une structure simple, des options utiles et un accompagnement humain après la proposition IA.',
         },
         styleGuide: {
-            direction: needsKidsEducation ? 'Univers produit immersif, futur doux, modules de jeu visibles, panneau parent et animations légères.' : needsImmersive ? `Site immersif ${styleHint} avec grandes images, respiration visuelle et action claire.` : needsHotel ? 'Site immersif avec photos, chambres, disponibilité et réservation visible.' : needsArchitecture ? 'Portfolio architectural premium avec grands visuels, grille éditoriale et détails de matière.' : needsWellness ? `Site bien-être ${styleHint} avec visuels naturels, ateliers et réservation visible.` : needsShop ? 'Catalogue clair avec produits visibles et parcours de commande court.' : needsAppointment ? `Site ${styleHint} avec agenda ou contact visible dès le premier écran.` : `Vitrine ${styleHint}, lisible et rassurante.`,
-            colors: needsKidsEducation ? 'Indigo profond, menthe lumineuse, corail doux, jaune soleil, lilas interactif et surfaces translucides.' : inferredContext.moodHints.includes('univers bleu nuit, halos, verre dépoli') ? 'Bleu nuit, verre dépoli, halos doux et contraste blanc.' : 'Fond sobre, contraste fort, une couleur d’accent pour les boutons et les informations importantes.',
-            typography: needsKidsEducation ? 'Sans-serif ronde, titres expressifs, libellés courts et très lisibles.' : 'Titres francs, textes courts, lecture facile sur mobile.',
-            layout: needsKidsEducation ? 'Story-world applicatif : hero produit, écran enfant, cartes jeux/histoires/comptines, espace parent, modules courts.' : needsHotel ? 'Hero photo, chambres, tarifs, galerie, localisation, avis, réservation.' : needsArchitecture ? 'Hero visuel, projets sélectionnés, services, philosophie, témoignages, contact.' : `Accueil direct, ${sectionHint}, preuves, puis contact.`,
+            direction: needsAccountingApp ? 'Interface premium inspirée macOS/Figma : verre dépoli, grande scène logicielle, fenêtres flottantes, données financières et assistant IA.' : needsKidsEducation ? 'Univers produit immersif, futur doux, modules de jeu visibles, panneau parent et animations légères.' : needsCustomConcept ? (needsGardenConcept ? 'Direction Lumina végétale : balcon transformé en jardin suspendu, rendu 3D, capteurs vivants, lumière cyan et matières naturelles.' : `Direction Lumina métier : objet central ${customConceptName}, mise en scène immersive, modules flottants et explication pédagogique.`) : needsLuminaCreative ? 'Direction Lumina/Figma : surfaces transparentes, profondeur 4D, lumière contrôlée, modules flottants et composition propre au métier.' : needsTravelAgency ? 'Voyage premium immersif : grandes vidéos, destinations en profondeur, carte interactive, itinéraires et assistant IA visible.' : needsImmersive ? `Site immersif ${styleHint} avec grandes images, respiration visuelle et action claire.` : needsHotel ? 'Site immersif avec photos, chambres, disponibilité et réservation visible.' : needsArchitecture ? 'Portfolio architectural premium avec grands visuels, grille éditoriale et détails de matière.' : needsWellness ? `Site bien-être ${styleHint} avec visuels naturels, ateliers et réservation visible.` : needsShop ? 'Catalogue clair avec produits visibles et parcours de commande court.' : needsAppointment ? `Site ${styleHint} avec agenda ou contact visible dès le premier écran.` : `Direction Canvas pro métier : objet central visible, surface soignée, mise en page expressive et conversion claire.`,
+            colors: needsAccountingApp ? 'Bleu nuit, turquoise IA, verre translucide, blanc lumineux, vert trésorerie et violet sécurité.' : needsKidsEducation ? 'Indigo profond, menthe lumineuse, corail doux, jaune soleil, lilas interactif et surfaces translucides.' : needsLuminaCreative ? 'Carbone profond, verre translucide, cyan lumineux, vert menthe, rose froid et blanc optique.' : inferredContext.moodHints.includes('univers bleu nuit, halos, verre dépoli') ? 'Bleu nuit, verre dépoli, halos doux et contraste blanc.' : 'Fond sobre, contraste fort, une couleur d’accent pour les boutons et les informations importantes.',
+            typography: needsAccountingApp ? 'Sans-serif premium, chiffres nets, libellés financiers courts et hiérarchie très aérée.' : needsKidsEducation ? 'Sans-serif ronde, titres expressifs, libellés courts et très lisibles.' : needsLuminaCreative ? 'Sans-serif premium, titres nets, textes courts, grande respiration et aucun effet magazine.' : 'Titres francs, textes courts, lecture facile sur mobile.',
+            layout: needsAccountingApp ? 'Finance OS immersif : hero logiciel, aperçu produit, assistant IA, automatisations, intégrations bancaires, sécurité, témoignages, FAQ et CTA.' : needsKidsEducation ? 'Story-world applicatif : hero produit, écran enfant, cartes jeux/histoires/comptines, espace parent, modules courts.' : needsCustomConcept ? (needsLibraryConcept ? 'Hero salle de lecture, rayonnages, parcours culturel, espaces immersifs et CTA visite.' : needsUrbanFarmConcept ? 'Hero ferme verticale, serre, capteurs, production locale, preuves et CTA partenariat.' : needsGardenConcept ? 'Hero balcon vivant, diagnostic IA, configurateur 3D, abonnement plantes, suivi capteurs, réalisations et CTA.' : 'Hero objet métier, diagnostic, simulation, offres, suivi, preuves et CTA.') : needsLuminaCreative ? 'Showcase premium : hero surface ou scène sectorielle, image métier en profondeur, modules flottants utiles, preuves et CTA.' : needsTravelAgency ? 'Hero vidéo, destinations immersives, carte interactive, itinéraires, assistant IA, témoignages et CTA final.' : needsHotel ? 'Hero photo, chambres, tarifs, galerie, localisation, avis, réservation.' : needsArchitecture ? 'Hero visuel, projets sélectionnés, services, philosophie, témoignages, contact.' : `Hero focal sur l'objet métier, ${sectionHint}, preuve visuelle, moment mémorable, puis contact.`,
         },
         visualConcept: {
-            heroComposition: needsKidsEducation ? 'Premier écran comme un monde applicatif avec écran enfant, cartes jeux, histoires, comptines et panneau parent.' : needsImmersive ? 'Grand hero visuel pleine largeur avec ambiance sectorielle, promesse courte et réservation visible.' : needsHotel ? 'Hero immersif avec photo forte, disponibilité et appel à réserver.' : needsArchitecture ? 'Grand visuel architectural, typographie forte et CTA discret mais visible.' : 'Hero clair avec promesse, preuve visuelle et action principale visible.',
-            ambience: needsKidsEducation ? 'Futur doux, ludique, immersif et rassurant pour les parents.' : needsHotel ? 'Premium accueillant, rassurant et sensoriel.' : needsArchitecture ? 'Minimal, lumineux, haut de gamme et orienté réalisations.' : needsWellness ? `Naturelle, calme, sensorielle et orientée réservation, avec ${styleHint}.` : needsAppointment ? `Élégant, local et orienté rendez-vous, avec ${styleHint}.` : `Moderne, clair et commercial, avec ${styleHint}.`,
-            colorPalette: needsKidsEducation ? ['nuit indigo', 'menthe interactive', 'jaune soleil', 'corail doux', 'lilas futur', 'verre translucide'] : ['fond profond ou clair selon secteur', 'accent lumineux pour les actions', 'contraste fort pour la lecture'],
-            imageKeywords: needsKidsEducation ? ['interface app enfant', 'univers educatif futur doux', 'cartes jeux histoires comptines', 'espace parent'] : [activity, needsHotel ? 'chambre lumineuse' : needsArchitecture ? 'architecture intérieure projet design' : needsAppointment ? 'service en action' : 'professionnel au travail', 'preuve visuelle réelle'],
-            layoutSignature: needsKidsEducation ? 'Story-world avec modules applicatifs, progression parent et parcours lumineux entre les activités.' : needsHotel ? 'Parcours réservation avec galerie et localisation visibles.' : needsArchitecture ? 'Portfolio visuel avec cartes projets, détails et navigation élégante.' : 'Aperçu premium avec sections courtes, preuves et contact rapide.',
-            microInteractions: needsKidsEducation ? ['cartes jeux qui respirent', 'progression parent animée', 'parcours lumineux entre les activités'] : ['bouton principal lumineux', 'cartes flottantes', 'transition douce entre sections'],
-            wowFactor: needsKidsEducation ? 'Le premier écran ressemble à un produit éducatif vivant, pas à une vitrine générique.' : 'Un premier écran qui donne immédiatement envie de continuer.',
+            heroComposition: needsAccountingApp ? 'Immense mockup logiciel flottant avec fenêtres macOS superposées, factures, documents, graphiques, notifications et assistant IA.' : needsKidsEducation ? 'Premier écran comme un monde applicatif avec écran enfant, cartes jeux, histoires, comptines et panneau parent.' : needsCustomConcept ? (needsLibraryConcept ? 'Grande salle de lecture avec rayonnages, livres papier, lumière douce et modules numériques discrets autour du parcours visiteur.' : needsUrbanFarmConcept ? 'Ferme verticale lumineuse avec plantes, bacs hydroponiques, capteurs, données de croissance et action partenariat.' : needsGardenConcept ? 'Balcon miniature en 3D flottante, plantes suspendues, bulles capteurs, diagnostic IA et carte abonnement autour de la scène.' : `Objet central ${customConceptName} en scène flottante, modules de diagnostic, simulation et preuve visuelle.`) : needsLuminaCreative ? 'Scène immersive avec visuel métier en profondeur, surface premium, modules flottants utiles et action claire.' : needsTravelAgency ? 'Grand hero vidéo avec destination forte, carte flottante, itinéraire en cours et assistant IA voyage.' : needsImmersive ? 'Grand hero visuel pleine largeur avec ambiance sectorielle, promesse courte et réservation visible.' : needsHotel ? 'Hero immersif avec photo forte, disponibilité et appel à réserver.' : needsArchitecture ? 'Grand visuel architectural, typographie forte et CTA discret mais visible.' : `Grande scène autour de ${activity}, avec objet ou geste métier en premier plan, surface premium et CTA intégré sans écraser le visuel.`,
+            ambience: needsAccountingApp ? 'Futuriste, premium, transparent, profond et entièrement orienté pilotage financier.' : needsKidsEducation ? 'Futur doux, ludique, immersif et rassurant pour les parents.' : needsCustomConcept ? 'Futuriste, vivant, pédagogique et très visuel.' : needsLuminaCreative ? 'Futuriste, premium, transparent, lisible, profond et désirable.' : needsTravelAgency ? 'Cinématique, inspirante, haut de gamme et orientée exploration.' : needsHotel ? 'Premium accueillant, rassurant et sensoriel.' : needsArchitecture ? 'Minimal, lumineux, haut de gamme et orienté réalisations.' : needsWellness ? `Naturelle, calme, sensorielle et orientée réservation, avec ${styleHint}.` : needsAppointment ? `Élégant, local et orienté rendez-vous, avec ${styleHint}.` : `Moderne, clair et commercial, avec ${styleHint}.`,
+            colorPalette: needsAccountingApp ? ['bleu nuit logiciel', 'turquoise IA', 'verre dépoli', 'blanc lumineux', 'vert trésorerie', 'violet sécurité'] : needsKidsEducation ? ['nuit indigo', 'menthe interactive', 'jaune soleil', 'corail doux', 'lilas futur', 'verre translucide'] : needsLuminaCreative ? ['carbone profond', 'verre translucide', 'cyan lumineux', 'vert menthe', 'rose froid', 'blanc optique'] : ['fond profond ou clair selon secteur', 'accent lumineux pour les actions', 'contraste fort pour la lecture'],
+            imageKeywords: needsAccountingApp ? ['logiciel comptable futuriste', 'factures flottantes', 'assistant IA financier', 'tableaux financiers', 'intégration bancaire'] : needsKidsEducation ? ['interface app enfant', 'univers educatif futur doux', 'cartes jeux histoires comptines', 'espace parent'] : needsCustomConcept ? (needsLibraryConcept ? ['bibliotheque moderne', 'rayonnages de livres', 'salle de lecture', 'livres papier', 'espace culturel'] : needsUrbanFarmConcept ? ['ferme verticale', 'hydroponie', 'serre urbaine', 'plantes sous lumière', 'capteurs agricoles'] : needsGardenConcept ? ['jardin suspendu balcon', 'plantes en pot design', 'capteurs végétaux', 'rendu 3D balcon', 'abonnement plantes'] : [customConceptName, 'objet métier central', 'simulation visuelle', 'assistant IA métier']) : needsTravelAgency ? ['destination immersive', 'itinéraire sur mesure', 'carte voyage interactive', 'assistant IA voyage'] : [activity, needsHotel ? 'chambre lumineuse' : needsArchitecture ? 'architecture intérieure projet design' : needsAppointment ? 'service en action' : 'objet métier en gros plan', 'preuve visuelle réelle'],
+            layoutSignature: needsAccountingApp ? 'Finance OS immersif avec grandes fenêtres superposées, panneaux flottants et sections toutes distinctes.' : needsKidsEducation ? 'Story-world avec modules applicatifs, progression parent et parcours lumineux entre les activités.' : needsCustomConcept ? 'Showcase concept avec objet central, diagnostic, simulation, suivi intelligent et preuves non répétitives.' : needsLuminaCreative ? 'Showcase Lumina avec surfaces de verre, profondeur 4D, modules non répétitifs et narration propre au secteur.' : needsTravelAgency ? 'Parcours voyage cinématique avec vidéo, destinations, carte, itinéraires, IA et témoignages.' : needsHotel ? 'Parcours réservation avec galerie et localisation visibles.' : needsArchitecture ? 'Portfolio visuel avec cartes projets, détails et navigation élégante.' : 'Aperçu premium avec sections courtes, preuves et contact rapide.',
+            microInteractions: needsAccountingApp ? ['graphiques qui se dessinent', 'documents qui flottent', 'assistant IA qui signale les échéances', 'widgets bancaires qui pulsent'] : needsKidsEducation ? ['cartes jeux qui respirent', 'progression parent animée', 'parcours lumineux entre les activités'] : needsCustomConcept ? ['objet central qui flotte', 'diagnostic IA qui révèle les contraintes', 'données de suivi qui pulsent', 'simulation avant/après'] : needsLuminaCreative ? ['surface principale qui flotte doucement', 'reflets transparents au survol', 'modules métier qui apparaissent en profondeur'] : ['bouton principal lumineux', 'cartes flottantes', 'transition douce entre sections'],
+            signatureMoment: needsAccountingApp ? 'Une facture se transforme en graphique vivant pendant que l’assistant IA prépare les échéances.' : needsKidsEducation ? 'Un parcours lumineux relie jeux, histoires, comptines et suivi parent comme une carte d’aventure.' : needsCustomConcept ? (needsGardenConcept ? 'Le balcon miniature se remplit de plantes, capteurs et rendu 3D autour d’un diagnostic IA.' : `L’objet central ${customConceptName} devient une scène explicative que le visiteur comprend en quelques secondes.`) : needsLuminaCreative ? `Une surface Lumina met ${activity} au centre avec modules flottants, lumière et preuve métier.` : needsTravelAgency ? 'Une carte vivante relie destination, itinéraire, budget et assistant IA voyage.' : needsHotel ? 'La vue du séjour devient l’écran principal, avec disponibilité et réservation intégrées.' : needsArchitecture ? 'Une villa ou une maquette matière devient le décor focal du premier écran.' : `Un détail fort de ${activity} devient le repère visuel de toute la maquette.`,
+            wowFactor: needsAccountingApp ? 'Le visiteur voit immédiatement un logiciel comptable nouvelle génération, pas un template SaaS Bootstrap.' : needsKidsEducation ? 'Le premier écran ressemble à un produit éducatif vivant, pas à une vitrine générique.' : needsCustomConcept ? 'Le visiteur comprend un métier rare grâce à une scène visuelle qu’il n’aurait pas imaginée seul.' : needsLuminaCreative ? 'Le visiteur voit une expérience nouvelle génération adaptée au métier, pas une page magazine.' : `Le premier écran semble dessiné pour ${activity}, avec une mise en valeur impossible à confondre avec un autre métier.`,
         },
         siteModel: {
-            name: needsKidsEducation ? 'Direction story-world éducatif' : needsHotel ? 'Direction hôtel + réservation' : needsArchitecture ? 'Direction architecture premium' : needsWellness ? 'Direction bien-être immersive' : needsShop ? 'Direction catalogue + commande' : needsAppointment ? 'Direction rendez-vous local' : 'Direction vitrine professionnelle',
-            description: needsKidsEducation ? 'Une expérience applicative qui donne envie à l’enfant d’explorer et rassure les parents par un suivi clair.' : needsHotel ? 'Une structure pensée pour montrer les chambres, rassurer, localiser et convertir vers la réservation.' : needsArchitecture ? 'Une expérience visuelle qui valorise les projets, la méthode et la prise de contact.' : needsWellness ? 'Une expérience sensorielle qui valorise le lieu, les ateliers, les tarifs et la réservation.' : needsShop ? 'Une page d’accueil qui mène vite vers le catalogue, les produits et la commande.' : needsAppointment ? 'Une page d’accueil centrée sur les prestations, les preuves et la prise de rendez-vous.' : 'Une vitrine claire pour expliquer l’activité, rassurer et obtenir une demande.',
+            name: needsAccountingApp ? 'Direction Finance OS IA' : needsKidsEducation ? 'Direction story-world éducatif' : needsCustomConcept ? 'Direction Canvas pro / Lumina métier' : needsLuminaCreative ? 'Direction Lumina métier' : needsTravelAgency ? 'Direction voyage immersif' : needsHotel ? 'Direction hôtel + réservation' : needsArchitecture ? 'Direction architecture premium' : needsWellness ? 'Direction bien-être immersive' : needsShop ? 'Direction catalogue + commande' : needsAppointment ? 'Direction rendez-vous local' : 'Direction vitrine professionnelle',
+            description: needsAccountingApp ? 'Une expérience logicielle immersive qui met en scène factures, banque, TVA, documents et assistant IA.' : needsKidsEducation ? 'Une expérience applicative qui donne envie à l’enfant d’explorer et rassure les parents par un suivi clair.' : needsCustomConcept ? `Une expérience qui rend ${customConceptName} visible grâce à une scène métier, une simulation et un suivi intelligent.` : needsLuminaCreative ? 'Une scène premium futuriste qui garde le métier au centre avec surfaces, profondeur, visuels et modules utiles.' : needsTravelAgency ? 'Une expérience cinématique qui donne envie d’explorer et de construire un itinéraire sur mesure.' : needsHotel ? 'Une structure pensée pour montrer les chambres, rassurer, localiser et convertir vers la réservation.' : needsArchitecture ? 'Une expérience visuelle qui valorise les projets, la méthode et la prise de contact.' : needsWellness ? 'Une expérience sensorielle qui valorise le lieu, les ateliers, les tarifs et la réservation.' : needsShop ? 'Une page d’accueil qui mène vite vers le catalogue, les produits et la commande.' : needsAppointment ? 'Une page d’accueil centrée sur les prestations, les preuves et la prise de rendez-vous.' : 'Une vitrine claire pour expliquer l’activité, rassurer et obtenir une demande.',
             sections: [
-                needsKidsEducation ? 'Hero monde applicatif enfant' : needsHotel ? 'Hero hôtel avec bouton Réserver' : 'Hero avec promesse et bouton principal',
-                needsKidsEducation ? 'Jeux, histoires et comptines' : needsHotel ? 'Chambres et équipements' : needsArchitecture ? 'Projets sélectionnés' : needsWorkshops ? 'Ateliers à mettre en avant' : needsShop ? 'Produits ou catégories' : 'Prestations principales',
-                needsKidsEducation ? 'Progression et espace parent' : needsHotel || needsPricing ? 'Tarifs ou disponibilités' : needsArchitecture ? 'Méthode et philosophie' : needsPortfolio ? 'Réalisations ou portfolio' : 'Preuves de confiance',
-                needsKidsEducation ? 'Parcours et sécurité enfant' : needsGallery ? 'Galerie et ambiance du lieu' : needsHotel ? 'Galerie et localisation' : needsArchitecture ? 'Contact projet' : needsAppointment ? 'Prise de rendez-vous' : 'Contact rapide',
+                needsAccountingApp ? 'Hero logiciel flottant' : needsKidsEducation ? 'Hero monde applicatif enfant' : needsCustomConcept ? 'Hero objet métier en scène' : needsLuminaCreative ? 'Hero surface Lumina' : needsTravelAgency ? 'Hero vidéo destination' : needsHotel ? 'Hero hôtel avec bouton Réserver' : 'Hero avec promesse et bouton principal',
+                needsAccountingApp ? 'Factures, devis et documents' : needsKidsEducation ? 'Jeux, histoires et comptines' : needsCustomConcept ? 'Diagnostic, simulation et suivi' : needsTravelAgency ? 'Destinations immersives' : needsHotel ? 'Chambres et équipements' : needsArchitecture ? 'Projets sélectionnés' : needsWorkshops ? 'Ateliers à mettre en avant' : needsShop ? 'Produits ou catégories' : 'Prestations principales',
+                needsAccountingApp ? 'Assistant IA et automatisations' : needsKidsEducation ? 'Progression et espace parent' : needsCustomConcept ? 'Preuves visuelles du concept' : needsTravelAgency ? 'Itinéraires personnalisés' : needsHotel || needsPricing ? 'Tarifs ou disponibilités' : needsArchitecture ? 'Méthode et philosophie' : needsPortfolio ? 'Réalisations ou portfolio' : 'Preuves de confiance',
+                needsAccountingApp ? 'Banque, sécurité et FAQ' : needsKidsEducation ? 'Parcours et sécurité enfant' : needsCustomConcept ? 'Action et demande qualifiée' : needsTravelAgency ? 'Carte et assistant IA' : needsGallery ? 'Galerie et ambiance du lieu' : needsHotel ? 'Galerie et localisation' : needsArchitecture ? 'Contact projet' : needsAppointment ? 'Prise de rendez-vous' : 'Contact rapide',
             ],
         },
-        recommendedOffer: needsKidsEducation ? 'Projet spécifique' : needsHotel ? 'Offre Signature' : needsShop ? 'Offre Pro' : needsPortfolio ? 'Mini-page professionnelle' : needsAppointment ? 'Offre Pro' : needsWordPress ? 'Projet spécifique' : 'Offre Essentiel',
+        recommendedOffer: needsAccountingApp ? 'Projet spécifique' : needsKidsEducation ? 'Projet spécifique' : needsHotel ? 'Offre Signature' : needsShop ? 'Offre Pro' : needsPortfolio ? 'Mini-page professionnelle' : needsAppointment ? 'Offre Pro' : needsWordPress ? 'Projet spécifique' : 'Offre Essentiel',
         pages,
-        homeSections: needsKidsEducation ? [
+        homeSections: needsAccountingApp ? [
+            { title: 'Logiciel nouvelle génération', text: 'Le premier écran montre un vrai espace de pilotage avec factures, banque, documents et alertes.' },
+            { title: 'Assistant IA comptable', text: 'L’IA explique les dépenses, anticipe la TVA et signale les échéances importantes.' },
+            { title: 'Automatisation financière', text: 'Les justificatifs, transactions, devis et factures se regroupent dans un flux clair.' },
+        ] : needsKidsEducation ? [
             { title: 'Monde à explorer', text: 'L’enfant entre dans un univers visuel avec jeux, histoires et comptines accessibles en un geste.' },
             { title: 'Apprentissage doux', text: 'Les activités courtes créent un rythme rassurant, progressif et adapté à l’âge.' },
             { title: 'Espace parent', text: 'Les parents suivent la progression, les profils, le temps d’écran et les contenus favoris.' },
+        ] : needsCustomConcept ? [
+            { title: needsGardenConcept ? 'Balcon transformé' : 'Concept en scène', text: needsGardenConcept ? 'Le premier écran montre un balcon miniature qui devient un jardin suspendu vivant.' : `Le premier écran rend ${customConceptName} visible grâce à une scène métier claire.` },
+            { title: needsGardenConcept ? 'Diagnostic IA & rendu 3D' : 'Diagnostic & simulation', text: 'Le visiteur comprend les contraintes, visualise le résultat et choisit une piste adaptée.' },
+            { title: needsGardenConcept ? 'Suivi capteurs' : 'Suivi intelligent', text: 'Les modules montrent l’accompagnement, les alertes, les abonnements ou les preuves de résultat.' },
+        ] : needsLuminaCreative ? [
+            { title: 'Scène immersive', text: 'Le premier écran combine image métier, surface transparente, message court et action visible.' },
+            { title: 'Assistant IA utile', text: 'Un module d’aide guide le visiteur selon son besoin sans détourner le contenu du secteur.' },
+            { title: 'Preuves en profondeur', text: 'Réalisations, offres ou expertises apparaissent dans des modules distincts, lisibles et non répétitifs.' },
+        ] : needsTravelAgency ? [
+            { title: 'Destinations immersives', text: 'Grandes vidéos, visuels forts et ambiances donnent envie de partir dès le premier écran.' },
+            { title: 'Itinéraires personnalisés', text: 'Les étapes, saisons, durées et expériences se construisent autour des envies du voyageur.' },
+            { title: 'Carte & assistant IA', text: 'La carte interactive et l’assistant IA aident à explorer et cadrer le voyage.' },
+        ] : needsLegal ? [
+            { title: 'Expertises claires', text: 'Les domaines de droit sont organisés par besoin et niveau d’accompagnement.' },
+            { title: 'Rendez-vous confidentiel', text: 'Le parcours facilite une première demande structurée et rassurante.' },
+            { title: 'Équipe & méthode', text: 'Les avocats, étapes et honoraires réduisent l’incertitude.' },
+        ] : needsVeterinary ? [
+            { title: 'Rendez-vous rapide', text: 'Le visiteur trouve vite l’action principale, les horaires et les urgences.' },
+            { title: 'Équipe rassurante', text: 'Les praticiens, spécialités et conseils créent une relation humaine.' },
+            { title: 'Conseils utiles', text: 'Fiches pratiques, prévention et informations préparent la visite.' },
+        ] : needsSport ? [
+            { title: 'Cours réservables', text: 'Planning, coachs et niveaux sont visibles dès le parcours principal.' },
+            { title: 'Coaching & nutrition', text: 'L’accompagnement relie objectifs, programmes et habitudes.' },
+            { title: 'Espace membre', text: 'Progression, performances, séances et abonnements sont connectés.' },
+        ] : needsMenu ? [
+            { title: 'Menu interactif', text: 'La carte, les menus et les temps forts culinaires sont lisibles et désirables.' },
+            { title: 'Histoire du chef', text: 'Le parcours raconte la signature, les inspirations et le niveau d’exigence.' },
+            { title: 'Réservation élégante', text: 'Le visiteur peut réserver vite, tout en ressentant l’ambiance du lieu.' },
         ] : needsArchitecture ? [
             { title: 'Projets sélectionnés', text: 'Une galerie éditoriale met en avant les réalisations, les volumes, les matières et les détails.' },
             { title: 'Architecture intérieure', text: 'Les services expliquent la conception, la rénovation, le suivi et l’accompagnement du projet.' },
@@ -619,16 +874,44 @@ const buildFallbackProposal = (brief) => {
             { title: needsWorkshops ? 'Ateliers à découvrir' : needsHotel ? 'Chambres et services' : needsShop ? 'Produits ou catalogue' : 'Prestations principales', text: needsWorkshops ? 'Les ateliers sont mis en avant avec leur ambiance, leurs bénéfices et le chemin de réservation.' : needsHotel ? 'Les chambres, équipements et services sont présentés avec photos, tarifs ou indications pratiques.' : needsShop ? 'Les produits sont présentés par catégorie, avec un chemin simple vers la commande.' : 'Les services sont présentés avec des mots simples, des tarifs ou indications pratiques.' },
             { title: needsGallery ? 'Galerie et ambiance' : needsPricing ? 'Tarifs clairs' : 'Contact rapide', text: needsGallery ? 'De grandes images montrent le lieu, les détails et les preuves visuelles attendues.' : needsPricing ? 'Les prix, formules ou abonnements sont lisibles avant la prise de contact.' : `Un bouton ${mainAction} reste visible pour transformer la visite en demande concrète.` },
         ],
-        services: needsKidsEducation ? [
+        services: needsAccountingApp ? [
+            { name: 'Pilotage financier', description: 'Chiffre d’affaires, dépenses, trésorerie, TVA et échéances visibles en un coup d’œil.' },
+            { name: 'Factures & documents', description: 'Devis, factures, justificatifs et exports regroupés dans une interface claire.' },
+            { name: 'Assistant IA comptable', description: 'Questions, anomalies, prévisions et recommandations expliquées en langage simple.' },
+        ] : needsKidsEducation ? [
             { name: 'Mini-jeux éducatifs', description: 'Activités courtes avec objectifs, niveaux et récompenses douces.' },
             { name: 'Histoires interactives', description: 'Récits, choix simples et univers visuel pour garder l’enfant engagé.' },
             { name: 'Suivi parent', description: 'Progression, temps d’usage, profils et préférences dans une vue claire.' },
+        ] : needsCustomConcept ? [
+            { name: needsGardenConcept ? 'Diagnostic balcon IA' : 'Diagnostic IA', description: 'Identifier les contraintes, envies, budget et niveau d’accompagnement.' },
+            { name: needsGardenConcept ? 'Rendu 3D végétal' : 'Simulation visuelle', description: 'Projeter le résultat avec une scène claire, premium et compréhensible.' },
+            { name: needsGardenConcept ? 'Abonnement & capteurs' : 'Suivi intelligent', description: 'Présenter le suivi, les alertes, abonnements ou données utiles après la demande.' },
+        ] : needsTravelAgency ? [
+            { name: 'Voyages sur mesure', description: 'Séjours construits selon les envies, dates, budget et rythme.' },
+            { name: 'Itinéraires personnalisés', description: 'Étapes, expériences et cartes organisées pour chaque profil de voyageur.' },
+            { name: 'Assistant IA voyage', description: 'Questions, inspirations et cadrage du projet avant échange avec un expert.' },
+        ] : needsLegal ? [
+            { name: 'Expertises juridiques', description: 'Domaines de droit structurés pour comprendre rapidement l’accompagnement.' },
+            { name: 'Rendez-vous confidentiel', description: 'Demande claire, sécurisée et orientée premier échange.' },
+            { name: 'Actualités juridiques', description: 'Analyses courtes pour renforcer expertise et référencement.' },
+        ] : needsVeterinary ? [
+            { name: 'Rendez-vous', description: 'Demande de créneau, urgence, horaires et informations pratiques.' },
+            { name: 'Équipe clinique', description: 'Présenter les praticiens, spécialités et approche humaine.' },
+            { name: 'Conseils & fiches', description: 'Prévention, suivi et informations utiles avant la visite.' },
+        ] : needsSport ? [
+            { name: 'Réservation de cours', description: 'Planning, niveaux et coachs accessibles rapidement.' },
+            { name: 'Suivi performance', description: 'Progression, objectifs, séances et espace membre.' },
+            { name: 'Coaching nutrition', description: 'Accompagnement complet pour transformer les habitudes.' },
+        ] : needsMenu ? [
+            { name: 'Menu interactif', description: 'Carte claire, plats, menus, prix et éventuels accords.' },
+            { name: 'Réservation en ligne', description: 'Choisir une date ou demander une table sans friction.' },
+            { name: 'Histoire du chef', description: 'Mettre en valeur la signature culinaire et l’expérience.' },
         ] : [
             { name: needsWorkshops ? 'Ateliers' : needsHotel ? 'Chambres' : needsShop ? 'Catalogue en ligne' : "Présentation de l'activité", description: needsWorkshops ? 'Présenter les ateliers, leurs objectifs, leurs dates et l’ambiance attendue.' : needsHotel ? 'Présenter chaque chambre avec photos, équipements, capacité et ambiance.' : 'Un bloc court pour dire ce qui est proposé, pour qui et dans quelle zone.' },
             { name: needsHotel ? 'Réservation' : needsAppointment ? 'Rendez-vous' : 'Contact direct', description: needsHotel ? 'Formulaire de disponibilité, téléphone, e-mail et éventuellement acompte.' : needsAppointment ? 'Un lien de réservation, téléphone ou WhatsApp pour choisir un créneau.' : 'Un formulaire simple, un e-mail professionnel ou un lien WhatsApp.' },
             { name: needsGallery ? 'Galerie immersive' : needsHotel ? 'Localisation et galerie' : 'Preuves et confiance', description: needsGallery ? 'Photos larges, ambiance du lieu et détails rassurants pour créer la projection.' : needsHotel ? 'Google Maps, photos, points d’intérêt et avis clients.' : 'Photos, avis, exemples, certifications ou informations pratiques.' },
         ],
-        ctas: needsKidsEducation ? [mainAction, 'Espace parent', 'Découvrir les histoires'] : [mainAction, needsWorkshops ? 'Voir les ateliers' : needsHotel ? 'Demander une disponibilité' : 'Voir les prestations', needsPricing ? 'Voir les tarifs' : 'Contacter maintenant'],
+        ctas: needsAccountingApp ? [mainAction, 'Analyser mes finances', 'Importer un document'] : needsKidsEducation ? [mainAction, 'Espace parent', 'Découvrir les histoires'] : needsCustomConcept ? [mainAction, needsGardenConcept ? 'Lancer le diagnostic balcon' : 'Voir la simulation', needsGardenConcept ? 'Voir les abonnements plantes' : 'Parler du concept'] : needsTravelAgency ? [mainAction, 'Explorer les destinations', 'Parler à un expert'] : needsLegal ? [mainAction, 'Découvrir nos expertises', 'Poser une question'] : needsVeterinary ? [mainAction, 'Voir les urgences', 'Contacter la clinique'] : needsSport ? [mainAction, 'Voir les cours', 'Découvrir les abonnements'] : needsMenu ? [mainAction, 'Voir le menu', 'Découvrir le chef'] : [mainAction, needsWorkshops ? 'Voir les ateliers' : needsHotel ? 'Demander une disponibilité' : 'Voir les prestations', needsPricing ? 'Voir les tarifs' : 'Contacter maintenant'],
         seo,
         seoKeywords,
         recommendedServices,
@@ -648,15 +931,17 @@ const buildFallbackProposal = (brief) => {
             '',
             `Kirby a préparé une première proposition pour : ${siteName}.`,
             `Besoin de départ : ${brief}`,
-            `Type de projet : ${needsKidsEducation ? 'application éducative immersive enfant' : needsShop ? 'boutique en ligne simple' : needsAppointment ? 'site avec prise de rendez-vous' : 'site vitrine professionnel'}`,
-            `Slogan proposé : ${needsKidsEducation ? 'Apprendre en jouant, tout doucement.' : needsShop ? 'Des produits clairs, faciles à découvrir et commander.' : `Une présence claire pour présenter ${activity} et recevoir des contacts.`}`,
+            `Type de projet : ${needsAccountingApp ? 'application comptable IA premium' : needsKidsEducation ? 'application éducative immersive enfant' : needsShop ? 'boutique en ligne simple' : needsAppointment ? 'site avec prise de rendez-vous' : 'site vitrine professionnel'}`,
+            `Slogan proposé : ${needsAccountingApp ? 'La compta claire, enfin directe.' : needsKidsEducation ? 'Apprendre en jouant, tout doucement.' : needsShop ? 'Des produits clairs, faciles à découvrir et commander.' : `Une présence claire pour présenter ${activity} et recevoir des contacts.`}`,
             `Pages proposées : ${pages.map((page) => page.name).join(', ')}`,
-            `Actions conseillées : ${needsKidsEducation ? [mainAction, 'Espace parent', 'Découvrir les histoires'].join(', ') : [mainAction, 'Voir les prestations', 'Contacter maintenant'].join(', ')}`,
-            `Offre pressentie : ${needsKidsEducation ? 'Projet spécifique' : needsShop ? 'Offre Pro' : needsPortfolio ? 'Mini-page professionnelle' : needsAppointment ? 'Offre Pro' : 'Offre Essentiel'}`,
+            `Actions conseillées : ${needsAccountingApp ? [mainAction, 'Analyser mes finances', 'Importer un document'].join(', ') : needsKidsEducation ? [mainAction, 'Espace parent', 'Découvrir les histoires'].join(', ') : [mainAction, 'Voir les prestations', 'Contacter maintenant'].join(', ')}`,
+            `Offre pressentie : ${needsAccountingApp ? 'Projet spécifique' : needsKidsEducation ? 'Projet spécifique' : needsShop ? 'Offre Pro' : needsPortfolio ? 'Mini-page professionnelle' : needsAppointment ? 'Offre Pro' : 'Offre Essentiel'}`,
             '',
             "Merci de me dire ce qu'il faut ajuster pour lancer le projet."
         ].join('\n'),
     };
+
+    return needsBridalCouture ? enforceBridalCoutureProposal(sanitized, sanitized, brief) : sanitized;
 };
 
 const parseOpenAiJson = (content) => {
@@ -695,6 +980,27 @@ const isBeautyProject = (brief = '', proposal = {}) => {
     ].filter(Boolean).join(' ')).toLowerCase());
 
     return /\b(estheticien|estheticienne|esthetique|beaute|massage|soin|soins|epilation|institut|spa|bien etre|bien-etre)\b/.test(source);
+};
+
+const isBridalProject = (brief = '', proposal = {}) => {
+    const source = [
+        brief,
+        proposal.projectType,
+        proposal.sectorKey,
+        proposal.siteName,
+        proposal.slogan,
+        proposal.summary,
+        proposal.valueProposition,
+        proposal.styleGuide && proposal.styleGuide.direction,
+        proposal.siteModel && proposal.siteModel.name,
+        ...(Array.isArray(proposal.pages) ? proposal.pages.map((page) => page && page.name) : []),
+        ...(Array.isArray(proposal.homeSections) ? proposal.homeSections.map((section) => section && section.title) : []),
+        ...(Array.isArray(proposal.services) ? proposal.services.map((service) => service && service.name) : []),
+    ]
+        .map((value) => stripAccents(normalizeText(value || '').toLowerCase()))
+        .join(' ');
+
+    return /\b(robe|robes|robe de mariee|robe de mariage|mariee|mariage|couture|haute couture|atelier couture|collection mariee|bridal|wedding dress|essayage|voile|dentelle|soie|broderie|tulle|satin)\b/.test(source);
 };
 
 const getCatalogPrice = (serviceName = '', currentPrice = '') => {
@@ -815,6 +1121,7 @@ const normalizeVisualConcept = (proposal, fallback) => {
         imageKeywords: limitArray(visualConcept.imageKeywords || fallbackVisual.imageKeywords, 8).map(normalizeText).filter(Boolean),
         layoutSignature: normalizeText(visualConcept.layoutSignature) || fallbackVisual.layoutSignature || '',
         microInteractions: limitArray(visualConcept.microInteractions || fallbackVisual.microInteractions, 5).map(normalizeText).filter(Boolean),
+        signatureMoment: normalizeText(visualConcept.signatureMoment) || fallbackVisual.signatureMoment || '',
         wowFactor: normalizeText(visualConcept.wowFactor) || fallbackVisual.wowFactor || '',
     };
 };
@@ -832,6 +1139,270 @@ const isHotelProject = (brief, proposal = {}) => {
         .join(' ');
 
     return /\b(hotel|chambre|hebergement|gite|sejour|touristique)\b/.test(source);
+};
+
+const isAccountingProject = (brief = '', proposal = {}) => {
+    const source = [
+        brief,
+        proposal.projectType,
+        proposal.sectorKey,
+        proposal.siteName,
+        proposal.summary,
+        proposal.valueProposition,
+        proposal.siteModel && proposal.siteModel.name,
+        ...(Array.isArray(proposal.pages) ? proposal.pages.map((page) => page && page.name) : []),
+        ...(Array.isArray(proposal.homeSections) ? proposal.homeSections.map((section) => section && section.title) : []),
+    ]
+        .map((value) => stripAccents(normalizeText(value || '').toLowerCase()))
+        .join(' ');
+
+    return hasAccountingIntent(source);
+};
+
+const accountingForbiddenPattern = /\b(jeux?|histoires?|comptines?|espace parent|commencer a jouer|commencer à jouer|apprentissage progressif|monde a explorer|monde à explorer|activites du jour|activités du jour)\b/i;
+
+const filterAccountingItems = (items = [], titleKeys = ['name', 'title'], textKeys = ['goal', 'text', 'description', 'reason']) =>
+    limitArray(items, 12).filter((item) => {
+        const text = stripAccents(normalizeText([
+            ...titleKeys.map((key) => item && item[key]),
+            ...textKeys.map((key) => item && item[key]),
+            typeof item === 'string' ? item : '',
+        ].filter(Boolean).join(' ')).toLowerCase());
+
+        return !accountingForbiddenPattern.test(text);
+    });
+
+const enforceAccountingProposal = (proposal = {}, fallback = buildFallbackProposal('logiciel de comptabilite')) => {
+    const proposalSource = stripAccents(JSON.stringify(proposal || {}).toLowerCase());
+    const siteName = /contadirect/.test(proposalSource)
+        ? 'ContaDirect'
+        : normalizeText(proposal.siteName) || normalizeText(fallback.siteName) || 'ComptaPilot';
+    const requiredPages = [
+        { name: 'Aperçu logiciel', goal: 'Montrer l’interface, les fenêtres financières et les actions rapides.' },
+        { name: 'Factures & devis', goal: 'Créer, envoyer, relancer et suivre les documents commerciaux.' },
+        { name: 'Trésorerie', goal: 'Suivre chiffre d’affaires, dépenses, solde et prévisions.' },
+        { name: 'Assistant IA', goal: 'Expliquer les dépenses, échéances, TVA et anomalies.' },
+        { name: 'Automatisations', goal: 'Importer justificatifs, rapprocher transactions et préparer les échéances.' },
+        { name: 'Sécurité', goal: 'Rassurer sur accès, données, exports et confidentialité.' },
+        { name: 'Contact', goal: 'Prévoir une demande de démo ou cadrage projet.' },
+    ];
+    const requiredSections = [
+        { title: 'Logiciel nouvelle génération', text: 'Le premier écran montre un espace de pilotage avec factures, banque, documents et alertes.' },
+        { title: 'Assistant IA comptable', text: 'L’IA explique les dépenses, anticipe la TVA et signale les échéances importantes.' },
+        { title: 'Automatisation financière', text: 'Les justificatifs, transactions, devis et factures se regroupent dans un flux clair.' },
+        { title: 'Intégrations bancaires', text: 'Les mouvements bancaires se rapprochent des documents pour limiter les oublis.' },
+        { title: 'Sécurité & exports', text: 'Les données, accès et exports restent lisibles, contrôlés et rassurants.' },
+    ];
+    const requiredServices = [
+        { name: 'Interface produit sur mesure', reason: 'Le projet doit montrer un vrai logiciel comptable, pas une vitrine.', priceFrom: 'Projet spécifique' },
+        { name: 'Assistant IA métier', reason: 'Utile pour expliquer dépenses, TVA, échéances et anomalies.', priceFrom: 'Projet spécifique' },
+        { name: 'Espace client simple', reason: 'Nécessaire pour sauvegarder documents, préférences et historiques.', priceFrom: 'Projet spécifique' },
+        { name: 'Import documents', reason: 'Factures, justificatifs et contrats doivent être centralisés.', priceFrom: 'Projet spécifique' },
+        { name: 'Connexion bancaire', reason: 'Pertinent pour rapprocher transactions, soldes et trésorerie.', priceFrom: 'Projet spécifique' },
+    ];
+
+    proposal.projectType = 'Application comptable IA premium';
+    proposal.sectorKey = 'accounting';
+    proposal.siteName = siteName;
+    proposal.visualMood = 'accounting-neural';
+    proposal.layoutVariant = 'finance-os';
+    proposal.showGallery = false;
+    proposal.slogan = normalizeText(proposal.slogan) || 'La compta claire, enfin directe.';
+    proposal.summary = normalizeText(proposal.summary) || `${siteName} doit ressembler à un logiciel comptable nouvelle génération, pas à un template SaaS standard.`;
+    proposal.valueProposition = normalizeText(proposal.valueProposition) || 'Une interface IA qui relie revenus, dépenses, TVA, factures, banque et documents dans un espace visuel unique.';
+    proposal.styleGuide = {
+        ...(proposal.styleGuide && typeof proposal.styleGuide === 'object' ? proposal.styleGuide : {}),
+        direction: 'Interface premium inspirée macOS, Figma et Lumina : verre dépoli, profondeur, lumières bleues et turquoise, fenêtres superposées et assistant IA visible.',
+        colors: 'Bleu nuit logiciel, turquoise IA, verre translucide, blanc lumineux, vert trésorerie et violet sécurité.',
+        typography: 'Sans-serif premium, chiffres très lisibles, libellés financiers courts et respiration généreuse.',
+        layout: 'Finance OS immersif : hero logiciel, aperçu produit, assistant IA, automatisations, intégrations bancaires, sécurité, témoignages, FAQ et CTA.',
+    };
+    proposal.visualConcept = {
+        ...(proposal.visualConcept && typeof proposal.visualConcept === 'object' ? proposal.visualConcept : {}),
+        heroComposition: 'Immense mockup logiciel flottant avec plusieurs fenêtres macOS superposées, factures, documents, graphiques, notifications et assistant IA.',
+        ambience: 'Futuriste, premium, transparent, profond et entièrement orienté pilotage financier.',
+        colorPalette: ['bleu nuit logiciel', 'turquoise IA', 'verre dépoli', 'blanc lumineux', 'vert trésorerie', 'violet sécurité'],
+        imageKeywords: ['logiciel comptable futuriste', 'factures flottantes', 'assistant IA financier', 'tableaux financiers', 'intégration bancaire'],
+        layoutSignature: 'Finance OS immersif avec grandes fenêtres superposées, panneaux flottants et sections toutes distinctes.',
+        microInteractions: ['graphiques qui se dessinent', 'documents qui flottent', 'assistant IA qui signale les échéances', 'widgets bancaires qui pulsent'],
+        wowFactor: 'Le visiteur voit immédiatement un logiciel comptable nouvelle génération, pas un template SaaS Bootstrap.',
+    };
+    proposal.siteModel = {
+        ...(proposal.siteModel && typeof proposal.siteModel === 'object' ? proposal.siteModel : {}),
+        name: 'Direction Finance OS IA',
+        description: 'Une expérience logicielle immersive qui met en scène factures, banque, TVA, documents et assistant IA.',
+        sections: ['Hero logiciel flottant', 'Aperçu logiciel', 'Assistant IA', 'Automatisations', 'Intégrations bancaires', 'Sécurité', 'Témoignages', 'FAQ'],
+    };
+    proposal.pages = mergeRequiredPages(filterAccountingItems(proposal.pages || []), requiredPages, 8);
+    proposal.homeSections = [
+        ...filterAccountingItems(proposal.homeSections || [], ['title'], ['text']),
+        ...requiredSections,
+    ]
+        .filter((section, index, list) => list.findIndex((candidate) => stripAccents(normalizeText(candidate.title).toLowerCase()) === stripAccents(normalizeText(section.title).toLowerCase())) === index)
+        .slice(0, 5);
+    proposal.services = [
+        ...filterAccountingItems(proposal.services || [], ['name'], ['description']),
+        { name: 'Pilotage financier', description: 'Chiffre d’affaires, dépenses, trésorerie, TVA et échéances visibles rapidement.' },
+        { name: 'Factures & documents', description: 'Devis, factures, justificatifs et exports regroupés dans une interface claire.' },
+        { name: 'Assistant IA comptable', description: 'Questions, anomalies, prévisions et recommandations expliquées simplement.' },
+    ]
+        .filter((service, index, list) => list.findIndex((candidate) => stripAccents(normalizeText(candidate.name).toLowerCase()) === stripAccents(normalizeText(service.name).toLowerCase())) === index)
+        .slice(0, 5);
+    proposal.recommendedServices = [
+        ...filterAccountingItems(proposal.recommendedServices || [], ['name'], ['reason']),
+        ...requiredServices,
+    ]
+        .filter((service, index, list) => list.findIndex((candidate) => getServiceKey(candidate.name) === getServiceKey(service.name)) === index)
+        .slice(0, 9);
+    proposal.ctas = limitArray(proposal.ctas, 5)
+        .map(normalizeText)
+        .filter(Boolean)
+        .filter((cta) => !accountingForbiddenPattern.test(stripAccents(cta.toLowerCase())));
+    if (!proposal.ctas.length) {
+        proposal.ctas = ['Voir la démo IA', 'Analyser mes finances', 'Importer un document'];
+    }
+    proposal.contactMessage = [
+        'Bonjour,',
+        '',
+        `Kirby a préparé une première proposition pour : ${siteName}.`,
+        'Type de projet : application comptable IA premium.',
+        'Direction visuelle : Finance OS premium inspiré macOS, Figma et Lumina.',
+        'Contenu prévu : aperçu logiciel, factures, devis, trésorerie, TVA, banque, documents, assistant IA, automatisations et sécurité.',
+        `Actions conseillées : ${proposal.ctas.slice(0, 3).join(', ')}.`,
+        '',
+        'Merci de me dire ce qu’il faut ajuster pour lancer le projet.',
+    ].join('\n');
+
+    return proposal;
+};
+
+const bridalForbiddenPattern = /\b(ordinateur|reunion|bureau corporate|dashboard|saas|logiciel|startup|consultant|tableau de bord|open space)\b/i;
+
+const filterBridalItems = (items = [], titleKeys = ['name', 'title'], textKeys = ['goal', 'text', 'description', 'reason']) =>
+    limitArray(items, 12).filter((item) => {
+        const text = stripAccents(normalizeText([
+            ...titleKeys.map((key) => item && item[key]),
+            ...textKeys.map((key) => item && item[key]),
+            typeof item === 'string' ? item : '',
+        ].filter(Boolean).join(' ')).toLowerCase());
+
+        return !bridalForbiddenPattern.test(text);
+    });
+
+const extractProjectBrandName = (brief = '') => {
+    const explicit = normalizeText(
+        (brief.match(/(?:pour|site pour|marque|nom|nommee|nommée|appelle)\s+["“']?([A-ZÀ-Ý][A-Za-zÀ-ÿ0-9'’& -]{2,42})/u) || [])[1] || '',
+    )
+        .replace(/\s+\b(?:robe|robes|mariage|mariee|mariée|avec|style|qui|dont)\b.*$/i, '')
+        .replace(/["“”']/g, '')
+        .trim();
+
+    return explicit && !/^(un|une|le|la|les|des|site|atelier|robes?|mariage|haute couture)$/i.test(explicit)
+        ? explicit
+        : '';
+};
+
+const enforceBridalCoutureProposal = (proposal = {}, fallback = buildFallbackProposal('atelier de robes de mariee haute couture'), brief = '') => {
+    const proposedName = normalizeText(proposal.siteName) || normalizeText(fallback.siteName);
+    const brandFromBrief = extractProjectBrandName(brief);
+    const siteName = brandFromBrief || (/^(studio atelier|atelier de robes|atelier)$/i.test(proposedName) ? '' : proposedName) || 'Maison Couture';
+    const requiredPages = [
+        { name: 'Accueil', goal: 'Installer l’univers couture et orienter vers collections ou essayage.' },
+        { name: 'Collections', goal: 'Présenter robes de mariée, silhouettes, matières et détails.' },
+        { name: 'Robes sur mesure', goal: 'Expliquer création, prises de mesures, retouches et accompagnement.' },
+        { name: 'Essayages privés', goal: 'Donner envie de réserver un rendez-vous personnalisé.' },
+        { name: 'Atelier', goal: 'Montrer dentelle, soie, broderie, voile et gestes couture.' },
+        { name: 'Galerie', goal: 'Afficher robes portées, détails de matières et inspirations.' },
+        { name: 'Rendez-vous', goal: 'Permettre une demande d’essayage claire et élégante.' },
+    ];
+    const requiredSections = [
+        { title: 'Collection Mariée', text: 'Robes, voiles, dentelles et silhouettes sont présentés comme une vraie collection couture.' },
+        { title: 'Essayage privé', text: 'Le parcours donne envie de réserver un moment calme, accompagné et personnalisé.' },
+        { title: 'Atelier & matières', text: 'Broderie, tulle, soie et finitions rendent le savoir-faire visible.' },
+    ];
+    const requiredServices = [
+        { name: 'Galerie premium', reason: 'Les robes doivent être désirables dès le premier écran.', priceFrom: 'Projet spécifique' },
+        { name: 'Prise de rendez-vous', reason: 'Transformer l’envie en essayage privé.', priceFrom: 'Projet spécifique' },
+        { name: 'Catalogue / collection', reason: 'Présenter robes, matières et inspirations sans e-commerce forcé.', priceFrom: 'Projet spécifique' },
+        { name: 'Formulaire essayage', reason: 'Qualifier date du mariage, style, budget et disponibilités.', priceFrom: 'Projet spécifique' },
+    ];
+
+    proposal.projectType = 'Site couture mariage haut de gamme';
+    proposal.sectorKey = 'bridal';
+    proposal.siteName = siteName;
+    proposal.visualMood = hasLuminaCreativeIntent(JSON.stringify(proposal || {})) ? 'lumina-couture' : 'bridal-couture';
+    proposal.layoutVariant = proposal.visualMood === 'lumina-couture' ? 'lumina-showcase' : 'gallery-focus';
+    proposal.showGallery = true;
+    proposal.slogan = 'Des robes pour un jour unique.';
+    proposal.summary = `${siteName} doit ressembler à une maison couture mariage, avec robes, matières, atelier et essayage privé.`;
+    proposal.valueProposition = 'Une expérience premium qui donne envie de découvrir les collections, réserver un essayage et comprendre le savoir-faire couture.';
+    proposal.positioning = {
+        ...(proposal.positioning && typeof proposal.positioning === 'object' ? proposal.positioning : {}),
+        audience: 'Futures mariées qui cherchent une robe élégante, personnalisée et accompagnée avec soin.',
+        promise: 'Trouver une silhouette, ressentir les matières et réserver un essayage en toute confiance.',
+        tone: 'Couture, délicat, moderne, lumineux et très premium.',
+        differentiator: 'Un aperçu centré sur la robe, les détails de dentelle, l’atelier et le rendez-vous essayage.',
+    };
+    proposal.styleGuide = {
+        ...(proposal.styleGuide && typeof proposal.styleGuide === 'object' ? proposal.styleGuide : {}),
+        direction: 'Direction Lumina couture : surfaces translucides, lumière perle, détails de robe, dentelle, soie, reflets doux et profondeur moderne.',
+        colors: 'Ivoire froid, noir couture, perle lumineuse, rose quartz, argent doux et cyan verre.',
+        typography: 'Titres élégants mais contenus, sans-serif premium lisible, détails éditoriaux fins et aucun effet énorme ou vulgaire.',
+        layout: 'Hero galerie couture, collection en mosaïque, atelier matières, essayage privé, témoignages, FAQ et CTA final.',
+    };
+    proposal.visualConcept = {
+        ...(proposal.visualConcept && typeof proposal.visualConcept === 'object' ? proposal.visualConcept : {}),
+        heroComposition: 'Grande robe de mariée en lumière, détails de dentelle, carte essayage flottante, collection visible et surface de verre Lumina.',
+        ambience: 'Couture mariage moderne, lumineuse, désirable et calme.',
+        colorPalette: ['ivoire froid', 'noir couture', 'perle lumineuse', 'rose quartz', 'argent doux', 'cyan verre'],
+        imageKeywords: ['robe de mariée haute couture', 'atelier couture mariage', 'dentelle et broderie', 'essayage privé', 'voile et soie'],
+        layoutSignature: 'Galerie asymétrique avec surfaces transparentes, détails matières et CTA essayage visible.',
+        microInteractions: ['cartes collection qui flottent', 'reflets doux sur les tissus', 'bouton essayage lumineux', 'mosaïque robe en mouvement'],
+        wowFactor: 'Le visiteur voit immédiatement une maison couture mariage, pas un template boutique ou une image corporate.',
+    };
+    proposal.siteModel = {
+        ...(proposal.siteModel && typeof proposal.siteModel === 'object' ? proposal.siteModel : {}),
+        name: 'Direction couture mariage',
+        description: 'Une expérience visuelle premium dédiée aux robes de mariée, aux matières et aux essayages privés.',
+        sections: ['Hero robe couture', 'Collections', 'Sur mesure', 'Essayage privé', 'Atelier & matières', 'Galerie', 'Rendez-vous'],
+    };
+    proposal.pages = requiredPages;
+    proposal.homeSections = requiredSections;
+    proposal.services = [
+        ...filterBridalItems(proposal.services || [], ['name'], ['description']),
+        { name: 'Collection couture', description: 'Robes, silhouettes, voiles et détails de matières.' },
+        { name: 'Création sur mesure', description: 'Inspiration, essayage, retouches et accompagnement.' },
+        { name: 'Essayage privé', description: 'Rendez-vous personnalisé en atelier ou showroom.' },
+    ]
+        .filter((service, index, list) => list.findIndex((candidate) => stripAccents(normalizeText(candidate.name).toLowerCase()) === stripAccents(normalizeText(service.name).toLowerCase())) === index)
+        .slice(0, 5);
+    proposal.recommendedServices = [
+        ...filterBridalItems(proposal.recommendedServices || [], ['name'], ['reason']),
+        ...requiredServices,
+    ]
+        .filter((service, index, list) => list.findIndex((candidate) => getServiceKey(candidate.name) === getServiceKey(service.name)) === index)
+        .slice(0, 9);
+    proposal.ctas = ['Réserver un essayage', 'Découvrir les collections', 'Voir l’atelier'];
+    proposal.seo = {
+        keywords: ['robe de mariée haute couture', 'atelier couture mariage', 'essayage robe de mariée', 'collection mariée'],
+        searchExpressions: ['robe de mariée sur mesure', 'essayage robe de mariée', 'atelier couture mariage', 'créatrice robe de mariée'],
+        titles: [`${siteName} - Robes de mariée haute couture`, 'Collections, essayages privés et atelier couture'],
+        metaDescription: `${siteName} présente ses robes de mariée, ses collections, ses essayages privés et son savoir-faire couture.`,
+    };
+    proposal.seoKeywords = proposal.seo.keywords;
+    proposal.contactMessage = [
+        'Bonjour,',
+        '',
+        `Kirby a préparé une première proposition pour : ${siteName}.`,
+        'Type de projet : site couture mariage haut de gamme.',
+        'Direction visuelle : robe de mariée, atelier, dentelle, soie, surfaces Lumina et essayage privé.',
+        `Pages proposées : ${proposal.pages.map((page) => page.name).join(', ')}.`,
+        `Actions conseillées : ${proposal.ctas.slice(0, 3).join(', ')}.`,
+        '',
+        'Merci de me dire ce qu’il faut ajuster pour lancer le projet.',
+    ].join('\n');
+
+    return proposal;
 };
 
 const mergeRequiredPages = (pages, requiredPages, max = 8) => {
@@ -875,6 +1446,7 @@ const sanitizeProposal = (proposal, brief) => {
     const fallback = buildFallbackProposal(brief);
     const hotelProject = isHotelProject(brief, proposal);
     const beautyProject = isBeautyProject(brief, proposal);
+    const bridalProject = isBridalProject(brief, proposal);
     const requiredHotelPages = [
         { name: 'Accueil', goal: "Présenter l'hôtel, l'ambiance et le bouton de réservation." },
         { name: 'Chambres', goal: 'Montrer les chambres, équipements, photos et capacités.' },
@@ -918,7 +1490,7 @@ const sanitizeProposal = (proposal, brief) => {
         }))
         .filter((service) => service.name && service.description);
 
-    return {
+    const sanitized = {
         mode: proposal.mode || 'openai',
         projectType: normalizeText(proposal.projectType) || fallback.projectType,
         sectorKey: normalizeText(proposal.sectorKey) || normalizeText(fallback.sectorKey),
@@ -978,6 +1550,16 @@ const sanitizeProposal = (proposal, brief) => {
             .filter((item) => item.request || item.changes.length),
         contactMessage: normalize(proposal.contactMessage) || fallback.contactMessage,
     };
+
+    if (isAccountingProject(brief, sanitized)) {
+        return enforceAccountingProposal(sanitized, fallback);
+    }
+
+    if (bridalProject || isBridalProject(brief, sanitized)) {
+        return enforceBridalCoutureProposal(sanitized, fallback, brief);
+    }
+
+    return sanitized;
 };
 
 const hasProposalItem = (items = [], name = '') => {
@@ -1021,9 +1603,21 @@ const addProposalCta = (proposal, cta) => {
 const detectFallbackSector = (text = '') => {
     const source = stripAccents(normalizeText(text).toLowerCase());
 
-    if (/\b(compta|comptabilite|comptable|facture|facturation|tva|devis|banque|dashboard|saas|logiciel)\b/.test(source)) return 'accounting';
-    if (/\b(enfant|enfants|kid|kids|educatif|educative|education|ecole|maternelle|apprendre|apprentissage|comptine|comptines|histoire|histoires|parent|parents|mini jeu|mini-jeu|application enfant|app enfant|luna|leo|léo)\b/.test(source)) return 'kids-app';
+    if (hasFutureBankIntent(source)) return 'future-bank';
+    if (hasAccountingIntent(source)) return 'accounting';
+    if (/\b(dashboard|saas|logiciel)\b/.test(source)) return 'saas';
+    if (/\b(station spatiale|tourisme spatial|sejour orbital|orbital|orbite|apesanteur|vue sur la terre)\b/.test(source)) return 'space-station-tourism';
+    if (/\b(ville flottante|cite flottante|cité flottante|ville autonome|quartiers flottants|energie renouvelable)\b/.test(source)) return 'floating-city';
+    if (/\b(musee|musée|civilisations disparues|archeologie|archéologie|realite augmentee|mondes perdus|artefacts)\b/.test(source)) return 'future-museum';
+    if (/\b(hotel sous marin|hotel sous-marin|hotel sous l ocean|suites panoramiques|restaurant immerge|spa marin|faune marine)\b/.test(source)) return 'underwater-hotel';
+    if (isKidsEducationBrief(text)) return 'kids-app';
     if (/\b(immobilier|agence immobiliere|annonce|bien immobilier|estimation|mandat)\b/.test(source)) return 'real-estate';
+    if (/\b(architect|architecture|architecte|villa|villas|beton|verre|maitre d oeuvre|design d interieur)\b/.test(source)) return 'architecture';
+    if (/\b(voyage|voyages|tourisme|destination|destinations|itineraire|road trip|circuit|safari|agence de voyage|voyage sur mesure)\b/.test(source)) return 'travel';
+    if (/\b(avocat|avocats|juridique|droit|juriste|notaire|honoraires)\b/.test(source)) return 'legal';
+    if (/\b(salle de sport|fitness|coach sportif|coaching|nutrition|musculation|performance|espace membre)\b/.test(source)) return 'sport';
+    if (/\b(veterinaire|clinique veterinaire|urgence veterinaire|fiches animaux)\b/.test(source)) return 'veterinary';
+    if (/\b(robe|robes|robe de mariee|robe de mariage|mariee|mariage|couture|haute couture|atelier couture|collection mariee|essayage|dentelle|soie|voile|broderie|tulle|satin|bridal|wedding dress)\b/.test(source)) return 'bridal';
     if (/\b(restaurant|menu|carte|plat|reservation table|brasserie)\b/.test(source)) return 'restaurant';
     if (/\b(jeu video|gaming|studio de jeu|trailer|discord|steam)\b/.test(source)) return 'gaming';
     if (/\b(musique|artiste|album|concert|discographie|clip)\b/.test(source)) return 'music';
@@ -2324,16 +2918,25 @@ const getOpenAiGenerationControls = (model, legacyControls = {}) =>
 const inferOpenAiBriefContext = (brief = '') => {
     const source = stripAccents(normalizeText(brief).toLowerCase());
     const sector = getActivityWords(brief);
+    const accountingContext = hasAccountingIntent(source);
+    const kidsContext = !accountingContext && isKidsEducationBrief(brief);
+    const bridalContext = !accountingContext && !kidsContext && isBridalCoutureBrief(brief);
+    const luminaContext = !accountingContext && !kidsContext && hasLuminaCreativeIntent(brief);
     const styleHints = [
-        /\b(enfant|enfants|kid|kids|educatif|educative|education|comptine|histoires|parent|luna|leo)\b/.test(source) ? 'univers produit enfant futur doux' : '',
+        kidsContext ? 'univers produit enfant futur doux' : '',
+        bridalContext ? 'maison couture mariage premium, moderne et lumineuse' : '',
+        luminaContext ? 'direction Lumina/Figma premium, futuriste, transparente et lisible' : '',
         /\bpremium|haut de gamme|luxe|elegant|élégant|moderne|waouh|wow\b/.test(source) ? 'premium moderne' : '',
         /\brassurant|confiance|professionnel|serieux|sérieux\b/.test(source) ? 'rassurant' : '',
         /\bdoux|beige|rose|bien etre|bien-être|soin|spa\b/.test(source) ? 'doux bien-être' : '',
-        /\bbleu nuit|etoile|étoile|cosmique|futuriste|ia|digital\b/.test(source) ? 'bleu nuit digital immersif' : '',
+        /\bapple|macos|figma|lumina|luma|glass|glassmorphism|verre|bleu nuit|etoile|étoile|cosmique|futuriste|ia|digital\b/.test(source) ? 'premium digital immersif' : '',
         /\bchaleureux|italien|restaurant|terroir|convivial\b/.test(source) ? 'chaleureux commercial' : '',
     ].filter(Boolean);
     const sectionHints = [
-        /\b(enfant|enfants|kid|kids|educatif|educative|education|comptine|histoires|parent|luna|leo)\b/.test(source) ? 'jeux, histoires, comptines, espace parent, progression' : '',
+        accountingContext ? 'aperçu logiciel, factures, TVA, banque, documents, assistant IA, sécurité' : '',
+        kidsContext ? 'jeux, histoires, comptines, espace parent, progression' : '',
+        bridalContext ? 'collections, robes sur mesure, essayages privés, atelier, galerie, rendez-vous' : '',
+        luminaContext ? 'hero surface, modules flottants, assistant IA, preuves métier, CTA lisible' : '',
         /\btarif|prix|offre|formule|abonnement\b/.test(source) ? 'tarifs/offres' : '',
         /\brdv|rendez|reservation|réservation|agenda\b/.test(source) ? 'prise de rendez-vous ou réservation' : '',
         /\bphoto|image|galerie|portfolio|realisation|réalisation\b/.test(source) ? 'galerie/preuves visuelles' : '',
@@ -2342,13 +2945,17 @@ const inferOpenAiBriefContext = (brief = '') => {
         /\bcontact|whatsapp|telephone|téléphone|email|mail\b/.test(source) ? 'contact direct' : '',
     ].filter(Boolean);
     const targetHints = [
-        /\b(enfant|enfants|kid|kids|parent|parents|educatif|educative|education)\b/.test(source) ? 'enfants, parents et encadrants éducatifs' : '',
+        kidsContext ? 'enfants, parents et encadrants éducatifs' : '',
+        bridalContext ? 'futures mariées recherchant une robe personnalisée et un essayage rassurant' : '',
         /\bcliente|clientes|client[eè]le|clients|prospect|visiteur|utilisateur\b/.test(source) ? 'clients/prospects mentionnés dans le brief' : '',
         /\bindependant|indépendant|artisan|tpe|pme|freelance\b/.test(source) ? 'indépendants, TPE ou clientèle locale' : '',
         /\bfemme|femmes|mariage|beauté|beaute\b/.test(source) ? 'clientèle féminine ou beauté' : '',
     ].filter(Boolean);
     const moodHints = [
-        /\b(enfant|enfants|kid|kids|educatif|educative|education|comptine|histoires|luma|futur|future|futuriste|3d|immersif|immersive)\b/.test(source) ? 'futur doux, ludique, immersif, surfaces translucides' : '',
+        kidsContext ? 'futur doux, ludique, immersif, surfaces translucides' : '',
+        bridalContext ? 'ivoire froid, noir couture, perle lumineuse, rose quartz, argent doux, cyan verre' : '',
+        luminaContext ? 'surfaces transparentes, profondeur 4D, lumières cyan/menthe/rose froid, animations discrètes' : '',
+        accountingContext && /\bapple|macos|figma|lumina|luma|futur|future|futuriste|3d|immersif|immersive|glass|verre\b/.test(source) ? 'finance OS premium, verre dépoli, profondeur, panneaux flottants' : '',
         /\bbleu nuit|etoile|étoile|cosmique|univers|halo|verre|glass|transparent\b/.test(source) ? 'univers bleu nuit, halos, verre dépoli' : '',
         /\bminimal|sobre|clair|epure|épuré\b/.test(source) ? 'sobre et lisible' : '',
         /\benergie|sport|fitness|dynamique\b/.test(source) ? 'énergique et rythmé' : '',
@@ -2380,7 +2987,8 @@ const buildOpenAiUserPrompt = ({ brief, revision, currentProposal }) => {
             'Inclue explicitement secteur, cible, style visuel, couleurs, sections, ambiance, images conseillees, hierarchie, CTA, SEO et raisons des choix.',
             'La proposition doit pouvoir alimenter un aperçu visuel premium : hero fort, cartes ou modules utiles, image sectorielle pertinente, preuve de confiance, action principale claire.',
             'Si le brief parle du fond bleu nuit étoilé, verre, halos ou univers premium, exploite cette base au lieu de proposer des cadres opaques.',
-            'Si le brief parle d’enfant, apprentissage, jeux, histoires, comptines, parent, Figma Make, Luma, futur ou immersif, produis une direction story-world applicative plutôt qu’un site vitrine.',
+            'Si le brief parle réellement d’enfant, application enfant, mini-jeux, comptines, école maternelle ou espace parent, produis une direction story-world applicative. Le mot histoire seul ne suffit pas.',
+            'Si le brief cite Apple, macOS, Figma, Lumina, Luma, futuriste, 3D, glassmorphism ou immersif comme inspiration visuelle, applique seulement l’esthétique au secteur demandé : ne reprends jamais le contenu, les menus ou le scénario d’un autre secteur.',
         ].join('\n'),
     ];
 
