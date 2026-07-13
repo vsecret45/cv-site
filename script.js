@@ -130,8 +130,11 @@ const authFeedback = document.querySelector('#auth-feedback');
 const authTabs = document.querySelectorAll('[data-auth-view]');
 const authLoginPanel = document.querySelector('#auth-panel-login');
 const authSignupPanel = document.querySelector('#auth-panel-signup');
+const authResetPasswordPanel = document.querySelector('#auth-panel-reset-password');
 const authLoginForm = document.querySelector('#auth-login-form');
 const authSignupForm = document.querySelector('#auth-signup-form');
+const authResetPasswordForm = document.querySelector('#auth-reset-password-form');
+const authForgotPasswordButton = document.querySelector('#auth-forgot-password');
 const passwordToggleButtons = document.querySelectorAll('[data-password-toggle]');
 const cvPrivateGate = document.querySelector('#cv-private-gate');
 const cvGateLoginButton = document.querySelector('#cv-gate-login');
@@ -140,6 +143,7 @@ const PDFJS_MODULE_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/legacy
 const PDFJS_WORKER_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/legacy/build/pdf.worker.min.mjs';
 const SUPABASE_BROWSER_MODULE_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 const DEFAULT_CV_SECTION_ORDER = ['summary', 'skills', 'experience', 'projects', 'education', 'activities', 'languages'];
+const getAuthSignupUtils = () => window.AuthSignupUtils || {};
 
 let pdfjsLoader;
 let currentPreviewPage = 1;
@@ -149,6 +153,9 @@ let cvSectionOrder = [...DEFAULT_CV_SECTION_ORDER];
 let currentUser = null;
 let supabaseClientPromise = null;
 let supabaseAuthListenerReady = false;
+let isSignupRequestInFlight = false;
+let isPasswordResetEmailRequestInFlight = false;
+let isPasswordUpdateRequestInFlight = false;
 let activeEditableNode = null;
 let activeFormatNode = null;
 let savedFormatRange = null;
@@ -837,9 +844,15 @@ const initializeSupabaseClient = async () => {
         });
 
         if (!supabaseAuthListenerReady) {
-            client.auth.onAuthStateChange((_event, session) => {
+            client.auth.onAuthStateChange((authEvent, session) => {
                 persistAuthSession(session?.user || null);
                 updateAuthUi();
+
+                if (authEvent === 'PASSWORD_RECOVERY') {
+                    openAuthModal('reset-password');
+                    setAuthFeedback('Choisissez un nouveau mot de passe.', false);
+                    return;
+                }
 
                 if (currentUser) {
                     loadCvDraft({ silent: true }).catch((error) => {
@@ -880,7 +893,116 @@ const setAuthFeedback = (message = '', isError = false) => {
     authFeedback.style.color = isError ? '#be185d' : '#2f3f7f';
 };
 
+const clearAuthFeedbackOnEdit = (event) => {
+    if (!event?.target?.closest?.('#auth-signup-form')) {
+        return;
+    }
+
+    setAuthFeedback('');
+};
+
+const setAuthFormBusy = (form, isBusy, busyLabel = 'Veuillez patienter...') => {
+    const submitButton = form?.querySelector('button[type="submit"], input[type="submit"]');
+
+    if (!submitButton) {
+        return;
+    }
+
+    if (!submitButton.dataset.idleText) {
+        submitButton.dataset.idleText = submitButton.textContent || submitButton.value || '';
+    }
+
+    submitButton.disabled = isBusy;
+    submitButton.setAttribute('aria-busy', String(isBusy));
+
+    if (submitButton.tagName === 'INPUT') {
+        submitButton.value = isBusy ? busyLabel : submitButton.dataset.idleText;
+        return;
+    }
+
+    submitButton.textContent = isBusy ? busyLabel : submitButton.dataset.idleText;
+};
+
+const setAuthButtonBusy = (button, isBusy, busyLabel = 'Veuillez patienter...') => {
+    if (!button) {
+        return;
+    }
+
+    if (!button.dataset.idleText) {
+        button.dataset.idleText = button.textContent || '';
+    }
+
+    button.disabled = isBusy;
+    button.setAttribute('aria-busy', String(isBusy));
+    button.textContent = isBusy ? busyLabel : button.dataset.idleText;
+};
+
+const getAuthCallbackUrl = () => `${window.location.origin}/auth/callback`;
+
+const isPasswordRecoveryCallback = () => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    return searchParams.get('auth_callback') === '1' && hashParams.get('type') === 'recovery';
+};
+
+const cleanAuthCallbackUrl = () => {
+    if (!window.history?.replaceState) {
+        return;
+    }
+
+    const cleanUrl = new URL(window.location.href);
+    cleanUrl.searchParams.delete('auth_callback');
+    cleanUrl.searchParams.delete('code');
+    cleanUrl.hash = '';
+    window.history.replaceState({}, document.title, cleanUrl.toString());
+};
+
+const logSignupAuthEvent = (payload = {}) => {
+    const event = {
+        ...payload,
+        sent_at: new Date().toISOString(),
+    };
+    const logMethod = event.event === 'signup_failed' ? 'warn' : 'info';
+
+    try {
+        console[logMethod]('[auth_signup]', event);
+    } catch (_error) {
+        console.log('[auth_signup]', event);
+    }
+
+    try {
+        const body = JSON.stringify(event);
+
+        if (navigator.sendBeacon) {
+            navigator.sendBeacon('/api/auth-observability', new Blob([body], { type: 'application/json' }));
+            return;
+        }
+
+        fetch('/api/auth-observability', {
+            method: 'POST',
+            credentials: 'same-origin',
+            keepalive: true,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body,
+        }).catch((error) => {
+            console.debug('signup_observability_send_failed', error);
+        });
+    } catch (error) {
+        console.debug('signup_observability_send_failed', error);
+    }
+};
+
 const formatAuthErrorMessage = (error, mode = 'signup') => {
+    if (mode === 'signup') {
+        const mapSignupError = getAuthSignupUtils().mapAuthErrorToSignupFeedback;
+
+        if (typeof mapSignupError === 'function') {
+            return mapSignupError(error).message;
+        }
+    }
+
     const source = String(error?.message || error?.error_description || error?.name || '').trim();
     const normalized = normalizeForMatch(source);
 
@@ -914,7 +1036,7 @@ const formatAuthErrorMessage = (error, mode = 'signup') => {
 };
 
 const setAuthView = (view) => {
-    const activeView = view === 'signup' ? 'signup' : 'login';
+    const activeView = view === 'signup' || view === 'reset-password' ? view : 'login';
 
     authTabs.forEach((tab) => {
         const isActive = tab.dataset.authView === activeView;
@@ -924,12 +1046,17 @@ const setAuthView = (view) => {
 
     authLoginPanel?.classList.toggle('is-hidden', activeView !== 'login');
     authSignupPanel?.classList.toggle('is-hidden', activeView !== 'signup');
+    authResetPasswordPanel?.classList.toggle('is-hidden', activeView !== 'reset-password');
     setAuthFeedback('');
 };
 
 const openAuthModal = (view = 'login') => {
     if (!authModal) {
         return;
+    }
+
+    if (view === 'signup' && !isSignupRequestInFlight) {
+        setAuthFormBusy(authSignupForm, false);
     }
 
     setAuthView(view);
@@ -9984,22 +10111,63 @@ const handleAuthLogin = async (event) => {
     }
 };
 
-const handleAuthSignup = async (event) => {
-    event.preventDefault();
-
-    const formData = new FormData(authSignupForm);
-    const name = (formData.get('name') || '').toString().trim();
-    const email = normalizeAccountEmail((formData.get('email') || '').toString());
-    const password = (formData.get('password') || '').toString();
-    const confirmPassword = (formData.get('confirmPassword') || '').toString();
-
-    if (!name || !email || !password) {
-        setAuthFeedback('Tous les champs sont obligatoires.', true);
+const handleForgotPassword = async () => {
+    if (isPasswordResetEmailRequestInFlight) {
         return;
     }
 
-    if (password.length < 6) {
-        setAuthFeedback('Choisissez un mot de passe de 6 caracteres minimum.', true);
+    const emailField = authLoginForm?.elements?.email;
+    const email = normalizeAccountEmail((emailField?.value || '').toString());
+
+    if (!email) {
+        setAuthFeedback('Saisissez votre email, puis cliquez sur Mot de passe oublié.', true);
+        emailField?.focus();
+        return;
+    }
+
+    isPasswordResetEmailRequestInFlight = true;
+    setAuthButtonBusy(authForgotPasswordButton, true, 'Envoi...');
+    setAuthFeedback('');
+
+    try {
+        const client = await initializeSupabaseClient();
+        const { error } = await client.auth.resetPasswordForEmail(email, {
+            redirectTo: getAuthCallbackUrl(),
+        });
+
+        if (error) {
+            throw error;
+        }
+
+        setAuthFeedback('Si un compte existe avec cet email, un lien de réinitialisation vient d’être envoyé.', false);
+    } catch (error) {
+        console.error('Supabase password reset email failed', {
+            message: error?.message || '',
+            status: error?.status || null,
+            code: error?.code || '',
+        });
+        console.error(error);
+        setAuthFeedback('Impossible d’envoyer le lien de réinitialisation pour le moment. Réessayez.', true);
+    } finally {
+        isPasswordResetEmailRequestInFlight = false;
+        setAuthButtonBusy(authForgotPasswordButton, false);
+    }
+};
+
+const handleResetPassword = async (event) => {
+    event.preventDefault();
+
+    if (isPasswordUpdateRequestInFlight) {
+        return;
+    }
+
+    const formData = new FormData(authResetPasswordForm);
+    const password = (formData.get('password') || '').toString();
+    const confirmPassword = (formData.get('confirmPassword') || '').toString();
+    const minPasswordLength = getAuthSignupUtils().MIN_PASSWORD_LENGTH || 6;
+
+    if (password.length < minPasswordLength) {
+        setAuthFeedback(`Le mot de passe doit contenir au moins ${minPasswordLength} caractères.`, true);
         return;
     }
 
@@ -10008,21 +10176,94 @@ const handleAuthSignup = async (event) => {
         return;
     }
 
+    isPasswordUpdateRequestInFlight = true;
+    setAuthFormBusy(authResetPasswordForm, true, 'Mise a jour...');
+    setAuthFeedback('');
+
     try {
         const client = await initializeSupabaseClient();
-        const { data, error } = await client.auth.signUp({
-            email,
-            password,
-            options: {
-                data: {
-                    name,
-                },
-            },
-        });
+        const { data, error } = await client.auth.updateUser({ password });
 
         if (error) {
             throw error;
         }
+
+        persistAuthSession(data?.user || currentUser || null);
+        updateAuthUi();
+        authResetPasswordForm.reset();
+        cleanAuthCallbackUrl();
+        closeAuthModal();
+        setCvStatus('Mot de passe mis a jour. Connexion securisee active.');
+    } catch (error) {
+        console.error('Supabase password update failed', {
+            message: error?.message || '',
+            status: error?.status || null,
+            code: error?.code || '',
+        });
+        console.error(error);
+        setAuthFeedback('Impossible de mettre à jour le mot de passe. Rouvrez le lien reçu par email ou redemandez un lien.', true);
+    } finally {
+        isPasswordUpdateRequestInFlight = false;
+        setAuthFormBusy(authResetPasswordForm, false);
+    }
+};
+
+const handleAuthSignup = async (event) => {
+    event.preventDefault();
+
+    if (isSignupRequestInFlight) {
+        return;
+    }
+
+    const formData = new FormData(authSignupForm);
+    const signupUtils = getAuthSignupUtils();
+    const emailField = authSignupForm?.elements?.email;
+
+    if (emailField && typeof signupUtils.normalizeAccountEmail === 'function') {
+        emailField.value = signupUtils.normalizeAccountEmail(emailField.value);
+    }
+
+    isSignupRequestInFlight = true;
+    setAuthFormBusy(authSignupForm, true, 'Creation...');
+    setAuthFeedback('');
+
+    try {
+        if (typeof signupUtils.submitSignup !== 'function') {
+            throw new Error('auth_signup_utils_unavailable');
+        }
+
+        const signupResult = await signupUtils.submitSignup({
+            fields: {
+                name: (formData.get('name') || '').toString(),
+                email: (formData.get('email') || '').toString(),
+                password: (formData.get('password') || '').toString(),
+                confirmPassword: (formData.get('confirmPassword') || '').toString(),
+            },
+            logAuthEvent: logSignupAuthEvent,
+            signUp: async (payload) => {
+                const client = await initializeSupabaseClient();
+                return client.auth.signUp(payload);
+            },
+        });
+
+        if (!signupResult.ok) {
+            if (signupResult.error) {
+                console.error('Supabase signup failed', {
+                    message: signupResult.errorDetails?.message || signupResult.error?.message || '',
+                    status: signupResult.errorDetails?.status ?? signupResult.error?.status ?? null,
+                    code: signupResult.errorDetails?.code || signupResult.error?.code || '',
+                    request_id: signupResult.requestId,
+                    supabase_request_id: signupResult.errorDetails?.requestId || '',
+                    incident_code: signupResult.incidentCode || '',
+                });
+                console.error(signupResult.error);
+            }
+
+            setAuthFeedback(signupResult.feedback, true);
+            return;
+        }
+
+        const data = signupResult.data;
 
         persistAuthSession(data?.session?.user || null);
         activeEditableNode = null;
@@ -10040,8 +10281,49 @@ const handleAuthSignup = async (event) => {
         closeAuthModal();
         setCvStatus(data?.session ? 'Compte cree et connecte' : 'Compte cree. Confirmez votre email si necessaire.');
     } catch (error) {
+        const requestId = typeof signupUtils.createSignupRequestId === 'function'
+            ? signupUtils.createSignupRequestId()
+            : `signup-${Date.now().toString(36)}`;
+        const errorDetails = typeof signupUtils.getSupabaseErrorDetails === 'function'
+            ? signupUtils.getSupabaseErrorDetails(error)
+            : {
+                message: error?.message || '',
+                status: error?.status || null,
+                code: error?.code || '',
+                requestId: '',
+            };
+        const mappedError = typeof signupUtils.mapAuthErrorToSignupFeedback === 'function'
+            ? signupUtils.mapAuthErrorToSignupFeedback(error, { requestId })
+            : {
+                message: `Inscription impossible pour le moment. Réessayez. Code incident : SIGNUP-${requestId.slice(-8).toUpperCase()}`,
+                incidentCode: '',
+            };
+
+        logSignupAuthEvent({
+            event: 'signup_failed',
+            request_id: requestId,
+            status: errorDetails.status,
+            supabase_error_code: errorDetails.code || 'signup_handler_exception',
+            supabase_error_message: errorDetails.message || error?.message || '',
+            supabase_request_id: errorDetails.requestId || '',
+            incident_code: mappedError.incidentCode || '',
+            browser_fingerprint: typeof signupUtils.getBrowserFingerprint === 'function'
+                ? signupUtils.getBrowserFingerprint()
+                : {},
+        });
+        console.error('Supabase signup handler failed', {
+            message: errorDetails.message || error?.message || '',
+            status: errorDetails.status,
+            code: errorDetails.code || '',
+            request_id: requestId,
+            supabase_request_id: errorDetails.requestId || '',
+            incident_code: mappedError.incidentCode || '',
+        });
         console.error(error);
-        setAuthFeedback(formatAuthErrorMessage(error, 'signup'), true);
+        setAuthFeedback(mappedError.message, true);
+    } finally {
+        isSignupRequestInFlight = false;
+        setAuthFormBusy(authSignupForm, false);
     }
 };
 
@@ -10090,6 +10372,10 @@ window.addEventListener('load', () => {
             setCvStatus('Brouillon securise ignore pour eviter un blocage');
         }
         refreshCvModule();
+        if (isPasswordRecoveryCallback()) {
+            openAuthModal('reset-password');
+            setAuthFeedback('Choisissez un nouveau mot de passe.', false);
+        }
     })().catch((error) => {
         console.error(error);
         refreshCvModule();
@@ -10123,7 +10409,10 @@ authTabs.forEach((tab) => {
     });
 });
 authLoginForm?.addEventListener('submit', handleAuthLogin);
+authForgotPasswordButton?.addEventListener('click', handleForgotPassword);
 authSignupForm?.addEventListener('submit', handleAuthSignup);
+authSignupForm?.addEventListener('input', clearAuthFeedbackOnEdit);
+authResetPasswordForm?.addEventListener('submit', handleResetPassword);
 passwordToggleButtons.forEach((button) => {
     button.addEventListener('click', () => {
         const field = button.closest('.password-field')?.querySelector('input');
@@ -12520,14 +12809,14 @@ const KIRBY_INCOMPATIBLE_BLOCKS = {
     sport: [/menu du jour|chambres hotel|honoraires avocat|bien immobilier|comptines/],
     legal: [/menu du jour|restaurant gastronomique|chambres hotel|jeux educatifs|espace parent|bien immobilier/],
     bridal: [/ordinateur|dashboard|logiciel|saas|cabinet d avocat|menu du jour|chambres hotel|bien immobilier|clinique veterinaire|salle de sport|bureau corporate|reunion/],
-    'underwater-hotel': [/cabinet d avocat|facturation tva|jeux educatifs|espace parent|piscine tropicale|resort tropical/],
-    'space-station-tourism': [/cabinet d avocat|facturation tva|restaurant gastronomique|clinique veterinaire|piscine tropicale|espace parent/],
-    'floating-city': [/cabinet d avocat|facturation tva|restaurant gastronomique|robe de mariee|clinique veterinaire|espace parent/],
-    'future-museum': [/facturation tva|chambres hotel|restaurant gastronomique|robe de mariee|clinique veterinaire|espace parent/],
+    'underwater-hotel': [/cabinet d avocat|facturation tva|jeux educatifs|espace parent|piscine tropicale|resort tropical|google maps|avis clients|^chambres?\b/],
+    'space-station-tourism': [/cabinet d avocat|facturation tva|restaurant gastronomique|clinique veterinaire|piscine tropicale|espace parent|google maps|avis clients|^chambres?\b|hotel terrestre|hebergement terrestre/],
+    'floating-city': [/cabinet d avocat|facturation tva|restaurant gastronomique|robe de mariee|clinique veterinaire|espace parent|google maps|avis clients|^chambres?\b/],
+    'future-museum': [/facturation tva|chambres hotel|restaurant gastronomique|robe de mariee|clinique veterinaire|espace parent|google maps|avis clients|^chambres?\b/],
     'future-bank': [/facture|factures|tva|comptabilite|comptable|devis|restaurant gastronomique|robe de mariee|espace parent/],
-    'explorer-academy': [/facturation tva|cabinet d avocat|reservation table|chambres hotel|espace parent|assistant comptable/],
+    'explorer-academy': [/facturation tva|cabinet d avocat|reservation table|chambres hotel|espace parent|assistant comptable|google maps|avis clients|^chambres?\b/],
     'dream-portal': [/facturation tva|cabinet d avocat|reservation table|chambres hotel|bien immobilier|comptines|espace parent/],
-    'climate-lab': [/restaurant gastronomique|reservation table|chambres hotel|robe de mariee|dashboard comptable|comptines/],
+    'climate-lab': [/restaurant gastronomique|reservation table|chambres hotel|robe de mariee|dashboard comptable|comptines|google maps|avis clients|^chambres?\b/],
     corporate: [/jeu video|discographie|reservation table|tva a reverser|biens immobiliers/],
 };
 
@@ -13222,6 +13511,32 @@ const getKirbyShortText = (value = '', max = 92) => {
     }
 
     return `${text.slice(0, max - 1).trim()}…`;
+};
+
+const getKirbyPreviewSentence = (value = '', max = 150) => {
+    const text = String(value || '').replace(/\s+/g, ' ').trim();
+
+    if (text.length <= max) {
+        return text;
+    }
+
+    const clipped = text.slice(0, max);
+    const sentenceEnd = Math.max(
+        clipped.lastIndexOf('.'),
+        clipped.lastIndexOf('!'),
+        clipped.lastIndexOf('?'),
+    );
+
+    if (sentenceEnd > 60) {
+        return clipped.slice(0, sentenceEnd + 1).trim();
+    }
+
+    const cleanCut = clipped
+        .replace(/\s+\S*$/, '')
+        .replace(/[,:;–-]+$/, '')
+        .trim();
+
+    return cleanCut ? `${cleanCut}.` : getKirbyShortText(text, max);
 };
 
 const getKirbyDomain = (siteName = '') => {
@@ -15460,6 +15775,180 @@ const getKirbyLayoutVariant = (proposal = {}, brief = '', isDashboardPreview = f
     return variants[getKirbyHash(`${brief} ${proposal.siteName || ''} ${source}`) % variants.length];
 };
 
+const getKirbySectorExperienceModel = (proposal = {}, brief = '') => {
+    const signals = getKirbyBriefSignals(brief);
+    const visualConcept = getKirbyVisualConcept(proposal);
+    const sectorKey = normalizeKirbyText(proposal.sectorKey || '');
+    const source = normalizeKirbyText([
+        brief,
+        sectorKey,
+        proposal.projectType,
+        proposal.siteName,
+        proposal.visualMood,
+        proposal.siteModel && proposal.siteModel.name,
+        visualConcept.ambience,
+        visualConcept.heroComposition,
+        visualConcept.layoutSignature,
+        visualConcept.signatureMoment,
+        getKirbyArray(visualConcept.imageKeywords, 8).join(' '),
+    ].filter(Boolean).join(' '));
+    const matchesSector = (key, predicate) => sectorKey === key || predicate(source);
+
+    if (signals.isAccountingApp || signals.isFutureBank || signals.isDreamPortal || signals.isEducationKids) {
+        return null;
+    }
+
+    const models = [
+        {
+            key: 'underwater-hotel',
+            match: () => matchesSector('underwater-hotel', hasKirbyUnderwaterHotelIntent),
+            sceneClass: 'scene-underwater-hotel',
+            eyebrow: 'Immersion hôtelière',
+            badge: 'Pression stable',
+            accent: '#67e8f9',
+            accent2: '#9cf6ff',
+            glow: '#0ea5e9',
+            title: 'Suites vitrées sous l’océan',
+            text: 'Le premier écran montre chambres panoramiques, restaurant immergé, spa marin et observation du vivant.',
+            statA: '180°',
+            statLabelA: 'vue suite',
+            statB: '24h',
+            statLabelB: 'faune visible',
+            proofs: ['Suite panoramique', 'Restaurant immergé', 'Spa marin', 'Observation protégée'],
+        },
+        {
+            key: 'space-station-tourism',
+            match: () => matchesSector('space-station-tourism', hasKirbySpaceTourismIntent),
+            sceneClass: 'scene-space-station-tourism',
+            eyebrow: 'Séjour orbital',
+            badge: 'Orbite basse',
+            accent: '#a5b4fc',
+            accent2: '#7dd3fc',
+            glow: '#818cf8',
+            title: 'Station avec vue Terre',
+            text: 'Cabines, hublots, module d’apesanteur et réservation orbitale deviennent visibles dès le hero.',
+            statA: '16',
+            statLabelA: 'levers Terre',
+            statB: '0G',
+            statLabelB: 'expérience',
+            proofs: ['Cabines orbitales', 'Vue sur la Terre', 'Apesanteur', 'Sécurité voyageur'],
+        },
+        {
+            key: 'floating-city',
+            match: () => matchesSector('floating-city', hasKirbyFloatingCityIntent),
+            sceneClass: 'scene-floating-city',
+            eyebrow: 'Cité autonome',
+            badge: 'Énergie positive',
+            accent: '#86efac',
+            accent2: '#5eead4',
+            glow: '#22c55e',
+            title: 'Quartiers vivants sur l’eau',
+            text: 'La ville montre logements, transports, solaire, jardins et vie quotidienne au lieu d’un simple rendu décoratif.',
+            statA: '12',
+            statLabelA: 'quartiers',
+            statB: '100%',
+            statLabelB: 'eau recyclée',
+            proofs: ['Quartiers flottants', 'Navettes propres', 'Énergie renouvelable', 'Espaces verts'],
+        },
+        {
+            key: 'future-museum',
+            match: () => matchesSector('future-museum', hasKirbyImmersiveMuseumIntent),
+            sceneClass: 'scene-future-museum',
+            eyebrow: 'Archéologie augmentée',
+            badge: 'AR active',
+            accent: '#f7c873',
+            accent2: '#c084fc',
+            glow: '#f59e0b',
+            title: 'Artefacts et mondes perdus',
+            text: 'Le musée doit faire sentir ruines, objets, cartels augmentés et parcours de visite interactif.',
+            statA: '9',
+            statLabelA: 'civilisations',
+            statB: 'AR',
+            statLabelB: 'reconstitution',
+            proofs: ['Artefacts scannés', 'Ruines reconstruites', 'Billetterie', 'Ateliers immersifs'],
+        },
+        {
+            key: 'explorer-academy',
+            match: () => matchesSector('explorer-academy', hasKirbyExplorerAcademyIntent),
+            sceneClass: 'scene-explorer-academy',
+            eyebrow: 'Campus d’expédition',
+            badge: '5 terrains',
+            accent: '#4ee7c8',
+            accent2: '#fbbf24',
+            glow: '#14b8a6',
+            title: 'Océan, désert, jungle, montagne, espace',
+            text: 'La scène doit vendre une école d’aventure internationale avec parcours, terrains et admissions.',
+            statA: '5',
+            statLabelA: 'mondes',
+            statB: '36',
+            statLabelB: 'missions',
+            proofs: ['Océan', 'Désert', 'Jungle', 'Montagne', 'Espace'],
+        },
+        {
+            key: 'climate-lab',
+            match: () => matchesSector('climate-lab', hasKirbyClimateLabIntent),
+            sceneClass: 'scene-climate-lab',
+            eyebrow: 'Science du vivant',
+            badge: 'Données terrain',
+            accent: '#8bf5c4',
+            accent2: '#7dd3fc',
+            glow: '#22c55e',
+            title: 'Restaurer les écosystèmes',
+            text: 'Le hero relie laboratoire, capteurs, sols, eau, satellites et impact mesurable.',
+            statA: '42',
+            statLabelA: 'sites suivis',
+            statB: 'CO₂',
+            statLabelB: 'impact',
+            proofs: ['Capteurs terrain', 'Biodiversité', 'Modèles climat', 'Partenariats'],
+        },
+        {
+            key: 'future-library',
+            match: () => matchesSector('library', hasKirbyLibraryIntent),
+            sceneClass: 'scene-future-library',
+            eyebrow: 'Bibliothèque augmentée',
+            badge: 'IA de lecture',
+            accent: '#8cf8ff',
+            accent2: '#d9f99d',
+            glow: '#06b6d4',
+            title: 'Livres papier et hologrammes',
+            text: 'Le site montre rayonnages, atrium, tables de lecture interactives et assistance IA culturelle.',
+            statA: '12k',
+            statLabelA: 'ouvrages',
+            statB: 'IA',
+            statLabelB: 'médiation',
+            proofs: ['Rayonnages', 'Hologrammes', 'Tables de lecture', 'Programme culturel'],
+        },
+        {
+            key: 'urban-farm',
+            match: () => matchesSector('urban-farm', hasKirbyUrbanFarmIntent),
+            sceneClass: 'scene-urban-farm',
+            eyebrow: 'Ferme verticale IA',
+            badge: 'Culture pilotée',
+            accent: '#bbf7d0',
+            accent2: '#67e8f9',
+            glow: '#4ade80',
+            title: 'Tours de culture automatisées',
+            text: 'La ferme apparaît comme une infrastructure productive avec robots, capteurs, énergie solaire et récoltes.',
+            statA: '8',
+            statLabelA: 'étages',
+            statB: 'IA',
+            statLabelB: 'irrigation',
+            proofs: ['Tours végétales', 'Robots récolteurs', 'Capteurs', 'Énergie solaire'],
+        },
+    ];
+
+    const selected = models.find((model) => model.match());
+
+    if (!selected) {
+        return null;
+    }
+
+    return {
+        ...selected,
+        style: `--sector-accent: ${selected.accent}; --sector-accent-2: ${selected.accent2}; --sector-glow: ${selected.glow};`,
+    };
+};
+
 const renderKirbyProposal = (proposal, brief, runtime = {}) => {
     if (!aiBriefOutput) {
         return;
@@ -15519,12 +16008,16 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
     const isDreamPreview = briefSignals.isDreamPortal;
     const isLuminaPreview = !isDreamPreview && (layoutVariant === 'lumina-showcase' || /lumina-future|lumina-showcase/.test(toneSource));
     const isKidsFuturePreview = !isFinancePreview && !isDreamPreview && ((layoutVariant === 'story-world' && briefSignals.isEducationKids) || briefSignals.isEducationKids || /kids-future|comptine|mini-jeu|mini jeu|luna|leo|léo/.test(toneSource));
+    const sectorExperience = getKirbySectorExperienceModel(safeProposal, brief);
+    const isSectorExperiencePreview = Boolean(sectorExperience);
     const previewTone = isFinancePreview
         ? 'is-finance-os'
         : isKidsFuturePreview
         ? 'is-kids-future'
         : isDreamPreview
         ? 'is-dream-portal'
+        : isSectorExperiencePreview
+        ? 'is-sector-experience'
         : briefSignals.isExplorerAcademy
         ? 'is-adventure'
         : briefSignals.isClimateLab
@@ -15994,6 +16487,81 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
             ${footerMarkup}
         </div>
     `;
+    const sectorExperienceSections = sectorExperience
+        ? (visibleSections.length ? visibleSections : sectorExperience.proofs.map((proof) => ({ title: proof, text: sectorExperience.text }))).slice(0, 4)
+        : [];
+    const sectorExperienceProofs = sectorExperience
+        ? sectorExperience.proofs.slice(0, 5)
+        : [];
+    const sectorExperiencePreview = sectorExperience ? `
+        <div class="kirby-sector-experience ${sectorExperience.sceneClass}" style="${sectorExperience.style}" aria-label="Aperçu métier ${cleanHtml(siteName)}">
+            <nav class="kirby-sector-nav">
+                <strong>${cleanHtml(siteName)}</strong>
+                <div>
+                    ${visiblePageNames.slice(0, 5).map((pageName, index) => `<span class="${index === 0 ? 'is-active' : ''}">${cleanHtml(getKirbyShortText(pageName, 19))}</span>`).join('')}
+                </div>
+                <em>${cleanHtml(sectorExperience.badge)}</em>
+            </nav>
+            <section class="kirby-sector-hero">
+                <div class="kirby-sector-copy">
+                    <p class="signal-label">${cleanHtml(sectorExperience.eyebrow)}</p>
+                    <h3>${cleanHtml(siteName)}</h3>
+                    <p>${cleanHtml(getKirbyPreviewSentence(sectorExperience.text || safeProposal.valueProposition || safeProposal.slogan, 150))}</p>
+                    ${actionsMarkup}
+                    <div class="kirby-sector-proof-list" aria-hidden="true">
+                        ${sectorExperienceProofs.map((proof) => `<span>${cleanHtml(getKirbyShortText(proof, 22))}</span>`).join('')}
+                    </div>
+                </div>
+                <div class="kirby-sector-stage" aria-hidden="true">
+                    <div class="sector-scene-core">
+                        <span class="scene-atmosphere"></span>
+                        <span class="scene-horizon"></span>
+                        <span class="scene-object object-a"></span>
+                        <span class="scene-object object-b"></span>
+                        <span class="scene-object object-c"></span>
+                        <span class="scene-object object-d"></span>
+                        <span class="scene-object object-e"></span>
+                        <span class="scene-beam beam-a"></span>
+                        <span class="scene-beam beam-b"></span>
+                        <span class="scene-route"><i></i><i></i><i></i></span>
+                    </div>
+                    <article class="sector-floating-panel sector-panel-a">
+                        <small>${cleanHtml(sectorExperience.eyebrow)}</small>
+                        <strong>${cleanHtml(getKirbyShortText(sectorExperience.title, 58))}</strong>
+                    </article>
+                    <article class="sector-floating-panel sector-panel-b">
+                        <small>${cleanHtml(sectorExperience.statLabelA)}</small>
+                        <strong>${cleanHtml(sectorExperience.statA)}</strong>
+                        <span>${cleanHtml(getKirbyShortText(sectorExperienceProofs[0] || primaryCta, 34))}</span>
+                    </article>
+                    <article class="sector-floating-panel sector-panel-c">
+                        <small>${cleanHtml(sectorExperience.statLabelB)}</small>
+                        <strong>${cleanHtml(sectorExperience.statB)}</strong>
+                        <span>${cleanHtml(getKirbyShortText(sectorExperienceProofs[1] || secondaryCta, 34))}</span>
+                    </article>
+                </div>
+            </section>
+            <section class="kirby-sector-proof-grid">
+                ${sectorExperienceSections.map((section, index) => `
+                    <article>
+                        <em>${String(index + 1).padStart(2, '0')}</em>
+                        <strong>${cleanHtml(getKirbyItemTitle(section))}</strong>
+                        <span>${cleanHtml(getKirbyShortText(getKirbyItemText(section), 82))}</span>
+                    </article>
+                `).join('')}
+            </section>
+            <section class="kirby-sector-journey">
+                <div>
+                    <p class="signal-label">${cleanHtml(sectorExperience.badge)}</p>
+                    <strong>${cleanHtml(getKirbyShortText(sectorExperience.title, 54))}</strong>
+                </div>
+                <ol>
+                    ${sectorExperienceProofs.slice(0, 4).map((proof) => `<li>${cleanHtml(proof)}</li>`).join('')}
+                </ol>
+            </section>
+            ${footerMarkup}
+        </div>
+    ` : '';
     const luminaModules = (visibleSections.length ? visibleSections : [
         { title: primaryCta, text: safeProposal.valueProposition || safeProposal.summary || 'Direction construite depuis le brief.' },
         { title: secondaryCta, text: safeProposal.positioning?.promise || 'Parcours clair et mémorable.' },
@@ -16180,7 +16748,7 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
         ${sectionsMarkup}
         ${footerMarkup}
     `;
-    const websitePreview = isFinancePreview ? financePreview : isKidsFuturePreview ? kidsWorldPreview : isDreamPreview ? dreamPreview : isLuminaPreview ? luminaPreview : isDashboardPreview ? dashboardPreview : ({
+    const websitePreview = isFinancePreview ? financePreview : isKidsFuturePreview ? kidsWorldPreview : isDreamPreview ? dreamPreview : isSectorExperiencePreview ? sectorExperiencePreview : isLuminaPreview ? luminaPreview : isDashboardPreview ? dashboardPreview : ({
         'finance-os': financePreview,
         'story-world': kidsWorldPreview,
         'lumina-showcase': luminaPreview,
