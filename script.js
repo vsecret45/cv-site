@@ -11952,22 +11952,1096 @@ const normalizeKirbyFallbackText = (value = '') => String(value || '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
 
+const hasKirbyFoodServiceIntent = (value = '') => {
+    const source = normalizeKirbyFallbackText(value);
+    const explicitFoodPlace = /\b(restaurant|brasserie|bistrot|trattoria|pizzeria|cafe|bar a tapas|cantine|food truck|traiteur)\b/.test(source);
+    const foodOffer = /\b(menu du jour|carte des plats|carte restaurant|carte gastronomique|plats?|cuisine|chef|degustation|reservation table|reserver une table|salle de restaurant)\b/.test(source);
+
+    return explicitFoodPlace || foodOffer;
+};
+
+const hasKirbySpaceSimulationIntent = (value = '') => {
+    const source = normalizeKirbyFallbackText(value);
+    const simulation = /\b(simulation spatiale|simulateur spatial|simulateur de mission|missions? spatiales?|mission spatiale|centre de simulation|cabine de simulation|entrainement spatial)\b/.test(source);
+    const publicTeam = /\b(grand public|cooperation en equipe|travail d equipe|equipage|briefing mission|debriefing mission)\b/.test(source);
+
+    return simulation && /\b(spatial|spatiale|espace|mission|orbite|lune|mars)\b/.test(source) && (publicTeam || /centre de simulation/.test(source));
+};
+
+const hasKirbyDigitalOrganizationIntent = (value = '') => {
+    const source = normalizeKirbyFallbackText(value);
+    const digitalContext = /\b(numerique|numérique|digital|photos?|fichiers?|emails?|e-mails?|mails?|cloud|drive|sauvegardes?|documents?|icloud|google drive)\b/.test(source);
+    const organizationGoal = /\b(desencombrement|désencombrement|desencombrer|désencombrer|environnement numerique clair|environnement numérique clair|ordre|simplicite|simplicité|organiser|organisation|ranger|tri|trier|classement|clarifier|retrouver)\b/.test(source);
+
+    return digitalContext && organizationGoal;
+};
+
+const splitKirbyBriefSentences = (value = '') => String(value || '')
+    .replace(/\r/g, '\n')
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const hasKirbyExclusionCue = (value = '') => /\b(ne doit pas|ne devra pas|n est pas|n'est pas|n’est pas|n est ni|n'est ni|n’est ni|ne ressemble pas|ne doit ressembler|ni a|ni à|ni un|ni une|ni des|eviter|éviter|interdit|interdiction|exclure|exclu|sans|pas un|pas une)\b/.test(normalizeKirbyFallbackText(value));
+
+const getKirbyBriefExclusionSentences = (brief = '') =>
+    splitKirbyBriefSentences(brief).filter(hasKirbyExclusionCue);
+
+const getKirbyPositiveBriefText = (brief = '') => {
+    const sentences = splitKirbyBriefSentences(brief)
+        .filter((sentence) => !hasKirbyExclusionCue(sentence));
+
+    return sentences.length ? sentences.join('\n') : String(brief || '');
+};
+
+const getKirbyBriefTitleLine = (brief = '') => {
+    const line = String(brief || '')
+        .replace(/\r/g, '\n')
+        .split('\n')
+        .map((item) => item.trim())
+        .find(Boolean) || '';
+
+    return line
+        .replace(/^\s*brief\s*\d+\s*[—-]\s*/i, '')
+        .replace(/^\s*\d+\s*[.)]\s*/, '')
+        .trim();
+};
+
+const getKirbyExclusionPatterns = (brief = '') => {
+    const exclusionText = normalizeKirbyFallbackText(getKirbyBriefExclusionSentences(brief).join(' '));
+    const patterns = [];
+    const add = (regexes = []) => regexes.forEach((regex) => patterns.push(regex));
+
+    if (/juridique|cabinet juridique|avocat|droit|juriste|notaire|honoraires/.test(exclusionText)) {
+        add([
+            /\bcabinet d avocat\b/,
+            /\bcabinet d'avocat\b/,
+            /\bcabinet d’avocat\b/,
+            /\bavocats?\b/,
+            /\bdomaines? de droit\b/,
+            /\bexpertises? juridiques?\b/,
+            /\bjuridique\b/,
+            /\bjuriste\b/,
+            /\bnotaire\b/,
+            /\bhonoraires?\b/,
+            /\bcontentieux\b/,
+        ]);
+    }
+
+    if (/police|policier|policiere|policière|detective|détective|enquete|enquête|empreinte|loupe|ruban de police/.test(exclusionText)) {
+        add([
+            /\bpolice\b/,
+            /\bpolicier(e)?\b/,
+            /\bdétective\b/,
+            /\bdetective\b/,
+            /\benquête\b/,
+            /\benquete\b/,
+            /\bloupe\b/,
+            /\bempreintes? digitales?\b/,
+            /\bruban de police\b/,
+        ]);
+    }
+
+    if (/securite|sécurité|surveillance|gardiennage/.test(exclusionText)) {
+        add([
+            /\bsociété de sécurité\b/,
+            /\bsociete de securite\b/,
+            /\bsécurité\b/,
+            /\bsecurite\b/,
+            /\bsurveillance\b/,
+            /\bgardiennage\b/,
+            /\bagents? de sécurité\b/,
+            /\bagents? de securite\b/,
+        ]);
+    }
+
+    if (/informatique|reparateur|réparateur|ordinateur|depannage|dépannage|maintenance/.test(exclusionText)) {
+        add([
+            /\bentreprise informatique\b/,
+            /\breparateurs? d ordinateurs?\b/,
+            /\bréparateurs? d’ordinateurs?\b/,
+            /\breparation informatique\b/,
+            /\bréparation informatique\b/,
+            /\bdepannage informatique\b/,
+            /\bdépannage informatique\b/,
+            /\bmaintenance informatique\b/,
+            /\bsupport informatique\b/,
+        ]);
+    }
+
+    if (/parc d attractions?|parc d’attractions?|escape game|escape/.test(exclusionText)) {
+        add([
+            /\bparcs? d attractions?\b/,
+            /\bparcs? d’attractions?\b/,
+            /\battractions?\b/,
+            /\bescape games?\b/,
+            /\bjeu d evasion\b/,
+            /\bjeu d’évasion\b/,
+        ]);
+    }
+
+    return patterns;
+};
+
+const extractKirbyActivityFromBrief = (brief = '', positiveText = '') => {
+    const raw = String(positiveText || brief || '').trim();
+    const normalizedRaw = normalizeKirbyFallbackText(raw);
+    if (/objets? sentimentaux|retrouver des objets perdus|objets perdus.{0,80}valeur affective|bijoux de famille.{0,80}lettres.{0,80}photographies/.test(normalizedRaw)) {
+        return 'service de récupération d’objets sentimentaux';
+    }
+
+    const titleLine = getKirbyBriefTitleLine(brief) || getKirbyBriefTitleLine(raw) || splitKirbyBriefSentences(raw)[0] || '';
+    const titleActivity = titleLine.match(/(?:brief\s*\d+\s*[—-]\s*)?(.{8,90})/i)?.[1] || '';
+    const siteFor = raw.match(/(?:creer|créer|concevoir|faire|realiser|réaliser)\s+(?:un\s+)?site\s+pour\s+([^.\n]{8,190})/i)?.[1] || '';
+    const serviceFor = raw.match(/(?:service|entreprise|agence|maison|centre|plateforme)\s+(?:qui|dédié(?:e)? à|destiné(?:e)? à)\s+([^.\n]{8,190})/i)?.[0] || '';
+    const titleLooksLikeActivity = titleActivity && !/^(creer|créer|concevoir|faire|realiser|réaliser|le site|site)\b/i.test(titleActivity);
+    const activity = titleLooksLikeActivity ? titleActivity : siteFor || serviceFor || titleActivity;
+
+    return activity
+        .replace(/^\s*(une?|des?|la|le|les|l')\s+/i, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 180) || 'activité décrite dans le brief';
+};
+
+const extractKirbyRequestedSections = (brief = '', positiveText = '') => {
+    const source = normalizeKirbyFallbackText(`${brief}\n${positiveText}`);
+    const sections = [];
+    const add = (title, text) => {
+        if (!sections.some((section) => normalizeKirbyFallbackText(section.title) === normalizeKirbyFallbackText(title))) {
+            sections.push({ title, text });
+        }
+    };
+    const formatExtractedTitle = (value = '') => {
+        const clean = normalizeKirbyFallbackText(value)
+            .replace(/\s+/g, ' ')
+            .trim();
+        const aliases = [
+            [/demarches?.*obseques/, 'Démarches avant / pendant / après'],
+            [/ceremonies?.*(civiles?|religieuses?)/, 'Cérémonies civiles ou religieuses'],
+            [/contrats?.*prevoyance/, 'Contrats de prévoyance'],
+            [/accompagnement administratif/, 'Accompagnement administratif'],
+            [/services?.*familles?.*eloignees?/, 'Services pour familles éloignées'],
+            [/espace hommage prive|hommage prive/, 'Espace hommage privé'],
+            [/documents? telechargeables?/, 'Documents téléchargeables'],
+            [/visite virtuelle/, 'Visite virtuelle'],
+            [/agenda/, 'Agenda'],
+            [/actualites?/, 'Actualités'],
+        ];
+        const alias = aliases.find(([pattern]) => pattern.test(clean));
+        if (alias) {
+            return alias[1];
+        }
+
+        return toKirbyDisplayTitle(clean)
+            .replace(/\bDe\b/g, 'de')
+            .replace(/\bDu\b/g, 'du')
+            .replace(/\bDes\b/g, 'des')
+            .replace(/\bEt\b/g, 'et')
+            .replace(/\bOu\b/g, 'ou');
+    };
+    const addInstructionSections = () => {
+        splitKirbyBriefSentences(positiveText || brief)
+            .filter((sentence) => {
+                const normalized = normalizeKirbyFallbackText(sentence).replace(/[’']/g, ' ');
+                if (/\b(transmettre|inspirer|rassurer)\b/.test(normalized)) {
+                    return false;
+                }
+                if (/\b(phrase d accroche|fonctionnement|types? de recherches?|recherches? possibles?|confidentialite|formulaire)\b/.test(normalized)) {
+                    return false;
+                }
+                return /\b(doit|devra|il faut|presenter|expliquer|afficher|integrer|prevoir|proposer)\b/.test(normalized)
+                    && !/\b(design|rendu|univers visuel|couleurs?|palette|style|ambiance froide|noir dominant|marbre)\b/.test(normalized);
+            })
+            .forEach((sentence) => {
+                const prepared = normalizeKirbyFallbackText(sentence)
+                    .replace(/[’']/g, ' ')
+                    .replace(/avant,\s*pendant et apres/g, 'avant pendant apres')
+                    .replace(/\bet\s+les\s+/g, ', les ')
+                    .replace(/\bet\s+l\s+/g, ', l ')
+                    .replace(/\bet\s+un\s+/g, ', un ')
+                    .replace(/\bet\s+une\s+/g, ', une ')
+                    .replace(/\bainsi que\b/g, ', ');
+                const scoped = /espace hommage prive/.test(prepared)
+                    ? prepared.replace(/(espace hommage prive).*/, '$1')
+                    : prepared;
+
+                scoped.split(/[,;]+/)
+                    .map((part) => part
+                        .replace(/^(?:le site|la page d accueil|page d accueil|il faut aussi|il faut|doit|devra|aussi)\s+/i, '')
+                        .replace(/^(?:expliquer|presenter|afficher|integrer|prevoir|proposer|permettre)\s+/i, '')
+                        .replace(/^(?:les|la|le|l|un|une|des|de|du|d)\s+/i, '')
+                        .replace(/\s+(?:ou|avec|afin que|afin d)\s+.*$/i, '')
+                        .replace(/[.?!]+$/g, '')
+                        .trim())
+                    .filter((part) => part.length > 5 && !/^(site|page|design|rendu|univers visuel)$/.test(part))
+                    .slice(0, 8)
+                    .forEach((part) => {
+                        const title = formatExtractedTitle(part);
+                        add(title, `Présenter ${title.toLowerCase()} comme demandé dans le brief.`);
+                    });
+            });
+    };
+
+    addInstructionSections();
+
+    if (/phrase d accroche|accroche/.test(source)) add('Accroche sobre', 'Formuler une promesse claire, émotionnelle si le brief le demande, sans emphase inutile.');
+    if (/fonctionnement|trois etapes|3 etapes|étapes/.test(source)) add('Fonctionnement en trois étapes', 'Expliquer le parcours demandé avec une progression simple et rassurante.');
+    if (/types? de recherches?|recherches? possibles?|types? de demandes?|cas d usage|cas d’usage/.test(source)) add('Types de demandes', 'Présenter les catégories de besoins explicitement citées dans le brief.');
+    if (/confidentialite|confidentialité|discretion|discrétion|donnees|données/.test(source)) add('Confidentialité', 'Rassurer sur la discrétion, les informations transmises et le respect du contexte.');
+    if (/formulaire|demande d accompagnement|demande de contact|contact/.test(source)) add('Formulaire de demande', 'Qualifier la demande sans transformer la page en questionnaire froid.');
+    if (/tarifs?|prix|formules?/.test(source)) add('Tarifs ou formules', 'Rendre les conditions de départ compréhensibles.');
+    if (/temoignages?|témoignages?|avis|preuves?/.test(source)) add('Preuves de confiance', 'Apporter des preuves adaptées au ton demandé.');
+    if (hasKirbyDigitalOrganizationIntent(source)) {
+        add('Diagnostic de l’encombrement numérique', 'Identifier les photos, fichiers, emails, cloud, sauvegardes et documents à clarifier.');
+        add('Méthode de tri simple', 'Expliquer comment retrouver un environnement numérique ordonné sans jargon informatique.');
+        add('Sauvegardes et documents', 'Rassurer sur la conservation des éléments importants et la simplicité du suivi.');
+    }
+    if (hasKirbySpaceSimulationIntent(source)) {
+        add('Simulations de missions spatiales', 'Présenter l’expérience réaliste de mission spatiale demandée dans le brief.');
+        add('Coopération en équipe', 'Montrer comment les visiteurs participent ensemble à la mission.');
+        add('Parcours grand public', 'Rendre l’expérience compréhensible et accessible sans la dénaturer.');
+    }
+
+    return sections.length ? sections : [
+        { title: 'Comprendre le besoin', text: 'Présenter l’activité exacte avec les mots du brief.' },
+        { title: 'Méthode claire', text: 'Montrer comment l’accompagnement se déroule.' },
+        { title: 'Demande qualifiée', text: 'Guider vers l’action attendue sans ajouter de métier absent.' },
+    ];
+};
+
+const getKirbyBriefProfile = (brief = '') => {
+    const positiveText = getKirbyPositiveBriefText(brief);
+    const positiveSource = normalizeKirbyFallbackText(positiveText);
+    const fullSource = normalizeKirbyFallbackText(brief);
+    const exclusions = getKirbyBriefExclusionSentences(brief);
+    const activity = extractKirbyActivityFromBrief(brief, positiveText);
+    const sections = extractKirbyRequestedSections(brief, positiveText);
+    const audience = /particuliers?/.test(positiveSource)
+        ? 'Particuliers concernés par une demande sensible.'
+        : /grand public/.test(positiveSource)
+        ? 'Grand public souhaitant vivre une expérience encadrée et compréhensible.'
+        : /familles?/.test(positiveSource)
+        ? 'Familles et proches concernés par le service.'
+        : /entreprises?|dirigeants?|collectivites|collectivités/.test(positiveSource)
+        ? 'Organisations et décideurs mentionnés dans le brief.'
+        : 'Visiteurs qualifiés mentionnés dans la demande.';
+    const tone = [
+        /delicatesse|délicatesse|delicat|délicat/.test(fullSource) ? 'délicat' : '',
+        /confiance|rassur/.test(fullSource) ? 'rassurant' : '',
+        /discretion|discrétion|confidentiel|confidentialite|confidentialité/.test(fullSource) ? 'discret' : '',
+        /sobre|digne|apaisant|calme/.test(fullSource) ? 'sobre' : '',
+        /ordre|ordonnee|ordonnée|simplicite|simplicité|clair|claire/.test(fullSource) ? 'simple et ordonné' : '',
+        /moderne|premium|contemporain/.test(fullSource) ? 'moderne' : '',
+    ].filter(Boolean).join(', ') || 'clair, professionnel et adapté au brief';
+    const conversion = /demande d accompagnement|accompagnement/.test(positiveSource)
+        ? 'Demander un accompagnement'
+        : /formulaire/.test(positiveSource)
+        ? 'Envoyer une demande'
+        : /reservation|réservation|rendez/.test(positiveSource)
+        ? 'Prendre rendez-vous'
+        : 'Contacter l’entreprise';
+
+    return {
+        activity,
+        positiveText,
+        positiveSource,
+        audience,
+        promise: `Aider le visiteur à comprendre ${activity} et passer à l’action avec confiance.`,
+        tone,
+        sections,
+        exclusions,
+        exclusionPatterns: getKirbyExclusionPatterns(brief),
+        conversion,
+        hasExplicitExclusions: exclusions.length > 0,
+        hasSpecificUnknownActivity: positiveSource.length > 110,
+    };
+};
+
+const getKirbyBriefProfileVisibleText = (proposal = {}) => normalizeKirbyFallbackText([
+    proposal.sectorKey,
+    proposal.projectType,
+    proposal.siteName,
+    proposal.slogan,
+    proposal.summary,
+    proposal.valueProposition,
+    proposal.visualMood,
+    proposal.layoutVariant,
+    proposal.positioning?.audience,
+    proposal.positioning?.promise,
+    proposal.positioning?.differentiator,
+    proposal.styleGuide?.direction,
+    proposal.styleGuide?.layout,
+    proposal.visualConcept?.heroComposition,
+    proposal.visualConcept?.layoutSignature,
+    getKirbyNarrativePlanVisibleText(proposal.narrativePlan),
+    getKirbyVisualPlanVisibleText(proposal.visualPlan),
+    proposal.siteModel?.name,
+    getKirbyArray(proposal.pages, 10).map((item) => `${item?.name || ''} ${item?.goal || ''}`).join(' '),
+    getKirbyArray(proposal.homeSections, 10).map((item) => `${item?.title || ''} ${item?.text || ''}`).join(' '),
+    getKirbyArray(proposal.services, 12).map((item) => `${item?.name || ''} ${item?.description || ''}`).join(' '),
+    getKirbyArray(proposal.recommendedServices, 12).map((item) => `${item?.name || ''} ${item?.reason || ''}`).join(' '),
+    getKirbyArray(proposal.ctas, 6).join(' '),
+].filter(Boolean).join(' '));
+
+const KIRBY_UNREQUESTED_UNIVERSE_PATTERNS = [
+    /\bmusee\b/,
+    /\bmuseums?\b/,
+    /\barcheologie\b/,
+    /\barcheologique\b/,
+    /\barchaeolog(?:y|ical)\b/,
+    /\bartefacts?\b/,
+    /\bartifacts?\b/,
+    /\bruines?\b/,
+    /\bruins?\b/,
+    /\bcartels?\b/,
+    /\bcivilisations? disparues?\b/,
+    /\bmondes? perdus?\b/,
+    /\btemples?\b/,
+    /\bexposition\b/,
+    /\bexhibitions?\b/,
+    /\bexpedition\b/,
+    /\bexpeditions?\b/,
+    /\bexplorateurs?\b/,
+    /\bportail\b/,
+    /\bportals?\b/,
+    /\bonirique\b/,
+    /\boniric\b/,
+    /\bscience du vivant\b/,
+    /\becosystemes?\b/,
+    /\bécosystèmes?\b/,
+    /\bbiodiversite\b/,
+    /\bbiodiversité\b/,
+    /\bmodeles? climat\b/,
+    /\bmodèles? climat\b/,
+    /\bcapteurs? terrain\b/,
+    /\breforestation\b/,
+    /\bcarbone\b/,
+    /\bhôtel\b/,
+    /\bhotel\b/,
+    /\bhôtellerie\b/,
+    /\bhotellerie\b/,
+    /\bsuites?\b/,
+    /\bspa\b/,
+    /\brestaurant\b/,
+    /\bsejour orbital\b/,
+    /\bséjour orbital\b/,
+    /\btourisme spatial\b/,
+    /\breservation orbitale\b/,
+    /\bréservation orbitale\b/,
+    /\bvue sur la terre\b/,
+    /\bparcs? d attractions?\b/,
+    /\bparcs? d’attractions?\b/,
+    /\bescape games?\b/,
+];
+
+const getKirbyUnrequestedUniversePatterns = (brief = '') => {
+    const positiveSource = normalizeKirbyFallbackText(getKirbyPositiveBriefText(brief));
+    return KIRBY_UNREQUESTED_UNIVERSE_PATTERNS.filter((pattern) => !pattern.test(positiveSource));
+};
+
+const removeKirbyUnrequestedUniverseText = (proposal = {}, brief = '') => {
+    const patterns = getKirbyUnrequestedUniversePatterns(brief);
+
+    if (!patterns.length) {
+        return proposal;
+    }
+
+    const hasBlockedText = (value = '') => patterns.some((pattern) => pattern.test(normalizeKirbyFallbackText(value)));
+    const filterItems = (items = []) => getKirbyArray(items, 12).filter((item) => {
+        const text = typeof item === 'string'
+            ? item
+            : `${item?.name || ''} ${item?.title || ''} ${item?.label || ''} ${item?.goal || ''} ${item?.text || ''} ${item?.description || ''} ${item?.reason || ''}`;
+        return !hasBlockedText(text);
+    });
+
+    ['projectType', 'siteName', 'slogan', 'summary', 'valueProposition', 'visualMood', 'layoutVariant'].forEach((key) => {
+        if (hasBlockedText(proposal[key])) {
+            proposal[key] = '';
+        }
+    });
+
+    ['positioning', 'styleGuide', 'visualConcept', 'siteModel'].forEach((key) => {
+        if (!proposal[key] || typeof proposal[key] !== 'object') {
+            return;
+        }
+
+        Object.keys(proposal[key]).forEach((childKey) => {
+            const value = proposal[key][childKey];
+            if (Array.isArray(value)) {
+                proposal[key][childKey] = value.filter((item) => !hasBlockedText(item));
+            } else if (hasBlockedText(value)) {
+                proposal[key][childKey] = '';
+            }
+        });
+    });
+
+    proposal.pages = filterItems(proposal.pages);
+    proposal.homeSections = filterItems(proposal.homeSections);
+    proposal.services = filterItems(proposal.services);
+    proposal.recommendedServices = filterItems(proposal.recommendedServices);
+    proposal.ctas = filterItems(proposal.ctas);
+
+    return proposal;
+};
+
+const doesKirbyProposalContradictProfile = (proposal = {}, profile = {}) => {
+    const visibleText = getKirbyBriefProfileVisibleText(proposal);
+
+    return getKirbyArray(profile.exclusionPatterns, 24).some((regex) => regex.test(visibleText));
+};
+
+const doesKirbyProposalInventUnrequestedUniverse = (proposal = {}, brief = '') => {
+    const visibleText = getKirbyBriefProfileVisibleText(proposal);
+
+    return getKirbyUnrequestedUniversePatterns(brief).some((pattern) => pattern.test(visibleText));
+};
+
+const getKirbyBriefProfileSummary = (profile = {}) => ({
+    activity: profile.activity,
+    audience: profile.audience,
+    promise: profile.promise,
+    tone: profile.tone,
+    sections: getKirbyArray(profile.sections, 10).map((section) => section.title),
+    exclusions: getKirbyArray(profile.exclusions, 12),
+    conversion: profile.conversion,
+});
+
+const getKirbyNarrativePlanVisibleText = (plan = {}) => {
+    const journey = getKirbyArray(plan.journey, 8);
+    const roles = getKirbyArray(plan.sectionRoles, 10);
+
+    return [
+        plan.centralStory,
+        plan.visitorStartingPoint,
+        plan.desiredOutcome,
+        plan.commercialPromise,
+        getKirbyArray(plan.targetAudience, 8).join(' '),
+        getKirbyArray(plan.tone, 8).join(' '),
+        getKirbyArray(plan.mustInclude, 12).join(' '),
+        plan.imageStrategy,
+        plan.visualComposition,
+        plan.primaryConversion?.action,
+        plan.primaryConversion?.label,
+        journey.map((item) => [
+            item.stage,
+            item.goal,
+            item.message,
+            item.expectedAction,
+        ].filter(Boolean).join(' ')).join(' '),
+        roles.map((item) => [
+            item.stage,
+            item.section,
+            item.role,
+            item.imageRole,
+            item.expectedAction,
+        ].filter(Boolean).join(' ')).join(' '),
+    ].filter(Boolean).join(' ');
+};
+
+const getKirbyVisualPlanVisibleText = (plan = {}) => {
+    const slots = [
+        plan.hero,
+        ...getKirbyArray(plan.sections, 8),
+        ...getKirbyArray(plan.gallery, 8),
+        plan.conversion,
+    ].filter(Boolean);
+
+    return slots.map((slot) => [
+        slot.narrativeStage,
+        slot.purpose,
+        slot.subject,
+        slot.composition,
+        slot.priority,
+        getKirbyArray(slot.keywords, 8).join(' '),
+        slot.query,
+    ].filter(Boolean).join(' ')).join(' ');
+};
+
+const getKirbyNarrativeStageForSection = (section = {}, index = 0) => {
+    const source = normalizeKirbyFallbackText(`${section.title || section.name || ''} ${section.text || section.goal || section.description || ''}`);
+
+    if (/accroche|hero|bienvenue|presentation|decouvrir/.test(source)) return 'discovery';
+    if (/fonctionnement|methode|etapes|parcours|types?|besoin|probleme/.test(source)) return 'understanding';
+    if (/realisations|preuve|preuves|avis|temoignages|certification|garantie|equipements|protocoles|equipe/.test(source)) return 'proof';
+    if (/confidentialite|securite|rassur|confiance|discretion|administratif|accompagnement/.test(source)) return 'trust';
+    if (/formulaire|contact|reservation|inscription|devis|estimation|partenariat|postuler|candidature|demande/.test(source)) return 'conversion';
+
+    return ['discovery', 'understanding', 'proof', 'trust', 'conversion'][Math.min(index, 4)];
+};
+
+const getKirbyNarrativeStageRole = (stage) => ({
+    discovery: 'Faire reconnaître immédiatement le besoin, le contexte et l’activité réelle.',
+    understanding: 'Expliquer le service, la méthode ou les choix possibles avec les éléments du brief.',
+    proof: 'Rendre la promesse crédible avec les preuves, réalisations, équipements ou garanties demandés.',
+    trust: 'Lever les freins avec confidentialité, discrétion, clarté, sérieux ou accompagnement humain.',
+    conversion: 'Rendre la prochaine étape simple, rassurante et cohérente avec la demande.',
+}[stage] || 'Clarifier une étape du parcours.');
+
+const getKirbyNarrativeExpectedAction = (stage, profile = {}) => ({
+    discovery: 'Continuer la découverte',
+    understanding: 'Explorer la méthode',
+    proof: 'Faire confiance',
+    trust: 'Se projeter sereinement',
+    conversion: profile.conversion || 'Prendre contact',
+}[stage] || 'Continuer');
+
+const getKirbyPrimaryConversionLabel = (brief = '', profile = {}) => {
+    const source = profile.positiveSource || normalizeKirbyFallbackText(profile.positiveText || brief);
+
+    if (/cartes? anciennes?|restauration de cartes|atlas/.test(source)) return 'Faire examiner ma carte';
+    if (hasKirbyPrivateSchoolIntent(source)) return 'Demander une visite';
+    if (hasKirbyRestaurantManagementSaasIntent(source)) return 'Demander une démonstration';
+    if (hasKirbyEnergyRenovationIntent(source)) return 'Lancer le prédiagnostic';
+    if (hasKirbySeniorMobilityIntent(source)) return 'Demander un trajet régulier';
+    if (hasKirbyCrisisManagementIntent(source)) return 'Activer un échange confidentiel';
+    if (hasKirbyFuneralHomeIntent(source)) return 'Demander un accompagnement discret';
+    if (hasKirbySportsRehabIntent(source)) return 'Choisir mon parcours de reprise';
+
+    return profile.conversion || 'Prendre contact';
+};
+
+const buildKirbyNarrativePlan = (brief = '', profile = getKirbyBriefProfile(brief)) => {
+    const sections = getKirbyArray(profile.sections, 8);
+    const sectionRoles = sections.map((section, index) => {
+        const stage = getKirbyNarrativeStageForSection(section, index);
+        const sectionTitle = String(section.title || section.name || `Section ${index + 1}`).replace(/\s+/g, ' ').trim();
+        const sectionText = String(section.text || section.goal || section.description || '').replace(/\s+/g, ' ').trim();
+
+        return {
+            section: sectionTitle,
+            stage,
+            goal: getKirbyNarrativeStageRole(stage),
+            message: sectionText || sectionTitle,
+            proofNeeded: stage === 'proof',
+            expectedAction: getKirbyNarrativeExpectedAction(stage, profile),
+            imageRole: stage === 'discovery'
+                ? 'Identifier immédiatement le contexte réel du brief.'
+                : stage === 'understanding'
+                    ? 'Rendre une étape, un usage ou un choix compréhensible.'
+                    : stage === 'proof'
+                        ? 'Montrer une preuve concrète demandée ou déductible strictement du brief.'
+                        : stage === 'trust'
+                            ? 'Rassurer sans ajouter de promesse ou de service absent.'
+                            : 'Accompagner l’action finale attendue.',
+        };
+    });
+    const journey = ['discovery', 'understanding', 'proof', 'trust', 'conversion'].map((stage) => {
+        const linkedSection = sectionRoles.find((section) => section.stage === stage);
+
+        return {
+            stage,
+            goal: linkedSection?.goal || getKirbyNarrativeStageRole(stage),
+            message: linkedSection?.message || (stage === 'conversion'
+                ? `Prochaine étape : ${profile.conversion}.`
+                : `Expliquer ${profile.activity} sans ajouter d’univers absent du brief.`),
+            proofNeeded: stage === 'proof',
+            expectedAction: getKirbyNarrativeExpectedAction(stage, profile),
+        };
+    });
+    const positiveSource = profile.positiveSource || '';
+    const visualComposition = /galerie|photo|image|avant apres|avant\/apres|realisations/.test(positiveSource)
+        ? 'Parcours image-led : hero photographique, preuves visuelles, galerie puis demande qualifiée.'
+        : /logiciel|application|saas|plateforme|outil/.test(positiveSource)
+            ? 'Parcours produit : promesse, problèmes métier, aperçu d’usage, simplicité, preuve et démonstration.'
+            : /delicat|discret|confidentiel|digne|apaisant|deuil|souvenir|affective/.test(positiveSource)
+                ? 'Parcours éditorial sensible : émotion sobre, méthode, confidentialité, preuves de tact puis demande privée.'
+                : 'Parcours service professionnel : découverte, compréhension, preuve, confiance, conversion.';
+
+    return {
+        centralStory: `Le site montre comment ${profile.activity} répond au besoin décrit dans le brief, sans emprunter un métier voisin.`,
+        visitorStartingPoint: `Le visiteur arrive avec un besoin lié à ${profile.activity} et doit comprendre rapidement si le service correspond à sa situation.`,
+        desiredOutcome: `Le visiteur comprend le service, les preuves utiles et la prochaine étape pour ${profile.conversion}.`,
+        commercialPromise: profile.promise,
+        targetAudience: [profile.audience].filter(Boolean),
+        tone: String(profile.tone || '').split(',').map((item) => item.trim()).filter(Boolean),
+        journey,
+        sectionRoles,
+        imageStrategy: 'Une image n’est autorisée que si elle sert une étape précise du parcours narratif. Elle clarifie, prouve ou rassure ; elle ne décore pas.',
+        visualComposition,
+        mustInclude: sections.map((section) => section.title || section.name).filter(Boolean).slice(0, 10),
+        mustAvoid: getKirbyArray(profile.exclusions, 12),
+        primaryConversion: {
+            action: profile.conversion,
+            label: getKirbyPrimaryConversionLabel(brief, profile),
+        },
+    };
+};
+
+const addUniqueKirbyVisualKeywords = (items, values = []) => {
+    values.forEach((value) => {
+        const keyword = String(value || '').replace(/\s+/g, ' ').trim();
+        const key = normalizeKirbyFallbackText(keyword);
+
+        if (keyword && key.length > 2 && !items.some((item) => normalizeKirbyFallbackText(item) === key)) {
+            items.push(keyword);
+        }
+    });
+};
+
+const getKirbyBriefVisualKeywords = (brief = '', profile = getKirbyBriefProfile(brief)) => {
+    const source = profile.positiveSource || normalizeKirbyFallbackText(profile.positiveText || brief);
+    const keywords = [];
+    addUniqueKirbyVisualKeywords(keywords, [profile.activity]);
+
+    if (/cartes? anciennes?|atlas|cartographie|restauration de cartes|papier ancien|parchemin/.test(source)) {
+        addUniqueKirbyVisualKeywords(keywords, ['carte ancienne restaurée', 'atlas ancien ouvert', 'mains de restaurateur sur papier ancien', 'textures de parchemin et cuir', 'avant après restauration de carte', 'atelier de conservation papier']);
+    }
+    if (hasKirbyPrivateSchoolIntent(source)) {
+        addUniqueKirbyVisualKeywords(keywords, ['façade école privée', 'élèves en classe', 'laboratoire scientifique scolaire', 'bibliothèque scolaire', 'terrain de sport école', 'événement scolaire parents']);
+    }
+    if (/ferme urbaine|ferme verticale|hydropon|serre|culture verticale|consommation minimale d eau/.test(source)) {
+        addUniqueKirbyVisualKeywords(keywords, ['ferme verticale hydroponique', 'légumes en culture intérieure', 'tours de culture en bâtiment', 'capteurs irrigation économie eau', 'récolte urbaine en serre', 'système de culture multi niveaux']);
+    }
+    if (hasKirbySpaceSimulationIntent(source)) {
+        addUniqueKirbyVisualKeywords(keywords, ['cockpit de simulation spatiale', 'équipe en mission spatiale simulée', 'briefing équipage mission', 'module de contrôle spatial', 'combinaison entraînement spatial', 'simulateur de mission réaliste']);
+    }
+    if (/objets? perdus?|objets? sentimentaux|valeur affective|bijoux de famille|souvenirs? d enfance|demenagement/.test(source)) {
+        addUniqueKirbyVisualKeywords(keywords, ['objet personnel sur table claire', 'lettres anciennes et photo de famille', 'bijou de famille dans écrin', 'cartons de déménagement ouverts', 'souvenirs d’enfance conservés', 'carnet de recherche discret']);
+    }
+    if (hasKirbyDigitalOrganizationIntent(source)) {
+        addUniqueKirbyVisualKeywords(keywords, ['bureau clair avec fichiers numériques organisés', 'galerie photos triée sur ordinateur portable', 'boîte email rangée et libellés simples', 'cloud sauvegardes documents ordonnés', 'interface de classement personnel minimaliste', 'accompagnement humain au tri numérique']);
+    }
+    if (/maison funeraire|obseques|deuil|hommage prive|ceremonie/.test(source)) {
+        addUniqueKirbyVisualKeywords(keywords, ['salon hommage lumineux', 'famille accompagnée avec discrétion', 'cérémonie civile sobre', 'bouquet clair et lumière douce', 'espace hommage privé souvenirs']);
+    }
+    if (/reeducation sportive|sportifs?|blessure|objectif de reprise|protocoles|bilans/.test(source)) {
+        addUniqueKirbyVisualKeywords(keywords, ['bilan rééducation sportive', 'kinésithérapeute avec sportif', 'plateau technique de rééducation', 'test de reprise terrain', 'préparation physique encadrée']);
+    }
+    if (/renovation energetique|isolation|chauffage|ventilation|audit|dpe|rge/.test(source)) {
+        addUniqueKirbyVisualKeywords(keywords, ['audit énergétique logement', 'isolation intérieure chantier propre', 'pompe à chaleur habitation', 'ventilation maison rénovation', 'avant après rénovation énergétique']);
+    }
+    if (hasKirbyFoodServiceIntent(source)) {
+        addUniqueKirbyVisualKeywords(keywords, ['salle de restaurant chaleureuse', 'plat signature en gros plan', 'chef en cuisine', 'table dressée', 'réservation restaurant']);
+    }
+
+    getKirbyArray(profile.sections, 6).forEach((section) => addUniqueKirbyVisualKeywords(keywords, [section.title]));
+    addUniqueKirbyVisualKeywords(keywords, ['détail métier réel', 'preuve visuelle', 'lieu ou geste principal']);
+    return keywords.slice(0, 14);
+};
+
+const buildKirbyVisualPlan = (brief = '', profile = getKirbyBriefProfile(brief), narrativePlan = buildKirbyNarrativePlan(brief, profile)) => {
+    const keywords = getKirbyBriefVisualKeywords(brief, profile);
+    const pick = (index, count = 3) => keywords.slice(index, index + count).concat(keywords.slice(0, Math.max(0, count - keywords.slice(index, index + count).length))).filter(Boolean).slice(0, count);
+    const makeSlot = ({ narrativeStage, purpose, subject, composition, priority = 'supporting', keywords: slotKeywords }) => {
+        const cleanKeywords = [];
+        addUniqueKirbyVisualKeywords(cleanKeywords, slotKeywords || [subject]);
+        const resolvedSubject = String(subject || cleanKeywords[0] || profile.activity || '').trim();
+
+        return {
+            narrativeStage,
+            purpose,
+            subject: resolvedSubject,
+            composition,
+            priority,
+            keywords: cleanKeywords.slice(0, 5),
+            query: cleanKeywords.slice(0, 4).join(', '),
+        };
+    };
+    const sections = getKirbyArray(narrativePlan.sectionRoles, 3).map((sectionRole, index) => makeSlot({
+        narrativeStage: sectionRole.stage,
+        purpose: sectionRole.imageRole,
+        subject: sectionRole.section || pick(index + 1, 1)[0],
+        composition: index === 0 ? 'Image éditoriale large liée à la section.' : 'Image de détail ou scène courte liée à la section.',
+        priority: index === 0 ? 'important' : 'supporting',
+        keywords: [sectionRole.section, ...pick(index + 1, 3)],
+    }));
+    const gallery = ['proof', 'proof', 'trust', 'understanding', 'proof', 'trust'].map((stage, index) => makeSlot({
+        narrativeStage: stage,
+        purpose: stage === 'proof'
+            ? 'Rendre la promesse crédible avec un élément visuel directement lié au brief.'
+            : stage === 'trust'
+                ? 'Rassurer par un détail humain, matériel ou contextuel présent dans le brief.'
+                : 'Clarifier le fonctionnement ou le contexte du service.',
+        subject: pick(index + 2, 1)[0],
+        composition: index === 0 ? 'Tuile large de preuve visuelle.' : 'Tuile galerie courte, recadrable.',
+        priority: index < 3 ? 'important' : 'optional',
+        keywords: pick(index + 2, 3),
+    }));
+
+    return {
+        hero: makeSlot({
+            narrativeStage: 'discovery',
+            purpose: 'Identifier immédiatement le savoir-faire, le lieu, l’objet ou la situation réelle du brief.',
+            subject: pick(0, 1)[0],
+            composition: 'Image principale avec espace libre pour le titre et le CTA.',
+            priority: 'essential',
+            keywords: pick(0, 4),
+        }),
+        sections,
+        gallery,
+        conversion: makeSlot({
+            narrativeStage: 'conversion',
+            purpose: `Préparer l’action finale : ${profile.conversion}.`,
+            subject: pick(4, 1)[0] || profile.activity,
+            composition: 'Image calme près du contact, du lieu ou de la prochaine étape.',
+            priority: 'supporting',
+            keywords: [profile.conversion, ...pick(4, 3)],
+        }),
+    };
+};
+
+const ensureKirbyNarrativeAndVisualPlan = (proposal = {}, brief = '') => {
+    const profile = getKirbyBriefProfile(brief);
+    const hasNarrative = proposal.narrativePlan
+        && typeof proposal.narrativePlan === 'object'
+        && getKirbyArray(proposal.narrativePlan.journey, 1).length;
+    const narrativePlan = hasNarrative ? proposal.narrativePlan : buildKirbyNarrativePlan(brief, profile);
+    const hasVisual = proposal.visualPlan
+        && typeof proposal.visualPlan === 'object'
+        && proposal.visualPlan.hero
+        && typeof proposal.visualPlan.hero === 'object';
+
+    proposal.narrativePlan = narrativePlan;
+    proposal.visualPlan = hasVisual ? proposal.visualPlan : buildKirbyVisualPlan(brief, profile, narrativePlan);
+    proposal.showGallery = Boolean(proposal.showGallery || getKirbyArray(proposal.visualPlan.gallery, 1).length);
+
+    return proposal;
+};
+
+const getKirbyDerivedSiteName = (profile = {}, brief = '') => {
+    const requestedBrand = (
+        String(brief || '').match(/(?:appelee|appelée|appele|appelé|appelle|nommee|nommée|nomme|nommé|nom|marque)\s+["“']?([^.,\n]{2,48})/i)?.[1] || ''
+    )
+        .replace(/\s+\b(?:avec|pour|qui|dont|sur|style)\b.*$/i, '')
+        .replace(/["“”']/g, '')
+        .trim();
+
+    if (requestedBrand && !/^(service|entreprise|agence|maison|centre|plateforme)\b/i.test(requestedBrand)) {
+        return toKirbyDisplayTitle(requestedBrand);
+    }
+
+    const source = profile.positiveSource || '';
+    if (/objets? perdus?|objets? sentimentaux|valeur affective|bijoux de famille|souvenirs? d enfance|demenagement|déménagement/.test(source)) {
+        return 'Objets Retrouvés';
+    }
+
+    const titleLine = getKirbyBriefTitleLine(brief);
+    if (titleLine && !/^(brief|creer|créer|concevoir|faire|realiser|réaliser|le site|site)\b/i.test(titleLine)) {
+        return toKirbyDisplayTitle(titleLine);
+    }
+
+    const cleanedActivity = String(profile.activity || '')
+        .replace(/^(entreprise|service|agence|maison|centre|plateforme)\s+(qui\s+)?/i, '')
+        .replace(/\b(site|page|accueil|creer|créer)\b/gi, ' ')
+        .replace(/[^\p{L}\p{N}\s'-]/gu, ' ')
+        .split(/\s+/)
+        .filter((word) => word.length > 3 && !/^(pour|avec|dans|ayant|forte|valeur|particuliers|demande|demarches|services)$/i.test(word))
+        .slice(0, 3)
+        .join(' ');
+
+    return cleanedActivity ? toKirbyDisplayTitle(cleanedActivity) : 'Projet Sur Mesure';
+};
+
+const getKirbyProfileDrivenServices = (profile = {}) => {
+    const source = profile.positiveSource || '';
+    const services = [];
+    const add = (name, description) => {
+        if (!services.some((service) => normalizeKirbyFallbackText(service.name) === normalizeKirbyFallbackText(name))) {
+            services.push({ name, description });
+        }
+    };
+
+    const isSensitiveRecovery = /objets? perdus?|objets? sentimentaux|valeur affective|bijoux de famille|souvenirs? d enfance|demenagement|déménagement/.test(source);
+
+    if (isSensitiveRecovery) {
+        if (/bijoux|bijou/.test(source)) add('Bijoux de famille', 'Rechercher des bijoux transmis ou perdus avec une approche délicate et documentée.');
+        if (/lettres?/.test(source)) add('Lettres et correspondances', 'Retrouver des écrits personnels ou familiaux sans exposer leur contenu publiquement.');
+        if (/photographies?|photos?/.test(source)) add('Photographies et albums', 'Aider à localiser photos, albums et archives visuelles de valeur affective.');
+        if (/souvenirs? d enfance|enfance/.test(source)) add('Souvenirs d’enfance', 'Traiter les objets chargés d’histoire personnelle avec tact et discrétion.');
+        if (/demenagement|déménagement|oublies?|oubliés?/.test(source)) add('Objets oubliés lors d’un déménagement', 'Reconstituer le contexte de perte et organiser une recherche progressive.');
+    }
+
+    if (hasKirbyDigitalOrganizationIntent(source)) {
+        if (/photos?/.test(source)) add('Photos à retrouver et trier', 'Rassembler, trier et rendre les photos personnelles plus faciles à retrouver.');
+        if (/fichiers?/.test(source)) add('Fichiers organisés', 'Clarifier les dossiers et noms de fichiers pour retrouver rapidement l’essentiel.');
+        if (/emails?|e-mails?|mails?/.test(source)) add('Emails allégés', 'Aider à réduire l’encombrement de la boîte mail et créer des repères simples.');
+        if (/cloud|drive/.test(source)) add('Cloud et sauvegardes', 'Organiser les espaces cloud et vérifier que les sauvegardes importantes restent accessibles.');
+        if (/documents?/.test(source)) add('Documents importants', 'Classer les papiers numériques utiles avec une méthode simple et compréhensible.');
+    }
+
+    if (hasKirbySpaceSimulationIntent(source)) {
+        add('Missions spatiales simulées', 'Présenter les scénarios de mission réalistes proposés au grand public.');
+        add('Coopération en équipe', 'Expliquer le rôle du groupe, la coordination et les décisions collectives.');
+        add('Expérience encadrée', 'Rassurer sur le déroulé, le niveau d’accessibilité et l’accompagnement pendant la simulation.');
+    }
+
+    if (services.length) {
+        return services;
+    }
+
+    return getKirbyArray(profile.sections, 6).map((section) => ({
+        name: section.title,
+        description: section.text,
+    }));
+};
+
+const buildKirbyProfileDrivenProposal = (brief = '', profile = getKirbyBriefProfile(brief)) => {
+    const siteName = getKirbyDerivedSiteName(profile, brief);
+    const source = profile.positiveSource || '';
+    const isSensitiveRecovery = /objets? perdus?|objets? sentimentaux|valeur affective|bijoux de famille|souvenirs? d enfance|demenagement|déménagement/.test(source);
+    const pages = [
+        { name: 'Accueil', goal: `Présenter clairement ${profile.activity} sans emprunter un métier absent du brief.` },
+        ...getKirbyArray(profile.sections, 8).map((section) => ({
+            name: section.title,
+            goal: section.text,
+        })),
+        { name: 'Contact', goal: `${profile.conversion} avec les informations utiles et un ton cohérent avec la demande.` },
+    ].filter((page, index, items) => items.findIndex((item) => normalizeKirbyFallbackText(item.name) === normalizeKirbyFallbackText(page.name)) === index);
+    const services = getKirbyProfileDrivenServices(profile);
+    const sectionIntro = isSensitiveRecovery
+        ? [
+            { title: 'Un souvenir à retrouver', text: 'La page explique le besoin avec émotion contenue : objet perdu, histoire personnelle, contexte et prochaine étape.' },
+            { title: 'Recherche en trois temps', text: 'Écoute de l’histoire, reconstitution du parcours, puis accompagnement discret jusqu’aux pistes réalistes.' },
+            { title: 'Confidentialité prioritaire', text: 'Les informations, photos et souvenirs transmis restent protégés et ne servent qu’à la recherche demandée.' },
+        ]
+        : getKirbyArray(profile.sections, 6).map((section) => ({ title: section.title, text: section.text }));
+    const narrativePlan = buildKirbyNarrativePlan(brief, profile);
+    const visualPlan = buildKirbyVisualPlan(brief, profile, narrativePlan);
+
+    return {
+        sectorKey: 'brief-driven',
+        projectType: 'Site sur mesure guidé par le brief',
+        siteName,
+        visualMood: isSensitiveRecovery ? 'brief-sensitive-warm' : 'brief-driven-premium',
+        layoutVariant: isSensitiveRecovery ? 'minimal-editorial' : 'classic-conversion',
+        designVariant: getKirbyHash(`${brief}::brief-driven`) % 5,
+        visualSeed: `${getKirbyHash(`${brief}::profile`)}`,
+        showGallery: /photo|image|galerie|realisations|réalisations/.test(source),
+        slogan: isSensitiveRecovery ? 'Retrouver ce qui compte, avec tact.' : `Une réponse claire pour ${profile.activity}.`,
+        summary: `Kirby construit la proposition depuis une fiche interne : activité, public, promesse, ton, sections, exclusions et conversion.`,
+        valueProposition: isSensitiveRecovery
+            ? 'Un site sobre et délicat qui explique comment retrouver un objet à forte valeur affective, avec une approche humaine et confidentielle.'
+            : `Un site qui respecte la nature exacte de ${profile.activity}, les contraintes du brief et l’action attendue.`,
+        positioning: {
+            audience: profile.audience,
+            promise: profile.promise,
+            tone: profile.tone,
+            differentiator: 'Les maquettes servent seulement de composition : les contenus, le vocabulaire et les sections viennent du brief.',
+        },
+        styleGuide: {
+            direction: isSensitiveRecovery
+                ? 'Direction apaisante et personnelle : matières papier, lumière douce, petits souvenirs, zones de texte calmes, aucun effet spectaculaire ni registre institutionnel froid.'
+                : 'Direction construite depuis le brief : objet central, parcours utile, preuves adaptées et action principale lisible.',
+            colors: isSensitiveRecovery
+                ? 'Ivoire doux, bleu brume, sauge grisée, argile claire, or discret et encre chaude.'
+                : 'Palette adaptée au ton extrait du brief, avec contraste lisible et accent réservé aux actions.',
+            typography: 'Sans-serif lisible, titres sobres, textes courts et hiérarchie nette.',
+            layout: getKirbyArray(profile.sections, 8).map((section) => section.title).join(', '),
+        },
+        visualConcept: {
+            heroComposition: isSensitiveRecovery
+                ? 'Premier écran calme avec carnet, enveloppe, photo floutée avec pudeur et chemin en trois étapes vers la demande d’accompagnement.'
+                : `Premier écran centré sur ${profile.activity}, avec modules de parcours et CTA cohérent.`,
+            ambience: profile.tone,
+            colorPalette: isSensitiveRecovery
+                ? ['ivoire doux', 'bleu brume', 'sauge grisée', 'argile claire', 'or discret', 'encre chaude']
+                : ['fond lisible', 'accent action', 'contraste texte', 'surface claire'],
+            imageKeywords: isSensitiveRecovery
+                ? ['objets personnels', 'lettres anciennes', 'photos de famille', 'souvenir d’enfance', 'déménagement cartons']
+                : [profile.activity, 'preuve concrète', 'parcours client'],
+            layoutSignature: 'Structure validée contre la fiche interne du brief, sans contenu métier hérité.',
+            microInteractions: ['étapes qui se révèlent', 'formulaire progressif', 'indicateur de confidentialité'],
+            signatureMoment: isSensitiveRecovery
+                ? 'Le visiteur comprend qu’il peut raconter l’histoire de l’objet sans être jugé ni exposé.'
+                : 'Le visiteur voit immédiatement le service demandé, son public et l’action utile.',
+            wowFactor: 'La page ne pourrait pas être renommée en un autre métier sans perdre son sens.',
+        },
+        narrativePlan,
+        visualPlan,
+        siteModel: {
+            name: 'Direction brief-driven',
+            description: 'Fiche interne obligatoire transformée en structure de page, sans sélection de métier fermé.',
+            sections: getKirbyArray(profile.sections, 8).map((section) => section.title),
+        },
+        briefProfile: getKirbyBriefProfileSummary(profile),
+        recommendedOffer: 'Projet spécifique',
+        pages,
+        homeSections: sectionIntro,
+        services,
+        ctas: [profile.conversion, 'Comprendre le fonctionnement', 'Parler en confiance'],
+        seo: {
+            keywords: [profile.activity, siteName, 'accompagnement discret', 'demande confidentielle'],
+            searchExpressions: [`${profile.activity} accompagnement`, `${profile.activity} discret`, `${siteName} contact`],
+            titles: [`${siteName} - ${profile.activity}`, `${profile.conversion} en toute discrétion`],
+            metaDescription: `${siteName} présente ${profile.activity} avec un parcours clair, confidentiel et fidèle au brief.`,
+        },
+        seoKeywords: [profile.activity, 'accompagnement discret', 'demande confidentielle'],
+        recommendedServices: [
+            { name: 'Formulaire de demande qualifiée', reason: 'Recueillir le contexte sans transformer la demande en procédure froide.', priceFrom: 'Projet spécifique' },
+            { name: 'Parcours en trois étapes', reason: 'Rendre le fonctionnement compréhensible dès l’accueil.', priceFrom: 'Projet spécifique' },
+            { name: 'Espace confidentiel simple', reason: 'Protéger les informations sensibles et les pièces transmises.', priceFrom: 'Projet spécifique' },
+        ],
+        clientAcquisition: [
+            'Partir de l’intention exacte du brief avant toute maquette.',
+            'Utiliser les exclusions comme blocage, pas comme catégorie détectée.',
+            'Montrer le fonctionnement et la confidentialité avant le formulaire.',
+            'Mesurer la conversion sur la demande d’accompagnement.',
+        ],
+        explanation: [
+            'Fiche interne générée avant la page.',
+            'Contenu reconstruit depuis le brief positif.',
+            'Validation anti-vocabulaire exclu avant affichage.',
+        ],
+        contactMessage: [
+            'Bonjour,',
+            '',
+            `Kirby a préparé une proposition guidée par le brief pour : ${siteName}.`,
+            `Activité extraite : ${profile.activity}`,
+            `Public : ${profile.audience}`,
+            `Action attendue : ${profile.conversion}`,
+            `Sections proposées : ${pages.map((page) => page.name).join(', ')}`,
+            '',
+            'Merci de me dire ce qu’il faut ajuster pour lancer le projet.',
+        ].join('\n'),
+    };
+};
+
+const shouldUseKirbyProfileDrivenProposal = (brief = '', profile = getKirbyBriefProfile(brief), sectorKey = detectKirbySectorTemplate(brief)) =>
+    sectorKey === 'corporate' &&
+    profile.hasSpecificUnknownActivity &&
+    (profile.hasExplicitExclusions || hasKirbySpaceSimulationIntent(profile.positiveText || brief));
+
+const applyKirbyBriefProfileValidation = (proposal = {}, brief = '') => {
+    const profile = getKirbyBriefProfile(brief);
+
+    if (doesKirbyProposalContradictProfile(proposal, profile) || doesKirbyProposalInventUnrequestedUniverse(proposal, brief)) {
+        return buildKirbyProfileDrivenProposal(brief, profile);
+    }
+
+    removeKirbyUnrequestedUniverseText(proposal, brief);
+    proposal.briefProfile = proposal.briefProfile || getKirbyBriefProfileSummary(profile);
+    return ensureKirbyNarrativeAndVisualPlan(proposal, brief);
+};
+
+const hasKirbyPrivateSchoolIntent = (value = '') => {
+    const source = normalizeKirbyFallbackText(value);
+    const schoolPlace = /\b(ecole privee|ecole independante|etablissement prive|etablissement scolaire|groupe scolaire|institution scolaire|college prive|maternelle|primaire|elementaire|college)\b/.test(source);
+    const schoolLevels = /\b(maternelle|primaire|elementaire|college|collegien|collegiens|sixieme|cinquieme|quatrieme|troisieme)\b/.test(source);
+    const schoolSiteNeeds = /\b(projet pedagogique|pedagogique|niveaux|equipe|enseignants|postuler|candidature enseignant|familles deja inscrites|futurs parents|parents d eleves|inscription|inscriptions|restauration|cantine|horaires|agenda|actualites|documents telechargeables|visite virtuelle|vie scolaire|modalites d inscription)\b/.test(source);
+    const appProduct = /\b(application|app|mini jeu|mini-jeu|jeux educatifs?|comptine|comptines|jeu educatif)\b/.test(source);
+
+    return ((schoolPlace && (schoolLevels || schoolSiteNeeds)) || (/\b(ecole|etablissement|college)\b/.test(source) && schoolSiteNeeds)) && !appProduct;
+};
+
+const hasKirbyFuneralHomeIntent = (value = '') => {
+    const source = normalizeKirbyFallbackText(value);
+    const funeralPlace = /\b(maison funeraire|pompes funebres|pompe funebre|service funeraire|services funeraires|agence funeraire|funerarium|chambre funeraire|crematorium|obseques|deuil|defunt|defunte|inhumation|cremation|ceremonie civile|ceremonie religieuse)\b/.test(source);
+    const funeralNeeds = /\b(demarches?|avant pendant apres|avant les obseques|pendant les obseques|apres les obseques|ceremonies?|contrats? de prevoyance|prevoyance|accompagnement administratif|familles? eloignees?|proches eloignes|espace hommage|hommage prive|registre de condoleances|condoleances|messages?|photos?|souvenirs?|avis de deces|faire-part)\b/.test(source);
+    const dignitySignal = /\b(accompagnement humain|discret|digne|apaisant|familles?|proches?)\b/.test(source);
+
+    return (funeralPlace && (funeralNeeds || dignitySignal)) || (/\b(funeraire|funebre|obseques|deuil)\b/.test(source) && funeralNeeds);
+};
+
+const hasKirbySeniorMobilityIntent = (value = '') => {
+    if (hasKirbyFuneralHomeIntent(value)) {
+        return false;
+    }
+
+    const source = normalizeKirbyFallbackText(value);
+    const mobilityAudience = /\b(personnes agees|personne agee|seniors?|senior|a mobilite reduite|mobilite reduite|pmr|beneficiaire|beneficiaires|aidants?|familles?)\b/.test(source);
+    const transportService = /\b(transport accompagne|transport adapte|transport pmr|service de transport|mobilite|trajet|trajets|deplacement|deplacements|chauffeur accompagnateur|accompagnement humain|reservation|trajet regulier|trajets reguliers|zones couvertes)\b/.test(source);
+    const institutionalAudience = /\b(etablissement de sante|etablissements de sante|collectivite|collectivites|ehpad|residence senior|residences seniors|partenariat|partenariats)\b/.test(source);
+
+    return (transportService && (mobilityAudience || institutionalAudience)) || (/\bservice de transport\b/.test(source) && /\baccompagnement\b/.test(source) && (mobilityAudience || institutionalAudience));
+};
+
+const hasKirbyCrisisManagementIntent = (value = '') => {
+    const source = normalizeKirbyFallbackText(value);
+    const crisisAgency = /\b(agence de gestion de crise|gestion de crise|communication de crise|crise mediatique|crise médiatique|crise reputatio|crise réputationnelle|crise juridique|crise sociale|crise cyber|cybercrise|crisis management)\b/.test(source);
+    const crisisScenarios = /\b(crise|crises|bad buzz|controverse|mise en cause|rappel produit|fuite de donnees|fuite de données|attaque cyber|rancongiciel|rançongiciel|reputation|réputation|reputationnelle|réputationnelle|mediatique|médiatique|media|média|reseaux sociaux|réseaux sociaux|sociale|juridique|procedure sensible|procédure sensible)\b/.test(source);
+    const crisisOffer = /\b(methodologie|méthodologie|cellule de crise|interventions? d urgence|interventions? d’urgence|urgence|formulaire confidentiel|confidentiel|dirigeants?|directions? juridiques?|equipes? de communication|équipes? de communication|porte parole|porte-parole|elements de langage|éléments de langage|formations? de preparation|formations? de préparation|preparation a la crise|préparation à la crise|war room|audit de crise|scenarios? de crise|scénarios? de crise)\b/.test(source);
+    const renovationContext = /\b(renovation energetique|rénovation énergétique|dpe|rge|isolation|chauffage|ventilation|aides financieres|aides financières|travaux energetiques|travaux énergétiques)\b/.test(source);
+
+    return (crisisAgency && (crisisScenarios || crisisOffer)) || (crisisScenarios && crisisOffer && !renovationContext);
+};
+
+const hasKirbyEnergyRenovationIntent = (value = '') => {
+    if (hasKirbyCrisisManagementIntent(value)) {
+        return false;
+    }
+
+    const source = normalizeKirbyFallbackText(value);
+    const energyWork = /\b(renovation energetique|renovation thermique|renovation globale|performance energetique|audit energetique|audit thermique|travaux energetiques|isolation|chauffage|ventilation|pompe a chaleur|pac|dpe|rge|passoire thermique|economies d energie)\b/.test(source);
+    const visitorFlow = /\b(particuliers?|coproprietes?|logement|maison|appartement|budget|problemes?|prediagnostic|pre diagnostic|estimation|dossier complet|aides financieres|maprimerenov|cee|certifications?|garanties?|realisations?|avant apres)\b/.test(source);
+    const realEstateSale = /\b(agence immobiliere|annonce immobiliere|mandat|acheter|vendre|location|bien immobilier|biens immobiliers)\b/.test(source);
+
+    return energyWork && visitorFlow && !realEstateSale;
+};
+
+const hasKirbyRestaurantManagementSaasIntent = (value = '') => {
+    const source = normalizeKirbyFallbackText(value);
+    const product = /\b(logiciel|application|app|saas|plateforme|outil|service destine aux restaurateurs|service pour restaurateurs|produit)\b/.test(source);
+    const audience = /\b(restaurateurs?|restaurants?|restauration|groupes? possedant plusieurs restaurants|multi restaurants?|multi-restaurant|multi etablissement|multi-etablissement)\b/.test(source);
+    const operations = /\b(reservations?|stocks?|fournisseurs?|couts? des recettes?|cout recette|couts recettes|marges?|planning d equipe|plannings d equipe|planning equipe|plannings equipe|equipes?|formules?|demonstration|demo|comparer les offres|comparatif|simplicite d utilisation)\b/.test(source);
+
+    return product && audience && operations;
+};
+
+const hasKirbyChildrenFashionIntent = (value = '') => {
+    const source = normalizeKirbyFallbackText(value);
+    const clothing = /\b(vetement|vêtements|vetements|habit|habits|mode|pret a porter|prêt-à-porter|collection|body|bodies|pyjama|robe enfant|robes enfant|pull|tshirt|t-shirt|pantalon|manteau|chaussure|chaussures|bebe|bébé|naissance|taille|tailles|boutique enfant|marque enfant)\b/.test(source);
+    const child = /\b(enfant|enfants|kid|kids|bebe|bébé|nourrisson|garcon|garçon|fille|filles|garcons|garçons|maternite|maternité)\b/.test(source);
+
+    return clothing && child;
+};
+
 const isKirbyKidsEducationBrief = (value = '') => {
     const source = normalizeKirbyFallbackText(value);
-    const explicitKids = /\b(enfant|enfants|kid|kids|application enfant|app enfant|ecole maternelle|maternelle|creche|crèche|comptine|comptines|mini jeu|mini-jeu|jeux educatifs?|jeu educatif|espace parent|luna|leo|léo)\b/.test(source);
-    const educationTerms = /\b(educatif|educative|education|apprendre|apprentissage|histoire|histoires|parent|parents)\b/.test(source);
-    const childContext = /\b(enfant|enfants|kid|kids|maternelle|ecole|creche|crèche|comptine|comptines|mini jeu|mini-jeu|jeux?|luna|leo|léo)\b/.test(source);
+    if (hasKirbyChildrenFashionIntent(source) || hasKirbyPrivateSchoolIntent(source)) {
+        return false;
+    }
+    const productIntent = /\b(application enfant|app enfant|application educative|app educative|comptine|comptines|mini jeu|mini-jeu|jeux educatifs?|jeu educatif|histoires interactives|histoire interactive|profil enfant|progression parent|luna|leo|léo)\b/.test(source);
+    const childContext = /\b(enfant|enfants|kid|kids|maternelle|creche|jeu|jeux|comptine|comptines)\b/.test(source);
+    const appContext = /\b(application|app|mini jeu|mini-jeu|jeu educatif|jeux educatifs|comptine|comptines|histoire interactive|histoires interactives|parcours applicatif|profil parent|suivi parent|espace parent)\b/.test(source);
 
-    return explicitKids || (educationTerms && childContext);
+    return productIntent || (childContext && appContext);
 };
 
 const hasKirbyLuminaIntent = (value = '') => /\b(figma make|make de figma|make figma|canvas|canvas pro|apple|macos|figma|lumina|luma|futur|future|futuriste|3d|4d|immersif|immersive|motion|anime|animé|animation|animations|waouh|wow|glass|glassmorphism|verre depoli|verre dépoli|transparent|transparence|translucide|surface|surfaces|holographique|artistique)\b/.test(normalizeKirbyFallbackText(value));
 const hasKirbySurfaceDesignIntent = (value = '') => /\b(figma make|make de figma|make figma|canvas pro|apple|macos|figma|lumina|luma|glass|glassmorphism|verre depoli|verre dépoli|transparent|transparence|translucide|surface|surfaces|4d|holographique)\b/.test(normalizeKirbyFallbackText(value));
-const hasKirbyLegalIntent = (value = '') => /\b(avocat|avocats|cabinet d avocat|cabinet d'avocat|juridique|droit|juriste|notaire|honoraires|contentieux)\b/.test(normalizeKirbyFallbackText(value));
-const hasKirbySportIntent = (value = '') => /\b(salle de sport|fitness|sport|coaching|coach sportif|nutrition|musculation|performance|performances|cours collectifs|crossfit|yoga|pilates)\b/.test(normalizeKirbyFallbackText(value));
+const hasKirbyLegalIntent = (value = '') => !hasKirbyCrisisManagementIntent(value) && /\b(avocat|avocats|cabinet d avocat|cabinet d'avocat|juridique|droit|juriste|notaire|honoraires|contentieux)\b/.test(normalizeKirbyFallbackText(value));
+const hasKirbyBoxingIntent = (value = '') => {
+    const source = normalizeKirbyFallbackText(value);
+
+    return /\b(boxe|boxing|club de box|box pour femme|box femmes|box feminin|boxe femme|boxe femmes|boxe feminine|boxe feminin|kickboxing|kick boxing|muay thai|muay-thai|self defense|self-defense|auto defense|autodefense|sport de combat|sports de combat|combat feminin|uppercut|ring|gants de boxe|sac de frappe)\b/.test(source);
+};
+const hasKirbySportsRehabIntent = (value = '') => {
+    const source = normalizeKirbyFallbackText(value);
+    const rehabPlace = /\b(centre de reeducation sportive|centre de rééducation sportive|reeducation sportive|rééducation sportive|readaptation sportive|réadaptation sportive|centre de rehabilitation sportive|centre de réhabilitation sportive|clinique du sport|sante du sport|santé du sport|medecine du sport|médecine du sport)\b/.test(source);
+    const sportsCareTeam = /\b(kinesitherapeutes?|kinésithérapeutes?|kines?|kinés?|medecins? du sport|médecins? du sport|osteopathes?|ostéopathes?|preparateurs? physiques?|préparateurs? physiques?|nutritionnistes?)\b/.test(source);
+    const rehabJourney = /\b(blessure|blessures|reprise|retour au sport|retour terrain|sportifs? amateurs?|sportifs? professionnels?|protocoles?|bilans?|programmes? de prevention|programmes? de prévention|suivi a distance|suivi à distance|tele-suivi|télé-suivi|equipements?|équipements?|parcours selon sa blessure|parcours blessure|objectif de reprise)\b/.test(source);
+    const fitnessOnly = /\b(salle de sport|fitness|abonnements?|cours collectifs|crossfit|yoga|pilates|musculation libre)\b/.test(source) && !rehabPlace && !rehabJourney;
+
+    return !fitnessOnly && ((rehabPlace && (sportsCareTeam || rehabJourney)) || (sportsCareTeam && rehabJourney && /\bsport/.test(source)));
+};
+const hasKirbySportIntent = (value = '') => !hasKirbySportsRehabIntent(value) && (hasKirbyBoxingIntent(value) || /\b(salle de sport|fitness|sport|coaching|coach sportif|nutrition|musculation|performance|performances|cours collectifs|crossfit|yoga|pilates)\b/.test(normalizeKirbyFallbackText(value)));
 const hasKirbyTravelIntent = (value = '') => /\b(voyage|voyages|tourisme|destination|destinations|itineraire|itinéraire|sejour sur mesure|séjour sur mesure|road trip|circuit|circuits|safari|agence de voyage|agence voyages|voyage sur mesure|voyages sur mesure)\b/.test(normalizeKirbyFallbackText(value));
 const hasKirbyVeterinaryIntent = (value = '') => /\b(veterinaire|vétérinaire|clinique veterinaire|clinique vétérinaire|urgence veterinaire|urgences veterinaires|soins veterinaires|fiches animaux|animaux)\b/.test(normalizeKirbyFallbackText(value));
 const hasKirbyBridalIntent = (value = '') => /\b(robe|robes|robe de mariee|robe de mariage|mariee|mariée|mariage|couture|haute couture|atelier couture|createur de robe|créateur de robe|creatrice de robe|créatrice de robe|collection mariee|collection mariée|bridal|wedding dress|essayage|essayages|voile|voiles|dentelle|soie|broderie|tulle|satin)\b/.test(normalizeKirbyFallbackText(value));
+const hasKirbyAutomotiveConciergeIntent = (value = '') => {
+    if (hasKirbySeniorMobilityIntent(value)) {
+        return false;
+    }
+
+    const source = normalizeKirbyFallbackText(value);
+    const carService = /\b(conciergerie automobile|conciergerie auto|service automobile|vehicule|véhicule|voiture|auto|automobile|entretien auto|nettoyage auto|controle technique|contrôle technique|convoyage|prise en charge vehicule|prise en charge véhicule|suivi du vehicule|suivi du véhicule|forfait auto|forfaits auto|car detailing|detailing|lavage auto|preparation controle|préparation contrôle)\b/.test(source);
+    const concierge = /\b(conciergerie|haut de gamme|premium|prise en charge vehicule|prise en charge véhicule|convoyage|suivi du vehicule|suivi du véhicule|forfait auto|forfaits auto|entretien auto|nettoyage auto|controle technique|contrôle technique|detailing|lavage auto)\b/.test(source);
+
+    return carService && concierge;
+};
+const hasKirbyMedicalCenterIntent = (value = '') => {
+    if (hasKirbySportsRehabIntent(value)) {
+        return false;
+    }
+
+    const source = normalizeKirbyFallbackText(value);
+    const place = /\b(centre medical|centre de sante|maison de sante|pole sante|cabinet pluridisciplinaire|centre pluridisciplinaire|medical pluridisciplinaire)\b/.test(source);
+    const specialties = /\b(medecins generalistes|medecin generaliste|generalistes|generaliste|pediatre|pediatres|sage femme|sage-femme|sages femmes|sages-femmes|psychologue|psychologues|kine|kinesitherapeute|kinesitherapeutes|praticien|praticiens|specialite|specialites)\b/.test(source);
+    const patientFlow = /\b(patient|patients|rendez vous|rendez-vous|rdv|disponibilite|langue parlee|langues parlees|urgence|demande urgente|prevention sante|rejoindre le centre|professionnels souhaitant rejoindre|filtrer|filtre|filtres)\b/.test(source);
+
+    return (place && (specialties || patientFlow)) || (specialties && patientFlow && /\b(sante|medical|soins?)\b/.test(source));
+};
 const hasKirbyLibraryIntent = (value = '') => /\b(bibliotheque|bibliothèque|mediatheque|médiathèque|livre|livres|lecture|lecteur|lecteurs|librairie|rayonnage|rayonnages|archives|culturel|culturelle)\b/.test(normalizeKirbyFallbackText(value));
 const hasKirbyUrbanFarmIntent = (value = '') => /\b(ferme urbaine|ferme verticale|vertical farm|agritech|agriculture urbaine|hydropon|aeropon|aéropon|serre|serres|culture eclair|culture éclair|jardin|jardins|plante|plantes|potager|vegetal|végétal|capteur|capteurs|balcon|terrasse)\b/.test(normalizeKirbyFallbackText(value));
 const hasKirbyUnderwaterHotelIntent = (value = '') => {
@@ -11977,6 +13051,10 @@ const hasKirbyUnderwaterHotelIntent = (value = '') => {
 };
 const hasKirbySpaceTourismIntent = (value = '') => {
     const source = normalizeKirbyFallbackText(value);
+    if (hasKirbySpaceSimulationIntent(source)) {
+        return false;
+    }
+
     return /\b(station spatiale|tourisme spatial|sejour orbital|séjour orbital|orbital|orbite|apesanteur|gravite zero|gravité zéro|vue sur la terre|voyageurs spatiaux|capsule|cosmos)\b/.test(source)
         || (/\b(station|hotel|hôtel|voyage|sejour|séjour|reservation|réservation)\b/.test(source) && /\b(spatial|spatiale|espace|orbite|terre|lune|mars)\b/.test(source));
 };
@@ -12001,15 +13079,36 @@ const hasKirbyExplorerAcademyIntent = (value = '') => {
 
     return directExploration || terrainTraining;
 };
-const hasKirbyDreamPortalIntent = (value = '') => /\b(portail des reves|portail de reves|portail reve|reves|reve|dream|dreams|onirique|oniriques|sommeil|lucide|lucin|mysterieux|mystere|nuit|cauchemar|cauchemars)\b/.test(normalizeKirbyFallbackText(value));
+const hasKirbyNegatedDreamIntent = (value = '') => {
+    const source = normalizeKirbyFallbackText(value);
+
+    return /(?:ce\s+n[' ]?est\s+pas|n[' ]?est\s+pas|ne\s+.+\s+pas|pas\s+une?|pas\s+un|sans\s+transformer|eviter|evite).{0,90}(reve|dream|portail|onirique|traversee|experience immersive)|(?:reve|dream|portail|onirique|traversee|experience immersive).{0,90}(?:pas le bon|pas la bonne|incorrect|mauvais|a la place|a éviter|a eviter)/.test(source);
+};
+const hasKirbyDreamPortalIntent = (value = '') => {
+    if (hasKirbyMedicalCenterIntent(value) || hasKirbyNegatedDreamIntent(value)) {
+        return false;
+    }
+
+    return /\b(portail des reves|portail de reves|portail reve|reves|reve|dream|dreams|onirique|oniriques|sommeil|lucide|lucin|mysterieux|mystere|nuit|cauchemar|cauchemars)\b/.test(normalizeKirbyFallbackText(value));
+};
 const hasKirbyClimateLabIntent = (value = '') => {
     const source = normalizeKirbyFallbackText(value);
-    const climateSignal = /\b(clima terra|climat|climate|ecosysteme|ecosystemes|biodiversite|regeneration|environnement|carbone|captation|reforestation|milieux naturels|restaurer les ecosystemes)\b/.test(source);
+    if (hasKirbyDigitalOrganizationIntent(source) || /\benvironnement numerique\b/.test(source)) {
+        return false;
+    }
+
+    const climateSignal = /\b(clima terra|climat|climate|ecosysteme|ecosystemes|biodiversite|regeneration|carbone|captation|reforestation|milieux naturels|restaurer les ecosystemes)\b/.test(source);
+    const environmentalContext = /\benvironnement(?:al|aux|ale|ales)?\b/.test(source)
+        && /\b(ecologie|ecologique|nature|naturel|milieux naturels|biodiversite|climat|carbone|sols|eau|foret|forets|ocean|ecosysteme|ecosystemes)\b/.test(source);
     const labSignal = /\b(laboratoire|lab|recherche|scientifique|science|terrain|capteurs|satellite|modelisation)\b/.test(source);
 
-    return climateSignal || (labSignal && /\b(terre|terra|vivant|nature|naturel|foret|forets|ocean|sols|agriculture)\b/.test(source));
+    return climateSignal || environmentalContext || (labSignal && /\b(terre|terra|vivant|nature|naturel|foret|forets|ocean|sols|agriculture)\b/.test(source));
 };
 const hasKirbyAccountingIntent = (value = '') => {
+    if (hasKirbyAutomotiveConciergeIntent(value) || hasKirbyRestaurantManagementSaasIntent(value)) {
+        return false;
+    }
+
     const source = normalizeKirbyFallbackText(value);
     const accountingTerms = /\b(contadirect|compta|comptabilite|comptable|facture|factures|facturation|devis|tva|revenu|revenus|depense|depenses|charge|charges|transaction|transactions|tresorerie|resultat net|bilan|logiciel de compta|logiciel comptable|tableau de bord comptable|documents comptables)\b/.test(source);
     const bankAccountingContext = /\b(banque|bank|transactions?)\b/.test(source)
@@ -12024,6 +13123,11 @@ const toKirbyTitleCase = (value = '') => String(value || '')
     .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
     .join(' ')
     .trim();
+
+const toKirbyDisplayTitle = (value = '') => toKirbyTitleCase(value)
+    .replace(/\bDe\b/g, 'de')
+    .replace(/\bD’/g, 'd’')
+    .replace(/\bD'/g, "d'");
 
 const KIRBY_SECTOR_TEMPLATES = {
     'underwater-hotel': {
@@ -12266,6 +13370,178 @@ const KIRBY_SECTOR_TEMPLATES = {
         ],
         ctas: ['Découvrir nos recherches', 'Proposer un partenariat', 'Voir les publications'],
         coherenceKeywords: ['climat', 'laboratoire', 'écosystèmes', 'biodiversité', 'capteurs', 'satellite'],
+    },
+    library: {
+        activity: 'bibliothèque augmentée',
+        projectType: 'Site bibliothèque immersive',
+        layoutVariants: ['gallery-focus', 'lumina-showcase', 'minimal-editorial'],
+        visualMood: 'library-archive-glass',
+        modelName: 'Direction bibliothèque augmentée',
+        pages: [
+            { name: 'Accueil', goal: 'Montrer le lieu, les rayonnages et l’expérience culturelle.' },
+            { name: 'Collections', goal: 'Présenter livres, archives, nouveautés et sélections.' },
+            { name: 'Espaces & expériences', goal: 'Valoriser salle de lecture, ateliers, tables interactives et médiation.' },
+            { name: 'Programme culturel', goal: 'Afficher événements, lectures, ateliers et rencontres.' },
+            { name: 'Visites', goal: 'Guider inscription, horaires, accès et réservations.' },
+            { name: 'Contact', goal: 'Rendre les informations pratiques faciles à trouver.' },
+        ],
+        sections: [
+            { title: 'Rayonnages vivants', text: 'Le premier écran montre livres, archives et lumière de lecture.' },
+            { title: 'Médiation augmentée', text: 'Tables interactives, parcours et assistance IA rendent le lieu contemporain.' },
+            { title: 'Programme culturel', text: 'Ateliers, visites et rencontres donnent une raison de revenir.' },
+        ],
+        services: [
+            { name: 'Collections', description: 'Livres, archives et sélections accessibles en parcours clair.' },
+            { name: 'Visites culturelles', description: 'Programme, ateliers, inscriptions et médiation.' },
+        ],
+        recommendedServices: [
+            { name: 'Site culturel premium', reason: 'Faire ressentir le lieu et faciliter les visites.', priceFrom: 'Offre Signature' },
+            { name: 'Programme événementiel', reason: 'Publier ateliers, lectures et rencontres sans complexité.', priceFrom: 'Projet spécifique' },
+            { name: 'Assistant IA métier', reason: 'Orienter lecteurs, familles et visiteurs selon leurs envies.', priceFrom: 'Projet spécifique' },
+        ],
+        ctas: ['Explorer la bibliothèque', 'Planifier une visite', 'Voir le programme'],
+        coherenceKeywords: ['bibliothèque', 'livres', 'rayonnages', 'lecture', 'archives', 'programme culturel'],
+    },
+    'urban-farm': {
+        activity: 'ferme urbaine intelligente',
+        projectType: 'Site ferme urbaine IA',
+        layoutVariants: ['cinematic-video', 'lumina-showcase', 'gallery-focus'],
+        visualMood: 'urban-farm-glass',
+        modelName: 'Direction ferme urbaine connectée',
+        pages: [
+            { name: 'Accueil', goal: 'Montrer la production végétale et la technologie utile.' },
+            { name: 'Cultures', goal: 'Présenter plantes, cycles, récoltes et méthodes.' },
+            { name: 'Technologie', goal: 'Expliquer capteurs, irrigation, lumière et suivi IA.' },
+            { name: 'Partenariats', goal: 'Attirer restaurants, collectivités ou entreprises.' },
+            { name: 'Impact local', goal: 'Rendre visibles circuits courts, eau économisée et production.' },
+            { name: 'Contact', goal: 'Déclencher une demande de visite ou partenariat.' },
+        ],
+        sections: [
+            { title: 'Culture verticale', text: 'La scène met les tours végétales, la lumière et les capteurs au premier plan.' },
+            { title: 'Pilotage intelligent', text: 'Irrigation, croissance et récolte deviennent des preuves lisibles.' },
+            { title: 'Impact local', text: 'Le site relie production, économie d’eau et partenaires de proximité.' },
+        ],
+        services: [
+            { name: 'Production locale', description: 'Cultures verticales, récoltes et distribution courte.' },
+            { name: 'Suivi IA', description: 'Capteurs, irrigation et données de croissance.' },
+        ],
+        recommendedServices: [
+            { name: 'Site concept premium', reason: 'Expliquer une activité technique avec une scène concrète.', priceFrom: 'Offre Signature' },
+            { name: 'Galerie immersive', reason: 'Montrer cultures, serres et capteurs.', priceFrom: 'Projet spécifique' },
+            { name: 'Formulaire partenariat', reason: 'Qualifier restaurants, collectivités et investisseurs.', priceFrom: 'Projet spécifique' },
+        ],
+        ctas: ['Visiter la ferme', 'Devenir partenaire', 'Voir les cultures'],
+        coherenceKeywords: ['ferme urbaine', 'hydroponie', 'serre', 'capteurs', 'plantes', 'récoltes'],
+    },
+    'energy-renovation': {
+        activity: 'rénovation énergétique',
+        projectType: 'Site rénovation énergétique avec prédiagnostic',
+        layoutVariants: ['classic-conversion', 'minimal-editorial', 'gallery-focus'],
+        visualMood: 'energy-renovation-expert',
+        modelName: 'Direction rénovation énergétique experte',
+        slogan: 'Rénover mieux, décider clairement.',
+        pages: [
+            { name: 'Accueil', goal: 'Installer l’expertise rénovation énergétique sans cliché écologique.' },
+            { name: 'Prédiagnostic', goal: 'Qualifier le projet avant estimation.' },
+            { name: 'Type de logement', goal: 'Guider particuliers et copropriétés selon maison, appartement ou immeuble.' },
+            { name: 'Problèmes & budget', goal: 'Orienter selon inconfort, facture, DPE, humidité, chauffage ou budget.' },
+            { name: 'Travaux', goal: 'Présenter isolation, chauffage, ventilation, audit et rénovation globale.' },
+            { name: 'Aides financières', goal: 'Expliquer MaPrimeRénov, CEE, copropriété et accompagnement dossier.' },
+            { name: 'Déposer un dossier', goal: 'Recevoir photos, DPE, factures et documents utiles.' },
+            { name: 'Certifications & garanties', goal: 'Rassurer avec RGE, assurances, suivi chantier et garanties.' },
+            { name: 'Réalisations', goal: 'Montrer avant/après, gains, DPE et preuves concrètes.' },
+        ],
+        sections: [
+            { title: 'Prédiagnostic guidé', text: 'Le visiteur choisit logement, problème, budget et objectif avant de demander une estimation.' },
+            { title: 'Aides & étapes claires', text: 'Audit, devis, financement, chantier et garanties sont expliqués sans jargon.' },
+            { title: 'Preuves de confiance', text: 'Certifications, réalisations avant/après, gains DPE et garanties rendent l’expertise concrète.' },
+        ],
+        services: [
+            { name: 'Prédiagnostic logement', description: 'Questions par logement, problèmes, budget, DPE et priorités.' },
+            { name: 'Aides financières', description: 'MaPrimeRénov, CEE, copropriété et accompagnement dossier.' },
+            { name: 'Dépôt de dossier', description: 'Transmission des photos, DPE, factures, plans et documents utiles.' },
+        ],
+        recommendedServices: [
+            { name: 'Prédiagnostic en ligne', reason: 'Guider le visiteur selon logement, problème, budget et urgence.', priceFrom: 'Projet spécifique' },
+            { name: 'Formulaire estimation', reason: 'Transformer les demandes en dossiers qualifiés.', priceFrom: 'Projet spécifique' },
+            { name: 'Dépôt de dossier', reason: 'Recevoir photos, factures, DPE et documents d’aides financières.', priceFrom: 'Projet spécifique' },
+            { name: 'Pages aides financières', reason: 'Expliquer les aides disponibles sans jargon.', priceFrom: 'Inclus selon offre' },
+            { name: 'Galerie avant / après', reason: 'Montrer réalisations, gains énergétiques et garanties.', priceFrom: 'Inclus selon offre' },
+        ],
+        ctas: ['Faire un prédiagnostic', 'Demander une estimation', 'Transmettre mon dossier'],
+        coherenceKeywords: ['rénovation énergétique', 'audit', 'isolation', 'chauffage', 'ventilation', 'aides financières', 'prédiagnostic', 'certifications', 'garanties'],
+    },
+    'restaurant-management-saas': {
+        activity: 'logiciel de gestion pour restaurateurs',
+        projectType: 'Site SaaS gestion restaurateurs',
+        layoutVariants: ['classic-conversion', 'product-dashboard', 'minimal-editorial'],
+        visualMood: 'restaurant-ops-saas',
+        modelName: 'Direction SaaS restaurateurs',
+        slogan: 'Piloter le service, sans friction.',
+        pages: [
+            { name: 'Produit', goal: 'Présenter le logiciel de gestion pour restaurateurs sans dashboard comptable.' },
+            { name: 'Problèmes restaurateurs', goal: 'Partir des réservations, ruptures stock, fournisseurs, marges et plannings.' },
+            { name: 'Réservations & stocks', goal: 'Expliquer tables, créneaux, niveaux de stock, alertes et demandes clients.' },
+            { name: 'Fournisseurs & recettes', goal: 'Montrer commandes, fournisseurs, coûts matières et marges recettes.' },
+            { name: 'Planning équipe', goal: 'Présenter horaires, équipes, services et absences.' },
+            { name: 'Démo & formules', goal: 'Proposer une démonstration, afficher les formules et comparer les offres.' },
+            { name: 'Multi-restaurants', goal: 'Créer un parcours pour groupes avec plusieurs établissements.' },
+        ],
+        sections: [
+            { title: 'Problèmes du service', text: 'Réservations, stocks, fournisseurs, recettes et planning sont présentés comme des situations concrètes.' },
+            { title: 'Produit simple à adopter', text: 'La démo montre les bénéfices sans imposer un tableau comptable froid.' },
+            { title: 'Indépendants & groupes', text: 'Les formules et besoins multi-restaurants sont comparés dans un parcours séparé.' },
+        ],
+        services: [
+            { name: 'Réservations', description: 'Tables, créneaux, demandes clients et anticipation du service.' },
+            { name: 'Stocks & fournisseurs', description: 'Niveaux de stock, commandes, fournisseurs et alertes utiles.' },
+            { name: 'Coûts recettes & planning', description: 'Marge matière, fiches recettes, équipes, horaires et multi-sites.' },
+        ],
+        recommendedServices: [
+            { name: 'Landing SaaS métier', reason: 'Expliquer le produit par problèmes concrets de restaurateurs.', priceFrom: 'Projet spécifique' },
+            { name: 'Demande de démonstration', reason: 'Qualifier établissement, réservations, stocks et équipe.', priceFrom: 'Projet spécifique' },
+            { name: 'Comparatif formules', reason: 'Rendre les offres lisibles sans devis comptable.', priceFrom: 'Projet spécifique' },
+            { name: 'Parcours multi-restaurants', reason: 'Créer un chemin séparé pour les groupes.', priceFrom: 'Projet spécifique' },
+        ],
+        ctas: ['Demander une démo', 'Voir les formules', 'Comparer les offres'],
+        coherenceKeywords: ['logiciel restaurateur', 'réservations', 'stocks', 'fournisseurs', 'coûts recettes', 'planning équipe', 'formules', 'multi-restaurants'],
+    },
+    'funeral-home': {
+        activity: 'maison funéraire nouvelle génération',
+        projectType: 'Site maison funéraire moderne avec hommage privé',
+        layoutVariants: ['classic-conversion', 'minimal-editorial', 'warm-editorial'],
+        visualMood: 'funeral-home-serene',
+        modelName: 'Direction maison funéraire apaisée',
+        slogan: 'Présence calme, démarches claires.',
+        pages: [
+            { name: 'Accueil', goal: 'Présenter une maison funéraire humaine, discrète, moderne et apaisante.' },
+            { name: 'Démarches', goal: 'Expliquer clairement les étapes avant, pendant et après les obsèques.' },
+            { name: 'Cérémonies', goal: 'Présenter cérémonies civiles, religieuses et temps personnalisés.' },
+            { name: 'Prévoyance', goal: 'Expliquer les contrats de prévoyance et l’anticipation sereine.' },
+            { name: 'Accompagnement administratif', goal: 'Rassurer sur les documents, déclarations et démarches auprès des organismes.' },
+            { name: 'Familles éloignées', goal: 'Prévoir les services à distance, visio, partage d’informations et coordination familiale.' },
+            { name: 'Espace hommage privé', goal: 'Permettre aux proches de déposer messages, photos et souvenirs dans un espace protégé.' },
+            { name: 'Contact discret', goal: 'Donner un accès immédiat, humain et confidentiel à une personne disponible.' },
+        ],
+        sections: [
+            { title: 'Avant, pendant, après', text: 'Le parcours explique les démarches essentielles au bon moment, avec des mots simples et dignes.' },
+            { title: 'Cérémonies & prévoyance', text: 'Cérémonies civiles ou religieuses, volontés et contrats de prévoyance sont présentés sans pression.' },
+            { title: 'Hommage privé', text: 'Les proches éloignés peuvent déposer messages, photos et souvenirs dans un espace protégé.' },
+        ],
+        services: [
+            { name: 'Organisation des obsèques', description: 'Accompagnement humain pour démarches, choix de cérémonie et coordination familiale.' },
+            { name: 'Administratif & prévoyance', description: 'Documents, déclarations, contrats de prévoyance et anticipation des volontés.' },
+            { name: 'Espace hommage privé', description: 'Messages, photos, souvenirs et partage discret pour les proches.' },
+        ],
+        recommendedServices: [
+            { name: 'Parcours démarches obsèques', reason: 'Le brief demande une lecture claire avant, pendant et après les obsèques.', priceFrom: 'Projet spécifique' },
+            { name: 'Espace hommage privé', reason: 'Permettre aux proches de déposer messages, photos et souvenirs dans un cadre protégé.', priceFrom: 'Projet spécifique' },
+            { name: 'Accompagnement administratif', reason: 'Rassurer les familles sur les documents, déclarations et organismes.', priceFrom: 'Inclus selon offre' },
+            { name: 'Services familles éloignées', reason: 'Prévoir coordination à distance, informations partagées et accès sécurisé.', priceFrom: 'Projet spécifique' },
+            { name: 'Pages prévoyance', reason: 'Expliquer contrats et anticipation sans ton commercial agressif.', priceFrom: 'Inclus selon offre' },
+        ],
+        ctas: ['Être accompagné maintenant', 'Créer un espace hommage', 'Préparer une prévoyance'],
+        coherenceKeywords: ['maison funéraire', 'obsèques', 'deuil', 'cérémonies', 'prévoyance', 'administratif', 'familles éloignées', 'hommage privé', 'messages', 'photos', 'souvenirs'],
     },
     'real-estate': {
         activity: 'agence immobilière',
@@ -12557,6 +13833,297 @@ const KIRBY_SECTOR_TEMPLATES = {
         ctas: ['Créer mon itinéraire', 'Explorer les destinations', 'Parler à un expert'],
         coherenceKeywords: ['voyage', 'destination', 'itinéraire', 'carte', 'séjour', 'assistant'],
     },
+    'automotive-concierge': {
+        activity: 'conciergerie automobile haut de gamme',
+        projectType: 'Site conciergerie automobile premium',
+        layoutVariants: ['luxury-asymmetric', 'classic-conversion', 'gallery-focus'],
+        visualMood: 'automotive-concierge',
+        modelName: 'Direction conciergerie auto',
+        slogan: 'Votre véhicule, pris en charge.',
+        pages: [
+            { name: 'Accueil', goal: 'Installer le service haut de gamme et la demande de prise en charge.' },
+            { name: 'Services', goal: 'Présenter entretien, nettoyage, contrôle technique et convoyage.' },
+            { name: 'Forfaits', goal: 'Comparer les niveaux de prise en charge.' },
+            { name: 'Fonctionnement', goal: 'Expliquer collecte, suivi, validation et restitution du véhicule.' },
+            { name: 'Zones couvertes', goal: 'Clarifier les secteurs d’intervention et disponibilités.' },
+            { name: 'Demande de prise en charge', goal: 'Qualifier véhicule, besoin, lieu, date et urgence.' },
+            { name: 'Contact', goal: 'Permettre un échange direct et rassurant.' },
+        ],
+        sections: [
+            { title: 'Véhicule pris en charge', text: 'Le site montre entretien, nettoyage, contrôle technique, convoyage et suivi sans jargon.' },
+            { title: 'Forfaits clairs', text: 'Les niveaux de service expliquent ce qui est inclus et pour quel usage.' },
+            { title: 'Suivi premium', text: 'Le client comprend les étapes, les zones couvertes et la demande de prise en charge.' },
+        ],
+        services: [
+            { name: 'Entretien & contrôle', description: 'Organisation entretien, contrôle technique et rendez-vous utiles.' },
+            { name: 'Nettoyage premium', description: 'Nettoyage intérieur, extérieur et préparation du véhicule.' },
+            { name: 'Convoyage', description: 'Prise en charge, déplacement et restitution suivie.' },
+        ],
+        recommendedServices: [
+            { name: 'Formulaire de prise en charge', reason: 'Qualifier véhicule, lieu, service et date en une demande claire.', priceFrom: 'Projet spécifique' },
+            { name: 'Forfaits de service', reason: 'Rendre les offres lisibles sans appel préalable.', priceFrom: 'Inclus selon offre' },
+            { name: 'Google Maps et zones', reason: 'Clarifier les secteurs couverts.', priceFrom: 'Inclus selon offre' },
+            { name: 'Espace client simple', reason: 'Suivre demandes, documents et historique véhicule.', priceFrom: 'Projet spécifique' },
+        ],
+        ctas: ['Demander une prise en charge', 'Voir les forfaits', 'Comprendre le fonctionnement'],
+        coherenceKeywords: ['automobile', 'véhicule', 'entretien', 'nettoyage', 'contrôle technique', 'convoyage', 'forfaits', 'zones couvertes'],
+    },
+    'senior-mobility': {
+        activity: 'transport accompagné pour seniors',
+        projectType: 'Site service de transport accompagné',
+        layoutVariants: ['classic-conversion', 'warm-editorial', 'minimal-editorial'],
+        visualMood: 'senior-mobility-modern',
+        modelName: 'Direction mobilité accompagnée',
+        slogan: 'Bouger accompagné, rester autonome.',
+        pages: [
+            { name: 'Accueil', goal: 'Présenter le transport accompagné comme une solution humaine, rassurante et moderne.' },
+            { name: 'Bénéficiaires', goal: 'Parler aux personnes âgées, familles, aidants et personnes à mobilité réduite.' },
+            { name: 'Types de trajets', goal: 'Expliquer rendez-vous médicaux, courses, visites, loisirs et trajets réguliers.' },
+            { name: 'Sécurité & accompagnement', goal: 'Montrer chauffeur accompagnateur, aide porte-à-porte et suivi famille.' },
+            { name: 'Zones & tarifs', goal: 'Clarifier secteurs couverts, formules, trajets réguliers et devis.' },
+            { name: 'Réserver un trajet', goal: 'Permettre aux familles de demander un trajet ponctuel ou régulier.' },
+            { name: 'Partenariats', goal: 'Créer un parcours distinct pour établissements de santé et collectivités.' },
+            { name: 'Contact', goal: 'Centraliser téléphone, formulaire et informations pratiques.' },
+        ],
+        sections: [
+            { title: 'Trajets accompagnés', text: 'Rendez-vous médicaux, courses, visites, loisirs et trajets réguliers sont expliqués sans jargon.' },
+            { title: 'Sécurité humaine', text: 'Chauffeur accompagnateur, aide porte-à-porte et suivi famille créent la confiance.' },
+            { title: 'Familles & partenaires', text: 'Les familles réservent un trajet régulier, les établissements demandent un partenariat.' },
+        ],
+        services: [
+            { name: 'Trajet ponctuel', description: 'Accompagnement pour rendez-vous, courses, démarches ou visites.' },
+            { name: 'Trajet régulier', description: 'Planification récurrente pour soins, activités ou visites familiales.' },
+            { name: 'Partenariats', description: 'Parcours dédié aux établissements de santé et collectivités.' },
+        ],
+        recommendedServices: [
+            { name: 'Formulaire trajet régulier', reason: 'Permettre aux familles de demander une prise en charge récurrente.', priceFrom: 'Projet spécifique' },
+            { name: 'Parcours partenariat', reason: 'Séparer les demandes des établissements de santé et collectivités.', priceFrom: 'Projet spécifique' },
+            { name: 'Zones et tarifs', reason: 'Rassurer sur les secteurs couverts, formules et conditions de trajet.', priceFrom: 'Inclus selon offre' },
+            { name: 'Espace familles simple', reason: 'Suivre demandes, documents, contacts utiles et trajets programmés.', priceFrom: 'Projet spécifique' },
+        ],
+        ctas: ['Réserver un trajet', 'Demander un trajet régulier', 'Devenir partenaire'],
+        coherenceKeywords: ['transport accompagné', 'personnes âgées', 'mobilité réduite', 'trajets', 'sécurité', 'accompagnement', 'familles', 'partenariats'],
+    },
+    'private-school': {
+        activity: 'école privée maternelle primaire collège',
+        projectType: 'Site institutionnel école privée',
+        layoutVariants: ['classic-conversion', 'minimal-editorial', 'warm-editorial'],
+        visualMood: 'private-school-modern',
+        modelName: 'Direction école privée claire',
+        slogan: 'Grandir, apprendre, s’épanouir.',
+        pages: [
+            { name: 'Accueil', goal: 'Rassurer les parents et présenter clairement l’école privée multi-niveaux.' },
+            { name: 'Projet pédagogique', goal: 'Expliquer la vision éducative, les valeurs et l’accompagnement des élèves.' },
+            { name: 'Niveaux', goal: 'Distinguer maternelle, primaire et collège avec informations utiles.' },
+            { name: 'Vie scolaire', goal: 'Présenter équipe, activités, restauration, horaires et organisation.' },
+            { name: 'Futurs parents', goal: 'Guider vers visite, inscriptions, modalités et documents.' },
+            { name: 'Familles inscrites', goal: 'Regrouper agenda, actualités, documents téléchargeables et informations pratiques.' },
+            { name: 'Recrutement enseignants', goal: 'Séparer les candidatures enseignants du parcours familles.' },
+            { name: 'Visite virtuelle', goal: 'Permettre de découvrir les espaces de l’école à distance.' },
+            { name: 'Contact', goal: 'Donner accès aux coordonnées, demandes de visite et inscriptions.' },
+        ],
+        sections: [
+            { title: 'Projet pédagogique', text: 'Les valeurs, méthodes et objectifs sont expliqués clairement pour rassurer les familles.' },
+            { title: 'Maternelle, primaire, collège', text: 'Chaque niveau possède ses repères, horaires, activités et informations utiles.' },
+            { title: 'Espaces par public', text: 'Futurs parents, familles inscrites et enseignants candidats trouvent chacun leur parcours.' },
+        ],
+        services: [
+            { name: 'Inscriptions', description: 'Modalités, documents, visite et demande de rendez-vous.' },
+            { name: 'Vie scolaire', description: 'Horaires, restauration, activités, agenda et actualités.' },
+            { name: 'Recrutement enseignants', description: 'Présentation du projet et formulaire de candidature distinct.' },
+        ],
+        recommendedServices: [
+            { name: 'Site institutionnel école', reason: 'Structurer les informations pour futurs parents, familles inscrites et enseignants.', priceFrom: 'Projet spécifique' },
+            { name: 'Agenda et actualités', reason: 'Publier dates, événements et informations importantes.', priceFrom: 'Projet spécifique' },
+            { name: 'Documents téléchargeables', reason: 'Centraliser dossiers d’inscription, menus, horaires et documents utiles.', priceFrom: 'Projet spécifique' },
+            { name: 'Visite virtuelle', reason: 'Aider les parents à découvrir les espaces avant une visite physique.', priceFrom: 'Projet spécifique' },
+        ],
+        ctas: ['Demander une visite', 'Inscrire mon enfant', 'Accès familles'],
+        coherenceKeywords: ['école privée', 'maternelle', 'primaire', 'collège', 'projet pédagogique', 'inscriptions', 'agenda', 'documents', 'visite virtuelle'],
+    },
+    'sports-rehab': {
+        activity: 'centre de rééducation sportive',
+        projectType: 'Site centre de rééducation sportive',
+        layoutVariants: ['classic-conversion', 'minimal-editorial', 'product-dashboard'],
+        visualMood: 'sports-rehab-technical',
+        modelName: 'Direction rééducation sportive',
+        slogan: 'Reprendre fort, reprendre juste.',
+        pages: [
+            { name: 'Accueil', goal: 'Présenter le centre comme une structure médicale sportive technique et dynamique.' },
+            { name: 'Équipe pluridisciplinaire', goal: 'Présenter kinésithérapeutes, médecins du sport, ostéopathes, préparateurs physiques et nutritionnistes.' },
+            { name: 'Parcours blessure', goal: 'Orienter selon entorse, tendinopathie, ligament, dos, épaule, genou ou post-opératoire.' },
+            { name: 'Parcours par sport', goal: 'Adapter le discours selon course, football, tennis, cyclisme, sports de combat ou musculation.' },
+            { name: 'Objectif reprise', goal: 'Distinguer reprise loisir, retour compétition, prévention rechute et performance contrôlée.' },
+            { name: 'Équipements & protocoles', goal: 'Montrer plateaux techniques, tests, appareils, protocoles et critères de progression.' },
+            { name: 'Bilans & prévention', goal: 'Présenter bilans fonctionnels, programmes de prévention et suivi de charge.' },
+            { name: 'Suivi à distance', goal: 'Expliquer télé-suivi, exercices, reporting, messagerie et progression entre séances.' },
+            { name: 'Contact', goal: 'Permettre une prise de rendez-vous ou une orientation vers le bon parcours.' },
+        ],
+        sections: [
+            { title: 'Parcours blessure, sport, reprise', text: 'Le visiteur choisit sa blessure, son sport ou son objectif pour accéder au protocole adapté.' },
+            { title: 'Équipe médicale sportive', text: 'Kinés, médecins du sport, ostéopathes, préparateurs physiques et nutritionnistes travaillent ensemble.' },
+            { title: 'Bilans, protocoles, suivi', text: 'Équipements, tests, prévention et suivi à distance structurent une reprise mesurable.' },
+        ],
+        services: [
+            { name: 'Bilans fonctionnels', description: 'Tests de mobilité, force, douleur, charge, asymétries et critères de reprise.' },
+            { name: 'Protocoles de rééducation', description: 'Programmes par blessure, sport et objectif de retour terrain.' },
+            { name: 'Suivi à distance', description: 'Exercices, reporting, messagerie et adaptation entre les séances.' },
+        ],
+        recommendedServices: [
+            { name: 'Parcours blessure / sport / reprise', reason: 'Le brief demande une orientation par blessure, sport et objectif.', priceFrom: 'Projet spécifique' },
+            { name: 'Annuaire équipe pluridisciplinaire', reason: 'Présenter clairement kinés, médecins du sport, ostéopathes, préparateurs physiques et nutritionnistes.', priceFrom: 'Projet spécifique' },
+            { name: 'Protocoles et bilans', reason: 'Rendre l’expertise technique visible sans devenir une salle de fitness.', priceFrom: 'Projet spécifique' },
+            { name: 'Suivi à distance', reason: 'Permettre exercices, reporting et progression hors centre.', priceFrom: 'Projet spécifique' },
+            { name: 'Programmes prévention', reason: 'Valoriser prévention des rechutes et préparation au retour terrain.', priceFrom: 'Inclus selon offre' },
+        ],
+        ctas: ['Choisir mon parcours', 'Prendre rendez-vous', 'Démarrer un suivi'],
+        coherenceKeywords: ['rééducation sportive', 'kinésithérapeutes', 'médecins du sport', 'ostéopathes', 'préparateurs physiques', 'nutritionnistes', 'blessure', 'protocoles', 'bilans', 'prévention', 'suivi à distance'],
+    },
+    'crisis-management': {
+        activity: 'agence de gestion de crise',
+        projectType: 'Site agence de gestion de crise',
+        layoutVariants: ['classic-conversion', 'minimal-editorial', 'lumina-showcase'],
+        visualMood: 'crisis-strategy-sober',
+        modelName: 'Direction gestion de crise',
+        slogan: 'Stabiliser. Protéger. Répondre.',
+        pages: [
+            { name: 'Accueil', goal: 'Présenter l’agence comme un partenaire stratégique en situation sensible.' },
+            { name: 'Urgence crise', goal: 'Donner un accès rapide aux entreprises déjà en crise.' },
+            { name: 'Scénarios de crise', goal: 'Distinguer crise médiatique, juridique, sociale, cyber et réputationnelle.' },
+            { name: 'Méthodologie', goal: 'Expliquer diagnostic, cellule de crise, messages, coordination et stabilisation.' },
+            { name: 'Expertises mobilisées', goal: 'Présenter communication, juridique, social, cyber, dirigeants et relations médias.' },
+            { name: 'Dirigeants & directions', goal: 'Créer une section pour dirigeants, directions juridiques et équipes communication.' },
+            { name: 'Formations préparation', goal: 'Présenter simulations, media training, protocoles et exercices de préparation.' },
+            { name: 'Formulaire confidentiel', goal: 'Permettre une prise de contact discrète avec informations sensibles protégées.' },
+            { name: 'Contact', goal: 'Centraliser téléphone prioritaire, disponibilité et demande confidentielle.' },
+        ],
+        sections: [
+            { title: 'Accès urgence confidentiel', text: 'Une entreprise déjà en crise trouve immédiatement le canal prioritaire et discret.' },
+            { title: 'Scénarios maîtrisés', text: 'Crises médiatiques, juridiques, sociales, cyber et réputationnelles sont séparées clairement.' },
+            { title: 'Méthode et préparation', text: 'Cellule de crise, messages, expertises et formations montrent une réponse structurée.' },
+        ],
+        services: [
+            { name: 'Intervention d’urgence', description: 'Qualification rapide, cellule de crise, priorités et premières réponses.' },
+            { name: 'Communication de crise', description: 'Messages, porte-parole, relations médias, réseaux sociaux et réputation.' },
+            { name: 'Formations préparation', description: 'Simulations, media training, protocoles et exercices de décision.' },
+        ],
+        recommendedServices: [
+            { name: 'Accès urgence crise', reason: 'Les entreprises déjà en crise doivent pouvoir agir sans chercher.', priceFrom: 'Projet spécifique' },
+            { name: 'Formulaire confidentiel', reason: 'Le brief demande un contact discret adapté aux situations sensibles.', priceFrom: 'Projet spécifique' },
+            { name: 'Scénarios de crise', reason: 'Structurer crise médiatique, juridique, sociale, cyber et réputationnelle.', priceFrom: 'Projet spécifique' },
+            { name: 'Pages dirigeants / directions', reason: 'Séparer dirigeants, directions juridiques et équipes communication.', priceFrom: 'Inclus selon offre' },
+            { name: 'Formations préparation', reason: 'Présenter simulations, media training et protocoles de préparation.', priceFrom: 'Projet spécifique' },
+        ],
+        ctas: ['Activer une cellule de crise', 'Demander un échange confidentiel', 'Préparer mon équipe'],
+        coherenceKeywords: ['gestion de crise', 'crise médiatique', 'crise juridique', 'crise sociale', 'crise cyber', 'réputation', 'urgence', 'formulaire confidentiel', 'dirigeants', 'formations'],
+    },
+    'medical-center': {
+        activity: 'centre médical pluridisciplinaire',
+        projectType: 'Site centre médical pluridisciplinaire',
+        layoutVariants: ['classic-conversion', 'minimal-editorial', 'product-dashboard'],
+        visualMood: 'medical-warm-professional',
+        modelName: 'Direction centre médical clair',
+        slogan: 'Des soins coordonnés, simplement accessibles.',
+        pages: [
+            { name: 'Accueil', goal: 'Présenter le centre, les spécialités et les accès rapides patient.' },
+            { name: 'Spécialités', goal: 'Expliquer généralistes, pédiatres, sages-femmes, psychologues et kinésithérapeutes.' },
+            { name: 'Praticiens', goal: 'Afficher les profils filtrables par spécialité, disponibilité et langue parlée.' },
+            { name: 'Rendez-vous', goal: 'Permettre une demande de rendez-vous claire sans effet hôpital froid.' },
+            { name: 'Prévention santé', goal: 'Publier conseils, campagnes et informations utiles aux patients.' },
+            { name: 'Rejoindre le centre', goal: 'Créer un espace distinct pour les professionnels intéressés.' },
+            { name: 'Accès & urgence', goal: 'Afficher adresse, transports, horaires et contact en cas de demande urgente.' },
+            { name: 'Contact', goal: 'Centraliser formulaire, téléphone et informations pratiques.' },
+        ],
+        sections: [
+            { title: 'Spécialités lisibles', text: 'Généralistes, pédiatres, sages-femmes, psychologues et kinés sont présentés sans surcharge.' },
+            { title: 'Praticiens filtrables', text: 'Les patients filtrent par spécialité, disponibilité et langue parlée avant de demander un rendez-vous.' },
+            { title: 'Accès, prévention, urgence', text: 'Prévention santé, informations d’accès et contact urgent restent visibles sans ambiance hospitalière froide.' },
+        ],
+        services: [
+            { name: 'Annuaire praticiens', description: 'Profils, spécialités, langues parlées, disponibilités et accès rendez-vous.' },
+            { name: 'Parcours patient', description: 'Spécialités, prévention, accès, urgence et demande de rendez-vous.' },
+            { name: 'Espace professionnels', description: 'Présentation du centre et formulaire pour rejoindre l’équipe.' },
+        ],
+        recommendedServices: [
+            { name: 'Annuaire praticiens filtrable', reason: 'Permettre aux patients de filtrer par spécialité, disponibilité et langue parlée.', priceFrom: 'Projet spécifique' },
+            { name: 'Demande de rendez-vous', reason: 'Orienter les patients vers une demande claire selon le praticien ou la spécialité.', priceFrom: 'Projet spécifique' },
+            { name: 'Espace professionnels', reason: 'Séparer les candidatures et demandes de praticiens du parcours patient.', priceFrom: 'Projet spécifique' },
+            { name: 'Prévention santé', reason: 'Publier conseils, campagnes et informations utiles sans ton hospitalier froid.', priceFrom: 'Inclus selon offre' },
+            { name: 'Accès et urgence', reason: 'Rendre horaires, adresse, transports et contact urgent immédiatement lisibles.', priceFrom: 'Inclus selon offre' },
+        ],
+        ctas: ['Demander un rendez-vous', 'Trouver un praticien', 'Rejoindre le centre'],
+        coherenceKeywords: ['centre médical', 'spécialités', 'praticiens', 'rendez-vous', 'prévention santé', 'urgence', 'langues parlées'],
+    },
+    'kids-fashion': {
+        activity: 'marque de vêtements enfants',
+        projectType: 'Boutique mode enfant durable',
+        layoutVariants: ['warm-editorial', 'gallery-focus', 'classic-conversion'],
+        visualMood: 'kids-fashion-joyful',
+        modelName: 'Direction mode enfant durable',
+        slogan: 'Des couleurs qui grandissent bien.',
+        pages: [
+            { name: 'Accueil', goal: 'Présenter l’univers joyeux, durable et la boutique.' },
+            { name: 'Collections', goal: 'Montrer vêtements, nouveautés et silhouettes 2 à 8 ans.' },
+            { name: 'Matières', goal: 'Expliquer tissus, confort, résistance et entretien.' },
+            { name: 'Engagements', goal: 'Valoriser durabilité, production et choix responsables.' },
+            { name: 'Guide des tailles', goal: 'Aider les parents à choisir rapidement.' },
+            { name: 'Boutique', goal: 'Guider vers catégories, produits, panier et commande.' },
+            { name: 'Contact', goal: 'Répondre aux questions parents ou revendeurs.' },
+        ],
+        sections: [
+            { title: 'Collections colorées', text: 'Les vêtements, silhouettes et motifs sont visibles dès le premier écran.' },
+            { title: 'Matières durables', text: 'Le site rassure sur confort, résistance, lavage et engagement responsable.' },
+            { title: 'Tailles 2 à 8 ans', text: 'Le guide des tailles et la boutique aident les parents à commander sans hésiter.' },
+        ],
+        services: [
+            { name: 'Collections enfant', description: 'Vêtements colorés, durables et adaptés aux 2 à 8 ans.' },
+            { name: 'Guide des tailles', description: 'Repères simples pour choisir selon âge, taille et coupe.' },
+            { name: 'Boutique', description: 'Catégories, fiches produits, panier et commande.' },
+        ],
+        recommendedServices: [
+            { name: 'Boutique en ligne simple', reason: 'Le brief demande une boutique avec collections et commande.', priceFrom: 'À partir de 712 €' },
+            { name: 'Catalogue / collection', reason: 'Présenter les vêtements, matières, tailles et nouveautés.', priceFrom: 'Projet spécifique' },
+            { name: 'Guide des tailles', reason: 'Réduire les hésitations et retours avant achat.', priceFrom: 'Inclus selon offre' },
+            { name: 'Galerie photos', reason: 'Montrer couleurs, coupes et détails de matières.', priceFrom: 'Inclus selon offre' },
+        ],
+        ctas: ['Voir les collections', 'Ouvrir la boutique', 'Guide des tailles'],
+        coherenceKeywords: ['vêtements', 'enfants', 'collections', 'matières', 'durable', 'tailles', 'boutique'],
+    },
+    'boxing-club': {
+        activity: 'club de boxe féminin',
+        projectType: 'Site club de boxe pour femmes',
+        layoutVariants: ['cinematic-video', 'product-dashboard', 'lumina-showcase'],
+        visualMood: 'boxing-female-energy',
+        modelName: 'Direction ring féminin',
+        slogan: 'Frappez fort. Entrez libre.',
+        pages: [
+            { name: 'Accueil', goal: 'Montrer énergie, confiance, communauté et action d’essai.' },
+            { name: 'Cours', goal: 'Présenter boxe, self-défense, niveaux et formats.' },
+            { name: 'Planning', goal: 'Afficher horaires, réservation et disponibilités.' },
+            { name: 'Coachs', goal: 'Mettre en avant encadrement, pédagogie et sécurité.' },
+            { name: 'Essai découverte', goal: 'Convertir vers une première séance rassurante.' },
+            { name: 'Tarifs', goal: 'Comparer cartes, abonnements et formules.' },
+            { name: 'Contact', goal: 'Réserver un essai ou poser une question.' },
+        ],
+        sections: [
+            { title: 'Monter sur le ring', text: 'Le premier écran montre ring, gants, sacs de frappe et énergie féminine assumée.' },
+            { title: 'Cours tous niveaux', text: 'Débutantes, confirmées et self-défense trouvent vite leur créneau.' },
+            { title: 'Communauté forte', text: 'Coachs, sécurité et progression rendent l’essai simple et motivant.' },
+        ],
+        services: [
+            { name: 'Cours de boxe', description: 'Séances techniques, cardio et progression par niveau.' },
+            { name: 'Self-défense', description: 'Ateliers rassurants pour gagner en confiance et réflexes.' },
+            { name: 'Coaching technique', description: 'Accompagnement pour posture, puissance, endurance et mental.' },
+        ],
+        recommendedServices: [
+            { name: 'Planning de cours', reason: 'Les créneaux doivent être visibles et réservables rapidement.', priceFrom: 'Projet spécifique' },
+            { name: 'Tunnel essai', reason: 'Transformer les visiteuses en première séance découverte.', priceFrom: 'Offre Pro' },
+            { name: 'Espace membre simple', reason: 'Suivre réservations, abonnements et progression.', priceFrom: 'Projet spécifique' },
+            { name: 'Galerie photos', reason: 'Montrer le ring, les coachs et l’ambiance réelle du club.', priceFrom: 'Inclus selon offre' },
+        ],
+        ctas: ['Réserver un essai', 'Voir le planning', 'Découvrir les cours'],
+        coherenceKeywords: ['boxe', 'femmes', 'ring', 'gants', 'cours', 'coachs', 'planning', 'essai'],
+    },
     sport: {
         activity: 'salle de sport',
         projectType: 'Plateforme fitness avec espace membre',
@@ -12767,24 +14334,37 @@ const KIRBY_SECTOR_TEMPLATES = {
 };
 
 const KIRBY_SECTOR_DETECTION = [
+    { key: 'crisis-management', regex: /agence de gestion de crise|gestion de crise|communication de crise|crise mediatique|crise médiatique|crise juridique|crise sociale|crise cyber|crise reputationnelle|crise réputationnelle|intervention d urgence|intervention d’urgence|cellule de crise|formulaire confidentiel|directions? juridiques?|equipes? de communication|équipes? de communication|formations? de preparation|formations? de préparation/ },
+    { key: 'funeral-home', regex: /maison funeraire|maison funéraire|pompes funebres|pompes funèbres|pompe funebre|pompe funèbre|services? funeraires?|services? funéraires?|obseques|obsèques|deuil|defunt|défunt|inhumation|cremation|crémation|ceremonies? civiles?|cérémonies? civiles?|ceremonies? religieuses?|cérémonies? religieuses?|contrats? de prevoyance|contrats? de prévoyance|prevoyance obseques|prévoyance obsèques|espace hommage|hommage prive|hommage privé|familles? eloignees|familles? éloignées|avis de deces|avis de décès|condoleances|condoléances/ },
+    { key: 'energy-renovation', regex: /renovation energetique|rénovation énergétique|renovation thermique|rénovation thermique|audit energetique|audit énergétique|isolation|chauffage|ventilation|pompe a chaleur|pompe à chaleur|dpe|rge|aides financieres|aides financières|prediagnostic|prédiagnostic|coproprietes|copropriétés|passoire thermique/ },
+    { key: 'restaurant-management-saas', regex: /logiciel restaurateur|logiciel de gestion pour restaurateurs|application de gestion pour restaurateurs|app restaurateur|saas restaurateur|saas restaurateurs|demo produit|démo produit|reservations?.{0,40}stocks?.{0,40}fournisseurs?|réservations?.{0,40}stocks?.{0,40}fournisseurs?|couts? recettes?|coûts? recettes?|couts des recettes|coûts des recettes|planning d equipe|planning d’équipe|multi restaurants|multi-restaurants|groupes possedant plusieurs restaurants|groupes possédant plusieurs restaurants|modules cles|modules clés|le site vend le logiciel/ },
     { key: 'future-bank', regex: /banque lunaire|banque interplanetaire|banque interplanétaire|credits interplanetaires|crédits interplanétaires|coffres numeriques|coffres numériques|colonies lunaires|colonies martiennes|finance lunaire/ },
     { key: 'space-station-tourism', regex: /station spatiale|tourisme spatial|sejour orbital|séjour orbital|orbital|orbite|apesanteur|vue sur la terre|voyageurs spatiaux/ },
     { key: 'floating-city', regex: /ville flottante|cite flottante|cité flottante|ville autonome|cite autonome|cité autonome|quartiers flottants|habitat flottant|energie renouvelable|énergie renouvelable/ },
     { key: 'future-museum', regex: /musee|musée|civilisations disparues|civilisation disparue|archeologie|archéologie|realite augmentee|réalité augmentée|mondes perdus|artefacts|ruines/ },
     { key: 'underwater-hotel', regex: /hotel sous marin|hotel sous-marin|hotel sous l ocean|suites panoramiques|restaurant immerge|spa marin|faune marine/ },
+    { key: 'sports-rehab', regex: /centre de reeducation sportive|centre de rééducation sportive|reeducation sportive|rééducation sportive|readaptation sportive|réadaptation sportive|clinique du sport|medecine du sport|médecine du sport|kinesitherapeutes?.{0,80}medecins? du sport|kinésithérapeutes?.{0,80}médecins? du sport|parcours blessure|objectif de reprise|retour au sport|protocoles?.{0,40}bilans?|suivi a distance|suivi à distance|preparateurs? physiques?|préparateurs? physiques?/ },
+    { key: 'medical-center', regex: /centre medical|centre médical|centre de sante|centre de santé|maison de sante|maison de santé|pole sante|pôle santé|pluridisciplinaire|praticiens?|specialites|spécialités|langues? parlees?|langues? parlées?|prevention sante|prévention santé|rejoindre le centre|demande urgente|sages-femmes|pediatres|pédiatres|kinesitherapeutes|kinésithérapeutes/ },
     { key: 'dream-portal', regex: /portail des reves|portail de reves|portail reve|reves|reve|onirique|sommeil|lucide|mysterieux|mystere/ },
     { key: 'explorer-academy', regex: /academie des explorateurs|ecole des explorateurs|explorateur|explorateurs|exploration|aventurier|aventure|expedition|boussole|cartographie/ },
-    { key: 'climate-lab', regex: /clima terra|climat|climate|ecosysteme|biodiversite|regeneration|environnement|carbone|reforestation|laboratoire climat|lab climat|recherche climat/ },
+    { key: 'climate-lab', regex: /clima terra|climat|climate|ecosysteme|biodiversite|regeneration|carbone|reforestation|laboratoire climat|lab climat|recherche climat|environnemental|environnementale|environnementaux/ },
+    { key: 'library', regex: /bibliotheque|bibliothèque|mediatheque|médiathèque|livres?|lecture|lecteurs?|rayonnages?|archives|programme culturel|salle de lecture/ },
+    { key: 'urban-farm', regex: /ferme urbaine|ferme verticale|agritech|hydropon|aeropon|aéropon|serre|culture eclair|culture éclair|capteurs agricoles|tours vegetales|tours végétales/ },
     { key: 'real-estate', regex: /immobilier|agence immobiliere|agence immobilière|annonce|bien immobilier|estimation|vendeur|acquereur|acquéreur|mandat/ },
     { key: 'architecture', regex: /architect|architecture|architecte|villa|villas|beton|béton|verre|maitre d oeuvre|maître d oeuvre|design d interieur|design d'intérieur/ },
     { key: 'hotel', regex: /hotel|hôtel|chambre|suite|spa|restaurant gastronomique|vue mer|reservation sejour|réservation séjour|hebergement|hébergement|gite|gîte/ },
     { key: 'veterinary', regex: /veterinaire|vétérinaire|clinique veterinaire|clinique vétérinaire|urgence veterinaire|urgences veterinaires|fiches animaux|soins veterinaires/ },
+    { key: 'senior-mobility', regex: /transport accompagne|transport accompagné|transport adapte|transport adapté|transport pmr|personnes agees|personnes âgées|mobilite reduite|mobilité réduite|trajets?|trajet regulier|trajet régulier|chauffeur accompagnateur|accompagnement humain|etablissements de sante|établissements de santé|collectivites|collectivités/ },
+    { key: 'private-school', regex: /ecole privee|école privée|etablissement scolaire|établissement scolaire|groupe scolaire|maternelle|primaire|college|collège|projet pedagogique|projet pédagogique|familles deja inscrites|familles déjà inscrites|enseignants?|inscriptions?|restauration|documents telechargeables|documents téléchargeables|visite virtuelle/ },
+    { key: 'automotive-concierge', regex: /conciergerie automobile|conciergerie auto|service automobile|entretien auto|nettoyage auto|controle technique|contrôle technique|convoyage|prise en charge vehicule|prise en charge véhicule|suivi du vehicule|suivi du véhicule|forfaits auto|zones couvertes|car detailing|lavage auto/ },
     { key: 'travel', regex: /voyage|voyages|tourisme|destination|destinations|itineraire|itinéraire|road trip|circuit|safari|agence de voyage|voyage sur mesure|voyages sur mesure/ },
+    { key: 'kids-fashion', regex: /vetements enfants|vêtements enfants|vetement enfant|vêtement enfant|marque de vetements|marque de vêtements|mode enfant|boutique enfant|collection enfant|collections enfant|guide des tailles|tailles 2 a 8|tailles 2 à 8|2 a 8 ans|2 à 8 ans|matiere durable|matières durables/ },
+    { key: 'boxing-club', regex: /club de box|box pour femme|box femmes|box feminin|boxe|boxing|kickboxing|kick boxing|muay thai|self defense|self-defense|auto defense|autodefense|sport de combat|uppercut|gants de boxe|sac de frappe|ring/ },
     { key: 'sport', regex: /salle de sport|fitness|coach sportif|coaching|nutrition|musculation|cours collectifs|performance|performances|espace membre/ },
     { key: 'legal', regex: /avocat|avocats|cabinet d avocat|cabinet d'avocat|juridique|droit|juriste|notaire|honoraires|contentieux/ },
     { key: 'bridal', regex: /robe de mariee|robe de mariage|mariee|mariée|mariage|haute couture|atelier couture|collection mariee|collection mariée|essayage|dentelle|soie|voile|broderie|tulle|satin|bridal|wedding dress|couture/ },
-    { key: 'restaurant', regex: /restaurant|menu|carte|table|reservation|réservation|plat|cuisine|brasserie/ },
-    { key: 'kids-app', regex: /enfant|enfants|kids?|application enfant|app enfant|ecole maternelle|maternelle|creche|crèche|comptine|comptines|mini jeu|mini-jeu|jeux educatifs?|jeu educatif|espace parent|luna|leo|léo/ },
+    { key: 'restaurant', regex: /restaurant|brasserie|bistrot|trattoria|pizzeria|menu du jour|carte des plats|carte restaurant|carte gastronomique|plats?|cuisine|chef|reservation table|réservation table|reserver une table|réserver une table/ },
+    { key: 'kids-app', regex: /application enfant|app enfant|application educative|application éducative|app educative|app éducative|comptine|comptines|mini jeu|mini-jeu|jeux educatifs?|jeux éducatifs?|jeu educatif|jeu éducatif|histoires interactives|histoire interactive|luna|leo|léo/ },
     { key: 'saas', regex: /saas|logiciel|dashboard|crm|erp|fintech|facturation/ },
     { key: 'medical', regex: /medical|médical|cabinet|docteur|medecin|médecin|patient|sante|santé|infirmier|dentiste|kine|kiné/ },
     { key: 'gaming', regex: /jeu video|jeu vidéo|gaming|studio de jeu|steam|trailer|gameplay|esport/ },
@@ -12797,7 +14377,7 @@ const KIRBY_INCOMPATIBLE_BLOCKS = {
     'real-estate': [/tva|facture|depenses|revenus|banque|comptable|dashboard/],
     restaurant: [/annonce immobiliere|bien immobilier|estimation gratuite|mandat|agent immobilier/],
     saas: [/menu du jour|plats|reservation table|annonce immobiliere|agents immobiliers|comptine|comptines|histoires|commencer a jouer|monde a explorer|espace parent|activites du jour/],
-    medical: [/jeu video|trailer|discographie|steam|esport|annonce immobiliere/],
+    medical: [/jeu video|trailer|discographie|steam|esport|annonce immobiliere|reve|rêve|portail|onirique|traversee|traversée/],
     gaming: [/tva|facturation|agenda medical|patient|estimation immobiliere/],
     music: [/tva|facturation|dashboard comptable|annonce immobiliere|agenda medical/],
     'kids-app': [/tva|facturation|annonce immobiliere|reservation table|menu du jour|chambres hotel|mandat immobilier/],
@@ -12806,8 +14386,19 @@ const KIRBY_INCOMPATIBLE_BLOCKS = {
     hotel: [/cabinet d avocat|honoraires|facturation tva|jeux educatifs|tableau de bord comptable/],
     veterinary: [/menu du jour|restaurant gastronomique|honoraires avocat|biens immobiliers|dashboard comptable/],
     travel: [/menu du jour|honoraires avocat|facturation tva|bien immobilier|agenda medical|jeux educatifs/],
+    'energy-renovation': [/agence immobiliere|agence immobilière|rechercher un bien|bien immobilier|mandat|open shop|boutique mode|vetements|vêtements|menu du jour|reserver une table|réserver une table|dashboard comptable|comptines|conciergerie auto|projet pedagogique|maternelle|primaire|college|familles inscrites|enseignants|visite virtuelle|vie scolaire|cantine|restauration scolaire/],
+    'restaurant-management-saas': [/menu du jour|voir la carte|histoire du chef|reserver une table|réserver une table|restaurant gastronomique|plats signatures|factures dues|tva estimee|dashboard comptable|agence immobiliere|bien immobilier|comptines|controle technique|robe de mariee|renovation energetique|prediagnostic|type de logement|aides financieres|projet pedagogique|maternelle|primaire|college/],
+    'funeral-home': [/mobilite accompagnee|mobilité accompagnée|types de trajets|trajets? reguliers?|trajets? réguliers?|transport accompagne|transport accompagné|transport senior|beneficiaires|bénéficiaires|zones? & tarifs|zones? et tarifs|vehicule|véhicule|controle technique|contrôle technique|convoyage|hotel|hôtel|chambres?|reservation sejour|réservation séjour|studio hotel|studio hôtel|dpe|rge|prediagnostic|prédiagnostic|renovation energetique|rénovation énergétique|saas restaurateurs|logiciel restaurateur|couts? recettes?|coûts? recettes?|planning equipe|planning équipe|cabinet d avocat|cabinet d’avocat|fitness|réserver un essai|reserver un essai/],
+    'senior-mobility': [/controle technique|contrôle technique|nettoyage auto|lavage auto|convoyage vehicule|convoyage véhicule|forfait auto|vehicule pris en charge|véhicule pris en charge|commencer a jouer|commencer à jouer|comptines|mini-jeux|robe de mariee|dashboard comptable|renovation energetique|prediagnostic|type de logement|projet pedagogique|maternelle|primaire|college|maison funeraire|maison funéraire|pompes funebres|pompes funèbres|obseques|obsèques|deuil|espace hommage|hommage prive|hommage privé|prevoyance|prévoyance/],
+    'private-school': [/commencer a jouer|commencer à jouer|comptines|mini-jeux|jeux educatifs|monde a explorer|monde à explorer|parcours du jour|controle technique|contrôle technique|convoyage|nettoyage auto|dashboard comptable|robe de mariee|renovation energetique|renovation thermique|prediagnostic|pre diagnostic|type de logement|problemes & budget|problemes et budget|aides financieres|audit energetique|isolation|chauffage|ventilation|dpe|rge|passoire thermique|travaux energetiques|coproprietes|dossier complet|saas restaurateurs|logiciel restaurateur|logiciel de gestion pour restaurateurs|demo produit|démo produit|reservations?,?\s+stocks?|réservations?,?\s+stocks?|stocks? fournisseurs?|couts? recettes?|coûts? recettes?|planning equipe|planning équipe|multi restaurants?|multi-restaurants?|modules cles|modules clés|le site vend le logiciel|formules et groupes/],
+    'crisis-management': [/renovation energetique|rénovation énergétique|\bdpe\b|\brge\b|prediagnostic|prédiagnostic|aides financieres|aides financières|travaux|isolation|chauffage|ventilation|logement|coproprietes|copropriétés|dossier complet|cabinet d avocat|cabinet d’avocat|honoraires|prendre rendez-vous|spécialités lisibles|specialites lisibles|menu du jour|salle de sport|réserver un essai|reserver un essai|comptines|projet pedagogique/],
+    'sports-rehab': [/salle de sport|fitness|abonnements?|cours collectifs|réserver un essai|reserver un essai|voir les cours|découvrir les abonnements|decouvrir les abonnements|espace membre|restaurant gastronomique|menu du jour|dashboard comptable|saas restaurateurs|agence immobiliere|projet pedagogique|maternelle|college|transport accompagne|controle technique|robe de mariee/],
+    'automotive-concierge': [/recrutement|candidat|candidate|profil tech|factures dues|tva|comptabilite|comptable|comptines|robe de mariee|menu du jour|chambres hotel|portfolio creatif|voir les projets|transport accompagne|personnes agees|mobilite reduite|pmr|projet pedagogique|maternelle|renovation energetique|prediagnostic/],
+    'medical-center': [/reve|rêve|dream|portail|traversee|traversée|onirique|carte onirique|agence de voyage|destination|hotel|restaurant gastronomique|facturation tva|comptabilite|comptable|recrutement tech|candidat tech|comptines|jeux educatifs|uppercut|ring|robe de mariee|réserver un essai|reserver un essai|planning de cours|abonnements fitness/],
+    'kids-fashion': [/comptines|jeux educatifs|espace parent|commencer a jouer|assistant comptable|factures dues|tva|recrutement|candidat|controle technique|convoyage|cabinet d avocat/],
+    'boxing-club': [/menu du jour|chambres hotel|honoraires avocat|bien immobilier|comptines|portfolio creatif|portfolio créatif|voir les projets|demander un devis|cabinet d avocat|restaurant gastronomique|robe de mariee/],
     sport: [/menu du jour|chambres hotel|honoraires avocat|bien immobilier|comptines/],
-    legal: [/menu du jour|restaurant gastronomique|chambres hotel|jeux educatifs|espace parent|bien immobilier/],
+    legal: [/menu du jour|restaurant gastronomique|chambres hotel|jeux educatifs|espace parent|bien immobilier|dpe|rge|renovation energetique|gestion de crise|crise mediatique|crise cyber/],
     bridal: [/ordinateur|dashboard|logiciel|saas|cabinet d avocat|menu du jour|chambres hotel|bien immobilier|clinique veterinaire|salle de sport|bureau corporate|reunion/],
     'underwater-hotel': [/cabinet d avocat|facturation tva|jeux educatifs|espace parent|piscine tropicale|resort tropical|google maps|avis clients|^chambres?\b/],
     'space-station-tourism': [/cabinet d avocat|facturation tva|restaurant gastronomique|clinique veterinaire|piscine tropicale|espace parent|google maps|avis clients|^chambres?\b|hotel terrestre|hebergement terrestre/],
@@ -12817,15 +14408,21 @@ const KIRBY_INCOMPATIBLE_BLOCKS = {
     'explorer-academy': [/facturation tva|cabinet d avocat|reservation table|chambres hotel|espace parent|assistant comptable|google maps|avis clients|^chambres?\b/],
     'dream-portal': [/facturation tva|cabinet d avocat|reservation table|chambres hotel|bien immobilier|comptines|espace parent/],
     'climate-lab': [/restaurant gastronomique|reservation table|chambres hotel|robe de mariee|dashboard comptable|comptines|google maps|avis clients|^chambres?\b/],
+    library: [/facturation tva|chambres hotel|restaurant gastronomique|robe de mariee|clinique veterinaire|espace parent|bien immobilier|dashboard comptable/],
+    'urban-farm': [/cabinet d avocat|restaurant gastronomique|robe de mariee|chambres hotel|espace parent|honoraires|bien immobilier|dashboard comptable/],
     corporate: [/jeu video|discographie|reservation table|tva a reverser|biens immobiliers/],
 };
 
 const detectKirbySectorTemplate = (brief = '') => {
-    const source = normalizeKirbyFallbackText(brief);
+    const source = normalizeKirbyFallbackText(getKirbyPositiveBriefText(brief));
     let bestKey = 'corporate';
     let bestScore = 0;
 
     KIRBY_SECTOR_DETECTION.forEach((entry) => {
+        if (entry.key === 'climate-lab' && !hasKirbyClimateLabIntent(source)) {
+            return;
+        }
+
         if (entry.regex.test(source)) {
             const score = (source.match(entry.regex) || []).length + 1;
             if (score > bestScore) {
@@ -12839,7 +14436,7 @@ const detectKirbySectorTemplate = (brief = '') => {
 };
 
 const getKirbyBriefIntent = (brief = '') => {
-    const source = normalizeKirbyFallbackText(brief);
+    const source = normalizeKirbyFallbackText(getKirbyPositiveBriefText(brief));
     const has = (regex) => regex.test(source);
 
     return {
@@ -12866,7 +14463,7 @@ const getKirbyBriefIntent = (brief = '') => {
 
 const filterKirbyProposalByIntent = (proposal = {}, sectorKey = 'corporate', brief = '') => {
     const intent = getKirbyBriefIntent(brief);
-    const source = normalizeKirbyFallbackText(brief);
+    const source = normalizeKirbyFallbackText(getKirbyPositiveBriefText(brief));
     const alwaysKeepPage = (name = '') => /accueil|contact/.test(normalizeKirbyFallbackText(name));
 
     const keepPage = (page = {}) => {
@@ -12988,7 +14585,7 @@ const getKirbySectorCoherenceScore = (proposal = {}, sectorKey = 'corporate', br
         getKirbyArray(proposal.homeSections, 9).map((item) => `${item?.title || ''} ${item?.text || ''}`).join(' '),
         getKirbyArray(proposal.recommendedServices, 12).map((item) => `${item?.name || ''} ${item?.reason || ''}`).join(' '),
     ].join(' '));
-    const briefText = normalizeKirbyFallbackText(brief);
+    const briefText = normalizeKirbyFallbackText(getKirbyPositiveBriefText(brief));
     const blockers = KIRBY_INCOMPATIBLE_BLOCKS[sectorKey] || [];
     const positiveHits = (template.coherenceKeywords || []).filter((token) => content.includes(normalizeKirbyFallbackText(token))).length;
     const briefHits = (template.coherenceKeywords || []).filter((token) => briefText.includes(normalizeKirbyFallbackText(token))).length;
@@ -13017,7 +14614,23 @@ const guessKirbyActivity = (brief) => {
 };
 
 const getKirbyFreeformDesignModel = (brief = '', sectorKey = 'corporate', template = {}) => {
-    const source = normalizeKirbyFallbackText(brief);
+    return {
+        layoutVariant: 'lumina-showcase',
+        visualMood: 'openai-direct',
+        colorPalette: [],
+        typography: '',
+        ambience: '',
+        direction: '',
+        heroComposition: '',
+        layoutSignature: '',
+        imageKeywords: [],
+        métierScenario: '',
+        microInteractions: [],
+        signatureMoment: '',
+        wowFactor: '',
+    };
+
+    const source = normalizeKirbyFallbackText(getKirbyPositiveBriefText(brief));
     const baseLayouts = getKirbyArray(template.layoutVariants, 4);
     const wantsImmersive = /immersif|immersive|cinematic|video|plein ecran|impact|waouh|wow|lancement|event|événement|evenement/.test(source);
     const wantsGallery = /photo|image|galerie|portfolio|realisations|réalisations|book|avant apres|avant\/apres|projets/.test(source);
@@ -13027,7 +14640,18 @@ const getKirbyFreeformDesignModel = (brief = '', sectorKey = 'corporate', templa
     const wantsMinimal = /minimal|sobre|epure|épuré|simple|clair|calme|editorial/.test(source);
     const wantsPremium = /premium|luxe|haut de gamme|elegant|élégant|signature|exclusif/.test(source);
     const wantsWarm = /chaleureux|chaleureuse|convivial|restaurant|terroir|italien|artisan|local|famille/.test(source);
-    const wantsBold = /sport|fitness|energie|énergie|gaming|musique|festival|mode|street|créatif|creatif/.test(source);
+    const wantsBoxing = sectorKey === 'boxing-club' || hasKirbyBoxingIntent(source);
+    const wantsAutomotiveConcierge = sectorKey === 'automotive-concierge' || hasKirbyAutomotiveConciergeIntent(source);
+    const wantsFuneralHome = sectorKey === 'funeral-home' || hasKirbyFuneralHomeIntent(source);
+    const wantsSeniorMobility = !wantsFuneralHome && (sectorKey === 'senior-mobility' || hasKirbySeniorMobilityIntent(source));
+    const wantsPrivateSchool = sectorKey === 'private-school' || hasKirbyPrivateSchoolIntent(source);
+    const wantsCrisisManagement = sectorKey === 'crisis-management' || hasKirbyCrisisManagementIntent(source);
+    const wantsSportsRehab = sectorKey === 'sports-rehab' || hasKirbySportsRehabIntent(source);
+    const wantsEnergyRenovation = !wantsCrisisManagement && (sectorKey === 'energy-renovation' || hasKirbyEnergyRenovationIntent(source));
+    const wantsRestaurantManagementSaas = sectorKey === 'restaurant-management-saas' || hasKirbyRestaurantManagementSaasIntent(source);
+    const wantsMedicalCenter = !wantsCrisisManagement && !wantsSportsRehab && (sectorKey === 'medical-center' || hasKirbyMedicalCenterIntent(source));
+    const wantsKidsFashion = sectorKey === 'kids-fashion' || hasKirbyChildrenFashionIntent(source);
+    const wantsBold = wantsBoxing || /sport|fitness|energie|énergie|gaming|musique|festival|mode|street|créatif|creatif/.test(source);
     const wantsDesignCraft = /\b(figma make|make de figma|canvas pro|lumina|super design|beau design|design premium|design unique|personnalite|personnalité|waouh|whaou|wow|surface|surfaces|4d|transparent|transparence|creative|creatif|créatif|artistique)\b/.test(source);
     const wantsKidsEducation = isKirbyKidsEducationBrief(source);
     const wantsFutureExperience = hasKirbyLuminaIntent(source) || wantsDesignCraft;
@@ -13043,6 +14667,26 @@ const getKirbyFreeformDesignModel = (brief = '', sectorKey = 'corporate', templa
             ? 'coffre numérique orbital'
             : wantsBridal
             ? 'robe de mariée en lumière'
+            : wantsFuneralHome
+            ? 'parcours d’obsèques, cérémonie et espace hommage privé'
+            : wantsSeniorMobility
+            ? 'trajet accompagné et carte de zone'
+            : wantsPrivateSchool
+            ? 'campus scolaire et parcours parents'
+            : wantsCrisisManagement
+            ? 'cellule de crise, scénarios sensibles et canal confidentiel'
+            : wantsSportsRehab
+            ? 'plateau de rééducation, tests et retour terrain'
+            : wantsEnergyRenovation
+            ? 'logement en coupe thermique et dossier aides'
+            : wantsRestaurantManagementSaas
+            ? 'service restaurant piloté par modules opérationnels'
+            : wantsAutomotiveConcierge
+            ? 'véhicule pris en charge et carnet de suivi'
+            : wantsMedicalCenter
+            ? 'annuaire praticiens et filtres patient'
+            : wantsKidsFashion
+            ? 'collection colorée, matières et guide des tailles'
             : sectorKey === 'underwater-hotel'
             ? 'suite panoramique sous l’océan'
             : sectorKey === 'space-station-tourism'
@@ -13065,6 +14709,8 @@ const getKirbyFreeformDesignModel = (brief = '', sectorKey = 'corporate', templa
             ? 'vue et réservation de séjour'
             : sectorKey === 'legal'
             ? 'dossier juridique clair'
+            : wantsBoxing
+            ? 'ring, gants et sac de frappe'
             : sectorKey === 'sport'
             ? 'progression de performance'
             : sectorKey === 'veterinary'
@@ -13072,6 +14718,8 @@ const getKirbyFreeformDesignModel = (brief = '', sectorKey = 'corporate', templa
             : template.activity || 'objet métier principal',
         clientRitual: wantsBridal
             ? 'choisir une silhouette, toucher les matières, réserver un essayage'
+            : wantsFuneralHome
+            ? 'comprendre les démarches, choisir une cérémonie, déposer un souvenir privé'
             : wantsInterplanetaryFinance
             ? 'vérifier son identité orbitale, simuler un crédit, sécuriser un coffre'
             : sectorKey === 'underwater-hotel'
@@ -13096,6 +14744,26 @@ const getKirbyFreeformDesignModel = (brief = '', sectorKey = 'corporate', templa
             ? 'explorer les projets, comprendre la méthode, présenter son terrain'
             : sectorKey === 'legal'
             ? 'identifier son besoin, comprendre les expertises, demander un rendez-vous confidentiel'
+            : wantsSeniorMobility
+            ? 'choisir un trajet, rassurer la famille, réserver un accompagnement régulier'
+            : wantsPrivateSchool
+            ? 'découvrir le projet pédagogique, choisir un niveau, demander une visite'
+            : wantsCrisisManagement
+            ? 'qualifier le scénario sensible, activer une réponse confidentielle, coordonner les experts'
+            : wantsSportsRehab
+            ? 'choisir une blessure, un sport ou un objectif de reprise, puis démarrer un protocole'
+            : wantsEnergyRenovation
+            ? 'choisir son logement, qualifier les problèmes, lancer un prédiagnostic'
+            : wantsRestaurantManagementSaas
+            ? 'identifier le problème du service, voir les modules, demander une démo'
+            : wantsAutomotiveConcierge
+            ? 'choisir un forfait, planifier la prise en charge, suivre le véhicule'
+            : wantsMedicalCenter
+            ? 'choisir une spécialité, filtrer un praticien, demander un rendez-vous'
+            : wantsKidsFashion
+            ? 'découvrir les collections, vérifier la taille, commander'
+            : wantsBoxing
+            ? 'choisir son niveau, rencontrer les coachs, réserver un essai'
             : sectorKey === 'sport'
             ? 'voir les cours, choisir un objectif, réserver un essai'
             : 'comprendre l’offre, voir une preuve, passer à l’action',
@@ -13106,6 +14774,14 @@ const getKirbyFreeformDesignModel = (brief = '', sectorKey = 'corporate', templa
         ? 'finance-os'
         : wantsBridal
         ? (wantsFutureExperience ? 'lumina-showcase' : 'gallery-focus')
+        : wantsFuneralHome || wantsSeniorMobility || wantsPrivateSchool || wantsCrisisManagement || wantsSportsRehab || wantsEnergyRenovation || wantsRestaurantManagementSaas
+        ? 'classic-conversion'
+        : wantsAutomotiveConcierge
+        ? (wantsSurfaceExperience ? 'lumina-showcase' : 'luxury-asymmetric')
+        : wantsMedicalCenter
+        ? 'classic-conversion'
+        : wantsKidsFashion
+        ? (wantsGallery ? 'gallery-focus' : 'warm-editorial')
         : (wantsSurfaceExperience && !['hotel', 'underwater-hotel', 'space-station-tourism', 'floating-city', 'travel', 'restaurant', 'architecture', 'future-museum'].includes(sectorKey))
         ? 'lumina-showcase'
         : wantsProduct
@@ -13131,6 +14807,28 @@ const getKirbyFreeformDesignModel = (brief = '', sectorKey = 'corporate', templa
         ? 'orbital-finance'
         : wantsBridal
         ? (wantsFutureExperience ? 'lumina-couture' : 'bridal-couture')
+        : wantsFuneralHome
+        ? 'funeral-home-serene'
+        : wantsSeniorMobility
+        ? 'senior-mobility-modern'
+        : wantsPrivateSchool
+        ? 'private-school-modern'
+        : wantsCrisisManagement
+        ? 'crisis-strategy-sober'
+        : wantsSportsRehab
+        ? 'sports-rehab-technical'
+        : wantsEnergyRenovation
+        ? 'energy-renovation-expert'
+        : wantsRestaurantManagementSaas
+        ? 'restaurant-ops-saas'
+        : wantsAutomotiveConcierge
+        ? 'automotive-concierge'
+        : wantsMedicalCenter
+        ? 'medical-warm-professional'
+        : wantsKidsFashion
+        ? 'kids-fashion-joyful'
+        : wantsBoxing
+        ? 'boxing-female-energy'
         : wantsFutureExperience
         ? 'lumina-future'
         : wantsProduct
@@ -13154,6 +14852,28 @@ const getKirbyFreeformDesignModel = (brief = '', sectorKey = 'corporate', templa
         ? ['noir spatial', 'cyan orbital', 'argent lunaire', 'violet Mars', 'verre sécurisé', 'blanc cockpit']
         : wantsBridal
         ? ['ivoire froid', 'noir couture', 'perle lumineuse', 'rose quartz', 'argent doux', 'cyan verre']
+        : wantsFuneralHome
+        ? ['ivoire chaud', 'sauge doux', 'bleu brume', 'argile claire', 'doré discret', 'gris plume']
+        : wantsSeniorMobility
+        ? ['bleu pétrole', 'vert sauge', 'ivoire lumineux', 'corail doux', 'gris ardoise', 'jaune signal discret']
+        : wantsPrivateSchool
+        ? ['bleu encre', 'vert tableau doux', 'ivoire papier', 'jaune cahier', 'corail discret', 'gris ardoise']
+        : wantsCrisisManagement
+        ? ['bleu nuit', 'graphite', 'ivoire discret', 'ambre alerte', 'cyan décision', 'rouge sourd']
+        : wantsSportsRehab
+        ? ['bleu clinique profond', 'cyan mesure', 'orange reprise', 'blanc technique', 'graphite', 'vert validation']
+        : wantsEnergyRenovation
+        ? ['bleu ardoise', 'ambre thermique', 'blanc technique', 'graphite', 'cuivre doux', 'vert sauge discret']
+        : wantsRestaurantManagementSaas
+        ? ['graphite chaud', 'inox clair', 'bleu service', 'cuivre doux', 'crème lisible', 'menthe statut']
+        : wantsAutomotiveConcierge
+        ? ['graphite carrosserie', 'ivoire service', 'acier doux', 'bleu nuit', 'or discret']
+        : wantsMedicalCenter
+        ? ['blanc chaleureux', 'bleu santé doux', 'vert apaisant', 'gris ardoise', 'corail urgence discret']
+        : wantsKidsFashion
+        ? ['ivoire chaud', 'corail doux', 'bleu ciel', 'vert pomme', 'jaune soleil', 'encre douce']
+        : wantsBoxing
+        ? ['graphite ring', 'rouge gant', 'corail énergie', 'champagne peau', 'blanc corde', 'violet nocturne']
         : wantsFutureExperience
         ? ['carbone profond', 'verre translucide', 'cyan lumineux', 'vert menthe', 'rose froid', 'blanc optique']
         : wantsProduct
@@ -13171,6 +14891,28 @@ const getKirbyFreeformDesignModel = (brief = '', sectorKey = 'corporate', templa
         ? 'Sans-serif ronde et expressive, titres larges, libellés très courts et hiérarchie ludique.'
         : wantsBridal
         ? 'Sans-serif couture très lisible, titres élégants contenus, détails éditoriaux fins et aucune typographie vulgaire.'
+        : wantsFuneralHome
+        ? 'Sans-serif douce et très lisible, titres sobres, textes courts et rassurants pour les familles.'
+        : wantsSeniorMobility
+        ? 'Sans-serif très lisible, titres directs, grands contrastes et textes courts pour familles et bénéficiaires.'
+        : wantsPrivateSchool
+        ? 'Sans-serif institutionnelle et chaleureuse, titres clairs, navigation par public très lisible.'
+        : wantsCrisisManagement
+        ? 'Sans-serif institutionnelle, titres courts, labels confidentiels, hiérarchie de décision très lisible.'
+        : wantsSportsRehab
+        ? 'Sans-serif technique très lisible, titres dynamiques, libellés de protocole courts et indicateurs de progression précis.'
+        : wantsEnergyRenovation
+        ? 'Sans-serif technique très lisible, chiffres DPE, budgets, labels RGE et étapes bien hiérarchisés.'
+        : wantsRestaurantManagementSaas
+        ? 'Sans-serif produit très lisible, titres courts, labels métiers et chiffres opérationnels discrets.'
+        : wantsAutomotiveConcierge
+        ? 'Sans-serif premium, titres sobres, libellés de service très lisibles et hiérarchie rassurante.'
+        : wantsMedicalCenter
+        ? 'Sans-serif lisible, titres contenus, filtres clairs et hiérarchie pensée pour scanner vite.'
+        : wantsKidsFashion
+        ? 'Sans-serif ronde mais moderne, titres joyeux, fiches produit très lisibles et textes parents courts.'
+        : wantsBoxing
+        ? 'Sans-serif condensée et puissante pour les titres, textes courts et très lisibles sur fond sombre.'
         : wantsInterplanetaryFinance
         ? 'Sans-serif cockpit bancaire, chiffres orbitaux nets, libellés courts et sécurité très lisible.'
         : wantsFutureExperience
@@ -13188,6 +14930,28 @@ const getKirbyFreeformDesignModel = (brief = '', sectorKey = 'corporate', templa
             : 'Ludique, éducative, douce et immédiatement compréhensible.'
         : wantsBridal
         ? 'Couture, lumineuse, délicate, moderne et désirable sans effet magazine.'
+        : wantsFuneralHome
+        ? 'Apaisante, digne, humaine, moderne et lumineuse, sans noir dominant, sans marbre et sans froideur.'
+        : wantsSeniorMobility
+        ? 'Humaine, rassurante, active, moderne et lumineuse, sans codes hospitaliers.'
+        : wantsPrivateSchool
+        ? 'Vivante, éducative, organisée et professionnelle, sans univers application enfant.'
+        : wantsCrisisManagement
+        ? 'Sobre, stratégique, confidentielle et rassurante, sans codes juridiques traditionnels ni ancien univers métier.'
+        : wantsSportsRehab
+        ? 'Technique, dynamique, médicale sportive et orientée retour terrain, sans codes salle de fitness.'
+        : wantsEnergyRenovation
+        ? 'Experte, pédagogique, thermique, rassurante et moderne, sans clichés feuilles vertes.'
+        : wantsRestaurantManagementSaas
+        ? 'Produit digital moderne, opérationnel, chaleureux et orienté terrain, sans ambiance comptable froide.'
+        : wantsAutomotiveConcierge
+        ? 'Sobre, premium, automobile, précis et très professionnel.'
+        : wantsMedicalCenter
+        ? 'Médicale, humaine, claire, rassurante et organisée.'
+        : wantsKidsFashion
+        ? 'Joyeuse, illustrée, moderne, colorée et rassurante pour les parents.'
+        : wantsBoxing
+        ? 'Énergique, confiante, féminine, urbaine et très lisible.'
         : wantsWarm
         ? 'Chaleureuse, sensorielle et proche du client.'
         : wantsAccounting
@@ -13235,6 +14999,28 @@ const getKirbyFreeformDesignModel = (brief = '', sectorKey = 'corporate', templa
             ? 'Portail lumineux en profondeur avec cartes de rêves, interface de traversée et ambiance mystérieuse.'
             : wantsBridal
             ? 'Scène couture avec grande robe en lumière, détails de dentelle, panneau collection flottant, rendez-vous essayage et surface de verre.'
+            : wantsFuneralHome
+            ? 'Hero lumineux et calme avec parcours de démarches, choix de cérémonie, carte prévoyance, espace hommage privé et contact discret.'
+            : wantsSeniorMobility
+            ? 'Scène de trajet accompagné avec carte de ville, itinéraire doux, conducteur accompagnateur, repères sécurité et CTA trajet régulier.'
+            : wantsPrivateSchool
+            ? 'Hero lumineux avec cour ou classe d’école, entrées par public, niveaux maternelle-primaire-collège et bouton visite.'
+            : wantsCrisisManagement
+            ? 'Hero sobre avec cellule de crise, cartographie des scénarios médiatique/juridique/social/cyber/réputation, accès urgence et formulaire confidentiel.'
+            : wantsSportsRehab
+            ? 'Hero technique avec plateau de rééducation, silhouettes sportives en test, choix blessure/sport/reprise et indicateurs de protocole.'
+            : wantsEnergyRenovation
+            ? 'Maison en coupe thermique avec zones de déperdition, jauge DPE, budget, aides estimées et CTA prédiagnostic.'
+            : wantsRestaurantManagementSaas
+            ? 'Plan de salle stylisé, tickets de réservation, niveaux de stock, recette coûtée et planning équipe dans des modules légers.'
+            : wantsAutomotiveConcierge
+            ? 'Véhicule premium en trois-quarts, carte de prise en charge, forfaits et suivi du véhicule visibles.'
+            : wantsMedicalCenter
+            ? 'Hero clair avec recherche spécialité, filtres praticiens, bouton rendez-vous et encart urgence discret.'
+            : wantsKidsFashion
+            ? 'Mosaïque de vêtements enfant colorés, étiquettes matières, guide des tailles et bouton boutique.'
+            : wantsBoxing
+            ? 'Ring en profondeur avec gants rouges, sacs de frappe, planning flottant et bouton essai visible.'
             : wantsFutureExperience
             ? 'Scène Lumina avec grande surface transparente, image métier en profondeur, modules flottants, lumière contrôlée et micro-animations.'
             : wantsProduct
@@ -13252,6 +15038,28 @@ const getKirbyFreeformDesignModel = (brief = '', sectorKey = 'corporate', templa
             ? 'Finance OS orbital : coffre, crédits, colonies et sécurité dans des panneaux de cockpit futuriste.'
             : wantsBridal
             ? 'Showcase couture : galerie asymétrique, surfaces translucides, détails matières, collection et essayage sans blocs répétitifs.'
+            : wantsFuneralHome
+            ? 'Parcours famille apaisé : démarches avant/pendant/après, cérémonies, prévoyance, administratif, distance et hommage privé.'
+            : wantsSeniorMobility
+            ? 'Parcours mobilité avec publics séparés, modules trajets, sécurité, carte zones, tarifs et partenariat.'
+            : wantsPrivateSchool
+            ? 'Site institutionnel scolaire avec parcours par public, niveaux, vie scolaire, agenda, documents et visite virtuelle.'
+            : wantsCrisisManagement
+            ? 'Site stratégique de gestion de crise avec accès urgence, scénarios, méthodologie, expertises mobilisées, dirigeants/directions, formations et formulaire confidentiel.'
+            : wantsSportsRehab
+            ? 'Parcours médical sportif avec choix blessure, sport, objectif de reprise, équipe pluridisciplinaire, équipements, protocoles, bilans, prévention et suivi à distance.'
+            : wantsEnergyRenovation
+            ? 'Parcours rénovation logement-problème-budget avec prédiagnostic, aides, certifications, réalisations, garanties et dossier complet.'
+            : wantsRestaurantManagementSaas
+            ? 'Landing SaaS par problèmes : réservations, stocks, fournisseurs, coûts recettes, planning équipe, formules et multi-restaurants.'
+            : wantsAutomotiveConcierge
+            ? 'Parcours premium avec services, forfaits, fonctionnement, zones couvertes et demande de prise en charge.'
+            : wantsMedicalCenter
+            ? 'Parcours patient avec spécialités, profils filtrables, rendez-vous, prévention, accès et espace professionnels séparé.'
+            : wantsKidsFashion
+            ? 'Boutique éditoriale enfant avec collections, matières, engagements, tailles et fiches produit visibles.'
+            : wantsBoxing
+            ? 'Showcase ring féminin : hero sombre très contrasté, planning horizontal, cartes niveaux, coachs et essai découverte.'
             : wantsFutureExperience
             ? 'Showcase Lumina : surfaces de verre, profondeur 4D, scène asymétrique, modules non répétitifs et narration sectorielle.'
             : wantsProduct
@@ -13265,7 +15073,7 @@ const getKirbyFreeformDesignModel = (brief = '', sectorKey = 'corporate', templa
                         : 'Composition Canvas pro avec scène métier, sections différenciées, respiration généreuse et conversion claire.',
         imageKeywords: [
             template.activity || 'activité professionnelle',
-            wantsKidsEducation ? 'univers applicatif éducatif enfant' : wantsAccounting ? 'logiciel comptable futuriste' : wantsInterplanetaryFinance ? 'banque lunaire interface orbitale' : wantsBridal ? 'robe de mariée couture en atelier' : wantsProduct ? 'interface produit' : wantsGallery ? 'réalisation réelle' : 'visuel métier authentique',
+            wantsKidsEducation ? 'univers applicatif éducatif enfant' : wantsAccounting ? 'logiciel comptable futuriste' : wantsInterplanetaryFinance ? 'banque lunaire interface orbitale' : wantsBridal ? 'robe de mariée couture en atelier' : wantsFuneralHome ? 'maison funéraire lumineuse hommage souvenirs cérémonie' : wantsSeniorMobility ? 'transport accompagné senior famille' : wantsPrivateSchool ? 'école privée classe cour élèves' : wantsCrisisManagement ? 'cellule de crise communication cyber réputation dirigeants' : wantsSportsRehab ? 'rééducation sportive kinés bilan retour terrain' : wantsEnergyRenovation ? 'rénovation énergétique audit isolation chauffage' : wantsRestaurantManagementSaas ? 'logiciel restaurateur réservations stocks planning' : wantsAutomotiveConcierge ? 'conciergerie automobile véhicule premium' : wantsMedicalCenter ? 'centre médical moderne praticiens santé' : wantsKidsFashion ? 'vêtements enfant colorés durables' : wantsBoxing ? 'femme boxe ring gants' : wantsProduct ? 'interface produit' : wantsGallery ? 'réalisation réelle' : 'visuel métier authentique',
             wantsWarm ? 'ambiance chaleureuse' : wantsPremium ? 'détail premium' : 'preuve concrète',
         ],
         métierScenario,
@@ -13277,6 +15085,28 @@ const getKirbyFreeformDesignModel = (brief = '', sectorKey = 'corporate', templa
             ? ['coffre orbital qui pulse', 'risque de crédit recalculé', 'carte Lune Mars synchronisée']
             : wantsBridal
             ? ['reflets sur les tissus', 'cartes collection qui flottent', 'bouton essayage lumineux et discret']
+            : wantsFuneralHome
+            ? ['étapes démarches qui se déplient', 'espace hommage verrouillé', 'souvenirs déposés avec douceur']
+            : wantsSeniorMobility
+            ? ['trajet régulier sélectionnable', 'zone couverte qui s’active', 'badge accompagnement porte-à-porte']
+            : wantsPrivateSchool
+            ? ['onglets par public', 'niveaux qui se filtrent', 'agenda qui met les dates à venir en avant']
+            : wantsCrisisManagement
+            ? ['scénario de crise sélectionné', 'niveau d’urgence activé', 'formulaire confidentiel verrouillé']
+            : wantsSportsRehab
+            ? ['filtre blessure sport objectif', 'progression du protocole par critères', 'suivi à distance qui confirme les exercices']
+            : wantsEnergyRenovation
+            ? ['jauge DPE qui progresse', 'problème logement sélectionnable', 'checklist dossier qui se complète']
+            : wantsRestaurantManagementSaas
+            ? ['problème restaurateur sélectionnable', 'comparatif formules actif', 'module multi-sites qui se déplie']
+            : wantsAutomotiveConcierge
+            ? ['forfait actif au survol', 'étapes de prise en charge qui se cochent', 'zone couverte qui s’illumine']
+            : wantsMedicalCenter
+            ? ['filtre spécialité actif', 'créneau disponible mis en évidence', 'contact urgent accessible sans alarme visuelle']
+            : wantsKidsFashion
+            ? ['pastilles couleurs qui changent', 'guide des tailles qui s’ouvre', 'cartes collection qui glissent doucement']
+            : wantsBoxing
+            ? ['cordes du ring qui vibrent', 'planning qui glisse par niveau', 'bouton essai qui pulse sans agressivité']
             : wantsFutureExperience
             ? ['surface principale qui flotte doucement', 'reflets transparents au survol', 'modules métier qui se révèlent en profondeur']
             : wantsProduct
@@ -13290,6 +15120,28 @@ const getKirbyFreeformDesignModel = (brief = '', sectorKey = 'corporate', templa
             ? 'Un coffre numérique lunaire s’ouvre sur une carte Lune/Mars pendant que l’IA simule un crédit colonial.'
             : wantsBridal
             ? 'Une robe centrale sert de scène : les détails de dentelle, le voile et la carte essayage gravitent autour comme une vitrine couture vivante.'
+            : wantsFuneralHome
+            ? 'La famille voit les étapes essentielles, puis accède à un espace hommage privé pour messages, photos et souvenirs.'
+            : wantsSeniorMobility
+            ? 'La famille voit un trajet régulier se construire de domicile à destination avec accompagnement humain visible.'
+            : wantsPrivateSchool
+            ? 'Le parent choisit son profil et voit visite, inscription, niveaux et documents utiles.'
+            : wantsCrisisManagement
+            ? 'Le dirigeant choisit un scénario de crise et voit immédiatement l’accès urgence, la méthode, les experts et le canal confidentiel.'
+            : wantsSportsRehab
+            ? 'Le sportif choisit sa blessure, son sport ou son objectif, puis voit l’équipe, les bilans et le protocole de reprise adapté.'
+            : wantsEnergyRenovation
+            ? 'Le logement passe de passoire thermique à projet cadré avec aides, travaux, garanties et dossier prêt.'
+            : wantsRestaurantManagementSaas
+            ? 'Une soirée de service se stabilise : tables, stock, coûts recettes et équipe sont alignés.'
+            : wantsAutomotiveConcierge
+            ? 'La roue devient un repère discret, mais le vrai centre reste le parcours de prise en charge du véhicule.'
+            : wantsMedicalCenter
+            ? 'Le patient choisit une spécialité, voit les praticiens disponibles et comprend comment demander un rendez-vous.'
+            : wantsKidsFashion
+            ? 'Une tenue enfant colorée se compose avec matières, tailles et engagement durable autour de la fiche produit.'
+            : wantsBoxing
+            ? 'Une paire de gants éclaire le ring pendant que le planning et les niveaux se placent autour.'
             : wantsFutureExperience
             ? 'Un objet métier devient la surface principale, avec modules flottants et lumière qui révèlent le parcours utilisateur.'
             : wantsGallery
@@ -13303,6 +15155,28 @@ const getKirbyFreeformDesignModel = (brief = '', sectorKey = 'corporate', templa
             ? 'Le visiteur voit une banque interplanétaire utilisable, pas une finance générique rebaptisée.'
             : wantsBridal
             ? 'Le visiteur voit immédiatement une maison couture mariage avec robes, matières et essayage, pas un site boutique générique.'
+            : wantsFuneralHome
+            ? 'Le visiteur comprend immédiatement une maison funéraire moderne, humaine et digne, sans hôtel ni transport recyclé.'
+            : wantsSeniorMobility
+            ? 'Le visiteur comprend immédiatement une mobilité accompagnée senior, pas une conciergerie automobile.'
+            : wantsPrivateSchool
+            ? 'Le visiteur voit une vraie école privée multi-niveaux, pas une application de jeux éducatifs.'
+            : wantsCrisisManagement
+            ? 'Le visiteur comprend une agence de gestion de crise opérationnelle, sans impression de secteur voisin recyclé.'
+            : wantsSportsRehab
+            ? 'Le visiteur comprend un centre de rééducation sportive avec protocoles, bilans et retour terrain, pas une salle de fitness.'
+            : wantsEnergyRenovation
+            ? 'Le visiteur comprend une rénovation énergétique complète, pas une agence immobilière ou un artisan vague.'
+            : wantsRestaurantManagementSaas
+            ? 'Le visiteur comprend le logiciel spécial restaurateurs, pas un site de restaurant ni une comptabilité générique.'
+            : wantsAutomotiveConcierge
+            ? 'Le visiteur comprend immédiatement entretien, nettoyage, contrôle technique, convoyage et demande de prise en charge.'
+            : wantsMedicalCenter
+            ? 'Le visiteur voit immédiatement un centre médical pluridisciplinaire clair, humain et organisé.'
+            : wantsKidsFashion
+            ? 'Le visiteur voit une marque de vêtements enfant avec collections, matières, tailles et boutique, pas une application éducative.'
+            : wantsBoxing
+            ? 'Le visiteur voit immédiatement un club de boxe pour femmes, avec ring, coachs, niveaux et essai.'
             : wantsFutureExperience
             ? 'Le visiteur voit une direction nouvelle génération adaptée au métier, pas une page magazine ou Bootstrap.'
             : wantsProduct
@@ -13314,11 +15188,20 @@ const getKirbyFreeformDesignModel = (brief = '', sectorKey = 'corporate', templa
 };
 
 const buildBrowserKirbyProposal = (brief) => {
-    const source = normalizeKirbyFallbackText(brief);
+    return null;
+
+    const profile = getKirbyBriefProfile(brief);
+    const source = normalizeKirbyFallbackText(profile.positiveText || brief);
     const sectorKey = detectKirbySectorTemplate(brief);
+    if (shouldUseKirbyProfileDrivenProposal(brief, profile, sectorKey)) {
+        return buildKirbyProfileDrivenProposal(brief, profile);
+    }
+
     const template = KIRBY_SECTOR_TEMPLATES[sectorKey] || KIRBY_SECTOR_TEMPLATES.corporate;
     const designModel = getKirbyFreeformDesignModel(brief, sectorKey, template);
     const activity = template.activity || guessKirbyActivity(brief);
+    const narrativePlan = buildKirbyNarrativePlan(brief, profile);
+    const visualPlan = buildKirbyVisualPlan(brief, profile, narrativePlan);
     const needsAppointment = /rdv|rendez|reservation|agenda|consultation|booking/.test(source);
     const needsQr = /\b(qr|qrcode|scan|scanner|flyer|partager)\b/.test(source);
     const requestedBrand = (
@@ -13330,12 +15213,19 @@ const buildBrowserKirbyProposal = (brief) => {
         .replace(/\s+\b(?:robe|robes|mariage|mariee|mariée)\b.*$/i, '')
         .replace(/["“”']/g, '')
         .trim();
-    const siteName = requestedBrand ? toKirbyTitleCase(requestedBrand) : `Studio ${toKirbyTitleCase(activity)}`;
+    const genericRequestedBrand = /^(de\s+)?(vetements|vêtements|mode enfant|boutique enfant|conciergerie automobile|service de conciergerie|service automobile|maison funeraire|maison funéraire|pompes funebres|pompes funèbres)\b/i.test(requestedBrand);
+    const sectorFallbackNames = {
+        'funeral-home': 'Maison Clarté',
+    };
+    const siteName = requestedBrand && !genericRequestedBrand
+        ? toKirbyTitleCase(requestedBrand)
+        : sectorFallbackNames[sectorKey] || `Studio ${toKirbyTitleCase(activity)}`;
     const layoutVariant = designModel.layoutVariant;
     const ctas = getKirbyArray(template.ctas, 3);
     const primaryCta = ctas[0] || 'Parler du projet';
     const secondaryCta = ctas[1] || 'Voir les services';
     const tertiaryCta = ctas[2] || 'Contacter maintenant';
+    const slogan = template.slogan || `Une présence ${template.activity} claire et mémorable.`;
 
     const proposal = {
         sectorKey,
@@ -13345,7 +15235,7 @@ const buildBrowserKirbyProposal = (brief) => {
         layoutVariant,
         designVariant: getKirbyHash(`${brief}::${sectorKey}::freeform`) % 5,
         visualSeed: getKirbyHash(`${brief}::fallback::${layoutVariant}`),
-        slogan: `Une présence ${template.activity} claire et mémorable.`,
+        slogan,
         summary: `Kirby reconstruit une proposition ${template.activity} depuis la demande libre, avec une direction visuelle propre.`,
         valueProposition: `Une maquette complète qui clarifie l’offre, l’ambiance, les preuves et l’action attendue.`,
         positioning: {
@@ -13370,12 +15260,14 @@ const buildBrowserKirbyProposal = (brief) => {
             signatureMoment: designModel.signatureMoment,
             wowFactor: designModel.wowFactor,
         },
+        narrativePlan,
+        visualPlan,
         siteModel: {
             name: `Direction ${toKirbyTitleCase(template.activity)}`,
             description: `Structure sur mesure pour ${template.activity}, reconstruite depuis le brief utilisateur.`,
             sections: getKirbyArray(template.sections, 6).map((item) => item.title),
         },
-        recommendedOffer: ['saas', 'real-estate', 'gaming', 'music', 'kids-app'].includes(sectorKey) ? 'Projet spécifique' : 'Offre Pro',
+        recommendedOffer: ['saas', 'real-estate', 'gaming', 'music', 'kids-app', 'senior-mobility', 'private-school', 'crisis-management', 'funeral-home', 'sports-rehab', 'energy-renovation', 'restaurant-management-saas'].includes(sectorKey) ? 'Projet spécifique' : 'Offre Pro',
         pages: cloneKirbyTemplateArray(template.pages),
         homeSections: cloneKirbyTemplateArray(template.sections),
         services: cloneKirbyTemplateArray(template.services),
@@ -13433,7 +15325,7 @@ const buildBrowserKirbyProposal = (brief) => {
     removeKirbyIncompatibleBlocks(proposal, sectorKey);
     getKirbySectorCoherenceScore(proposal, sectorKey, brief);
 
-    return proposal;
+    return applyKirbyBriefProfileValidation(proposal, brief);
 };
 
 const renderKirbyList = (items, renderItem, emptyText = 'A compléter ensemble.') => {
@@ -13568,13 +15460,32 @@ const buildKirbyBriefFromForm = () => {
 };
 
 let kirbyConceptNonce = 0;
+let kirbyRequestSerial = 0;
+
+const beginKirbyRequest = () => {
+    kirbyRequestSerial += 1;
+    return kirbyRequestSerial;
+};
+
+const isKirbyRequestCurrent = (requestId) => requestId === kirbyRequestSerial;
 
 const getKirbyBusinessSector = (brief = '') => {
-    const source = normalizeKirbyText(brief);
+    const source = normalizeKirbyText(getKirbyPositiveBriefText(brief));
     const signals = getKirbyBriefSignals(brief);
 
     if (signals.isVeterinary) return 'veterinary';
+    if (signals.isCrisisManagement) return 'crisis-management';
+    if (signals.isFuneralHome) return 'funeral-home';
+    if (signals.isEnergyRenovation) return 'energy-renovation';
+    if (signals.isRestaurantManagementSaas) return 'restaurant-management-saas';
+    if (signals.isSeniorMobility) return 'senior-mobility';
+    if (signals.isPrivateSchool) return 'private-school';
+    if (signals.isAutomotiveConcierge) return 'automotive-concierge';
+    if (signals.isSportsRehab) return 'sports-rehab';
+    if (signals.isMedicalCenter) return 'medical-center';
     if (signals.isTravel) return 'travel';
+    if (signals.isKidsFashion) return 'kids-fashion';
+    if (signals.isBoxing) return 'boxing-club';
     if (signals.isSport) return 'sport';
     if (signals.isLegal) return 'legal';
     if (signals.isBridal) return 'bridal';
@@ -13612,8 +15523,10 @@ const getKirbyRevisionRebuildContext = (brief = '', revision = '') => {
     const revisedBrief = String(revision || '').trim();
     const revisedSector = getKirbyBusinessSector(revision);
     const hardRebuildAsked = isKirbyHardRebuildRequest(revision);
-    const sectorChanged = baseSector !== revisedSector;
-    const typeChanged = /(nouveau site|nouveau type|passe en|transforme en|deviens|devient|au lieu de)/.test(normalizeKirbyText(revision));
+    const revisionSource = normalizeKirbyText(revision);
+    const negatedSectorMention = /(?:ce\s+n['’ ]?est\s+pas|n['’ ]?est\s+pas|ne\s+.+\s+pas|pas\s+une?|pas\s+un|mauvais\s+metier|mauvais\s+métier|corrige\s+le\s+metier|corrige\s+le\s+métier|corriger\s+le\s+metier|corriger\s+le\s+métier).{0,90}(agence de voyage|voyage|travel|destination|recrutement|candidat|finance|compta|portfolio|reve|rêve|dream|portail|onirique|traversee|traversée)|(?:agence de voyage|voyage|travel|destination|recrutement|candidat|finance|compta|portfolio|reve|rêve|dream|portail|onirique|traversee|traversée).{0,90}(?:pas le bon|pas la bonne|incorrect|mauvais|a la place|à la place)/.test(revisionSource);
+    const sectorChanged = !negatedSectorMention && baseSector !== revisedSector;
+    const typeChanged = !negatedSectorMention && /(nouveau site|nouveau type|passe en|transforme en|deviens|devient|au lieu de)/.test(revisionSource);
 
     return {
         baseSector,
@@ -13636,6 +15549,19 @@ const applyKirbySectorSignature = (proposal, sector = 'service') => {
         addKirbyService(proposal, { name: 'Agenda de consultation', reason: 'Centraliser les demandes de créneau.', priceFrom: 'Selon projet' }, true);
     }
 
+    if (sector === 'medical-center') {
+        addKirbyPage(proposal, { name: 'Spécialités', goal: 'Expliquer généralistes, pédiatres, sages-femmes, psychologues et kinésithérapeutes.' });
+        addKirbyPage(proposal, { name: 'Praticiens', goal: 'Afficher les profils filtrables par spécialité, disponibilité et langue parlée.' });
+        addKirbyPage(proposal, { name: 'Rendez-vous', goal: 'Permettre une demande de rendez-vous claire.' });
+        addKirbyPage(proposal, { name: 'Prévention santé', goal: 'Publier conseils, campagnes et informations utiles.' });
+        addKirbyPage(proposal, { name: 'Rejoindre le centre', goal: 'Créer un espace distinct pour les professionnels intéressés.' });
+        addKirbyPage(proposal, { name: 'Accès & urgence', goal: 'Afficher adresse, transports, horaires et contact urgent.' });
+        addKirbyService(proposal, { name: 'Annuaire praticiens filtrable', reason: 'Permettre aux patients de filtrer par spécialité, disponibilité et langue parlée.', priceFrom: 'Projet spécifique' }, true);
+        addKirbyService(proposal, { name: 'Demande de rendez-vous', reason: 'Orienter les patients vers une demande claire selon le praticien ou la spécialité.', priceFrom: 'Projet spécifique' }, true);
+        addKirbyService(proposal, { name: 'Espace professionnels', reason: 'Séparer les candidatures et demandes de praticiens du parcours patient.', priceFrom: 'Projet spécifique' }, true);
+        proposal.ctas = ['Demander un rendez-vous', 'Trouver un praticien', 'Rejoindre le centre'];
+    }
+
     if (sector === 'real-estate') {
         addKirbyPage(proposal, { name: 'Biens disponibles', goal: 'Présenter les annonces avec filtres.' });
         addKirbyPage(proposal, { name: 'Carte des secteurs', goal: 'Visualiser les zones de recherche.' });
@@ -13655,6 +15581,44 @@ const applyKirbySectorSignature = (proposal, sector = 'service') => {
         addKirbyCta(proposal, 'Réserver une table');
     }
 
+    if (sector === 'energy-renovation') {
+        addKirbyPage(proposal, { name: 'Type de logement', goal: 'Guider maison, appartement, copropriété ou immeuble.' });
+        addKirbyPage(proposal, { name: 'Problèmes & budget', goal: 'Qualifier inconfort, facture, DPE, humidité, chauffage et budget.' });
+        addKirbyPage(proposal, { name: 'Prédiagnostic', goal: 'Permettre une première orientation avant estimation.' });
+        addKirbyPage(proposal, { name: 'Aides financières', goal: 'Expliquer aides disponibles et accompagnement dossier.' });
+        addKirbyPage(proposal, { name: 'Certifications & garanties', goal: 'Rassurer avec RGE, assurances et garanties.' });
+        addKirbyPage(proposal, { name: 'Déposer un dossier', goal: 'Recevoir photos, DPE, factures et documents utiles.' });
+        addKirbyService(proposal, { name: 'Prédiagnostic en ligne', reason: 'Guider selon logement, problème, budget et urgence.', priceFrom: 'Projet spécifique' }, true);
+        addKirbyService(proposal, { name: 'Dépôt de dossier', reason: 'Recevoir les pièces utiles pour cadrer le projet.', priceFrom: 'Projet spécifique' }, true);
+        proposal.ctas = ['Faire un prédiagnostic', 'Demander une estimation', 'Transmettre mon dossier'];
+    }
+
+    if (sector === 'restaurant-management-saas') {
+        addKirbyPage(proposal, { name: 'Problèmes restaurateurs', goal: 'Présenter réservations, stocks, fournisseurs, marges et planning.' });
+        addKirbyPage(proposal, { name: 'Réservations', goal: 'Expliquer tables, créneaux et demandes clients.' });
+        addKirbyPage(proposal, { name: 'Stocks & fournisseurs', goal: 'Montrer commandes, niveaux et alertes.' });
+        addKirbyPage(proposal, { name: 'Coûts recettes', goal: 'Rendre marges et coûts matières compréhensibles.' });
+        addKirbyPage(proposal, { name: 'Planning équipe', goal: 'Présenter services, horaires et absences.' });
+        addKirbyPage(proposal, { name: 'Multi-restaurants', goal: 'Traiter les groupes avec plusieurs établissements.' });
+        addKirbyPage(proposal, { name: 'Tarifs & comparatif', goal: 'Comparer les formules et options.' });
+        addKirbyService(proposal, { name: 'Demande de démonstration', reason: 'Qualifier l’établissement et les besoins opérationnels.', priceFrom: 'Projet spécifique' }, true);
+        addKirbyService(proposal, { name: 'Comparatif formules', reason: 'Aider à choisir une offre sans confusion.', priceFrom: 'Projet spécifique' }, true);
+        proposal.ctas = ['Demander une démo', 'Voir les formules', 'Comparer les offres'];
+    }
+
+    if (sector === 'funeral-home') {
+        addKirbyPage(proposal, { name: 'Démarches', goal: 'Expliquer clairement les étapes avant, pendant et après les obsèques.' });
+        addKirbyPage(proposal, { name: 'Cérémonies', goal: 'Présenter cérémonies civiles, religieuses et temps personnalisés.' });
+        addKirbyPage(proposal, { name: 'Prévoyance', goal: 'Expliquer les contrats de prévoyance et l’anticipation sereine.' });
+        addKirbyPage(proposal, { name: 'Accompagnement administratif', goal: 'Rassurer sur les documents, déclarations et démarches auprès des organismes.' });
+        addKirbyPage(proposal, { name: 'Familles éloignées', goal: 'Prévoir services à distance, visio, partage d’informations et coordination familiale.' });
+        addKirbyPage(proposal, { name: 'Espace hommage privé', goal: 'Permettre aux proches de déposer messages, photos et souvenirs dans un espace protégé.' });
+        addKirbyService(proposal, { name: 'Parcours démarches obsèques', reason: 'Clarifier avant, pendant et après les obsèques.', priceFrom: 'Projet spécifique' }, true);
+        addKirbyService(proposal, { name: 'Espace hommage privé', reason: 'Messages, photos et souvenirs dans un cadre protégé.', priceFrom: 'Projet spécifique' }, true);
+        addKirbyService(proposal, { name: 'Services familles éloignées', reason: 'Coordination à distance et partage sécurisé.', priceFrom: 'Projet spécifique' }, true);
+        proposal.ctas = ['Être accompagné maintenant', 'Créer un espace hommage', 'Préparer une prévoyance'];
+    }
+
     if (sector === 'accounting') {
         addKirbyPage(proposal, { name: 'Tableau de bord', goal: 'Afficher KPI, revenus et échéances.' });
         addKirbyService(proposal, { name: 'Graphiques financiers', reason: 'Rendre les données immédiatement lisibles.', priceFrom: 'Selon projet' }, true);
@@ -13664,6 +15628,56 @@ const applyKirbySectorSignature = (proposal, sector = 'service') => {
         addKirbyPage(proposal, { name: 'Jeux', goal: 'Présenter les mini-jeux éducatifs.' });
         addKirbyPage(proposal, { name: 'Espace parent', goal: 'Suivre les progrès et gérer les profils.' });
         addKirbyService(proposal, { name: 'Interface produit sur mesure', reason: 'Créer une vraie expérience applicative enfant.', priceFrom: 'Projet spécifique' }, true);
+    }
+
+    if (sector === 'senior-mobility') {
+        addKirbyPage(proposal, { name: 'Bénéficiaires', goal: 'Présenter les personnes accompagnées, familles et aidants.' });
+        addKirbyPage(proposal, { name: 'Types de trajets', goal: 'Expliquer rendez-vous médicaux, courses, visites, loisirs et trajets réguliers.' });
+        addKirbyPage(proposal, { name: 'Sécurité & accompagnement', goal: 'Montrer chauffeur accompagnateur, aide porte-à-porte et suivi famille.' });
+        addKirbyPage(proposal, { name: 'Zones & tarifs', goal: 'Clarifier secteurs couverts, formules et conditions.' });
+        addKirbyPage(proposal, { name: 'Partenariats', goal: 'Créer un parcours pour établissements de santé et collectivités.' });
+        addKirbyService(proposal, { name: 'Formulaire trajet régulier', reason: 'Permettre aux familles de demander une prise en charge récurrente.', priceFrom: 'Projet spécifique' }, true);
+        addKirbyService(proposal, { name: 'Parcours partenariat', reason: 'Séparer les demandes des établissements et collectivités.', priceFrom: 'Projet spécifique' }, true);
+        proposal.ctas = ['Réserver un trajet', 'Demander un trajet régulier', 'Devenir partenaire'];
+    }
+
+    if (sector === 'private-school') {
+        addKirbyPage(proposal, { name: 'Projet pédagogique', goal: 'Présenter la vision éducative et les valeurs.' });
+        addKirbyPage(proposal, { name: 'Niveaux', goal: 'Distinguer maternelle, primaire et collège.' });
+        addKirbyPage(proposal, { name: 'Vie scolaire', goal: 'Présenter équipe, activités, restauration et horaires.' });
+        addKirbyPage(proposal, { name: 'Familles inscrites', goal: 'Regrouper agenda, actualités et documents.' });
+        addKirbyPage(proposal, { name: 'Recrutement enseignants', goal: 'Séparer les candidatures enseignants du parcours parents.' });
+        addKirbyService(proposal, { name: 'Agenda et actualités', reason: 'Publier les dates et informations utiles aux familles.', priceFrom: 'Projet spécifique' }, true);
+        addKirbyService(proposal, { name: 'Documents téléchargeables', reason: 'Centraliser inscriptions, horaires et menus.', priceFrom: 'Projet spécifique' }, true);
+        proposal.ctas = ['Demander une visite', 'Inscrire mon enfant', 'Accès familles'];
+    }
+
+    if (sector === 'crisis-management') {
+        addKirbyPage(proposal, { name: 'Urgence crise', goal: 'Donner un accès rapide aux entreprises déjà en crise.' });
+        addKirbyPage(proposal, { name: 'Scénarios de crise', goal: 'Distinguer crise médiatique, juridique, sociale, cyber et réputationnelle.' });
+        addKirbyPage(proposal, { name: 'Méthodologie', goal: 'Expliquer diagnostic, cellule de crise, messages et stabilisation.' });
+        addKirbyPage(proposal, { name: 'Expertises mobilisées', goal: 'Présenter communication, juridique, social, cyber et relations médias.' });
+        addKirbyPage(proposal, { name: 'Dirigeants & directions', goal: 'Parler aux dirigeants, directions juridiques et équipes communication.' });
+        addKirbyPage(proposal, { name: 'Formations préparation', goal: 'Présenter simulations, media training et protocoles.' });
+        addKirbyPage(proposal, { name: 'Formulaire confidentiel', goal: 'Permettre une prise de contact discrète.' });
+        addKirbyService(proposal, { name: 'Accès urgence crise', reason: 'Les entreprises déjà en crise doivent agir sans friction.', priceFrom: 'Projet spécifique' }, true);
+        addKirbyService(proposal, { name: 'Formulaire confidentiel', reason: 'Protéger les informations sensibles dès le premier contact.', priceFrom: 'Projet spécifique' }, true);
+        addKirbyService(proposal, { name: 'Scénarios de crise', reason: 'Clarifier médiatique, juridique, social, cyber et réputation.', priceFrom: 'Projet spécifique' }, true);
+        proposal.ctas = ['Activer une cellule de crise', 'Demander un échange confidentiel', 'Préparer mon équipe'];
+    }
+
+    if (sector === 'sports-rehab') {
+        addKirbyPage(proposal, { name: 'Équipe pluridisciplinaire', goal: 'Présenter kinésithérapeutes, médecins du sport, ostéopathes, préparateurs physiques et nutritionnistes.' });
+        addKirbyPage(proposal, { name: 'Parcours blessure', goal: 'Orienter selon la blessure et le niveau de reprise.' });
+        addKirbyPage(proposal, { name: 'Parcours par sport', goal: 'Adapter les contenus au sport pratiqué.' });
+        addKirbyPage(proposal, { name: 'Objectif reprise', goal: 'Distinguer reprise loisir, compétition, prévention rechute et performance contrôlée.' });
+        addKirbyPage(proposal, { name: 'Équipements & protocoles', goal: 'Montrer plateau technique, tests, appareils et protocoles.' });
+        addKirbyPage(proposal, { name: 'Bilans & prévention', goal: 'Présenter bilans fonctionnels, programmes de prévention et suivi de charge.' });
+        addKirbyPage(proposal, { name: 'Suivi à distance', goal: 'Expliquer exercices, reporting et adaptation entre séances.' });
+        addKirbyService(proposal, { name: 'Parcours blessure / sport / reprise', reason: 'Orienter chaque sportif vers le bon protocole.', priceFrom: 'Projet spécifique' }, true);
+        addKirbyService(proposal, { name: 'Bilans et protocoles', reason: 'Rendre l’expertise technique visible sans codes fitness.', priceFrom: 'Projet spécifique' }, true);
+        addKirbyService(proposal, { name: 'Suivi à distance', reason: 'Accompagner exercices, reporting et progression hors centre.', priceFrom: 'Projet spécifique' }, true);
+        proposal.ctas = ['Choisir mon parcours', 'Prendre rendez-vous', 'Démarrer un suivi'];
     }
 
     if (sector === 'travel') {
@@ -13701,6 +15715,44 @@ const applyKirbySectorSignature = (proposal, sector = 'service') => {
         addKirbyCta(proposal, 'Prendre rendez-vous');
     }
 
+    if (sector === 'boxing-club') {
+        addKirbyPage(proposal, { name: 'Cours', goal: 'Afficher boxe, self-défense, niveaux et réservation.' });
+        addKirbyPage(proposal, { name: 'Planning', goal: 'Rendre les créneaux lisibles et réservables.' });
+        addKirbyPage(proposal, { name: 'Coachs', goal: 'Présenter l’encadrement, la pédagogie et la sécurité.' });
+        addKirbyPage(proposal, { name: 'Essai découverte', goal: 'Transformer la visite en première séance.' });
+        addKirbyPage(proposal, { name: 'Tarifs', goal: 'Comparer abonnements, cartes et formules.' });
+        addKirbyService(proposal, { name: 'Planning de cours', reason: 'Rendre les séances visibles et réservables.', priceFrom: 'Projet spécifique' }, true);
+        addKirbyService(proposal, { name: 'Tunnel essai', reason: 'Convertir les visiteuses en séance découverte.', priceFrom: 'Offre Pro' }, true);
+        addKirbyService(proposal, { name: 'Espace membre simple', reason: 'Suivre réservations, progression et abonnements.', priceFrom: 'Projet spécifique' }, true);
+        proposal.ctas = ['Réserver un essai', 'Voir le planning', 'Découvrir les cours'];
+    }
+
+    if (sector === 'automotive-concierge') {
+        addKirbyPage(proposal, { name: 'Services', goal: 'Présenter entretien, nettoyage, contrôle technique et convoyage.' });
+        addKirbyPage(proposal, { name: 'Forfaits', goal: 'Comparer les niveaux de prise en charge.' });
+        addKirbyPage(proposal, { name: 'Fonctionnement', goal: 'Expliquer collecte, suivi, validation et restitution du véhicule.' });
+        addKirbyPage(proposal, { name: 'Zones couvertes', goal: 'Clarifier les secteurs d’intervention.' });
+        addKirbyPage(proposal, { name: 'Demande de prise en charge', goal: 'Qualifier véhicule, besoin, lieu, date et urgence.' });
+        addKirbyService(proposal, { name: 'Formulaire de prise en charge', reason: 'Qualifier véhicule, lieu, service et date en une demande claire.', priceFrom: 'Projet spécifique' }, true);
+        addKirbyService(proposal, { name: 'Forfaits de service', reason: 'Rendre les offres lisibles sans appel préalable.', priceFrom: 'Inclus selon offre' }, true);
+        addKirbyService(proposal, { name: 'Google Maps et zones', reason: 'Clarifier les secteurs couverts.', priceFrom: 'Inclus selon offre' }, true);
+        addKirbyService(proposal, { name: 'Espace client simple', reason: 'Suivre demandes, documents et historique véhicule.', priceFrom: 'Projet spécifique' }, true);
+        proposal.ctas = ['Demander une prise en charge', 'Voir les forfaits', 'Comprendre le fonctionnement'];
+    }
+
+    if (sector === 'kids-fashion') {
+        addKirbyPage(proposal, { name: 'Collections', goal: 'Montrer vêtements, nouveautés et silhouettes 2 à 8 ans.' });
+        addKirbyPage(proposal, { name: 'Matières', goal: 'Expliquer tissus, confort, résistance et entretien.' });
+        addKirbyPage(proposal, { name: 'Engagements', goal: 'Valoriser durabilité, production et choix responsables.' });
+        addKirbyPage(proposal, { name: 'Guide des tailles', goal: 'Aider les parents à choisir rapidement.' });
+        addKirbyPage(proposal, { name: 'Boutique', goal: 'Guider vers catégories, produits, panier et commande.' });
+        addKirbyService(proposal, { name: 'Boutique en ligne simple', reason: 'Le brief demande une boutique avec collections et commande.', priceFrom: 'À partir de 712 €' }, true);
+        addKirbyService(proposal, { name: 'Catalogue / collection', reason: 'Présenter vêtements, matières, tailles et nouveautés.', priceFrom: 'Projet spécifique' }, true);
+        addKirbyService(proposal, { name: 'Guide des tailles', reason: 'Réduire les hésitations avant achat.', priceFrom: 'Inclus selon offre' }, true);
+        addKirbyService(proposal, { name: 'Galerie photos', reason: 'Montrer couleurs, coupes et détails de matières.', priceFrom: 'Inclus selon offre' }, true);
+        proposal.ctas = ['Voir les collections', 'Ouvrir la boutique', 'Guide des tailles'];
+    }
+
     if (sector === 'sport') {
         addKirbyPage(proposal, { name: 'Cours', goal: 'Afficher planning, réservation et niveaux.' });
         addKirbyPage(proposal, { name: 'Espace membre', goal: 'Suivre performances et abonnements.' });
@@ -13726,20 +15778,11 @@ const getKirbyConceptCount = (brief = '') => {
 };
 
 const buildKirbyConceptSeries = ({ baseProposal = {}, brief = '', seed = 0 } = {}) => {
-    const sourceProposal = cloneKirbyProposal(baseProposal);
-    const sectorKey = detectKirbySectorTemplate(brief);
-
-    sourceProposal.visualSeed = getKirbyHash(`${brief}::single-direction::${seed}`);
-    sourceProposal.sectorKey = sectorKey;
-    filterKirbyProposalByIntent(sourceProposal, sectorKey, brief);
-    removeKirbyIncompatibleBlocks(sourceProposal, sectorKey);
-    getKirbySectorCoherenceScore(sourceProposal, sectorKey, brief);
-
     return [{
-        id: 'single-direction',
-        label: 'Direction unique',
-        personality: 'Direction reconstruite depuis la demande libre utilisateur.',
-        proposal: sourceProposal,
+        id: 'openai-direct',
+        label: 'Proposition OpenAI',
+        personality: 'Réponse OpenAI conservée sans reconstruction frontend.',
+        proposal: cloneKirbyProposal(baseProposal),
     }];
 };
 
@@ -13750,11 +15793,15 @@ const renderKirbyConceptExperience = ({
     seed = 0,
     activeIndex = 0,
 } = {}) => {
-    const concepts = buildKirbyConceptSeries({ baseProposal, brief, seed });
-    const safeIndex = Math.min(Math.max(activeIndex || 0, 0), Math.max(concepts.length - 1, 0));
-    const activeConcept = concepts[safeIndex] || { proposal: baseProposal, label: 'Concept' };
+    const safeProposal = cloneKirbyProposal(baseProposal);
+    const pipelineIssues = getKirbyPipelineValidationIssues(safeProposal, brief, runtime);
 
-    renderKirbyProposal(activeConcept.proposal, brief, {
+    if (pipelineIssues.length) {
+        renderKirbyPipelineError('Génération arrêtée par le contrôle qualité', pipelineIssues);
+        return;
+    }
+
+    renderKirbyProposal(safeProposal, brief, {
         ...runtime,
         source: runtime?.source,
     });
@@ -13793,14 +15840,26 @@ const cloneKirbyProposal = (proposal) => {
 };
 
 const getKirbyBriefSignals = (brief = '') => {
-    const source = normalizeKirbyText(brief);
+    const profile = getKirbyBriefProfile(brief);
+    const source = normalizeKirbyText(profile.positiveText || brief);
     const isBeauty = /coiff|beaute|salon|institut|estheticien|estheticienne|esthetique|massage|massages|soin|soins|epilation|ongle|ongles|spa|bien etre|bien-etre/.test(source);
-    const isRestaurant = /restaurant|menu|carte|plat|cuisine|table/.test(source);
-    const isTravel = hasKirbyTravelIntent(source);
-    const isHotel = !isTravel && /hotel|chambre|hebergement|gite|sejour|touristique|suite|spa/.test(source);
+    const isCrisisManagement = hasKirbyCrisisManagementIntent(source);
+    const isFuneralHome = hasKirbyFuneralHomeIntent(source);
+    const isEnergyRenovation = !isCrisisManagement && hasKirbyEnergyRenovationIntent(source);
+    const isRestaurantManagementSaas = hasKirbyRestaurantManagementSaasIntent(source);
+    const isRestaurant = !isRestaurantManagementSaas && hasKirbyFoodServiceIntent(source);
+    const isSeniorMobility = !isFuneralHome && hasKirbySeniorMobilityIntent(source);
+    const isPrivateSchool = hasKirbyPrivateSchoolIntent(source);
+    const isAutomotiveConcierge = !isSeniorMobility && hasKirbyAutomotiveConciergeIntent(source);
+    const isSportsRehab = hasKirbySportsRehabIntent(source);
+    const isMedicalCenter = !isSportsRehab && hasKirbyMedicalCenterIntent(source);
+    const isKidsFashion = hasKirbyChildrenFashionIntent(source);
+    const isTravel = !isAutomotiveConcierge && hasKirbyTravelIntent(source);
+    const isHotel = !isFuneralHome && !isTravel && /hotel|chambre|hebergement|gite|sejour|touristique|suite|spa/.test(source);
     const isArchitecture = /architect|architecture|architecte|arquitecto|interieur|intérieur|design d interieur|design d'intérieur|decorateur|decoratrice|decoration|décoration|studio de design|maitre d oeuvre|maître d oeuvre/.test(source);
-    const isLegal = hasKirbyLegalIntent(source);
-    const isSport = hasKirbySportIntent(source);
+    const isLegal = !isCrisisManagement && hasKirbyLegalIntent(source);
+    const isBoxing = hasKirbyBoxingIntent(source);
+    const isSport = !isSportsRehab && (isBoxing || hasKirbySportIntent(source));
     const isVeterinary = hasKirbyVeterinaryIntent(source);
     const isBridal = hasKirbyBridalIntent(source);
     const isLibrary = hasKirbyLibraryIntent(source);
@@ -13811,13 +15870,13 @@ const getKirbyBriefSignals = (brief = '') => {
     const isImmersiveMuseum = hasKirbyImmersiveMuseumIntent(source);
     const isFutureBank = hasKirbyFutureBankIntent(source);
     const isExplorerAcademy = hasKirbyExplorerAcademyIntent(source);
-    const isDreamPortal = hasKirbyDreamPortalIntent(source);
+    const isDreamPortal = !isCrisisManagement && !isMedicalCenter && !isSportsRehab && hasKirbyDreamPortalIntent(source);
     const isClimateLab = hasKirbyClimateLabIntent(source);
-    const isCraft = /plombier|artisan|travaux|chantier|renovation/.test(source);
-    const isAccountingApp = !isFutureBank && hasKirbyAccountingIntent(source);
-    const isEducationKids = !isAccountingApp && isKirbyKidsEducationBrief(source);
+    const isCraft = !isEnergyRenovation && /plombier|artisan|travaux|chantier|renovation/.test(source);
+    const isAccountingApp = !isFutureBank && !isRestaurantManagementSaas && hasKirbyAccountingIntent(source);
+    const isEducationKids = !isAccountingApp && !isPrivateSchool && !isKidsFashion && isKirbyKidsEducationBrief(source);
     const isFutureExperience = hasKirbyLuminaIntent(source);
-    const isSectorSpecific = isTravel || isHotel || isRestaurant || isArchitecture || isLegal || isSport || isVeterinary || isBridal || isLibrary || isUrbanFarm || isUnderwaterHotel || isSpaceTourism || isFloatingCity || isImmersiveMuseum || isFutureBank || isExplorerAcademy || isDreamPortal || isClimateLab || isBeauty || isCraft;
+    const isSectorSpecific = isCrisisManagement || isFuneralHome || isEnergyRenovation || isRestaurantManagementSaas || isTravel || isHotel || isRestaurant || isArchitecture || isLegal || isSeniorMobility || isPrivateSchool || isAutomotiveConcierge || isSportsRehab || isMedicalCenter || isKidsFashion || isBoxing || isSport || isVeterinary || isBridal || isLibrary || isUrbanFarm || isUnderwaterHotel || isSpaceTourism || isFloatingCity || isImmersiveMuseum || isFutureBank || isExplorerAcademy || isDreamPortal || isClimateLab || isBeauty || isCraft;
     const isDigitalService = /sa creation|creation web|site web|sites web|generateur|developpement|référencement|referencement|qr code|maintenance|support technique|logiciel|application|saas|plateforme|agence web|agence digitale|agence marketing/.test(source);
 
     return {
@@ -13825,6 +15884,17 @@ const getKirbyBriefSignals = (brief = '') => {
         isAccountingApp,
         isArchitecture,
         isLegal,
+        isCrisisManagement,
+        isFuneralHome,
+        isEnergyRenovation,
+        isRestaurantManagementSaas,
+        isSeniorMobility,
+        isPrivateSchool,
+        isAutomotiveConcierge,
+        isSportsRehab,
+        isMedicalCenter,
+        isKidsFashion,
+        isBoxing,
         isSport,
         isTravel,
         isVeterinary,
@@ -13844,10 +15914,28 @@ const getKirbyBriefSignals = (brief = '') => {
         isDigital: isFutureExperience || (!isSectorSpecific && /ia|digital/.test(source)) || isDigitalService,
         isHotel,
         isRestaurant,
-        isShop: !isBridal && !isBeauty && !isRestaurant && !isHotel && /boutique|vendre|vente|commande|produit|panier|paiement|catalogue|mode|vetement/.test(source),
+        isShop: isKidsFashion || (!isFuneralHome && !isBridal && !isBeauty && !isRestaurant && !isRestaurantManagementSaas && !isEnergyRenovation && !isHotel && /boutique|vendre|vente|commande|produit|panier|paiement|catalogue|mode|vetement/.test(source)),
         isBeauty,
         isCraft,
     };
+};
+
+const getKirbyLockedBriefSector = (signals = {}) => {
+    if (signals.isCrisisManagement) return 'crisis-management';
+    if (signals.isFuneralHome) return 'funeral-home';
+    if (signals.isEnergyRenovation) return 'energy-renovation';
+    if (signals.isRestaurantManagementSaas) return 'restaurant-management-saas';
+    if (signals.isSeniorMobility) return 'senior-mobility';
+    if (signals.isPrivateSchool) return 'private-school';
+    if (signals.isSportsRehab) return 'sports-rehab';
+    if (signals.isMedicalCenter) return 'medical-center';
+    if (signals.isAutomotiveConcierge) return 'automotive-concierge';
+    if (signals.isKidsFashion) return 'kids-fashion';
+    if (signals.isBoxing) return 'boxing-club';
+    if (signals.isEducationKids) return 'kids-app';
+    if (signals.isAccountingApp) return 'accounting';
+
+    return '';
 };
 
 const getKirbyHash = (value = '') => {
@@ -13859,6 +15947,88 @@ const getKirbyHash = (value = '') => {
     }
 
     return hash;
+};
+
+const getKirbySurfaceIdentity = (proposal = {}, brief = '') => {
+    const signals = getKirbyBriefSignals(brief);
+    const visualConcept = getKirbyVisualConcept(proposal);
+    const sectorKey = normalizeKirbyText(proposal.sectorKey || '');
+    const lockedSector = getKirbyLockedBriefSector(signals);
+    const source = normalizeKirbyText([
+        getKirbyPositiveBriefText(brief),
+        sectorKey,
+        proposal.projectType,
+        proposal.siteName,
+        proposal.visualMood,
+        proposal.siteModel && proposal.siteModel.name,
+        proposal.styleGuide && proposal.styleGuide.direction,
+        proposal.styleGuide && proposal.styleGuide.colors,
+        visualConcept.ambience,
+        visualConcept.heroComposition,
+        visualConcept.layoutSignature,
+        visualConcept.signatureMoment,
+        visualConcept.wowFactor,
+        getKirbyArray(visualConcept.colorPalette, 8).join(' '),
+        getKirbyArray(visualConcept.imageKeywords, 8).join(' '),
+    ].filter(Boolean).join(' '));
+    const matches = (key, predicate) => lockedSector ? key === lockedSector : sectorKey === key || predicate(source);
+    const identities = [
+        { key: 'brief-sensitive', test: () => sectorKey === 'brief-driven', accent: '#d8bd87', accent2: '#9bb9c6', glow: '#d6b477', bgA: '#fbf6ed', bgB: '#edf3f1', bgC: '#e8ddd1', grid: 'rgba(85, 72, 54, 0.055)', contrast: '#2d2a25', badge: 'Demande privée', support: 'Souvenirs' },
+        { key: 'library', test: () => matches('library', hasKirbyLibraryIntent), accent: '#f6d58f', accent2: '#93ddff', glow: '#d9a84f', bgA: '#070a11', bgB: '#17110d', bgC: '#241a12', grid: 'rgba(246, 213, 143, 0.07)', contrast: '#111014', badge: 'Salle vivante', support: 'Médiation' },
+        { key: 'urban-farm', test: () => matches('urban-farm', hasKirbyUrbanFarmIntent), accent: '#b7f7c8', accent2: '#67e8f9', glow: '#45d483', bgA: '#06130e', bgB: '#0b2118', bgC: '#15301e', grid: 'rgba(183, 247, 200, 0.065)', contrast: '#07130c', badge: 'Culture vivante', support: 'Capteurs' },
+        { key: 'underwater-hotel', test: () => matches('underwater-hotel', hasKirbyUnderwaterHotelIntent), accent: '#67e8f9', accent2: '#b7f8ff', glow: '#0ea5e9', bgA: '#02121d', bgB: '#072138', bgC: '#0b3150', grid: 'rgba(103, 232, 249, 0.065)', contrast: '#06111c', badge: 'Pression stable', support: 'Séjour' },
+        { key: 'space-station-tourism', test: () => matches('space-station-tourism', hasKirbySpaceTourismIntent), accent: '#a5b4fc', accent2: '#7dd3fc', glow: '#818cf8', bgA: '#030617', bgB: '#101329', bgC: '#171d3a', grid: 'rgba(165, 180, 252, 0.07)', contrast: '#07091c', badge: 'Orbite basse', support: 'Trajectoire' },
+        { key: 'future-museum', test: () => matches('future-museum', hasKirbyImmersiveMuseumIntent), accent: '#f7c873', accent2: '#c084fc', glow: '#f59e0b', bgA: '#160f0a', bgB: '#24142b', bgC: '#31203b', grid: 'rgba(247, 200, 115, 0.07)', contrast: '#171008', badge: 'AR active', support: 'Artefacts' },
+        { key: 'bridal', test: () => matches('bridal', hasKirbyBridalIntent), accent: '#f7c6d8', accent2: '#bae8ff', glow: '#f2a9c4', bgA: '#15151d', bgB: '#262733', bgC: '#342936', grid: 'rgba(247, 198, 216, 0.07)', contrast: '#16131a', badge: 'Essayage privé', support: 'Atelier' },
+        { key: 'restaurant', test: () => matches('restaurant', hasKirbyFoodServiceIntent), accent: '#f6b35d', accent2: '#ffdf91', glow: '#ef7d2f', bgA: '#170d08', bgB: '#2a1710', bgC: '#3a2214', grid: 'rgba(246, 179, 93, 0.065)', contrast: '#180d08', badge: 'Service ouvert', support: 'Réservation' },
+        { key: 'architecture', test: () => matches('architecture', (value) => /architect|architecture|architecte|villa|beton|béton|matiere|matière|interieur|intérieur/.test(value)), accent: '#d8c7a0', accent2: '#9bb7c8', glow: '#b79f71', bgA: '#0d1012', bgB: '#1b1d1e', bgC: '#2a2a26', grid: 'rgba(216, 199, 160, 0.06)', contrast: '#11110f', badge: 'Matières', support: 'Plans' },
+        { key: 'travel', test: () => matches('travel', hasKirbyTravelIntent), accent: '#62e7d5', accent2: '#ffd36b', glow: '#22c4b5', bgA: '#06131b', bgB: '#0a2730', bgC: '#18283b', grid: 'rgba(98, 231, 213, 0.065)', contrast: '#061416', badge: 'Itinéraire', support: 'Carte' },
+        { key: 'legal', test: () => matches('legal', hasKirbyLegalIntent), accent: '#d7b56d', accent2: '#91b7e8', glow: '#b8924f', bgA: '#07111f', bgB: '#111b2f', bgC: '#172238', grid: 'rgba(215, 181, 109, 0.055)', contrast: '#07111f', badge: 'Confidentiel', support: 'Expertise' },
+        { key: 'crisis-management', test: () => matches('crisis-management', hasKirbyCrisisManagementIntent), accent: '#f0b65a', accent2: '#7dd3fc', glow: '#d97706', bgA: '#050b14', bgB: '#0d1724', bgC: '#1c1d24', grid: 'rgba(240, 182, 90, 0.055)', contrast: '#07101a', badge: 'Canal confidentiel', support: 'Cellule de crise' },
+        { key: 'funeral-home', test: () => matches('funeral-home', hasKirbyFuneralHomeIntent), accent: '#c9b27a', accent2: '#9bbeb7', glow: '#d6c18a', bgA: '#f8f3ea', bgB: '#e8f0ea', bgC: '#dfe9ee', grid: 'rgba(84, 96, 92, 0.055)', contrast: '#26332f', badge: 'Hommage privé', support: 'Familles' },
+        { key: 'energy-renovation', test: () => matches('energy-renovation', hasKirbyEnergyRenovationIntent), accent: '#f0b65a', accent2: '#7dd3fc', glow: '#f59e0b', bgA: '#07111c', bgB: '#132336', bgC: '#2a261d', grid: 'rgba(240, 182, 90, 0.06)', contrast: '#07111c', badge: 'Prédiagnostic', support: 'Aides' },
+        { key: 'restaurant-management-saas', test: () => matches('restaurant-management-saas', hasKirbyRestaurantManagementSaasIntent), accent: '#d99b61', accent2: '#7cc7e8', glow: '#d97706', bgA: '#0f1117', bgB: '#1f252d', bgC: '#2b211a', grid: 'rgba(217, 155, 97, 0.06)', contrast: '#111217', badge: 'Démo produit', support: 'Service' },
+        { key: 'senior-mobility', test: () => matches('senior-mobility', hasKirbySeniorMobilityIntent), accent: '#9bd6bd', accent2: '#ffb08a', glow: '#55b994', bgA: '#06151c', bgB: '#102b32', bgC: '#17343b', grid: 'rgba(155, 214, 189, 0.06)', contrast: '#07151a', badge: 'Trajet régulier', support: 'Familles' },
+        { key: 'private-school', test: () => matches('private-school', hasKirbyPrivateSchoolIntent), accent: '#f2c15f', accent2: '#8fc6ad', glow: '#d9a23c', bgA: '#0b1726', bgB: '#132b36', bgC: '#203735', grid: 'rgba(242, 193, 95, 0.06)', contrast: '#0b1726', badge: 'Visite école', support: 'Familles' },
+        { key: 'sports-rehab', test: () => matches('sports-rehab', hasKirbySportsRehabIntent), accent: '#38bdf8', accent2: '#fb923c', glow: '#0ea5e9', bgA: '#07111f', bgB: '#0f2235', bgC: '#172536', grid: 'rgba(56, 189, 248, 0.06)', contrast: '#07111f', badge: 'Bilan sportif', support: 'Reprise' },
+        { key: 'automotive-concierge', test: () => matches('automotive-concierge', hasKirbyAutomotiveConciergeIntent), accent: '#ead7a0', accent2: '#9bb7c8', glow: '#c8a45d', bgA: '#090b10', bgB: '#141922', bgC: '#23231f', grid: 'rgba(234, 215, 160, 0.055)', contrast: '#101114', badge: 'Prise en charge', support: 'Forfaits' },
+        { key: 'medical-center', test: () => matches('medical-center', hasKirbyMedicalCenterIntent), accent: '#4f9fcf', accent2: '#6fc49c', glow: '#4fb3d1', bgA: '#f7fbff', bgB: '#edf8f5', bgC: '#f8fafc', grid: 'rgba(49, 94, 118, 0.055)', contrast: '#203040', badge: 'Rendez-vous', support: 'Praticiens' },
+        { key: 'kids-fashion', test: () => matches('kids-fashion', hasKirbyChildrenFashionIntent), accent: '#ff9f8f', accent2: '#8fdcff', glow: '#f97373', bgA: '#fff8ef', bgB: '#eef8ff', bgC: '#f8f2df', grid: 'rgba(44, 72, 92, 0.055)', contrast: '#2d3340', badge: 'Collection', support: 'Tailles' },
+        { key: 'boxing-club', test: () => matches('boxing-club', hasKirbyBoxingIntent), accent: '#ff4d2e', accent2: '#ffd1a3', glow: '#f43f5e', bgA: '#0f0709', bgB: '#1c1116', bgC: '#2b1720', grid: 'rgba(255, 77, 46, 0.065)', contrast: '#160706', badge: 'Ring féminin', support: 'Planning' },
+        { key: 'sport', test: () => matches('sport', hasKirbySportIntent), accent: '#b7ff5f', accent2: '#ff7a45', glow: '#84cc16', bgA: '#071015', bgB: '#121b20', bgC: '#202827', grid: 'rgba(183, 255, 95, 0.06)', contrast: '#08110b', badge: 'Performance', support: 'Progression' },
+        { key: 'beauty', test: () => signals.isBeauty, accent: '#f2b8a8', accent2: '#f7d99a', glow: '#e8a08f', bgA: '#1c1211', bgB: '#2a1a18', bgC: '#33241e', grid: 'rgba(242, 184, 168, 0.06)', contrast: '#1c1211', badge: 'Rituel soin', support: 'Rendez-vous' },
+    ];
+    const fallbackPalettes = [
+        { key: 'ink-gold', accent: '#efd49a', accent2: '#9dc6ff', glow: '#c49a54', bgA: '#080b12', bgB: '#141922', bgC: '#211b18', grid: 'rgba(239, 212, 154, 0.055)', contrast: '#111014', badge: 'Concept vivant', support: 'Parcours' },
+        { key: 'violet-coral', accent: '#c4a3ff', accent2: '#ff9bb4', glow: '#8b5cf6', bgA: '#0b0714', bgB: '#1b1330', bgC: '#2a1833', grid: 'rgba(196, 163, 255, 0.055)', contrast: '#100b1d', badge: 'Prototype actif', support: 'Signal' },
+        { key: 'sage-sky', accent: '#a7f3d0', accent2: '#93c5fd', glow: '#34d399', bgA: '#06110e', bgB: '#101d1d', bgC: '#172735', grid: 'rgba(167, 243, 208, 0.055)', contrast: '#06110e', badge: 'Sur mesure', support: 'Parcours' },
+    ];
+    const selected = identities.find((identity) => identity.test())
+        || fallbackPalettes[getKirbyHash(`${brief}::${proposal.siteName || ''}::surface`) % fallbackPalettes.length];
+    const style = [
+        `--surface-accent: ${selected.accent}`,
+        `--surface-accent-2: ${selected.accent2}`,
+        `--surface-glow: ${selected.glow}`,
+        `--surface-bg-a: ${selected.bgA}`,
+        `--surface-bg-b: ${selected.bgB}`,
+        `--surface-bg-c: ${selected.bgC}`,
+        `--surface-grid: ${selected.grid}`,
+        `--surface-contrast: ${selected.contrast}`,
+        `--sector-accent: ${selected.accent}`,
+        `--sector-accent-2: ${selected.accent2}`,
+        `--sector-glow: ${selected.glow}`,
+        `--sector-bg-a: ${selected.bgA}`,
+        `--sector-bg-b: ${selected.bgB}`,
+        `--sector-bg-c: ${selected.bgC}`,
+        `--sector-grid: ${selected.grid}`,
+        `--sector-contrast: ${selected.contrast}`,
+    ].join('; ');
+
+    return {
+        ...selected,
+        className: `surface-${selected.key}`,
+        style,
+    };
 };
 
 const removeKirbyPages = (proposal, names = []) => {
@@ -13976,8 +16146,268 @@ const hasRichKirbyProposal = (proposal = {}) =>
     getKirbyArray(proposal.homeSections, 6).length >= 2 &&
     Boolean(proposal.siteName || proposal.slogan || proposal.valueProposition);
 
+const KIRBY_STRONG_SECTOR_KEYS = new Set([
+    'crisis-management',
+    'funeral-home',
+    'energy-renovation',
+    'restaurant-management-saas',
+    'senior-mobility',
+    'private-school',
+    'sports-rehab',
+    'medical-center',
+    'automotive-concierge',
+    'kids-fashion',
+    'boxing-club',
+    'kids-app',
+    'accounting',
+]);
+
+const getKirbyProposalVisibleText = (proposal = {}) => normalizeKirbyFallbackText([
+    proposal.sectorKey,
+    proposal.projectType,
+    proposal.siteName,
+    proposal.slogan,
+    proposal.summary,
+    proposal.valueProposition,
+    proposal.visualMood,
+    proposal.layoutVariant,
+    proposal.recommendedOffer,
+    proposal.positioning?.audience,
+    proposal.positioning?.promise,
+    proposal.positioning?.differentiator,
+    proposal.styleGuide?.direction,
+    proposal.styleGuide?.layout,
+    proposal.visualConcept?.heroComposition,
+    proposal.visualConcept?.layoutSignature,
+    proposal.visualConcept?.signatureMoment,
+    proposal.visualConcept?.wowFactor,
+    getKirbyArray(proposal.visualConcept?.imageKeywords, 8).join(' '),
+    getKirbyNarrativePlanVisibleText(proposal.narrativePlan),
+    getKirbyVisualPlanVisibleText(proposal.visualPlan),
+    proposal.siteModel?.name,
+    proposal.siteModel?.description,
+    getKirbyArray(proposal.siteModel?.sections, 8).join(' '),
+    getKirbyArray(proposal.previewSummary?.items, 8).join(' '),
+    getKirbyArray(proposal.pages, 10).map((item) => `${getKirbyItemTitle(item)} ${getKirbyItemText(item)}`).join(' '),
+    getKirbyArray(proposal.homeSections, 10).map((item) => `${getKirbyItemTitle(item)} ${getKirbyItemText(item)}`).join(' '),
+    getKirbyArray(proposal.services, 12).map((item) => `${getKirbyItemTitle(item)} ${getKirbyItemText(item)}`).join(' '),
+    getKirbyArray(proposal.recommendedServices, 12).map((item) => `${getKirbyItemTitle(item)} ${getKirbyItemText(item)}`).join(' '),
+    getKirbyArray(proposal.ctas, 6).join(' '),
+].filter(Boolean).join(' '));
+
+const isKirbySectorDeclaredConflict = (declaredSector = '', expectedSector = '') => {
+    const declared = normalizeKirbyText(declaredSector);
+    const expected = normalizeKirbyText(expectedSector);
+
+    return KIRBY_STRONG_SECTOR_KEYS.has(expected) &&
+        KIRBY_STRONG_SECTOR_KEYS.has(declared) &&
+        declared !== expected;
+};
+
+const hasKirbyProposalSectorConflict = (proposal = {}, expectedSector = 'corporate', brief = '') => {
+    const sectorKey = expectedSector || detectKirbySectorTemplate(brief);
+
+    if (!KIRBY_STRONG_SECTOR_KEYS.has(sectorKey)) {
+        return false;
+    }
+
+    const declaredSector = normalizeKirbyText(proposal.sectorKey || '');
+    const visibleText = getKirbyProposalVisibleText(proposal);
+    const detectedFromContent = detectKirbySectorTemplate(visibleText);
+    const blockers = KIRBY_INCOMPATIBLE_BLOCKS[sectorKey] || [];
+    const mismatchCount = blockers.filter((regex) => regex.test(visibleText)).length;
+
+    if (isKirbySectorDeclaredConflict(declaredSector, sectorKey)) {
+        return true;
+    }
+
+    if (mismatchCount > 0) {
+        return true;
+    }
+
+    return KIRBY_STRONG_SECTOR_KEYS.has(detectedFromContent) && detectedFromContent !== sectorKey;
+};
+
+const KIRBY_SECTOR_NAME_BLOCKERS = {
+    'crisis-management': /\b(renovation|energie|therma|dpe|rge|travaux|isolation|chauffage|avocat|cabinet|restaurant|fitness|ecole|academie|medical|reeducation|compta|finance)\b/,
+    'funeral-home': /\b(hotel|hôtel|luxe|mobilite|mobilité|trajet|transport|senior|pmr|conciergerie|auto|vehicule|véhicule|restaurant|renov|energie|dpe|rge|cabinet|avocat|fitness|brigade|compta|finance)\b/,
+    'private-school': /\b(energie|therma|thermo|reno|renov|habitat|isolation|chauffage|dpe|rge|mobilite|auto|vehicule|compta|finance|brigade|pilot)\b/,
+    'sports-rehab': /\b(fitness|gym|box|ring|club|ecole|academie|restaurant|compta|finance|auto|conciergerie|immobilier)\b/,
+    'energy-renovation': /\b(ecole|academie|college|maternelle|primaire|enseignant|cantine|brigade|restaurant|mobilite|auto|vehicule|compta|finance)\b/,
+    'restaurant-management-saas': /\b(ecole|academie|college|maternelle|renov|energie|therma|habitat|mobilite|auto|vehicule|compta|finance)\b/,
+    'senior-mobility': /\b(ecole|academie|college|renov|energie|therma|habitat|auto|vehicule|conciergerie|compta|finance|brigade)\b/,
+    'automotive-concierge': /\b(ecole|academie|college|renov|energie|therma|transport accompagne|senior|pmr|compta|finance|brigade)\b/,
+};
+
+const shouldKeepGeneratedKirbyNameForSector = (siteName = '', expectedSector = 'corporate', brief = '') => {
+    const name = formatKirbySiteName(siteName);
+
+    if (!name || /^studio\s/i.test(name)) {
+        return false;
+    }
+
+    const normalizedName = normalizeKirbyFallbackText(name);
+    const nameBlocker = KIRBY_SECTOR_NAME_BLOCKERS[expectedSector];
+
+    if (nameBlocker && nameBlocker.test(normalizedName)) {
+        return false;
+    }
+
+    return !hasKirbyProposalSectorConflict({ siteName: name }, expectedSector, brief);
+};
+
 const getKirbyVisualConcept = (proposal = {}) =>
     proposal.visualConcept && typeof proposal.visualConcept === 'object' ? proposal.visualConcept : {};
+
+const getKirbyVisualPlan = (proposal = {}, brief = '') => {
+    if (proposal.visualPlan && typeof proposal.visualPlan === 'object' && proposal.visualPlan.hero) {
+        return proposal.visualPlan;
+    }
+
+    return buildKirbyVisualPlan(brief, getKirbyBriefProfile(brief), proposal.narrativePlan || buildKirbyNarrativePlan(brief));
+};
+
+const getKirbyVisualPlanSlots = (visualPlan = {}) => [
+    visualPlan.hero,
+    ...getKirbyArray(visualPlan.sections, 6),
+    ...getKirbyArray(visualPlan.gallery, 8),
+    visualPlan.conversion,
+].filter((slot) => slot && typeof slot === 'object' && slot.narrativeStage && slot.purpose);
+
+const KIRBY_PIPELINE_REQUIRED_NARRATIVE_STAGES = ['discovery', 'understanding', 'proof', 'conversion'];
+const KIRBY_PIPELINE_VISUAL_PLACEHOLDER_PATTERN = /\b(rectangle gris|rectangle gray|placeholder|image generique|image générique|gris neutre|grey block|gray block|a ajuster|à ajuster|lorem|dummy)\b/i;
+
+const getKirbyPipelineSlotText = (slot = {}) => [
+    slot.narrativeStage,
+    slot.purpose,
+    slot.subject,
+    slot.composition,
+    slot.priority,
+    getKirbyArray(slot.keywords, 8).join(' '),
+    slot.query,
+].filter(Boolean).join(' ');
+
+const hasKirbyVisualSlotImageDirective = (slot = {}) =>
+    Boolean(String(slot.query || '').trim()) ||
+    getKirbyArray(slot.keywords, 8).some((keyword) => String(keyword || '').trim());
+
+const validateKirbyPipelineVisualSlot = (slot, label, issues) => {
+    if (!slot || typeof slot !== 'object') {
+        issues.push(`${label} absent dans visualPlan.`);
+        return;
+    }
+
+    ['narrativeStage', 'purpose', 'subject', 'composition', 'priority'].forEach((field) => {
+        if (!String(slot[field] || '').trim()) {
+            issues.push(`${label}.${field} manquant.`);
+        }
+    });
+
+    if (!hasKirbyVisualSlotImageDirective(slot)) {
+        issues.push(`${label} ne contient aucune directive d'image exploitable.`);
+    }
+
+    if (KIRBY_PIPELINE_VISUAL_PLACEHOLDER_PATTERN.test(getKirbyPipelineSlotText(slot))) {
+        issues.push(`${label} contient encore un placeholder ou un rectangle gris.`);
+    }
+};
+
+const getKirbyPipelineValidationIssues = (proposal = {}, brief = '', runtime = {}) => {
+    const issues = [];
+    const profile = getKirbyBriefProfile(brief);
+    const narrativePlan = proposal?.narrativePlan;
+    const visualPlan = proposal?.visualPlan;
+
+    if (!narrativePlan || typeof narrativePlan !== 'object') {
+        issues.push('narrativePlan absent.');
+    } else {
+        ['centralStory', 'visitorStartingPoint', 'desiredOutcome', 'commercialPromise'].forEach((field) => {
+            if (!String(narrativePlan[field] || '').trim()) {
+                issues.push(`narrativePlan.${field} manquant.`);
+            }
+        });
+
+        if (!getKirbyArray(narrativePlan.targetAudience, 8).some((item) => String(item || '').trim())) {
+            issues.push('narrativePlan.targetAudience vide.');
+        }
+
+        if (!getKirbyArray(narrativePlan.tone, 8).some((item) => String(item || '').trim())) {
+            issues.push('narrativePlan.tone vide.');
+        }
+
+        const stages = getKirbyArray(narrativePlan.journey, 8)
+            .map((item) => normalizeKirbyFallbackText(item?.stage || ''))
+            .filter(Boolean);
+        KIRBY_PIPELINE_REQUIRED_NARRATIVE_STAGES.forEach((stage) => {
+            if (!stages.includes(stage)) {
+                issues.push(`narrativePlan.journey ne contient pas l'étape ${stage}.`);
+            }
+        });
+
+        if (!narrativePlan.primaryConversion || typeof narrativePlan.primaryConversion !== 'object') {
+            issues.push('narrativePlan.primaryConversion absent.');
+        } else {
+            if (!String(narrativePlan.primaryConversion.action || '').trim()) {
+                issues.push('narrativePlan.primaryConversion.action manquant.');
+            }
+            if (!String(narrativePlan.primaryConversion.label || '').trim()) {
+                issues.push('narrativePlan.primaryConversion.label manquant.');
+            }
+        }
+    }
+
+    if (!visualPlan || typeof visualPlan !== 'object') {
+        issues.push('visualPlan absent.');
+    } else {
+        validateKirbyPipelineVisualSlot(visualPlan.hero, 'visualPlan.hero', issues);
+        if (visualPlan.hero && normalizeKirbyFallbackText(visualPlan.hero.narrativeStage || '') !== 'discovery') {
+            issues.push('visualPlan.hero doit servir l’étape discovery.');
+        }
+
+        const sectionSlots = getKirbyArray(visualPlan.sections, 6);
+        if (!sectionSlots.length) {
+            issues.push('visualPlan.sections vide.');
+        }
+        sectionSlots.slice(0, 3).forEach((slot, index) => validateKirbyPipelineVisualSlot(slot, `visualPlan.sections[${index}]`, issues));
+
+        const gallerySlots = getKirbyArray(visualPlan.gallery, 8);
+        if (!gallerySlots.length) {
+            issues.push('visualPlan.gallery vide.');
+        }
+        gallerySlots.slice(0, 3).forEach((slot, index) => validateKirbyPipelineVisualSlot(slot, `visualPlan.gallery[${index}]`, issues));
+
+        validateKirbyPipelineVisualSlot(visualPlan.conversion, 'visualPlan.conversion', issues);
+    }
+
+    if ((runtime?.source === 'fallback' || proposal?.mode === 'fallback') && normalizeKirbyFallbackText(proposal?.sectorKey || '') !== 'brief-driven') {
+        issues.push('Fallback ancien détecté : sectorKey différent de brief-driven.');
+    }
+
+    if (doesKirbyProposalContradictProfile(proposal, profile)) {
+        issues.push('La proposition contient un vocabulaire explicitement exclu par le brief.');
+    }
+
+    if (doesKirbyProposalInventUnrequestedUniverse(proposal, brief)) {
+        issues.push('La proposition ajoute un univers ou un service adjacent absent du brief.');
+    }
+
+    return issues;
+};
+
+const getKirbyVisualSlotQuery = (slot = {}, fallback = '') => {
+    const keywords = getKirbyArray(slot.keywords, 5)
+        .concat([slot.subject])
+        .map((item) => String(item || '').trim())
+        .filter(Boolean)
+        .filter((item, index, list) => list.findIndex((candidate) => normalizeKirbyFallbackText(candidate) === normalizeKirbyFallbackText(item)) === index)
+        .filter((item) => !/professionnel au travail|bureau|ordinateur|startup|corporate|portfolio creatif/i.test(item))
+        .slice(0, 4);
+
+    return encodeURIComponent(keywords.join(',') || fallback || 'real,detail,place');
+};
+
+const getKirbyVisualSlotImageUrl = (slot = {}, size = 900, fallback = '') =>
+    `https://source.unsplash.com/${size}x${size}/?${getKirbyVisualSlotQuery(slot, fallback)}`;
 
 const applyGeneratedKirbyVisualHints = (proposal, signals, brief = '') => {
     const visualConcept = getKirbyVisualConcept(proposal);
@@ -14020,7 +16450,7 @@ const applyGeneratedKirbyVisualHints = (proposal, signals, brief = '') => {
                 ? 'tech-premium'
                 : signals.isBeauty || /beaute|coiff|soin|spa|bien etre|rose|beige/.test(visualSource)
                     ? 'beauty-wellness'
-                    : signals.isRestaurant || /restaurant|menu|cuisine|chaleur|italien/.test(visualSource)
+                    : !signals.isRestaurantManagementSaas && (signals.isRestaurant || /restaurant|menu|cuisine|chaleur|italien/.test(visualSource))
                         ? 'warm'
                         : /photo|galerie|image|portfolio/.test(visualSource)
                             ? 'image-led'
@@ -14172,7 +16602,7 @@ const applyKirbyKidsEducationModel = (proposal, brief = '', preserveContent = fa
     proposal.layoutVariant = 'story-world';
     proposal.designVariant = getKirbyHash(`${brief} ${appName} kids-future`) % 5;
     proposal.visualSeed = proposal.visualSeed || getKirbyHash(`${brief}::kids-story-world`);
-    proposal.showGallery = true;
+    proposal.showGallery = sectorKey !== 'funeral-home';
     proposal.slogan = preserveContent && proposal.slogan
         ? proposal.slogan
         : 'Apprendre en jouant, tout doucement.';
@@ -14342,11 +16772,363 @@ const applyKirbyBridalCoutureModel = (proposal, brief = '', preserveContent = fa
     return proposal;
 };
 
+const isKirbyBadAutomotiveName = (value = '') => /kilometre|kilomètre|voyage|travel|destination|itineraire|itinéraire|escapade|road trip|maison pilote|maison roue|nexa|talent|recrut|candidat|finance|compta|conta|directcompt|luna|comptine|robe|couture|portfolio|showreel|studio creatif|studio créatif/.test(normalizeKirbyText(value));
+
+const applyKirbyTemplateSectorModel = (proposal, brief = '', sectorKey = 'corporate', fallbackName = 'Projet', badNamePattern = /$^/) => {
+    const template = KIRBY_SECTOR_TEMPLATES[sectorKey] || KIRBY_SECTOR_TEMPLATES.corporate;
+    const generatedName = formatKirbySiteName(proposal.siteName);
+    const normalizedGeneratedName = normalizeKirbyText(generatedName);
+    const nameBlocker = KIRBY_SECTOR_NAME_BLOCKERS[sectorKey];
+    const siteName = generatedName &&
+        !badNamePattern.test(normalizedGeneratedName) &&
+        !(nameBlocker && nameBlocker.test(normalizedGeneratedName))
+        ? generatedName
+        : fallbackName;
+    const design = getKirbyFreeformDesignModel(brief, sectorKey, template);
+    const sectorPositioning = {
+        'senior-mobility': {
+            audience: 'Personnes âgées ou à mobilité réduite, familles, aidants, établissements de santé et collectivités.',
+            promise: 'Réserver un trajet accompagné ponctuel ou régulier avec une équipe humaine et fiable.',
+            differentiator: 'Les familles réservent un trajet régulier, les établissements demandent un partenariat dans un parcours séparé.',
+        },
+        'private-school': {
+            audience: 'Futurs parents, familles déjà inscrites et enseignants candidats.',
+            promise: 'Comprendre le projet pédagogique, les niveaux et les modalités d’inscription rapidement.',
+            differentiator: 'Le site sépare futurs parents, familles inscrites et enseignants candidats sans devenir une application enfant.',
+        },
+        'sports-rehab': {
+            audience: 'Sportifs amateurs et professionnels, clubs, prescripteurs médicaux et familles de sportifs.',
+            promise: 'Choisir un parcours selon la blessure, le sport ou l’objectif de reprise, puis suivre un protocole mesurable.',
+            differentiator: 'Le site montre l’expertise médicale sportive, les bilans, les équipements, les protocoles et le suivi à distance sans codes fitness.',
+        },
+        'energy-renovation': {
+            audience: 'Particuliers, propriétaires, bailleurs, syndics et copropriétés.',
+            promise: 'Qualifier son logement, comprendre les travaux, estimer le projet et transmettre un dossier complet.',
+            differentiator: 'Le parcours commence par logement, problèmes et budget avant de parler aides, certifications et garanties.',
+        },
+        'restaurant-management-saas': {
+            audience: 'Restaurateurs indépendants, responsables d’exploitation et groupes multi-restaurants.',
+            promise: 'Comprendre comment le logiciel simplifie réservations, stocks, fournisseurs, recettes, équipes et multi-sites.',
+            differentiator: 'Le site vend un produit opérationnel pour restaurateurs, pas un restaurant à réserver ni une comptabilité générique.',
+        },
+        'funeral-home': {
+            audience: 'Familles endeuillées, proches éloignés et personnes souhaitant anticiper leurs volontés.',
+            promise: 'Comprendre les démarches, choisir une cérémonie et être accompagné avec discrétion et clarté.',
+            differentiator: 'La proposition traite démarches, cérémonies, prévoyance, administratif, familles éloignées et hommage privé sans basculer vers hôtel, mobilité ou médical froid.',
+        },
+    }[sectorKey] || {
+        audience: 'Visiteurs qualifiés cherchant une solution claire et crédible.',
+        promise: `Comprendre ${template.activity} et passer à l’action rapidement.`,
+        differentiator: 'La proposition reconstruit une direction propre au brief au lieu de recycler un secteur voisin.',
+    };
+
+    proposal.siteName = siteName;
+    proposal.sectorKey = sectorKey;
+    proposal.projectType = template.projectType;
+    proposal.visualMood = template.visualMood || design.visualMood;
+    proposal.layoutVariant = design.layoutVariant || getKirbyArray(template.layoutVariants, 1)[0] || 'classic-conversion';
+    proposal.designVariant = getKirbyHash(`${brief} ${siteName} ${sectorKey}`) % 5;
+    proposal.visualSeed = getKirbyHash(`${brief}::${siteName}::${sectorKey}`);
+    proposal.showGallery = true;
+    proposal.slogan = template.slogan || proposal.slogan;
+    proposal.summary = `${siteName} doit présenter ${template.activity} avec une structure claire, rassurante et adaptée au brief.`;
+    proposal.valueProposition = `Une expérience complète qui rend ${template.activity} compréhensible, crédible et actionnable dès le premier écran.`;
+    proposal.positioning = {
+        audience: sectorPositioning.audience,
+        promise: sectorPositioning.promise,
+        tone: design.ambience,
+        differentiator: sectorPositioning.differentiator,
+    };
+    proposal.styleGuide = {
+        direction: design.direction,
+        colors: design.colorPalette.join(', '),
+        typography: design.typography,
+        layout: design.layoutSignature,
+    };
+    proposal.visualConcept = {
+        heroComposition: design.heroComposition,
+        ambience: design.ambience,
+        colorPalette: design.colorPalette,
+        imageKeywords: design.imageKeywords,
+        layoutSignature: design.layoutSignature,
+        microInteractions: design.microInteractions,
+        signatureMoment: design.signatureMoment,
+        wowFactor: design.wowFactor,
+    };
+    proposal.siteModel = {
+        name: template.modelName,
+        description: `Structure sur mesure pour ${template.activity}, reconstruite depuis le brief utilisateur.`,
+        sections: getKirbyArray(template.sections, 6).map((item) => item.title),
+    };
+    proposal.pages = cloneKirbyTemplateArray(template.pages);
+    proposal.homeSections = cloneKirbyTemplateArray(template.sections);
+    proposal.services = cloneKirbyTemplateArray(template.services);
+    proposal.recommendedServices = cloneKirbyTemplateArray(template.recommendedServices);
+    proposal.ctas = getKirbyArray(template.ctas, 3);
+    proposal.recommendedOffer = 'Projet spécifique';
+    setKirbyPreviewSummary(proposal, 'Ce qui est prévu', proposal.siteModel.sections);
+
+    return proposal;
+};
+
+const applyKirbySeniorMobilityModel = (proposal, brief = '') =>
+    applyKirbyTemplateSectorModel(proposal, brief, 'senior-mobility', 'Mobilité Accompagnée', /conciergerie|auto|automobile|vehicule|controle technique|convoyage|nettoyage|comptine|luna|portfolio|finance|compta/);
+
+const applyKirbyPrivateSchoolModel = (proposal, brief = '') =>
+    applyKirbyTemplateSectorModel(proposal, brief, 'private-school', 'École Horizon', /luna|comptine|jeu|jouer|automobile|conciergerie|vehicule|finance|compta|portfolio|dream|reve/);
+
+const applyKirbyEnergyRenovationModel = (proposal, brief = '') =>
+    applyKirbyTemplateSectorModel(proposal, brief, 'energy-renovation', 'Énergie Habitat', /immobili|agence|shop|boutique|mode|restaurant|auto|conciergerie|compta|finance|luna|comptine/);
+
+const applyKirbyRestaurantManagementSaasModel = (proposal, brief = '') =>
+    applyKirbyTemplateSectorModel(proposal, brief, 'restaurant-management-saas', 'Brigade Pilot', /restaurant gastronomique|menu|carte|chef|table|agence|immobili|compta|finance|facture|tva|luna|comptine|auto|conciergerie/);
+
+const applyKirbyFuneralHomeModel = (proposal, brief = '') =>
+    applyKirbyTemplateSectorModel(proposal, brief, 'funeral-home', 'Maison Clarté', /hotel|hôtel|luxe|mobilite|mobilité|trajet|transport|senior|pmr|conciergerie|auto|vehicule|véhicule|restaurant|renovation|energie|dpe|rge|cabinet|avocat|fitness|brigade|compta|finance/);
+
+const applyKirbyAutomotiveConciergeModel = (proposal, brief = '') => {
+    const generatedName = formatKirbySiteName(proposal.siteName);
+    const siteName = generatedName && !isKirbyBadAutomotiveName(generatedName)
+        ? generatedName
+        : 'Conciergerie Auto';
+    const wantsLumina = hasKirbySurfaceDesignIntent(`${brief} ${proposal.visualMood || ''} ${proposal.styleGuide?.direction || ''}`);
+
+    proposal.siteName = siteName;
+    proposal.sectorKey = 'automotive-concierge';
+    proposal.projectType = 'Site conciergerie automobile premium';
+    proposal.visualMood = 'automotive-concierge';
+    proposal.layoutVariant = wantsLumina ? 'lumina-showcase' : 'luxury-asymmetric';
+    proposal.designVariant = getKirbyHash(`${brief} ${siteName} auto-concierge`) % 5;
+    proposal.visualSeed = getKirbyHash(`${brief}::${siteName}::automotive-concierge`);
+    proposal.showGallery = true;
+    proposal.slogan = 'Votre véhicule, pris en charge.';
+    proposal.summary = 'Une conciergerie automobile haut de gamme pour entretien, nettoyage, contrôle technique, convoyage et suivi du véhicule.';
+    proposal.valueProposition = 'Un site sobre et professionnel qui rend la prise en charge du véhicule claire : services, forfaits, fonctionnement, zones couvertes et demande qualifiée.';
+    proposal.positioning = {
+        audience: 'Propriétaires de véhicules, professionnels et clients exigeants qui veulent déléguer l’entretien et le suivi automobile.',
+        promise: 'Choisir un forfait, planifier la prise en charge et suivre le véhicule avec un service clair et rassurant.',
+        tone: 'Sobre, premium, automobile, précis et très professionnel.',
+        differentiator: 'Le site montre le parcours de prise en charge du véhicule au lieu d’un univers voyage, recrutement ou finance.',
+    };
+    proposal.styleGuide = {
+        direction: 'Direction conciergerie automobile : graphite carrosserie, ivoire service, acier doux, véhicule premium, cartes forfaits, étapes de suivi et zones couvertes.',
+        colors: 'Graphite carrosserie, ivoire service, acier doux, bleu nuit et or discret.',
+        typography: 'Sans-serif premium, titres sobres, libellés de service très lisibles et hiérarchie rassurante.',
+        layout: 'Hero premium, services, forfaits, fonctionnement, zones couvertes, demande de prise en charge et contact.',
+    };
+    proposal.visualConcept = {
+        heroComposition: 'Véhicule premium en trois-quarts, carte de prise en charge, forfaits et suivi du véhicule visibles.',
+        ambience: 'Sobre, premium, automobile, précis et très professionnel.',
+        colorPalette: ['graphite carrosserie', 'ivoire service', 'acier doux', 'bleu nuit', 'or discret'],
+        imageKeywords: ['conciergerie automobile', 'véhicule premium', 'car detailing', 'contrôle technique', 'convoyage véhicule'],
+        layoutSignature: 'Parcours premium avec services, forfaits, fonctionnement, zones couvertes et demande de prise en charge.',
+        microInteractions: ['forfait actif au survol', 'étapes de prise en charge qui se cochent', 'zone couverte qui s’illumine'],
+        signatureMoment: 'La roue reste un repère discret ; le centre de la maquette est la prise en charge du véhicule.',
+        wowFactor: 'Le visiteur comprend immédiatement entretien, nettoyage, contrôle technique, convoyage et demande de prise en charge.',
+    };
+    proposal.siteModel = {
+        name: 'Direction conciergerie auto',
+        description: 'Une présence digitale sobre et haut de gamme pour un service automobile avec suivi, forfaits et prise en charge.',
+        sections: ['Hero prise en charge', 'Services auto', 'Forfaits', 'Fonctionnement', 'Zones couvertes', 'Demande de prise en charge'],
+    };
+    proposal.pages = [
+        { name: 'Accueil', goal: 'Installer le service haut de gamme et la demande de prise en charge.' },
+        { name: 'Services', goal: 'Présenter entretien, nettoyage, contrôle technique, convoyage et suivi.' },
+        { name: 'Forfaits', goal: 'Comparer les niveaux de prise en charge et les inclusions.' },
+        { name: 'Fonctionnement', goal: 'Expliquer collecte, validation, suivi et restitution du véhicule.' },
+        { name: 'Zones couvertes', goal: 'Clarifier les secteurs d’intervention et disponibilités.' },
+        { name: 'Demande de prise en charge', goal: 'Qualifier véhicule, besoin, lieu, date et urgence.' },
+        { name: 'Contact', goal: 'Permettre un échange direct et rassurant.' },
+    ];
+    proposal.homeSections = [
+        { title: 'Véhicule pris en charge', text: 'Le site montre entretien, nettoyage, contrôle technique, convoyage et suivi sans jargon.' },
+        { title: 'Forfaits clairs', text: 'Les niveaux de service expliquent ce qui est inclus et pour quel usage.' },
+        { title: 'Suivi premium', text: 'Le client comprend les étapes, les zones couvertes et la demande de prise en charge.' },
+    ];
+    proposal.services = [
+        { name: 'Entretien & contrôle', description: 'Organisation entretien, contrôle technique et rendez-vous utiles.' },
+        { name: 'Nettoyage premium', description: 'Nettoyage intérieur, extérieur et préparation du véhicule.' },
+        { name: 'Convoyage', description: 'Prise en charge, déplacement et restitution suivie.' },
+    ];
+    proposal.recommendedServices = [
+        { name: 'Formulaire de prise en charge', reason: 'Qualifier véhicule, lieu, service et date en une demande claire.', priceFrom: 'Projet spécifique' },
+        { name: 'Forfaits de service', reason: 'Rendre les offres lisibles sans appel préalable.', priceFrom: 'Inclus selon offre' },
+        { name: 'Google Maps et zones', reason: 'Clarifier les secteurs couverts.', priceFrom: 'Inclus selon offre' },
+        { name: 'Espace client simple', reason: 'Suivre demandes, documents et historique véhicule.', priceFrom: 'Projet spécifique' },
+    ];
+    proposal.ctas = ['Demander une prise en charge', 'Voir les forfaits', 'Comprendre le fonctionnement'];
+    proposal.recommendedOffer = 'Offre Signature';
+    setKirbyPreviewSummary(proposal, 'Conciergerie auto', [
+        'Services',
+        'Forfaits',
+        'Fonctionnement',
+        'Zones couvertes',
+        'Prise en charge',
+        'Suivi véhicule',
+    ]);
+
+    return proposal;
+};
+
+const isKirbyBadMedicalCenterName = (value = '') => /reve|rêve|dream|portail|onirique|traversee|traversée|kilometre|kilomètre|voyage|travel|destination|nexa|talent|finance|compta|conta|directcompt|luna|comptine|uppercut|boxing|robe|couture|portfolio|showreel/.test(normalizeKirbyText(value));
+
+const applyKirbyMedicalCenterModel = (proposal, brief = '') => {
+    const template = KIRBY_SECTOR_TEMPLATES['medical-center'];
+    const generatedName = formatKirbySiteName(proposal.siteName);
+    const siteName = generatedName && !isKirbyBadMedicalCenterName(generatedName)
+        ? generatedName
+        : 'Centre Santé Plurielle';
+
+    proposal.siteName = siteName;
+    proposal.sectorKey = 'medical-center';
+    proposal.projectType = 'Site centre médical pluridisciplinaire';
+    proposal.visualMood = 'medical-warm-professional';
+    proposal.layoutVariant = 'classic-conversion';
+    proposal.designVariant = getKirbyHash(`${brief} ${siteName} medical-center`) % 5;
+    proposal.visualSeed = getKirbyHash(`${brief}::${siteName}::medical-center`);
+    proposal.showGallery = false;
+    proposal.slogan = template.slogan;
+    proposal.summary = 'Une proposition claire pour un centre médical pluridisciplinaire avec spécialités, praticiens filtrables, rendez-vous, prévention, accès, urgence et espace professionnels.';
+    proposal.valueProposition = 'Un site patient d’abord, chaleureux mais professionnel, qui aide à comprendre les spécialités, trouver un praticien et demander un rendez-vous sans devenir une plateforme hospitalière froide.';
+    proposal.positioning = {
+        audience: 'Patients, familles et professionnels de santé souhaitant rejoindre le centre.',
+        promise: 'Comprendre les spécialités, filtrer les praticiens et demander un rendez-vous rapidement.',
+        tone: 'Médical, humain, clair, rassurant et organisé.',
+        differentiator: 'La maquette distingue parcours patient, prévention, accès urgent et espace professionnels dans une structure concrète.',
+    };
+    proposal.styleGuide = {
+        direction: 'Centre médical chaleureux : fond clair, bleu santé doux, vert apaisant, cartes praticiens, filtres visibles, accès rapide rendez-vous et urgence.',
+        colors: 'Blanc clinique chaleureux, bleu santé doux, vert apaisant, gris texte, accent corail très discret pour urgence.',
+        typography: 'Sans-serif lisible, titres contenus, hiérarchie dense mais respirante pour scanner rapidement.',
+        layout: 'Accueil clair, spécialités, filtres praticiens, rendez-vous, prévention santé, espace professionnels, accès et urgence.',
+    };
+    proposal.visualConcept = {
+        heroComposition: 'Hero clair avec barre de recherche spécialité, filtres praticiens, bouton rendez-vous et encart urgence discret.',
+        ambience: 'Professionnelle, humaine, rassurante et organisée, avec une présence médicale concrète.',
+        colorPalette: ['blanc chaleureux', 'bleu santé doux', 'vert apaisant', 'gris ardoise', 'corail urgence discret'],
+        imageKeywords: ['centre médical moderne', 'praticiens santé', 'cabinet médical lumineux', 'patients accueil', 'kinésithérapie pédiatrie psychologie'],
+        layoutSignature: 'Interface patient lisible avec spécialités, praticiens filtrables, prévention, accès et espace professionnels séparé.',
+        microInteractions: ['filtre spécialité actif', 'disponibilité praticien mise en évidence', 'contact urgent accessible sans alarme visuelle'],
+        signatureMoment: 'Le patient choisit une spécialité, voit les praticiens disponibles et comprend comment demander un rendez-vous.',
+        wowFactor: 'Le visiteur voit immédiatement un centre médical pluridisciplinaire clair, humain et organisé.',
+    };
+    proposal.siteModel = {
+        name: 'Direction centre médical clair',
+        description: 'Une structure médicale lisible pour patients et professionnels : spécialités, praticiens, filtres, rendez-vous, prévention, accès et urgence.',
+        sections: ['Recherche spécialité', 'Praticiens filtrables', 'Rendez-vous', 'Prévention santé', 'Rejoindre le centre', 'Accès & urgence'],
+    };
+    proposal.pages = cloneKirbyTemplateArray(template.pages);
+    proposal.homeSections = cloneKirbyTemplateArray(template.sections);
+    proposal.services = cloneKirbyTemplateArray(template.services);
+    proposal.recommendedServices = cloneKirbyTemplateArray(template.recommendedServices);
+    proposal.ctas = getKirbyArray(template.ctas, 3);
+    proposal.recommendedOffer = 'Projet spécifique';
+    proposal.seo = {
+        keywords: ['centre médical pluridisciplinaire', 'médecin généraliste pédiatre sage-femme psychologue kiné', 'rendez-vous centre médical', 'praticiens santé'],
+        searchExpressions: ['centre médical pluridisciplinaire + ville', 'prendre rendez-vous médecin généraliste pédiatre kiné', 'centre santé praticiens langue parlée', 'rejoindre centre médical'],
+        titles: [`${siteName} - Centre médical pluridisciplinaire`, 'Spécialités, praticiens et rendez-vous'],
+        metaDescription: `${siteName} présente les spécialités, praticiens, disponibilités, informations d’accès et demandes de rendez-vous du centre.`,
+    };
+    proposal.seoKeywords = proposal.seo.keywords;
+    proposal.clientAcquisition = [
+        'Mettre les spécialités et le bouton rendez-vous dès le premier écran.',
+        'Rendre les profils praticiens filtrables par spécialité, disponibilité et langue.',
+        'Séparer clairement le parcours patient de l’espace professionnels.',
+        'Afficher accès, horaires et contact urgent sans ambiance hospitalière froide.',
+    ];
+    proposal.contactMessage = [
+        'Bonjour,',
+        '',
+        `Le générateur SA a préparé une proposition pour : ${siteName}.`,
+        'Besoin de départ : centre médical pluridisciplinaire avec spécialités, praticiens filtrables, rendez-vous, prévention, accès, urgence et espace professionnels.',
+        'Type de projet : Site centre médical pluridisciplinaire',
+        `Pages proposées : ${proposal.pages.map((page) => page.name).join(', ')}`,
+        'Actions conseillées : Demander un rendez-vous, Trouver un praticien, Rejoindre le centre',
+        '',
+        'Merci de me dire ce qu’il faut ajuster pour lancer le projet.',
+    ].join('\n');
+    setKirbyPreviewSummary(proposal, 'Centre médical', [
+        'Spécialités',
+        'Praticiens filtrables',
+        'Rendez-vous',
+        'Prévention santé',
+        'Rejoindre le centre',
+        'Accès & urgence',
+    ]);
+
+    return proposal;
+};
+
+const applyKirbyLockedBriefSectorModel = (proposal, signals = {}, brief = '') => {
+    const lockedSector = getKirbyLockedBriefSector(signals);
+
+    if (!lockedSector) {
+        return '';
+    }
+
+    if (lockedSector === 'crisis-management') {
+        applyKirbyTemplateSectorModel(proposal, brief, 'crisis-management', 'Crisis Partners', /renovation|energie|dpe|rge|travaux|isolation|chauffage|cabinet|avocat|compta|restaurant|fitness|ecole|medical|reeducation/);
+    } else if (lockedSector === 'funeral-home') {
+        applyKirbyFuneralHomeModel(proposal, brief);
+    } else if (lockedSector === 'energy-renovation') {
+        applyKirbyEnergyRenovationModel(proposal, brief);
+    } else if (lockedSector === 'restaurant-management-saas') {
+        applyKirbyRestaurantManagementSaasModel(proposal, brief);
+    } else if (lockedSector === 'senior-mobility') {
+        applyKirbySeniorMobilityModel(proposal, brief);
+    } else if (lockedSector === 'private-school') {
+        applyKirbyPrivateSchoolModel(proposal, brief);
+    } else if (lockedSector === 'sports-rehab') {
+        applyKirbyTemplateSectorModel(proposal, brief, 'sports-rehab', 'Reprise Active', /fitness|salle de sport|abonnement|cours collectifs|restaurant|compta|ecole|academie|immobili|auto|conciergerie/);
+    } else if (lockedSector === 'medical-center') {
+        applyKirbyMedicalCenterModel(proposal, brief);
+    } else if (lockedSector === 'automotive-concierge') {
+        applyKirbyAutomotiveConciergeModel(proposal, brief);
+    } else if (lockedSector === 'kids-fashion') {
+        applyKirbyTemplateSectorModel(proposal, brief, 'kids-fashion', 'Petits Ateliers', /comptine|jeu|ecole|academie|finance|compta|auto|conciergerie|robe de mariee|portfolio/);
+    } else if (lockedSector === 'boxing-club') {
+        applyKirbyTemplateSectorModel(proposal, brief, 'boxing-club', 'Ring Libre', /restaurant|hotel|immobili|agence|compta|finance|luna|comptine|robe|couture|portfolio|avocat|cabinet/);
+    } else if (lockedSector === 'kids-app') {
+        applyKirbyKidsEducationModel(proposal, brief, false);
+    } else if (lockedSector === 'accounting') {
+        applyKirbyAccountingModel(proposal, brief);
+    }
+
+    proposal.sectorKey = lockedSector;
+    removeKirbyIncompatibleBlocks(proposal, lockedSector);
+    getKirbySectorCoherenceScore(proposal, lockedSector, brief);
+
+    return lockedSector;
+};
+
 const normalizeKirbyProposalForBrief = (currentProposal, brief = '') => {
     const proposal = cloneKirbyProposal(currentProposal);
-    const signals = getKirbyBriefSignals(brief);
-    const sectorKey = detectKirbySectorTemplate(brief);
-    const preserveGeneratedProposal = hasRichKirbyProposal(proposal);
+    const profile = getKirbyBriefProfile(brief);
+
+    if (!hasRichKirbyProposal(proposal)) {
+        return proposal;
+    }
+
+    if (doesKirbyProposalContradictProfile(proposal, profile) || doesKirbyProposalInventUnrequestedUniverse(proposal, brief)) {
+        return proposal;
+    }
+
+    removeKirbyUnrequestedUniverseText(proposal, brief);
+    proposal.briefProfile = proposal.briefProfile || getKirbyBriefProfileSummary(profile);
+    return proposal;
+
+    if (hasKirbyProposalSectorConflict(proposal, sectorKey, brief)) {
+        const rebuilt = buildKirbyProfileDrivenProposal(brief, profile);
+        const generatedName = formatKirbySiteName(proposal.siteName);
+        const keepGeneratedName = shouldKeepGeneratedKirbyNameForSector(generatedName, sectorKey, brief);
+
+        proposal = {
+            ...rebuilt,
+            siteName: keepGeneratedName ? generatedName : rebuilt.siteName,
+        };
+        preserveGeneratedProposal = false;
+    }
+
     const genericSector = !proposal.sectorKey || /^(generic|service|corporate)$/i.test(String(proposal.sectorKey));
 
     if (genericSector || sectorKey !== 'corporate') {
@@ -14424,6 +17206,30 @@ const normalizeKirbyProposalForBrief = (currentProposal, brief = '') => {
         applyKirbyAccountingModel(proposal, brief);
     }
 
+    if (signals.isEnergyRenovation) {
+        applyKirbyEnergyRenovationModel(proposal, brief);
+    }
+
+    if (signals.isRestaurantManagementSaas) {
+        applyKirbyRestaurantManagementSaasModel(proposal, brief);
+    }
+
+    if (signals.isMedicalCenter) {
+        applyKirbyMedicalCenterModel(proposal, brief);
+    }
+
+    if (signals.isSeniorMobility) {
+        applyKirbySeniorMobilityModel(proposal, brief);
+    }
+
+    if (signals.isPrivateSchool) {
+        applyKirbyPrivateSchoolModel(proposal, brief);
+    }
+
+    if (signals.isAutomotiveConcierge) {
+        applyKirbyAutomotiveConciergeModel(proposal, brief);
+    }
+
     if (signals.isEducationKids) {
         applyKirbyKidsEducationModel(proposal, brief, preserveGeneratedProposal);
     }
@@ -14437,16 +17243,21 @@ const normalizeKirbyProposalForBrief = (currentProposal, brief = '') => {
         const tooGenericForSector = Number(coherence.contentHits || 0) < 2 || Number(coherence.mismatch || 0) > 0 || Number(coherence.score || 0) < 58;
 
         if (tooGenericForSector && preserveGeneratedProposal) {
-            const rebuilt = buildBrowserKirbyProposal(brief);
+            const rebuilt = buildKirbyProfileDrivenProposal(brief, profile);
             const generatedName = formatKirbySiteName(proposal.siteName);
+            const keepGeneratedName = generatedName
+                && !/^studio\s/i.test(generatedName)
+                && !(signals.isAutomotiveConcierge && isKirbyBadAutomotiveName(generatedName));
 
             Object.assign(proposal, rebuilt, {
-                siteName: generatedName && !/^studio\s/i.test(generatedName) ? generatedName : rebuilt.siteName,
+                siteName: keepGeneratedName ? generatedName : rebuilt.siteName,
             });
         }
     }
 
-    applyKirbySectorSignature(proposal, getKirbyBusinessSector(brief));
+    const lockedSector = applyKirbyLockedBriefSectorModel(proposal, signals, brief);
+
+    applyKirbySectorSignature(proposal, lockedSector || getKirbyBusinessSector(brief));
 
     if (signals.isDigital && !signals.isAccountingApp && !preserveGeneratedProposal && sectorKey === 'corporate' && /sa creation|sacreation|création web|creation web|agence web|generateur de site/.test(signals.source)) {
         proposal.siteName = /sa creation|sacreation|création web|creation web/.test(signals.source)
@@ -14490,10 +17301,10 @@ const normalizeKirbyProposalForBrief = (currentProposal, brief = '') => {
     }
 
     if (!getKirbyArray(proposal.pages, 8).length) {
-        proposal.pages = buildBrowserKirbyProposal(brief).pages;
+        proposal.pages = buildKirbyProfileDrivenProposal(brief, profile).pages;
     }
 
-    return proposal;
+    return applyKirbyBriefProfileValidation(proposal, brief);
 };
 
 const applyKirbyRevision = (currentProposal, revision, brief = '') => {
@@ -14501,10 +17312,11 @@ const applyKirbyRevision = (currentProposal, revision, brief = '') => {
     const source = normalizeKirbyText(`${brief} ${revision}`);
     const requested = normalizeKirbyText(revision);
     const revisionSignals = getKirbyBriefSignals(source);
+    const isFoodService = hasKirbyFoodServiceIntent(source);
     const appliedChanges = [];
 
     if (!proposal.siteName) {
-        Object.assign(proposal, buildBrowserKirbyProposal(brief));
+        Object.assign(proposal, buildKirbyProfileDrivenProposal(brief));
     }
 
     if (revisionSignals.isAccountingApp) {
@@ -14563,7 +17375,7 @@ const applyKirbyRevision = (currentProposal, revision, brief = '') => {
         proposal.siteModel.name = /premium|signature|luxe|elegant|elegance/.test(normalizeKirbyText(proposal.siteModel.name || ''))
             ? proposal.siteModel.name
             : `Direction premium - ${proposal.siteModel.name || proposal.projectType || 'site professionnel'}`;
-        proposal.slogan = /restaurant|menu|carte/.test(source)
+        proposal.slogan = isFoodService
             ? 'Une expérience élégante à chaque visite.'
             : 'Une présence élégante, claire et mémorable.';
         addKirbySection(proposal, { title: 'Preuves de confiance', text: 'Avis, photos ou réalisations rassurent avant la prise de contact.' });
@@ -14599,8 +17411,8 @@ const applyKirbyRevision = (currentProposal, revision, brief = '') => {
         proposal.styleGuide.direction = 'Ambiance chaleureuse, premium et expressive.';
         proposal.styleGuide.colors = 'Tons chauds, crème, brun profond et accent doré.';
         proposal.siteModel = proposal.siteModel && typeof proposal.siteModel === 'object' ? proposal.siteModel : {};
-        proposal.siteModel.name = /restaurant|menu|carte/.test(source) ? 'Modèle restaurant chaleureux' : 'Modèle chaleureux premium';
-        if (/restaurant|menu|carte/.test(source) && /restaurant|projet|votre presence/i.test(proposal.siteName || '')) {
+        proposal.siteModel.name = isFoodService ? 'Modèle restaurant chaleureux' : 'Modèle chaleureux premium';
+        if (isFoodService && /restaurant|projet|votre presence/i.test(proposal.siteName || '')) {
             proposal.siteName = 'Saveurs du Terroir';
         }
         proposal.visualMood = 'warm';
@@ -14610,16 +17422,16 @@ const applyKirbyRevision = (currentProposal, revision, brief = '') => {
     if (/qr|scan|code/.test(requested)) {
         addKirbyService(proposal, { name: 'QR code professionnel', reason: 'Utile pour scanner la carte, une page ou une offre depuis un support imprimé.', priceFrom: '39 €' }, true);
         addKirbySection(proposal, { title: 'QR code', text: 'Un QR code donne accès rapidement à la page utile depuis une carte, vitrine ou flyer.' });
-        if (/restaurant|menu|carte/.test(source)) {
+        if (isFoodService) {
             addKirbyPage(proposal, { name: 'Menu / carte', goal: 'Afficher la carte consultable depuis le QR code.' });
         }
         markApplied('QR code ajouté');
     }
 
     if (/reservation|reserver|rendez|rdv|agenda/.test(requested)) {
-        addKirbyPage(proposal, { name: /restaurant|menu|carte/.test(source) ? 'Réservation' : 'Rendez-vous', goal: 'Permettre au visiteur de réserver ou demander un créneau.' });
-        addKirbyService(proposal, { name: /restaurant|menu|carte/.test(source) ? 'Réservation en ligne' : 'Lien rendez-vous ou WhatsApp', reason: 'Le visiteur doit pouvoir agir sans chercher.', priceFrom: 'Inclus selon offre' }, true);
-        addKirbyCta(proposal, /restaurant|menu|carte/.test(source) ? 'Réserver une table' : 'Prendre rendez-vous');
+        addKirbyPage(proposal, { name: isFoodService ? 'Réservation' : 'Rendez-vous', goal: 'Permettre au visiteur de réserver ou demander un créneau.' });
+        addKirbyService(proposal, { name: isFoodService ? 'Réservation en ligne' : 'Lien rendez-vous ou WhatsApp', reason: 'Le visiteur doit pouvoir agir sans chercher.', priceFrom: 'Inclus selon offre' }, true);
+        addKirbyCta(proposal, isFoodService ? 'Réserver une table' : 'Prendre rendez-vous');
         addKirbyModelSection(proposal, 'Réservation');
         markApplied('Réservation ajoutée');
     }
@@ -14764,7 +17576,7 @@ const buildKirbyCleanRevisionProposal = ({ brief = '', revision = '', currentPro
     const targetBrief = shouldRebuild
         ? rebuildContext.rebuiltBrief || revision
         : `${brief}\n\nModification demandée à Kirby : ${revision}`;
-    const cleanBase = buildBrowserKirbyProposal(targetBrief);
+    const cleanBase = buildKirbyProfileDrivenProposal(targetBrief);
     const revisedProposal = applyKirbyRevision(cleanBase, revision, targetBrief);
     const currentName = formatKirbySiteName(currentProposal?.siteName || '');
     const renameAsked = /renomme|renommer|nom|marque|appelle|s'appelle|s’appelle/.test(normalizeKirbyText(revision));
@@ -14813,11 +17625,19 @@ const getKirbyPreviewStyle = (proposal = {}) => {
         };
     }
 
+    if (/medical-warm-professional|centre medical|centre médical|centre de sante|centre de santé|praticien|praticiens|specialite|spécialité|rendez-vous|prevention sante|prévention santé/.test(source)) {
+        return {
+            canvas: 'background: radial-gradient(circle at 16% 10%, rgba(79, 159, 207, 0.14), transparent 16rem), radial-gradient(circle at 88% 12%, rgba(111, 196, 156, 0.16), transparent 15rem), linear-gradient(145deg, #f7fbff, #edf8f5 52%, #f8fafc);',
+            hero: 'background: radial-gradient(circle at 82% 12%, rgba(111, 196, 156, 0.16), transparent 15rem), linear-gradient(120deg, rgba(255, 255, 255, 0.96), rgba(236, 247, 250, 0.94));',
+            visual: 'background: linear-gradient(145deg, rgba(79, 159, 207, 0.18), rgba(111, 196, 156, 0.18));',
+        };
+    }
+
     if (/lumina-future|lumina-showcase|glassmorphism|verre depoli|transparent|surface|4d|futuriste|figma|apple|macos/.test(source)) {
         return {
-            canvas: 'background: radial-gradient(ellipse at 14% 10%, rgba(72, 229, 255, 0.18), transparent 34%), radial-gradient(ellipse at 86% 22%, rgba(255, 119, 194, 0.14), transparent 30%), linear-gradient(145deg, #070b13, #0d1424 50%, #111b2c);',
-            hero: 'background: linear-gradient(140deg, rgba(10, 18, 31, 0.82), rgba(14, 28, 50, 0.68));',
-            visual: 'background: linear-gradient(145deg, rgba(255, 255, 255, 0.2), rgba(72, 229, 255, 0.12));',
+            canvas: 'background: radial-gradient(ellipse at 14% 10%, color-mix(in srgb, var(--surface-accent, #48e5ff) 18%, transparent), transparent 34%), radial-gradient(ellipse at 86% 22%, color-mix(in srgb, var(--surface-accent-2, #ff77c2) 14%, transparent), transparent 30%), linear-gradient(145deg, var(--surface-bg-a, #070b13), var(--surface-bg-b, #0d1424) 50%, var(--surface-bg-c, #111b2c));',
+            hero: 'background: linear-gradient(140deg, color-mix(in srgb, var(--surface-bg-a, #0a121f) 82%, transparent), color-mix(in srgb, var(--surface-bg-b, #0e1c32) 68%, transparent));',
+            visual: 'background: linear-gradient(145deg, rgba(255, 255, 255, 0.2), color-mix(in srgb, var(--surface-accent, #48e5ff) 12%, transparent));',
         };
     }
 
@@ -14826,6 +17646,54 @@ const getKirbyPreviewStyle = (proposal = {}) => {
             canvas: 'background: radial-gradient(circle at 18% 12%, rgba(48, 213, 255, 0.22), transparent 18rem), radial-gradient(circle at 86% 8%, rgba(132, 88, 255, 0.2), transparent 16rem), linear-gradient(145deg, #07111f, #0b1730 52%, #101a2d);',
             hero: 'background: radial-gradient(circle at 80% 12%, rgba(48, 213, 255, 0.18), transparent 16rem), linear-gradient(135deg, rgba(8, 20, 42, 0.96), rgba(12, 35, 68, 0.88));',
             visual: 'background: linear-gradient(145deg, rgba(255, 255, 255, 0.18), rgba(48, 213, 255, 0.1));',
+        };
+    }
+
+    if (/automotive-concierge|conciergerie automobile|service automobile|vehicule|automobile|entretien auto|nettoyage auto|controle technique|convoyage|prise en charge vehicule/.test(source)) {
+        return {
+            canvas: 'background: radial-gradient(circle at 16% 10%, rgba(234, 215, 160, 0.18), transparent 16rem), radial-gradient(circle at 88% 14%, rgba(155, 183, 200, 0.14), transparent 17rem), linear-gradient(145deg, #090b10, #141922 52%, #23231f);',
+            hero: 'background: radial-gradient(circle at 80% 12%, rgba(234, 215, 160, 0.2), transparent 15rem), linear-gradient(135deg, rgba(9, 11, 16, 0.96), rgba(31, 35, 43, 0.88));',
+            visual: 'background: linear-gradient(145deg, rgba(234, 215, 160, 0.18), rgba(155, 183, 200, 0.12));',
+        };
+    }
+
+    if (/senior-mobility|transport accompagne|transport accompagné|mobilite reduite|mobilité réduite|personnes agees|personnes âgées|trajet regulier|trajet régulier|chauffeur accompagnateur/.test(source)) {
+        return {
+            canvas: 'background: radial-gradient(circle at 14% 12%, rgba(155, 214, 189, 0.2), transparent 16rem), radial-gradient(circle at 88% 16%, rgba(255, 176, 138, 0.15), transparent 17rem), linear-gradient(145deg, #06151c, #102b32 52%, #17343b);',
+            hero: 'background: radial-gradient(circle at 82% 14%, rgba(155, 214, 189, 0.18), transparent 15rem), linear-gradient(135deg, rgba(6, 21, 28, 0.96), rgba(16, 43, 50, 0.9));',
+            visual: 'background: linear-gradient(145deg, rgba(155, 214, 189, 0.2), rgba(255, 176, 138, 0.14));',
+        };
+    }
+
+    if (/private-school|ecole privee|école privée|projet pedagogique|projet pédagogique|maternelle|primaire|college|collège|visite virtuelle/.test(source)) {
+        return {
+            canvas: 'background: radial-gradient(circle at 16% 10%, rgba(242, 193, 95, 0.18), transparent 16rem), radial-gradient(circle at 88% 14%, rgba(143, 198, 173, 0.14), transparent 17rem), linear-gradient(145deg, #0b1726, #132b36 52%, #203735);',
+            hero: 'background: radial-gradient(circle at 80% 12%, rgba(242, 193, 95, 0.18), transparent 15rem), linear-gradient(135deg, rgba(11, 23, 38, 0.96), rgba(19, 43, 54, 0.9));',
+            visual: 'background: linear-gradient(145deg, rgba(242, 193, 95, 0.18), rgba(143, 198, 173, 0.14));',
+        };
+    }
+
+    if (/energy-renovation|renovation energetique|rénovation énergétique|audit energetique|audit énergétique|isolation|chauffage|ventilation|prediagnostic|prédiagnostic/.test(source)) {
+        return {
+            canvas: 'background: radial-gradient(circle at 16% 10%, rgba(240, 182, 90, 0.18), transparent 16rem), radial-gradient(circle at 88% 14%, rgba(125, 211, 252, 0.14), transparent 17rem), linear-gradient(145deg, #07111c, #132336 52%, #2a261d);',
+            hero: 'background: radial-gradient(circle at 80% 12%, rgba(240, 182, 90, 0.18), transparent 15rem), linear-gradient(135deg, rgba(7, 17, 28, 0.96), rgba(19, 35, 54, 0.9));',
+            visual: 'background: linear-gradient(145deg, rgba(240, 182, 90, 0.2), rgba(125, 211, 252, 0.14));',
+        };
+    }
+
+    if (/restaurant-ops-saas|restaurant-management-saas|logiciel restaurateur|gestion restaurateurs|stocks fournisseurs|couts recettes|coûts recettes|planning equipe|planning équipe/.test(source)) {
+        return {
+            canvas: 'background: radial-gradient(circle at 16% 10%, rgba(217, 155, 97, 0.18), transparent 16rem), radial-gradient(circle at 88% 14%, rgba(124, 199, 232, 0.14), transparent 17rem), linear-gradient(145deg, #0f1117, #1f252d 52%, #2b211a);',
+            hero: 'background: radial-gradient(circle at 80% 12%, rgba(217, 155, 97, 0.18), transparent 15rem), linear-gradient(135deg, rgba(15, 17, 23, 0.96), rgba(31, 37, 45, 0.9));',
+            visual: 'background: linear-gradient(145deg, rgba(217, 155, 97, 0.2), rgba(124, 199, 232, 0.14));',
+        };
+    }
+
+    if (/kids-fashion|mode enfant|vetements enfants|vêtement enfant|marque de vetements|collection enfant|guide des tailles|matiere durable|boutique enfant/.test(source)) {
+        return {
+            canvas: 'background: radial-gradient(circle at 16% 10%, rgba(255, 159, 143, 0.24), transparent 15rem), radial-gradient(circle at 86% 16%, rgba(143, 220, 255, 0.22), transparent 16rem), linear-gradient(145deg, #fff8ef, #eef8ff 50%, #f8f2df);',
+            hero: 'background: radial-gradient(circle at 82% 14%, rgba(255, 210, 91, 0.28), transparent 14rem), linear-gradient(120deg, #fffdf8, #eaf7ff 52%, #fff3e6);',
+            visual: 'background: linear-gradient(145deg, rgba(255, 159, 143, 0.34), rgba(143, 220, 255, 0.26));',
         };
     }
 
@@ -14897,6 +17765,14 @@ const getKirbyPreviewStyle = (proposal = {}) => {
         };
     }
 
+    if (/boxing-female-energy|boxe|boxing|club de box|kickboxing|muay thai|uppercut|ring|gants|sac de frappe|self-defense|self defense|sport de combat/.test(source)) {
+        return {
+            canvas: 'background: radial-gradient(circle at 16% 10%, rgba(244, 63, 94, 0.22), transparent 16rem), radial-gradient(circle at 86% 18%, rgba(255, 209, 163, 0.16), transparent 16rem), linear-gradient(145deg, #0f0709, #171018 52%, #271621);',
+            hero: 'background: radial-gradient(circle at 82% 8%, rgba(255, 77, 46, 0.32), transparent 14rem), linear-gradient(135deg, #13090d, #22131c 62%, #321622);',
+            visual: 'background: linear-gradient(145deg, rgba(255, 77, 46, 0.26), rgba(255, 209, 163, 0.14));',
+        };
+    }
+
     if (/performance-premium|sport|fitness|coach|coaching|salle de sport|musculation|nutrition|performance|cours/.test(source)) {
         return {
             canvas: 'background: linear-gradient(145deg, #071015, #101920 54%, #1c252d);',
@@ -14918,6 +17794,14 @@ const getKirbyPreviewStyle = (proposal = {}) => {
             canvas: 'background: linear-gradient(145deg, #fbfbfd, #f0f2f7);',
             hero: 'background: linear-gradient(120deg, #ffffff, #f3eee3);',
             visual: 'background: radial-gradient(circle at 50% 35%, rgba(190, 153, 86, 0.24), transparent 0.8rem), linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(220, 211, 191, 0.48));',
+        };
+    }
+
+    if (/funeral-home|funeral|funeraire|funéraire|obseques|obsèques|deuil|hommage prive|hommage privé|maison clarte|maison clarté/.test(source)) {
+        return {
+            canvas: 'background: linear-gradient(145deg, #f8f3ea, #e8f0ea 54%, #dfe9ee);',
+            hero: 'background: radial-gradient(circle at 78% 12%, rgba(201, 178, 122, 0.22), transparent 15rem), radial-gradient(circle at 22% 72%, rgba(155, 190, 183, 0.18), transparent 16rem), linear-gradient(120deg, #fffaf1, #eaf1ec);',
+            visual: 'background: radial-gradient(circle at 42% 32%, rgba(255, 255, 255, 0.86), transparent 1.2rem), linear-gradient(145deg, rgba(255, 250, 241, 0.98), rgba(216, 228, 223, 0.82));',
         };
     }
 
@@ -14999,6 +17883,24 @@ const getKirbyPreviewStyle = (proposal = {}) => {
 };
 
 const getKirbyPreviewImageStyle = (proposal = {}, brief = '') => {
+    if (proposal.heroImageUrl) {
+        return `background-image: linear-gradient(145deg, rgba(255, 255, 255, 0.04), rgba(15, 18, 29, 0.1)), url('${String(proposal.heroImageUrl).replace(/'/g, '%27')}');`;
+    }
+
+    const visualPlan = getKirbyVisualPlan(proposal, brief);
+    const heroSlot = visualPlan && typeof visualPlan === 'object' ? visualPlan.hero : null;
+    const heroQuery = getKirbyVisualSlotQuery(heroSlot || {}, [
+        heroSlot?.subject,
+        heroSlot?.purpose,
+        heroSlot?.composition,
+    ].filter(Boolean).join(','));
+
+    if (heroQuery && heroQuery !== 'real%2Cdetail%2Cplace') {
+        return `background-image: linear-gradient(145deg, rgba(255, 255, 255, 0.04), rgba(15, 18, 29, 0.1)), url('https://source.unsplash.com/900x900/?${heroQuery}');`;
+    }
+
+    return 'background-image: radial-gradient(circle at 42% 32%, color-mix(in srgb, var(--surface-accent, #48e5ff) 22%, transparent), transparent 1.5rem), radial-gradient(circle at 68% 62%, color-mix(in srgb, var(--surface-accent-2, #fbbf24) 18%, transparent), transparent 2rem), linear-gradient(145deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04));';
+
     const signals = getKirbyBriefSignals(brief);
     const visualConcept = getKirbyVisualConcept(proposal);
     const source = normalizeKirbyText([
@@ -15285,6 +18187,18 @@ const getKirbyPreviewImageStyle = (proposal = {}, brief = '') => {
 };
 
 const getKirbyGalleryImageStyles = (proposal = {}, brief = '') => {
+    const visualPlan = getKirbyVisualPlan(proposal, brief);
+    const slots = getKirbyVisualPlanSlots(visualPlan).filter((slot) => slot !== visualPlan.hero).slice(0, 6);
+
+    if (slots.length) {
+        return slots.map((slot, index) => {
+            const query = getKirbyVisualSlotQuery(slot, `${slot.subject || ''},${slot.purpose || ''}`);
+            return `background-image: linear-gradient(145deg, rgba(255,255,255,0.05), rgba(15,18,29,0.08)), url('https://source.unsplash.com/700x700/?${query}'); --i: ${index};`;
+        });
+    }
+
+    return [];
+
     const signals = getKirbyBriefSignals(brief);
     const visualConcept = getKirbyVisualConcept(proposal);
     const source = normalizeKirbyText([
@@ -15605,10 +18519,38 @@ const requestKirbyProposal = async ({ brief, revision = '', currentProposal = nu
     });
 
     if (!response.ok) {
-        throw new Error('kirby_request_failed');
+        let details = null;
+        try {
+            details = await response.json();
+        } catch (error) {
+            details = null;
+        }
+        const message = details?.error || 'kirby_request_failed';
+        const requestError = new Error(message);
+        requestError.details = details;
+        requestError.status = response.status;
+        throw requestError;
     }
 
     return response.json();
+};
+
+const getKirbyPipelineErrorIssues = (error) => {
+    const details = error?.details || {};
+    if (Array.isArray(details.issues) && details.issues.length) {
+        return details.issues.map((issue) => String(issue || '').trim()).filter(Boolean);
+    }
+    return [details.error || error?.message || 'Pipeline Kirby interrompu.'].filter(Boolean);
+};
+
+const assertKirbyPayloadProposal = (payload) => {
+    if (!payload || !payload.proposal || typeof payload.proposal !== 'object') {
+        const error = new Error('kirby_pipeline_missing_proposal');
+        error.details = { issues: ['Aucune proposition structurée retournée par le pipeline.'] };
+        throw error;
+    }
+
+    return payload.proposal;
 };
 
 const getKirbyRuntimeLabel = (payload = {}) => {
@@ -15675,107 +18617,15 @@ const getKirbyLayoutVariant = (proposal = {}, brief = '', isDashboardPreview = f
         return 'product-dashboard';
     }
 
-    const signals = getKirbyBriefSignals(brief);
     const visualConcept = getKirbyVisualConcept(proposal);
-    const source = normalizeKirbyText([
-        brief,
-        proposal.layoutVariant,
-        proposal.visualMood,
-        proposal.projectType,
-        proposal.siteModel && proposal.siteModel.name,
-        proposal.styleGuide && proposal.styleGuide.layout,
-        proposal.styleGuide && proposal.styleGuide.direction,
-        visualConcept.layoutSignature,
-        visualConcept.heroComposition,
-        visualConcept.signatureMoment,
-        visualConcept.wowFactor,
-    ].filter(Boolean).join(' '));
     const requestedVariant = normalizeKirbyLayoutVariant(proposal.layoutVariant || visualConcept.layoutVariant || visualConcept.layoutSignature);
-    const invalidRequestedVariant = (requestedVariant === 'story-world' && !signals.isEducationKids)
-        || (requestedVariant === 'finance-os' && !signals.isAccountingApp && !signals.isFutureBank)
-        || (requestedVariant === 'product-dashboard' && !signals.isSport && !signals.isAccountingApp && !/logiciel|application|dashboard|plateforme|app\b/.test(source));
-    const safeRequestedVariant = invalidRequestedVariant ? '' : requestedVariant;
-    const explicitSurfaceIntent = hasKirbySurfaceDesignIntent(brief);
 
-    if (signals.isAccountingApp || /accounting-neural|comptabilite|comptable|facturation|tva|tresorerie/.test(source)) {
-        if (!safeRequestedVariant || ['product-dashboard', 'story-world', 'classic-conversion', 'warm-editorial', 'lumina-showcase'].includes(safeRequestedVariant)) {
-            return 'finance-os';
-        }
-    }
-
-    if (signals.isFutureBank) {
-        return 'finance-os';
-    }
-
-    if (signals.isEducationKids || /kids-future|comptine|mini-jeu|mini jeu/.test(source)) {
-        if (!safeRequestedVariant || ['product-dashboard', 'classic-conversion', 'warm-editorial', 'lumina-showcase'].includes(safeRequestedVariant)) {
-            return 'story-world';
-        }
-    }
-
-    if (signals.isDreamPortal) {
-        return 'lumina-showcase';
-    }
-
-    if (!explicitSurfaceIntent) {
-        if (signals.isUnderwaterHotel || signals.isSpaceTourism || signals.isFloatingCity || signals.isExplorerAcademy || signals.isClimateLab || signals.isHotel || signals.isTravel || signals.isUrbanFarm) {
-            return 'cinematic-video';
-        }
-
-        if (signals.isImmersiveMuseum || signals.isArchitecture || signals.isLibrary) {
-            return 'gallery-focus';
-        }
-
-        if (signals.isRestaurant) {
-            return 'warm-editorial';
-        }
-
-        if (signals.isSport) {
-            return 'product-dashboard';
-        }
-
-        if (signals.isLegal || signals.isVeterinary) {
-            return safeRequestedVariant && safeRequestedVariant !== 'lumina-showcase'
-                ? safeRequestedVariant
-                : 'minimal-editorial';
-        }
-    }
-
-    if ((explicitSurfaceIntent || /lumina-future|lumina-showcase/.test(source)) && !signals.isAccountingApp && !signals.isEducationKids) {
-        if (!safeRequestedVariant || ['classic-conversion', 'minimal-editorial', 'luxury-asymmetric', 'warm-editorial', 'gallery-focus', 'story-world'].includes(safeRequestedVariant)) {
-            return 'lumina-showcase';
-        }
-    }
-
-    if (safeRequestedVariant) {
-        return safeRequestedVariant;
-    }
-
-    if (/video|cinematic|immersif|immersive|plein ecran|full bleed/.test(source) || signals.isHotel) {
-        return 'cinematic-video';
-    }
-
-    if (/galerie|gallery|portfolio|realisations|projets|book|photo/.test(source) || signals.isArchitecture) {
-        return 'gallery-focus';
-    }
-
-    if (/minimal|sobre|ultra simple|editorial/.test(source)) {
-        return 'minimal-editorial';
-    }
-
-    if (/luxe|luxury|signature|asymetrique|asymmetric|premium/.test(source)) {
-        return 'luxury-asymmetric';
-    }
-
-    if (signals.isRestaurant || /warm|chaleur|restaurant|terroir|italien/.test(source)) {
-        return 'warm-editorial';
-    }
-
-    const variants = ['classic-conversion', 'minimal-editorial', 'luxury-asymmetric'];
-    return variants[getKirbyHash(`${brief} ${proposal.siteName || ''} ${source}`) % variants.length];
+    return requestedVariant || 'lumina-showcase';
 };
 
 const getKirbySectorExperienceModel = (proposal = {}, brief = '') => {
+    return null;
+
     const signals = getKirbyBriefSignals(brief);
     const visualConcept = getKirbyVisualConcept(proposal);
     const sectorKey = normalizeKirbyText(proposal.sectorKey || '');
@@ -15954,7 +18804,12 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
         return;
     }
 
-    const safeProposal = normalizeKirbyProposalForBrief(proposal, brief);
+    const safeProposal = cloneKirbyProposal(proposal);
+    const pipelineIssues = getKirbyPipelineValidationIssues(safeProposal, brief, runtime);
+    if (pipelineIssues.length) {
+        renderKirbyPipelineError('Génération arrêtée par le contrôle qualité', pipelineIssues);
+        return;
+    }
     const siteModel = getKirbySiteModel(safeProposal);
     const pages = getKirbyArray(safeProposal.pages, 7);
     const homeSections = getKirbyArray(safeProposal.homeSections, 3);
@@ -15989,6 +18844,23 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
         .map((service) => getKirbyItemTitle(service))
         .filter(Boolean)
         .slice(0, 6);
+    const briefSummaryForContact = hasKirbyCrisisManagementIntent(brief)
+        ? 'Agence de gestion de crise : scénarios médiatique, juridique, sociale, cyber et réputationnelle, méthodologie, expertises, urgence, formations et formulaire confidentiel.'
+        : hasKirbyFuneralHomeIntent(brief)
+        ? 'Maison funéraire : démarches avant/pendant/après, cérémonies civiles ou religieuses, prévoyance, administratif, familles éloignées et espace hommage privé.'
+        : hasKirbyEnergyRenovationIntent(brief)
+        ? 'Rénovation énergétique : logement, problèmes, budget, prédiagnostic, estimation, aides, certifications, réalisations, garanties et dossier complet.'
+        : hasKirbyRestaurantManagementSaasIntent(brief)
+        ? 'SaaS restaurateurs : réservations, stocks, fournisseurs, coûts recettes, planning équipe, démo, formules, comparatif et multi-restaurants.'
+        : hasKirbySeniorMobilityIntent(brief)
+        ? 'Transport accompagné senior : bénéficiaires, familles, types de trajets, sécurité, zones, tarifs, trajet régulier et partenariats.'
+        : hasKirbyPrivateSchoolIntent(brief)
+        ? 'École privée multi-niveaux : futurs parents, familles inscrites, enseignants candidats, pédagogie, niveaux, agenda, documents et visite virtuelle.'
+        : hasKirbySportsRehabIntent(brief)
+        ? 'Centre de rééducation sportive : équipe pluridisciplinaire, parcours blessure/sport/reprise, équipements, protocoles, bilans, prévention et suivi à distance.'
+        : hasKirbyMedicalCenterIntent(brief)
+            ? 'Centre médical pluridisciplinaire : spécialités, praticiens filtrables, rendez-vous, prévention, accès, urgence et espace professionnels.'
+            : brief || 'Projet à préciser';
     const primaryCta = ctas[0] || 'Découvrir';
     const secondaryCta = ctas[1] || 'Contacter';
     const tertiaryCta = ctas[2] || 'Contacter maintenant';
@@ -15999,7 +18871,7 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
         safeProposal.visualMood,
         safeProposal.projectType,
         siteModel.name,
-        brief,
+        getKirbyPositiveBriefText(brief),
     ].filter(Boolean).join(' '));
     const briefSignals = getKirbyBriefSignals(brief);
     const layoutVariant = getKirbyLayoutVariant(safeProposal, brief, false);
@@ -16010,33 +18882,7 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
     const isKidsFuturePreview = !isFinancePreview && !isDreamPreview && ((layoutVariant === 'story-world' && briefSignals.isEducationKids) || briefSignals.isEducationKids || /kids-future|comptine|mini-jeu|mini jeu|luna|leo|léo/.test(toneSource));
     const sectorExperience = getKirbySectorExperienceModel(safeProposal, brief);
     const isSectorExperiencePreview = Boolean(sectorExperience);
-    const previewTone = isFinancePreview
-        ? 'is-finance-os'
-        : isKidsFuturePreview
-        ? 'is-kids-future'
-        : isDreamPreview
-        ? 'is-dream-portal'
-        : isSectorExperiencePreview
-        ? 'is-sector-experience'
-        : briefSignals.isExplorerAcademy
-        ? 'is-adventure'
-        : briefSignals.isClimateLab
-        ? 'is-climate-lab'
-        : isLuminaPreview
-        ? 'is-lumina'
-        : isDashboardPreview
-        ? 'is-dashboard'
-        : /tech-premium|digital|generateur|ia|site web|creation web/.test(toneSource)
-        ? 'is-tech'
-        : !briefSignals.isHotel && /beauty-wellness|estheticien|estheticienne|esthetique|beaute|massage|soin|epilation|spa|bien etre|bien-etre/.test(toneSource)
-            ? 'is-beauty'
-            : /artisan|plombier|electricien|menuisier|peintre|charpentier|maconnerie|renovation|rge|travaux|btp/.test(toneSource)
-                ? 'is-artisan'
-                : /sport|fitness|coach|coaching|salle de sport|musculation|yoga|pilates|crossfit|running|performance/.test(toneSource)
-                    ? 'is-sport'
-                    : /hotel|hebergement|chambre|gite|lodge/.test(toneSource)
-                        ? 'is-hotel'
-                        : '';
+    const previewTone = 'is-lumina';
     const sectorClass = `sector-${normalizeKirbyText(safeProposal.sectorKey || 'generic').replace(/[^a-z0-9-]/g, '-') || 'generic'}`;
     const dashboardInitials = cleanHtml(siteName
         .split(/\s+/)
@@ -16047,7 +18893,7 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
         .toUpperCase() || 'SA');
     const dashboardBrand = cleanHtml(siteName);
     const projectSummary = [
-        `Activite : ${getKirbyShortText(brief || 'Projet a preciser', 170)}`,
+        `Activite : ${getKirbyShortText(briefSummaryForContact, 170)}`,
         `Type de site : ${safeProposal.projectType || siteModel.name || 'Site professionnel'}`,
         `Objectif : ${getKirbyShortText(primaryCta || 'Generer une premiere base de site claire.', 120)}`,
         `Style souhaite : ${getKirbyShortText(safeProposal.visualMood || safeProposal.styleGuide?.direction || 'Style professionnel et lisible', 120)}`,
@@ -16058,7 +18904,7 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
         'Bonjour,',
         '',
         `Le générateur SA a préparé une proposition pour : ${siteName}.`,
-        `Besoin de départ : ${brief || 'Projet à préciser'}`,
+        `Besoin de départ : ${briefSummaryForContact}`,
         `Type de projet : ${safeProposal.projectType || siteModel.name || 'Site professionnel'}`,
         `Pages proposées : ${visiblePageNames.length ? visiblePageNames.join(', ') : 'Accueil, Services, Contact'}`,
         `Actions conseillées : ${[primaryCta, secondaryCta, tertiaryCta].filter(Boolean).join(', ')}`,
@@ -16346,13 +19192,14 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
             </div>
         </nav>
     `;
+    const sectionTextLimit = briefSignals.isCrisisManagement || briefSignals.isFuneralHome || briefSignals.isSportsRehab || briefSignals.isMedicalCenter ? 116 : 72;
     const sectionsMarkup = `
         <div class="kirby-live-sections">
             ${visibleSections.slice(0, 3).map((section, index) => `
                 <article>
                     <em>${String(index + 1).padStart(2, '0')}</em>
                     <strong>${cleanHtml(getKirbyItemTitle(section))}</strong>
-                    <span>${cleanHtml(getKirbyShortText(getKirbyItemText(section), 72))}</span>
+                    <span>${cleanHtml(getKirbyShortText(getKirbyItemText(section), sectionTextLimit))}</span>
                 </article>
             `).join('')}
         </div>
@@ -16370,6 +19217,12 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
             <p class="kirby-slogan">${cleanHtml(safeProposal.slogan || '')}</p>
             ${actionsMarkup}
             ${heroMetaText ? `<p class="kirby-hero-meta">${heroMetaText}</p>` : ''}
+        </div>
+    `;
+    const heroVisualMarkup = `
+        <div class="kirby-hero-visual kirby-hero-image" style="${previewStyle.visual} ${previewImageStyle}" aria-hidden="true">
+            <span></span><span></span><span></span>
+            <div class="kirby-hero-chip">${cleanHtml(getKirbyShortText(primaryCta, 22))}</div>
         </div>
     `;
     const kidsModuleCards = visibleSections.slice(0, 3).map((section, index) => ({
@@ -16567,28 +19420,8 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
         { title: secondaryCta, text: safeProposal.positioning?.promise || 'Parcours clair et mémorable.' },
         { title: tertiaryCta, text: safeProposal.visualConcept?.wowFactor || 'Expérience premium et lisible.' },
     ]).slice(0, 4);
-    const luminaBadge = briefSignals.isHotel
-        ? 'Réservation'
-        : briefSignals.isTravel
-        ? 'Itinéraire'
-        : briefSignals.isLibrary
-        ? 'Lieu vivant'
-        : briefSignals.isUrbanFarm
-        ? 'Culture pilotée'
-        : /assistant|ia\b/.test(toneSource)
-        ? 'IA active'
-        : 'Concept vivant';
-    const luminaSupportLabel = /assistant|ia\b/.test(toneSource)
-        ? 'Assistant IA'
-        : briefSignals.isHotel
-        ? 'Séjour'
-        : briefSignals.isTravel
-        ? 'Parcours'
-        : briefSignals.isLibrary
-        ? 'Expérience'
-        : briefSignals.isUrbanFarm
-        ? 'Pilotage'
-        : 'Parcours';
+    const luminaBadge = cleanKirbyGeneratedText(primaryCta) || 'Contact';
+    const luminaSupportLabel = cleanKirbyGeneratedText(visibleSections[1]?.title || secondaryCta) || 'Parcours';
     const luminaPreview = `
         <div class="kirby-lumina-showcase" aria-label="Aperçu premium ${cleanHtml(siteName)}">
             <nav class="kirby-lumina-nav">
@@ -16600,7 +19433,7 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
             </nav>
             <section class="kirby-lumina-hero">
                 <div class="kirby-lumina-copy">
-                    <p class="signal-label">${cleanHtml(siteModel.name)}</p>
+                    <p class="signal-label">${cleanHtml(getKirbyShortText(safeProposal.projectType || safeProposal.positioning?.tone || 'Projet', 34))}</p>
                     <h3>${cleanHtml(siteName)}</h3>
                     <p>${cleanHtml(getKirbyShortText(safeProposal.valueProposition || safeProposal.slogan || 'Une expérience premium, claire et mémorable.', 150))}</p>
                     ${actionsMarkup}
@@ -16640,10 +19473,7 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
         ${navMarkup}
         <section class="kirby-live-hero" style="${previewStyle.hero}">
             ${heroCopyMarkup}
-            <div class="kirby-hero-visual kirby-hero-image" style="${previewStyle.visual} ${previewImageStyle}" aria-hidden="true">
-                <span></span><span></span><span></span>
-                <div class="kirby-hero-chip">${cleanHtml(getKirbyShortText(primaryCta, 22))}</div>
-            </div>
+            ${heroVisualMarkup}
         </section>
         ${sectionsMarkup}
         ${safeProposal.showGallery ? galleryMarkup : ''}
@@ -16748,17 +19578,7 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
         ${sectionsMarkup}
         ${footerMarkup}
     `;
-    const websitePreview = isFinancePreview ? financePreview : isKidsFuturePreview ? kidsWorldPreview : isDreamPreview ? dreamPreview : isSectorExperiencePreview ? sectorExperiencePreview : isLuminaPreview ? luminaPreview : isDashboardPreview ? dashboardPreview : ({
-        'finance-os': financePreview,
-        'story-world': kidsWorldPreview,
-        'lumina-showcase': luminaPreview,
-        'cinematic-video': cinematicPreview,
-        'gallery-focus': galleryPreview,
-        'minimal-editorial': minimalPreview,
-        'luxury-asymmetric': asymmetricPreview,
-        'warm-editorial': warmPreview,
-        'classic-conversion': classicPreview,
-    }[layoutVariant] || classicPreview);
+    const websitePreview = luminaPreview;
 
     if (quoteItems.length) {
         quoteParams.set('items', quoteItems.join('|'));
@@ -16800,6 +19620,7 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
             return;
         }
 
+        const requestId = beginKirbyRequest();
         setKirbyLoading();
         const rebuildContext = getKirbyRevisionRebuildContext(brief, revision);
         const targetBrief = rebuildContext.shouldRebuild ? rebuildContext.rebuiltBrief : brief;
@@ -16809,8 +19630,12 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
             const payload = shouldResetArchitecture
                 ? await requestKirbyProposal({ brief: targetBrief, revision: '', currentProposal: null })
                 : await requestKirbyProposal({ brief, revision, currentProposal: safeProposal });
+            if (!isKirbyRequestCurrent(requestId)) {
+                return;
+            }
+            const proposalFromPayload = assertKirbyPayloadProposal(payload);
             const revisedProposal = normalizeKirbyProposalForBrief(
-                payload.proposal || buildKirbyCleanRevisionProposal({ brief, revision, currentProposal: safeProposal }),
+                proposalFromPayload,
                 targetBrief,
             );
             kirbyConceptNonce += 1;
@@ -16821,17 +19646,40 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
                 seed: kirbyConceptNonce,
             });
         } catch (error) {
-            console.warn('Kirby revision fallback:', error);
-            const fallbackProposal = buildKirbyCleanRevisionProposal({ brief, revision, currentProposal: safeProposal });
-            kirbyConceptNonce += 1;
-            renderKirbyConceptExperience({
-                baseProposal: fallbackProposal,
-                brief: targetBrief,
-                runtime: { source: 'fallback' },
-                seed: kirbyConceptNonce,
-            });
+            if (!isKirbyRequestCurrent(requestId)) {
+                return;
+            }
+            console.error('Kirby revision blocked:', error);
+            renderKirbyPipelineError('Modification non rendue', getKirbyPipelineErrorIssues(error));
         }
     });
+};
+
+const renderKirbyPipelineError = (title = 'Pipeline Kirby bloqué', issues = []) => {
+    if (!aiBriefOutput) {
+        return;
+    }
+
+    const cleanIssues = getKirbyArray(issues, 8)
+        .map((issue) => String(issue || '').trim())
+        .filter(Boolean);
+
+    aiBriefOutput.closest('.ai-brief-panel')?.classList.remove('has-proposal');
+    aiBriefOutput.classList.remove('is-loading');
+    aiBriefOutput.innerHTML = `
+        <div class="kirby-generation-stage" aria-label="Contrôle qualité Kirby">
+            <div class="kirby-generation-overlay">
+                <p class="signal-label">Contrôle qualité bloquant</p>
+                <h3>${escapeHtml(title)}</h3>
+                <p>La page n’est pas rendue pour éviter une régression vers une ancienne maquette ou un contenu hors brief.</p>
+                ${cleanIssues.length ? `
+                    <ul>
+                        ${cleanIssues.map((issue) => `<li>${escapeHtml(issue)}</li>`).join('')}
+                    </ul>
+                ` : ''}
+            </div>
+        </div>
+    `;
 };
 
 const setKirbyLoading = (message = 'Génération du site...') => {
@@ -16872,26 +19720,28 @@ kirbyAutopilotButtons.forEach((button) => {
         }
 
         const brief = `${baseBrief}\n\nMission Kirby : prends le projet en main. Déduis la direction de marque et de design depuis la demande, construis le parcours client complet, rédige les contenus prioritaires, prépare le SEO et livre une première version forte à ajuster.`;
+        const requestId = beginKirbyRequest();
         setKirbyLoading('Kirby prend le projet en main…');
 
         try {
             const payload = await requestKirbyProposal({ brief });
+            if (!isKirbyRequestCurrent(requestId)) {
+                return;
+            }
+            const proposalFromPayload = assertKirbyPayloadProposal(payload);
             kirbyConceptNonce += 1;
             renderKirbyConceptExperience({
-                baseProposal: payload.proposal || buildBrowserKirbyProposal(brief),
+                baseProposal: proposalFromPayload,
                 brief,
                 runtime: payload,
                 seed: kirbyConceptNonce,
             });
         } catch (error) {
-            console.warn('Kirby autopilot fallback:', error);
-            kirbyConceptNonce += 1;
-            renderKirbyConceptExperience({
-                baseProposal: buildBrowserKirbyProposal(brief),
-                brief,
-                runtime: { source: 'fallback' },
-                seed: kirbyConceptNonce,
-            });
+            if (!isKirbyRequestCurrent(requestId)) {
+                return;
+            }
+            console.error('Kirby autopilot blocked:', error);
+            renderKirbyPipelineError('Génération non rendue', getKirbyPipelineErrorIssues(error));
         }
     });
 });
@@ -16913,26 +19763,28 @@ if (aiBriefForm && aiBriefInput && aiBriefOutput) {
             return;
         }
 
+        const requestId = beginKirbyRequest();
         setKirbyLoading();
 
         try {
             const payload = await requestKirbyProposal({ brief });
+            if (!isKirbyRequestCurrent(requestId)) {
+                return;
+            }
+            const proposalFromPayload = assertKirbyPayloadProposal(payload);
             kirbyConceptNonce += 1;
             renderKirbyConceptExperience({
-                baseProposal: payload.proposal || buildBrowserKirbyProposal(brief),
+                baseProposal: proposalFromPayload,
                 brief,
                 runtime: payload,
                 seed: kirbyConceptNonce,
             });
         } catch (error) {
-            console.warn('Kirby assistant fallback:', error);
-            kirbyConceptNonce += 1;
-            renderKirbyConceptExperience({
-                baseProposal: buildBrowserKirbyProposal(brief),
-                brief,
-                runtime: { source: 'fallback' },
-                seed: kirbyConceptNonce,
-            });
+            if (!isKirbyRequestCurrent(requestId)) {
+                return;
+            }
+            console.error('Kirby assistant blocked:', error);
+            renderKirbyPipelineError('Génération non rendue', getKirbyPipelineErrorIssues(error));
         }
     });
 }
