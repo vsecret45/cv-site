@@ -5707,7 +5707,7 @@ const getRequestedCvRole = ({ task, jobOffer = '', instruction = '' } = {}) => {
 };
 
 const finalizeCvAssistantResult = ({ result, cv, task, jobOffer, instruction }) => {
-    const assistantResult = enhanceCvGapDrafts(sanitizeCvAssistantResult(result, cv), { cv, instruction });
+    const assistantResult = enhanceCvGapDrafts(sanitizeCvAssistantResult(result, cv), { cv, instruction, jobOffer });
     const requestedRole = getRequestedCvRole({ task, jobOffer, instruction });
 
     if (!requestedRole) {
@@ -6000,23 +6000,23 @@ const digitalProjectExperienceDetails = {
     title: 'Créatrice de projets numériques - Autoformation et développement',
     description: [
         'Conception et développement de plateformes web.',
-        'Gestion de projets digitaux.',
+        'Création et mise à jour de sites web.',
         "Utilisation d'outils d'intelligence artificielle pour le développement.",
         'Coordination de développements avec des assistants IA.',
-        "Amélioration de l'expérience utilisateur (UX/UI).",
+        "Amélioration de l'expérience utilisateur et des interfaces.",
         'Tests fonctionnels et suivi des évolutions.',
-        'Développement de compétences en gestion de projet, communication digitale et résolution de problèmes.',
+        'Développement de compétences front-end, notions back-end et intégration web.',
     ],
     skills: [
-        'Gestion de projet',
-        'Développement web',
-        'IA',
-        'Communication digitale',
-        'UX/UI',
+        'Front-end : HTML / CSS',
+        'Notions JavaScript',
+        'Notions back-end',
+        'Intégration web',
+        'Création et mise à jour de sites web',
+        'Outils numériques et IA',
         'Tests fonctionnels',
         'Organisation',
         'Autonomie',
-        'Résolution de problèmes',
     ],
 };
 
@@ -6026,7 +6026,7 @@ const shouldUseDigitalProjectExperienceDetails = ({ instruction = '', experience
         ...experiences.map((experience) => `${experience.title || ''} ${experience.period || ''} ${experience.organization || ''}`),
     ].join(' ')).toLowerCase());
 
-    return /\b(creatrice de projets numeriques|projets numeriques|creation de projets numeriques|autoformation|developpement web|assistant ia|intelligence artificielle|ux\/ui|2025\s*-\s*2026)\b/.test(source);
+    return /\b(creatrice de projets numeriques|projets numeriques|creation de projets numeriques|autoformation|developpement web|assistant ia|intelligence artificielle|ux\/ui|front-end|frontend|back-end|backend|integration web|int[eé]gration web)\b/.test(source);
 };
 
 const filterCvPeriodGapsForReadyCv = ({ periodGaps = [], generatedExperiences = [], cv = {}, instruction = '' } = {}) => {
@@ -6120,7 +6120,39 @@ const normalizeGeneratedExperiencePeriods = (experiences = [], { cv = {}, instru
     });
 };
 
-const enhanceCvGapDrafts = (assistantResult, { cv = {}, instruction = '' } = {}) => {
+const normalizeCvSuggestedSkills = (skills = []) => {
+    const canonicalByPattern = [
+        [/\bfront\s*-?\s*end\b|\bfrontend\b|html|css/i, 'Front-end : HTML / CSS'],
+        [/\bjava\s*script\b|\bjavascript\b/i, 'Notions JavaScript'],
+        [/\bback\s*-?\s*end\b|\bbackend\b/i, 'Notions back-end'],
+        [/\bint[eé]gration\s+web\b/i, 'Intégration web'],
+        [/\bd[eé]veloppement\s+web\b/i, 'Création et mise à jour de sites web'],
+        [/\bux\b|\bui\b|interfaces?\b/i, 'Amélioration des interfaces'],
+        [/\bcr[eé]ation\b.*\bsites?\s+web\b|\bmise\s+[aà]\s+jour\b.*\bsites?\s+web\b/i, 'Création et mise à jour de sites web'],
+        [/\bia\b|intelligence artificielle|outils numeriques|outils numériques/i, 'Outils numériques et IA'],
+        [/tests?\s+fonctionnels?/i, 'Tests fonctionnels'],
+    ];
+    const seen = new Set();
+
+    return toCvStringList(skills, 16, 80)
+        .map((skill) => {
+            const canonical = canonicalByPattern.find(([pattern]) => pattern.test(skill))?.[1];
+            return canonical || skill.replace(/\s*[-–—]?\s*[aà]\s+confirmer\b/gi, '').trim();
+        })
+        .filter(Boolean)
+        .filter((skill) => !/\bgestion\s+de\s+projet\s+digital\b/i.test(skill))
+        .filter((skill) => {
+            const key = stripAccents(skill.toLowerCase());
+            if (seen.has(key)) {
+                return false;
+            }
+            seen.add(key);
+            return true;
+        })
+        .slice(0, 12);
+};
+
+const enhanceCvGapDrafts = (assistantResult, { cv = {}, instruction = '', jobOffer = '' } = {}) => {
     const result = assistantResult && typeof assistantResult === 'object' ? assistantResult : {};
     const generatedExperiences = normalizeGeneratedExperiencePeriods(
         Array.isArray(result.generatedExperiences) ? result.generatedExperiences : [],
@@ -6138,7 +6170,7 @@ const enhanceCvGapDrafts = (assistantResult, { cv = {}, instruction = '' } = {})
                 ...experience,
                 title: experience.title || digitalProjectExperienceDetails.title,
                 description: digitalProjectExperienceDetails.description,
-                skills: toCvStringList([...(experience.skills || []), ...digitalProjectExperienceDetails.skills], 12, 80),
+                skills: normalizeCvSuggestedSkills([...(experience.skills || []), ...digitalProjectExperienceDetails.skills]),
             });
         })
         : generatedExperiences;
@@ -6175,11 +6207,15 @@ const enhanceCvGapDrafts = (assistantResult, { cv = {}, instruction = '' } = {})
 
             return true;
         });
-    const suggestedSkills = toCvStringList([
+    const canSuggestSkills = shouldEnhanceDigitalProject
+        || educationSuggestions.length > 0
+        || normalizeText(jobOffer).length > 0
+        || /\b(comp[eé]tences?|skills?|propose|proposer|ajoute|ajouter|valorise|valoriser|comble|combler|bouche|boucher|complete|compl[eé]ter|remplis|remplir|projets?\s+num[eé]riques?|num[eé]rique|web|autoformation|formation)\b/.test(instructionSource);
+    const suggestedSkills = canSuggestSkills ? normalizeCvSuggestedSkills([
         ...(result.suggestedSkills || []),
         ...(shouldEnhanceDigitalProject ? digitalProjectExperienceDetails.skills : []),
         ...educationSuggestions.flatMap((education) => education.skills || []),
-    ], 12, 80);
+    ]) : [];
     const requestedLanguages = getCvLanguagesFromText(instruction);
     const languagesByKey = new Map(
         [
