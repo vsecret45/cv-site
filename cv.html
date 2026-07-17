@@ -15,7 +15,7 @@
         rel="stylesheet"
     >
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-    <link rel="stylesheet" href="style.css?v=20260717-cv-stability-v1">
+    <link rel="stylesheet" href="style.css?v=20260717-auth-confirmation-v1">
 </head>
 <body class="is-preload cv-workspace-page cv-workspace-locked">
     <div class="page-shell">
@@ -837,6 +837,10 @@ Arabe</textarea>
                 </form>
             </div>
             <p class="auth-feedback" id="auth-feedback" aria-live="polite"></p>
+            <div class="auth-resend-row is-hidden" id="auth-resend-row">
+                <button class="auth-inline-action auth-resend-button" id="auth-resend-button" type="button">Renvoyer l'e-mail de confirmation</button>
+                <p class="auth-resend-hint" id="auth-resend-hint" aria-live="polite"></p>
+            </div>
         </div>
     </section>
 
@@ -844,7 +848,7 @@ Arabe</textarea>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js" defer></script>
-    <script src="auth-signup-utils.js?v=20260717-cv-stability-v1" defer></script>
-    <script src="script.js?v=20260717-cv-stability-v1" defer></script>
+    <script src="auth-signup-utils.js?v=20260717-auth-confirmation-v1" defer></script>
+    <script src="script.js?v=20260717-auth-confirmation-v1" defer></script>
 </body>
 </html>

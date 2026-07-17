@@ -135,6 +135,9 @@ const authLoginForm = document.querySelector('#auth-login-form');
 const authSignupForm = document.querySelector('#auth-signup-form');
 const authResetPasswordForm = document.querySelector('#auth-reset-password-form');
 const authForgotPasswordButton = document.querySelector('#auth-forgot-password');
+const authResendRow = document.querySelector('#auth-resend-row');
+const authResendButton = document.querySelector('#auth-resend-button');
+const authResendHint = document.querySelector('#auth-resend-hint');
 const passwordToggleButtons = document.querySelectorAll('[data-password-toggle]');
 const authClientLink = document.querySelector('#auth-client-link');
 const authSettingsLink = document.querySelector('#auth-settings-link');
@@ -153,6 +156,8 @@ const cvGateSignupButton = document.querySelector('#cv-gate-signup');
 const PDFJS_MODULE_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/legacy/build/pdf.min.mjs';
 const PDFJS_WORKER_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/legacy/build/pdf.worker.min.mjs';
 const SUPABASE_BROWSER_MODULE_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+const OFFICIAL_AUTH_ORIGIN = 'https://sacreationweb.com';
+const AUTH_EDITOR_PATH = '/cv.html';
 const DEFAULT_CV_SECTION_ORDER = ['summary', 'skills', 'experience', 'projects', 'education', 'activities', 'languages'];
 const CV_ROUNDTRIP_START = 'SACW_CV_DATA_V1_START';
 const CV_ROUNDTRIP_END = 'SACW_CV_DATA_V1_END';
@@ -169,6 +174,8 @@ let supabaseAuthListenerReady = false;
 let isSignupRequestInFlight = false;
 let isPasswordResetEmailRequestInFlight = false;
 let isPasswordUpdateRequestInFlight = false;
+let isConfirmationEmailRequestInFlight = false;
+let pendingConfirmationEmail = '';
 let activeEditableNode = null;
 let activeFormatNode = null;
 let savedFormatRange = null;
@@ -961,6 +968,7 @@ const clearAuthFeedbackOnEdit = (event) => {
     }
 
     setAuthFeedback('');
+    setConfirmationResendState();
 };
 
 const setAuthFormBusy = (form, isBusy, busyLabel = 'Veuillez patienter...') => {
@@ -999,12 +1007,32 @@ const setAuthButtonBusy = (button, isBusy, busyLabel = 'Veuillez patienter...') 
     button.textContent = isBusy ? busyLabel : button.dataset.idleText;
 };
 
-const getAuthCallbackUrl = () => `${window.location.origin}/auth/callback`;
+const isLocalAuthHost = () => /^(localhost|127\.0\.0\.1|0\.0\.0\.0)$/.test(window.location.hostname);
+
+const getAuthRedirectOrigin = () => (
+    isLocalAuthHost() || window.location.protocol === 'file:'
+        ? window.location.origin
+        : OFFICIAL_AUTH_ORIGIN
+);
+
+const getAuthCallbackUrl = () => `${getAuthRedirectOrigin()}/auth/callback`;
+
+const getAuthEmailRedirectUrl = () => `${getAuthRedirectOrigin()}${AUTH_EDITOR_PATH}`;
+
+const setConfirmationResendState = ({ email = '', visible = false, hint = '' } = {}) => {
+    pendingConfirmationEmail = normalizeAccountEmail(email);
+    authResendRow?.classList.toggle('is-hidden', !visible || !pendingConfirmationEmail);
+    if (authResendHint) {
+        authResendHint.textContent = hint;
+    }
+};
 
 const isPasswordRecoveryCallback = () => {
     const searchParams = new URLSearchParams(window.location.search);
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-    return searchParams.get('auth_callback') === '1' && hashParams.get('type') === 'recovery';
+    return hashParams.get('type') === 'recovery'
+        || searchParams.get('type') === 'recovery'
+        || (searchParams.get('auth_callback') === '1' && hashParams.get('type') === 'recovery');
 };
 
 const cleanAuthCallbackUrl = () => {
@@ -1056,6 +1084,17 @@ const logSignupAuthEvent = (payload = {}) => {
     }
 };
 
+const getEmailConfirmationRequiredMessage = () =>
+    getAuthSignupUtils().EMAIL_ALREADY_REGISTERED_MESSAGE
+    || 'Cette adresse est déjà inscrite mais n’a pas encore été confirmée. Renvoyer l’e-mail de confirmation.';
+
+const isEmailConfirmationRequiredError = (error) => {
+    const source = String(error?.message || error?.error_description || error?.name || error?.code || '').trim();
+    const normalized = normalizeForMatch(source);
+
+    return /email not confirmed|not confirmed|confirm.*email|email.*confirm|user already registered|already registered|already exists|user.*exists/.test(normalized);
+};
+
 const formatAuthErrorMessage = (error, mode = 'signup') => {
     if (mode === 'signup') {
         const mapSignupError = getAuthSignupUtils().mapAuthErrorToSignupFeedback;
@@ -1075,7 +1114,11 @@ const formatAuthErrorMessage = (error, mode = 'signup') => {
     }
 
     if (/already registered|user already registered|already exists|email address is already/.test(normalized)) {
-        return 'Un compte existe deja avec cet email. Connectez-vous ou utilisez une autre adresse.';
+        return getEmailConfirmationRequiredMessage();
+    }
+
+    if (/email not confirmed|not confirmed|confirm.*email|email.*confirm/.test(normalized)) {
+        return getEmailConfirmationRequiredMessage();
     }
 
     if (/invalid login credentials|invalid credentials/.test(normalized)) {
@@ -1110,6 +1153,9 @@ const setAuthView = (view) => {
     authSignupPanel?.classList.toggle('is-hidden', activeView !== 'signup');
     authResetPasswordPanel?.classList.toggle('is-hidden', activeView !== 'reset-password');
     setAuthFeedback('');
+    if (activeView !== 'signup') {
+        setConfirmationResendState();
+    }
 };
 
 const openAuthModal = (view = 'login') => {
@@ -10453,10 +10499,10 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
 
 const handleAuthLogin = async (event) => {
     event.preventDefault();
+    const formData = new FormData(authLoginForm);
+    const email = normalizeAccountEmail((formData.get('email') || '').toString());
 
     try {
-        const formData = new FormData(authLoginForm);
-        const email = normalizeAccountEmail((formData.get('email') || '').toString());
         const password = (formData.get('password') || '').toString();
         const client = await initializeSupabaseClient();
         const { data, error } = await client.auth.signInWithPassword({ email, password });
@@ -10479,6 +10525,9 @@ const handleAuthLogin = async (event) => {
     } catch (error) {
         console.error(error);
         setAuthFeedback(formatAuthErrorMessage(error, 'login'), true);
+        if (isEmailConfirmationRequiredError(error)) {
+            setConfirmationResendState({ email, visible: true });
+        }
     }
 };
 
@@ -10503,7 +10552,7 @@ const handleForgotPassword = async () => {
     try {
         const client = await initializeSupabaseClient();
         const { error } = await client.auth.resetPasswordForEmail(email, {
-            redirectTo: getAuthCallbackUrl(),
+            redirectTo: getAuthEmailRedirectUrl(),
         });
 
         if (error) {
@@ -10522,6 +10571,61 @@ const handleForgotPassword = async () => {
     } finally {
         isPasswordResetEmailRequestInFlight = false;
         setAuthButtonBusy(authForgotPasswordButton, false);
+    }
+};
+
+const handleResendConfirmationEmail = async () => {
+    if (isConfirmationEmailRequestInFlight) {
+        return;
+    }
+
+    const signupEmail = authSignupForm?.elements?.email?.value || '';
+    const loginEmail = authLoginForm?.elements?.email?.value || '';
+    const email = normalizeAccountEmail(pendingConfirmationEmail || signupEmail || loginEmail);
+
+    if (!email) {
+        setAuthFeedback('Saisissez votre email pour renvoyer la confirmation.', true);
+        return;
+    }
+
+    isConfirmationEmailRequestInFlight = true;
+    setAuthButtonBusy(authResendButton, true, 'Envoi...');
+    if (authResendHint) {
+        authResendHint.textContent = '';
+    }
+
+    try {
+        const client = await initializeSupabaseClient();
+        const { error } = await client.auth.resend({
+            type: 'signup',
+            email,
+            options: {
+                emailRedirectTo: getAuthEmailRedirectUrl(),
+            },
+        });
+
+        if (error) {
+            throw error;
+        }
+
+        setConfirmationResendState({
+            email,
+            visible: true,
+            hint: 'E-mail de confirmation renvoyé. Vérifiez aussi les spams.',
+        });
+        setAuthFeedback('E-mail de confirmation renvoyé.', false);
+    } catch (error) {
+        console.error('Supabase confirmation resend failed', {
+            message: error?.message || '',
+            status: error?.status || null,
+            code: error?.code || '',
+        });
+        console.error(error);
+        setConfirmationResendState({ email, visible: true });
+        setAuthFeedback('Impossible de renvoyer la confirmation pour le moment. Si le compte est déjà confirmé, utilisez Mot de passe oublié.', true);
+    } finally {
+        isConfirmationEmailRequestInFlight = false;
+        setAuthButtonBusy(authResendButton, false);
     }
 };
 
@@ -10611,6 +10715,7 @@ const handleAuthSignup = async (event) => {
                 confirmPassword: (formData.get('confirmPassword') || '').toString(),
             },
             logAuthEvent: logSignupAuthEvent,
+            emailRedirectTo: getAuthEmailRedirectUrl(),
             signUp: async (payload) => {
                 const client = await initializeSupabaseClient();
                 return client.auth.signUp(payload);
@@ -10631,6 +10736,12 @@ const handleAuthSignup = async (event) => {
             }
 
             setAuthFeedback(signupResult.feedback, true);
+            if (signupResult.needsConfirmationResend) {
+                setConfirmationResendState({
+                    email: signupResult.signUpPayload?.email || (formData.get('email') || '').toString(),
+                    visible: true,
+                });
+            }
             return;
         }
 
@@ -10649,8 +10760,19 @@ const handleAuthSignup = async (event) => {
         }
         closeSiteMenu();
         authSignupForm.reset();
-        closeAuthModal();
-        setCvStatus(data?.session ? 'Compte cree et connecte' : 'Compte cree. Confirmez votre email si necessaire.');
+        if (data?.session) {
+            closeAuthModal();
+            setCvStatus('Compte cree et connecte');
+        } else {
+            setAuthView('signup');
+            setAuthFeedback('Compte créé. Confirmez votre adresse e-mail pour vous connecter.', false);
+            setConfirmationResendState({
+                email: signupResult.sanitized?.email || '',
+                visible: true,
+                hint: 'Vous pouvez renvoyer le mail si vous ne l’avez pas reçu.',
+            });
+            setCvStatus('Compte cree. Confirmation email requise.');
+        }
     } catch (error) {
         const requestId = typeof signupUtils.createSignupRequestId === 'function'
             ? signupUtils.createSignupRequestId()
@@ -10851,6 +10973,7 @@ authForgotPasswordButton?.addEventListener('click', handleForgotPassword);
 authSignupForm?.addEventListener('submit', handleAuthSignup);
 authSignupForm?.addEventListener('input', clearAuthFeedbackOnEdit);
 authResetPasswordForm?.addEventListener('submit', handleResetPassword);
+authResendButton?.addEventListener('click', handleResendConfirmationEmail);
 passwordToggleButtons.forEach((button) => {
     button.addEventListener('click', () => {
         const field = button.closest('.password-field')?.querySelector('input');

@@ -6713,6 +6713,19 @@ body.cv-workspace-page .preview-toolbar-group-tools {
     font-weight: 700;
 }
 
+.auth-resend-row {
+    display: grid;
+    gap: 0.45rem;
+    justify-items: center;
+}
+
+.auth-resend-hint {
+    margin: 0;
+    color: #2f3f7f;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
 .hero-studio {
     min-height: 92vh;
 }

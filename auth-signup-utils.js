@@ -14,7 +14,7 @@
     const GENERIC_SIGNUP_ERROR = 'Inscription impossible pour le moment. Réessayez.';
     const SIGNUP_TIMEOUT_MESSAGE = 'La demande prend trop de temps. Réessayez sans recharger la page.';
     const SIGNUP_NETWORK_MESSAGE = 'Connexion au service d’inscription impossible. Vérifiez votre connexion puis réessayez.';
-    const EMAIL_ALREADY_REGISTERED_MESSAGE = 'Un compte existe déjà avec cet email. Connectez-vous ou réinitialisez le mot de passe.';
+    const EMAIL_ALREADY_REGISTERED_MESSAGE = 'Cette adresse est déjà inscrite mais n’a pas encore été confirmée. Renvoyer l’e-mail de confirmation.';
     const INVALID_EMAIL_MESSAGE = 'Adresse email invalide. Vérifiez le format saisi.';
     const INVALID_PASSWORD_MESSAGE = `Le mot de passe doit contenir au moins ${MIN_PASSWORD_LENGTH} caractères.`;
     const REQUIRED_FIELDS_MESSAGE = 'Tous les champs sont obligatoires.';
@@ -92,8 +92,8 @@
         const normalizedMessage = normalizeForMatch(details.message);
         const normalizedCode = normalizeForMatch(details.code);
         const sourceLooksAlreadyRegistered =
-            /user already registered|already registered|already exists|email address is already/.test(normalizedMessage) ||
-            /user.*already|already.*registered|email.*exists/.test(normalizedCode);
+            /user already registered|already registered|already exists|email address is already|email.*already|user.*exists|duplicate/.test(normalizedMessage) ||
+            /user.*already|already.*registered|email.*exists|user.*exists|duplicate/.test(normalizedCode);
         const sourceLooksInvalidEmail = /email/.test(normalizedMessage) && /invalid|valid|format/.test(normalizedMessage);
         const sourceLooksInvalidPassword =
             (/password/.test(normalizedMessage) || /password/.test(normalizedCode)) &&
@@ -111,6 +111,7 @@
             return {
                 message: EMAIL_ALREADY_REGISTERED_MESSAGE,
                 incidentCode: null,
+                needsConfirmationResend: true,
                 details: mappedDetails,
             };
         }
@@ -285,6 +286,7 @@
         fields,
         signUp,
         logAuthEvent,
+        emailRedirectTo = '',
         requestIdFactory = createSignupRequestId,
         browserFingerprintFactory = getBrowserFingerprint,
         timeoutMs = SIGNUP_REQUEST_TIMEOUT_MS,
@@ -336,6 +338,7 @@
                 data: {
                     name: validation.value.name,
                 },
+                ...(emailRedirectTo ? { emailRedirectTo } : {}),
             },
         };
 
@@ -366,6 +369,7 @@
                 type: 'supabase',
                 requestId,
                 incidentCode: mapped.incidentCode,
+                needsConfirmationResend: Boolean(mapped.needsConfirmationResend),
                 feedback: mapped.message,
                 error: response.error,
                 errorDetails: details,

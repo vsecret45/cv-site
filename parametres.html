@@ -15,7 +15,7 @@
         rel="stylesheet"
     >
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-    <link rel="stylesheet" href="style.css?v=20260717-cv-stability-v1">
+    <link rel="stylesheet" href="style.css?v=20260717-auth-confirmation-v1">
 </head>
 <body class="is-preload studio-home">
     <canvas class="cosmic-page-field" id="cosmic-page-field" aria-hidden="true"></canvas>
@@ -166,10 +166,14 @@
                 </form>
             </div>
             <p class="auth-feedback" id="auth-feedback" aria-live="polite"></p>
+            <div class="auth-resend-row is-hidden" id="auth-resend-row">
+                <button class="auth-inline-action auth-resend-button" id="auth-resend-button" type="button">Renvoyer l'e-mail de confirmation</button>
+                <p class="auth-resend-hint" id="auth-resend-hint" aria-live="polite"></p>
+            </div>
         </div>
     </section>
 
-    <script src="auth-signup-utils.js?v=20260717-cv-stability-v1" defer></script>
-    <script src="script.js?v=20260717-cv-stability-v1" defer></script>
+    <script src="auth-signup-utils.js?v=20260717-auth-confirmation-v1" defer></script>
+    <script src="script.js?v=20260717-auth-confirmation-v1" defer></script>
 </body>
 </html>

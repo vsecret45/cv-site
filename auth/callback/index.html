@@ -29,7 +29,9 @@
   <div class="auth-callback-status">Connexion securisee en cours...</div>
   <script>
     (() => {
-      const destination = new URL('/', window.location.origin);
+      const isLocalHost = /^(localhost|127\.0\.0\.1|0\.0\.0\.0)$/.test(window.location.hostname);
+      const origin = isLocalHost ? window.location.origin : 'https://sacreationweb.com';
+      const destination = new URL('/cv.html', origin);
       const currentUrl = new URL(window.location.href);
 
       currentUrl.searchParams.forEach((value, key) => {
