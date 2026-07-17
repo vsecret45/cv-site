@@ -2096,11 +2096,12 @@ const loadCvDraft = async ({ silent = false } = {}) => {
         }
 
         applyCurrentUserDefaults();
+        const didAddDefaultLanguages = applyDefaultLanguagesIfMissing();
         updateCvPreview();
         renderExperienceEditor();
         renderLanguageEditor();
         resetCvHistory(savedHistory);
-        if (shouldMigrateLegacyDraft) {
+        if (shouldMigrateLegacyDraft || didAddDefaultLanguages) {
             await saveCvDraft(true);
         }
         if (!silent) {
@@ -3540,6 +3541,23 @@ const setCvFieldIfDefault = (fieldName, value) => {
     }
 
     field.value = value;
+};
+
+const getDefaultCvLanguagesValue = () => [
+    'Français : Courant',
+    'Anglais : Niveau intermédiaire',
+].join('\n');
+
+const applyDefaultLanguagesIfMissing = () => {
+    const field = cvForm?.elements.languages;
+
+    if (!field || field.value.trim() || !hasMeaningfulCvContent()) {
+        return false;
+    }
+
+    field.value = getDefaultCvLanguagesValue();
+    clearEditableOverride('languages');
+    return true;
 };
 
 const applyReadyCvBase = (message = '') => {
@@ -6663,10 +6681,7 @@ const parseImportedCv = (text) => {
     if (languageLines.length && cvForm.elements.languages) {
         cvForm.elements.languages.value = dedupeImportedItems(languageLines).join('\n');
     } else if (cvForm.elements.languages) {
-        cvForm.elements.languages.value = [
-            'Français : Courant',
-            'Anglais : Niveau intermédiaire',
-        ].join('\n');
+        cvForm.elements.languages.value = getDefaultCvLanguagesValue();
     }
 
     const activityItems = dedupeImportedItems(
