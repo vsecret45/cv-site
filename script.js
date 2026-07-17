@@ -158,6 +158,8 @@ const PDFJS_WORKER_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/legacy
 const SUPABASE_BROWSER_MODULE_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 const OFFICIAL_AUTH_ORIGIN = 'https://sacreationweb.com';
 const AUTH_EDITOR_PATH = '/cv.html';
+const PASSWORD_RESET_SUCCESS_MESSAGE = 'Votre mot de passe a bien été réinitialisé. Vous pouvez maintenant vous connecter.';
+const PASSWORD_RESET_EXPIRED_MESSAGE = 'Le lien de réinitialisation a expiré. Redemandez un nouveau lien depuis Mot de passe oublié.';
 const DEFAULT_CV_SECTION_ORDER = ['summary', 'skills', 'experience', 'projects', 'education', 'activities', 'languages'];
 const CV_ROUNDTRIP_START = 'SACW_CV_DATA_V1_START';
 const CV_ROUNDTRIP_END = 'SACW_CV_DATA_V1_END';
@@ -175,6 +177,7 @@ let isSignupRequestInFlight = false;
 let isPasswordResetEmailRequestInFlight = false;
 let isPasswordUpdateRequestInFlight = false;
 let isConfirmationEmailRequestInFlight = false;
+let hasCompletedPasswordReset = false;
 let pendingConfirmationEmail = '';
 let activeEditableNode = null;
 let activeFormatNode = null;
@@ -917,7 +920,13 @@ const initializeSupabaseClient = async () => {
                 persistAuthSession(session?.user || null);
                 updateAuthUi();
 
+                if (hasCompletedPasswordReset && authEvent !== 'PASSWORD_RECOVERY') {
+                    return;
+                }
+
                 if (authEvent === 'PASSWORD_RECOVERY') {
+                    hasCompletedPasswordReset = false;
+                    setResetPasswordSuccessState(false);
                     openAuthModal('reset-password');
                     setAuthFeedback('Choisissez un nouveau mot de passe.', false);
                     return;
@@ -1005,6 +1014,38 @@ const setAuthButtonBusy = (button, isBusy, busyLabel = 'Veuillez patienter...') 
     button.disabled = isBusy;
     button.setAttribute('aria-busy', String(isBusy));
     button.textContent = isBusy ? busyLabel : button.dataset.idleText;
+};
+
+const getAuthResetLoginButton = () => {
+    if (!authResetPasswordPanel) {
+        return null;
+    }
+
+    let button = authResetPasswordPanel.querySelector('[data-auth-reset-login]');
+
+    if (!button) {
+        button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'button button-primary auth-reset-login-button is-hidden';
+        button.dataset.authResetLogin = 'true';
+        button.textContent = 'Se connecter';
+        button.addEventListener('click', () => {
+            hasCompletedPasswordReset = false;
+            setResetPasswordSuccessState(false);
+            setAuthView('login');
+            window.setTimeout(() => authLoginForm?.elements?.email?.focus?.(), 60);
+        });
+        authResetPasswordPanel.append(button);
+    }
+
+    return button;
+};
+
+const setResetPasswordSuccessState = (isSuccess = false) => {
+    const successButton = getAuthResetLoginButton();
+    authResetPasswordForm?.classList.toggle('is-hidden', isSuccess);
+    authResetPasswordPanel?.classList.toggle('is-reset-success', isSuccess);
+    successButton?.classList.toggle('is-hidden', !isSuccess);
 };
 
 const isLocalAuthHost = () => /^(localhost|127\.0\.0\.1|0\.0\.0\.0)$/.test(window.location.hostname);
@@ -1143,6 +1184,10 @@ const formatAuthErrorMessage = (error, mode = 'signup') => {
 const setAuthView = (view) => {
     const activeView = view === 'signup' || view === 'reset-password' ? view : 'login';
 
+    if (activeView !== 'reset-password' || !hasCompletedPasswordReset) {
+        setResetPasswordSuccessState(false);
+    }
+
     authTabs.forEach((tab) => {
         const isActive = tab.dataset.authView === activeView;
         tab.classList.toggle('is-active', isActive);
@@ -1152,7 +1197,9 @@ const setAuthView = (view) => {
     authLoginPanel?.classList.toggle('is-hidden', activeView !== 'login');
     authSignupPanel?.classList.toggle('is-hidden', activeView !== 'signup');
     authResetPasswordPanel?.classList.toggle('is-hidden', activeView !== 'reset-password');
-    setAuthFeedback('');
+    if (!hasCompletedPasswordReset) {
+        setAuthFeedback('');
+    }
     if (activeView !== 'signup') {
         setConfirmationResendState();
     }
@@ -1167,6 +1214,11 @@ const openAuthModal = (view = 'login') => {
         setAuthFormBusy(authSignupForm, false);
     }
 
+    if (view === 'reset-password') {
+        hasCompletedPasswordReset = false;
+        setResetPasswordSuccessState(false);
+    }
+
     setAuthView(view);
     authModal.classList.remove('is-hidden');
     authModal.setAttribute('aria-hidden', 'false');
@@ -1179,6 +1231,10 @@ const closeAuthModal = () => {
 
     authModal.classList.add('is-hidden');
     authModal.setAttribute('aria-hidden', 'true');
+    if (hasCompletedPasswordReset) {
+        hasCompletedPasswordReset = false;
+        setResetPasswordSuccessState(false);
+    }
     setAuthFeedback('');
 };
 
@@ -10657,18 +10713,32 @@ const handleResetPassword = async (event) => {
 
     try {
         const client = await initializeSupabaseClient();
-        const { data, error } = await client.auth.updateUser({ password });
+        const { data: sessionData, error: sessionError } = await client.auth.getSession();
+
+        if (sessionError) {
+            throw sessionError;
+        }
+
+        if (!sessionData?.session?.access_token) {
+            setAuthFeedback(PASSWORD_RESET_EXPIRED_MESSAGE, true);
+            return;
+        }
+
+        const { error } = await client.auth.updateUser({ password });
 
         if (error) {
             throw error;
         }
 
-        persistAuthSession(data?.user || currentUser || null);
+        hasCompletedPasswordReset = true;
+        await client.auth.signOut({ scope: 'local' }).catch(() => {});
+        persistAuthSession(null);
         updateAuthUi();
         authResetPasswordForm.reset();
         cleanAuthCallbackUrl();
-        closeAuthModal();
-        setCvStatus('Mot de passe mis a jour. Connexion securisee active.');
+        setResetPasswordSuccessState(true);
+        setAuthFeedback(PASSWORD_RESET_SUCCESS_MESSAGE, false);
+        setCvStatus('Mot de passe reinitialise. Connexion possible.');
     } catch (error) {
         console.error('Supabase password update failed', {
             message: error?.message || '',
