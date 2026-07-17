@@ -158,7 +158,7 @@ const PDFJS_WORKER_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/legacy
 const SUPABASE_BROWSER_MODULE_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 const OFFICIAL_AUTH_ORIGIN = 'https://sacreationweb.com';
 const AUTH_EDITOR_PATH = '/cv.html';
-const PASSWORD_RESET_SUCCESS_MESSAGE = 'Votre mot de passe a bien été réinitialisé. Vous pouvez maintenant vous connecter.';
+const PASSWORD_RESET_SUCCESS_MESSAGE = 'Votre mot de passe a bien été réinitialisé. Cliquez sur Se connecter puis utilisez votre nouveau mot de passe.';
 const PASSWORD_RESET_EXPIRED_MESSAGE = 'Le lien de réinitialisation a expiré. Redemandez un nouveau lien depuis Mot de passe oublié.';
 const DEFAULT_CV_SECTION_ORDER = ['summary', 'skills', 'experience', 'projects', 'education', 'activities', 'languages'];
 const CV_ROUNDTRIP_START = 'SACW_CV_DATA_V1_START';
@@ -1041,10 +1041,31 @@ const getAuthResetLoginButton = () => {
     return button;
 };
 
+const getAuthResetSuccessMessage = () => {
+    if (!authResetPasswordPanel) {
+        return null;
+    }
+
+    let message = authResetPasswordPanel.querySelector('[data-auth-reset-success-message]');
+
+    if (!message) {
+        message = document.createElement('p');
+        message.className = 'auth-reset-success-message is-hidden';
+        message.dataset.authResetSuccessMessage = 'true';
+        message.setAttribute('role', 'status');
+        authResetPasswordPanel.prepend(message);
+    }
+
+    message.textContent = PASSWORD_RESET_SUCCESS_MESSAGE;
+    return message;
+};
+
 const setResetPasswordSuccessState = (isSuccess = false) => {
+    const successMessage = getAuthResetSuccessMessage();
     const successButton = getAuthResetLoginButton();
     authResetPasswordForm?.classList.toggle('is-hidden', isSuccess);
     authResetPasswordPanel?.classList.toggle('is-reset-success', isSuccess);
+    successMessage?.classList.toggle('is-hidden', !isSuccess);
     successButton?.classList.toggle('is-hidden', !isSuccess);
 };
 
@@ -10731,14 +10752,28 @@ const handleResetPassword = async (event) => {
         }
 
         hasCompletedPasswordReset = true;
-        await client.auth.signOut({ scope: 'local' }).catch(() => {});
-        persistAuthSession(null);
-        updateAuthUi();
         authResetPasswordForm.reset();
-        cleanAuthCallbackUrl();
         setResetPasswordSuccessState(true);
-        setAuthFeedback(PASSWORD_RESET_SUCCESS_MESSAGE, false);
+        setAuthFeedback('', false);
         setCvStatus('Mot de passe reinitialise. Connexion possible.');
+
+        try {
+            cleanAuthCallbackUrl();
+        } catch (cleanupError) {
+            console.debug('auth_reset_url_cleanup_failed', cleanupError);
+        }
+
+        try {
+            persistAuthSession(null);
+            updateAuthUi();
+        } catch (uiError) {
+            console.debug('auth_reset_ui_cleanup_failed', uiError);
+        }
+
+        client.auth.signOut({ scope: 'local' }).catch((signOutError) => {
+            console.debug('auth_reset_local_signout_failed', signOutError);
+        });
+        window.setTimeout(() => getAuthResetLoginButton()?.focus?.(), 80);
     } catch (error) {
         console.error('Supabase password update failed', {
             message: error?.message || '',
