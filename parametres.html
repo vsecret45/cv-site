@@ -15,9 +15,9 @@
         rel="stylesheet"
     >
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-    <link rel="stylesheet" href="style.css?v=20260717-mobile-auth-reset-v2">
+    <link rel="stylesheet" href="style.css?v=20260717-menu-settings-v3">
 </head>
-<body class="is-preload studio-home">
+<body class="is-preload studio-home settings-page">
     <canvas class="cosmic-page-field" id="cosmic-page-field" aria-hidden="true"></canvas>
     <div class="cosmic-page-glow" aria-hidden="true"></div>
     <div class="page-shell">
@@ -45,7 +45,7 @@
                         <button type="button" id="auth-open-signup">Creer un compte</button>
                         <a class="is-hidden" href="cv.html" id="auth-client-link">Mon espace client</a>
                         <a class="is-hidden" href="parametres.html" id="auth-settings-link">Parametres</a>
-                        <button class="is-hidden" type="button" id="auth-logout">Deconnexion</button>
+                        <button class="is-hidden site-menu-logout" type="button" id="auth-logout">Deconnexion</button>
                         <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Basculer entre mode nuit et mode jour" aria-pressed="false">
                             <span class="theme-toggle-dot"></span>
                             <span class="theme-toggle-text">Jour</span>
@@ -76,13 +76,13 @@
                             <h3 id="settings-account-title">Mon compte</h3>
                             <p id="settings-account-copy">Connectez-vous pour acceder a votre compte.</p>
                         </div>
-                        <div class="advisor-composer-actions">
+                        <div class="advisor-composer-actions settings-account-actions">
                             <button class="button button-primary" type="button" id="settings-open-login">Connexion</button>
                             <button class="button button-secondary" type="button" id="settings-open-signup">Creer un compte</button>
                             <button class="button button-secondary is-hidden" type="button" id="settings-change-password">Modifier mon mot de passe</button>
                             <button class="button button-secondary is-hidden" type="button" id="settings-logout">Deconnexion</button>
                         </div>
-                        <div class="assistant-proposal-details is-hidden" id="settings-danger-zone">
+                        <div class="assistant-proposal-details settings-danger-actions is-hidden" id="settings-danger-zone">
                             <button class="button button-secondary" type="button" id="settings-delete-account">Supprimer mon compte</button>
                         </div>
                         <p class="auth-feedback" id="settings-feedback" aria-live="polite"></p>

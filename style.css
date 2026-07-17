@@ -509,6 +509,9 @@ img {
     display: grid;
     gap: 1rem;
     width: min(24rem, calc(100vw - 2rem));
+    max-height: calc(100dvh - 3.5rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 1rem;
     border: 1px solid rgba(255, 255, 255, 0.13);
     border-radius: 28px;
@@ -592,6 +595,26 @@ img {
     justify-content: flex-end;
     gap: 0.65rem;
     flex-wrap: wrap;
+}
+
+.site-menu-panel .auth-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    justify-content: stretch;
+    gap: 0.45rem;
+}
+
+.site-menu-panel .auth-badge,
+.site-menu-panel .site-menu-subtitle {
+    justify-self: stretch;
+}
+
+.site-menu-panel .site-menu-logout {
+    border-color: rgba(239, 214, 163, 0.26);
+    background:
+        linear-gradient(145deg, rgba(239, 214, 163, 0.13), rgba(255, 255, 255, 0.04)),
+        rgba(255, 255, 255, 0.055);
 }
 
 .auth-badge {
@@ -7746,6 +7769,13 @@ body[data-theme="day"] .site-menu-actions button {
     background: rgba(255, 255, 255, 0.52);
 }
 
+body[data-theme="day"] .site-menu-panel .site-menu-logout {
+    border-color: rgba(121, 93, 44, 0.24);
+    background:
+        linear-gradient(145deg, rgba(213, 173, 98, 0.18), rgba(255, 255, 255, 0.42)),
+        rgba(255, 255, 255, 0.46);
+}
+
 body[data-theme="day"] .site-menu-actions {
     border-top-color: rgba(42, 45, 58, 0.1);
 }
@@ -14218,6 +14248,61 @@ body.studio-home .advisor-composer-actions .button {
     justify-content: center;
     border-radius: 999px;
     font-size: clamp(1rem, 1.5vw, 1.12rem);
+}
+
+body.settings-page .ai-brief-panel {
+    max-width: 100%;
+}
+
+body.settings-page .ai-brief-output {
+    width: min(100%, 32rem);
+}
+
+body.settings-page .settings-account-actions,
+body.settings-page .settings-danger-actions {
+    display: grid;
+    width: 100%;
+    gap: 0.72rem;
+    justify-items: stretch;
+}
+
+body.settings-page .settings-account-actions .button,
+body.settings-page .settings-danger-actions .button {
+    width: 100%;
+    min-height: 3.35rem;
+    border-color: rgba(255, 255, 255, 0.18);
+    background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.035)),
+        rgba(255, 255, 255, 0.055);
+    color: var(--studio-text);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.14),
+        0 14px 34px rgba(0, 0, 0, 0.18);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+}
+
+body.settings-page .settings-account-actions .button:hover,
+body.settings-page .settings-account-actions .button:focus-visible,
+body.settings-page .settings-danger-actions .button:hover,
+body.settings-page .settings-danger-actions .button:focus-visible {
+    border-color: rgba(239, 214, 163, 0.34);
+    background:
+        linear-gradient(145deg, rgba(239, 214, 163, 0.16), rgba(255, 255, 255, 0.045)),
+        rgba(255, 255, 255, 0.07);
+    color: #fff8e8;
+}
+
+body.settings-page[data-theme="day"] .settings-account-actions .button,
+body.settings-page[data-theme="day"] .settings-danger-actions .button {
+    border-color: rgba(42, 45, 58, 0.12);
+    background:
+        linear-gradient(145deg, rgba(255, 255, 255, 0.64), rgba(255, 249, 239, 0.28)),
+        rgba(255, 255, 255, 0.42);
+    color: #171923;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.62),
+        0 14px 34px rgba(74, 65, 45, 0.1);
 }
 
 body.studio-home .advisor-empty-state {
