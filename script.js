@@ -8624,7 +8624,21 @@ const getQuickExperienceDateValue = (message = '') => {
     return singleMatch ? normalizeExperienceDateText(singleMatch[1]) : '';
 };
 
+const hasNewExperienceAdditionIntent = (message = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(message));
+    const hasAddVerb = /\b(ajoute|ajouter|rajoute|rajouter|insere|inserer|integre|integrer|cree|creer)\b/.test(source);
+    const hasExperienceScope = /\b(experience|experiences|poste|activite|activites|projet|projets|creation|creatrice|createur|autoformation|benevolat|independant|freelance|numerique|developpement)\b/.test(source);
+    const hasPeriod = /\b(?:19|20)\d{2}\s*(?:-|–|—|a|au)\s*(?:19|20)\d{2}\b/.test(source);
+    const hasPersonalContext = /\b(projet personnel|autoformation|benevolat|independant|freelance|creation de projet|projets numeriques)\b/.test(source);
+
+    return hasAddVerb && hasExperienceScope && (hasPeriod || hasPersonalContext);
+};
+
 const hasQuickExperienceDateIntent = (message = '', dateValue = '') => {
+    if (hasNewExperienceAdditionIntent(message)) {
+        return false;
+    }
+
     const source = normalizeForMatch(message);
     const hasDateTopic = /\b(date|dates|periode|periodes)\b/.test(source);
     const hasCorrectionVerb = /\b(modifie|modifier|change|changer|corrige|corriger|remplace|remplacer|mets|mettre|met)\b/.test(source);
