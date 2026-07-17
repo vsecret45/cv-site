@@ -9121,7 +9121,6 @@ const applyQuickSalesRefocusCorrection = (message = '') => {
 
 const applyQuickKirbyCorrection = (message = '') => {
     const directCorrections = [
-        applyQuickSalesRefocusCorrection(message),
         applyQuickCvTypographyAdjustment(message),
         getQuickEditorBugReport(message),
         applyQuickTitleGenderCorrection(message),
@@ -10240,6 +10239,18 @@ const getAssistantReply = (message) => {
 
 const shouldUseKirbyCvAssistant = (message = '') => Boolean(message.trim());
 
+const getCvDamageDiagnosticReply = (message = '') => {
+    const source = normalizeForMatch(message);
+    const reportsEmptyOrBrokenCv = /\b(cv|experience|experiences|rubrique|section)\b/.test(source)
+        && /\b(vide|vides|supprime|supprimees|supprimer|disparu|disparues|efface|effacees|tout supprimer|tout supprime|casse|bug)\b/.test(source);
+
+    if (!reportsEmptyOrBrokenCv) {
+        return '';
+    }
+
+    return "Je n'applique aucune modification automatique. Utilisez d'abord Annuler si disponible, ou réimportez le Word/PDF fiable. Ensuite je peux corriger une seule ligne à la fois.";
+};
+
 const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
     const cleanMessage = message.trim();
 
@@ -10257,6 +10268,13 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
     if (languageFocused && !hasLanguageNameInInstruction(cleanMessage)) {
         hideKirbyCvProposal();
         appendAssistantMessage('Quelle langue et quel niveau dois-je ajouter ? Exemple : Français courant, Anglais notions.', 'bot');
+        return;
+    }
+
+    const damageDiagnosticReply = getCvDamageDiagnosticReply(cleanMessage);
+    if (damageDiagnosticReply) {
+        hideKirbyCvProposal();
+        appendAssistantMessage(damageDiagnosticReply, 'bot');
         return;
     }
 
