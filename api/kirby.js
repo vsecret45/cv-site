@@ -6207,10 +6207,11 @@ const enhanceCvGapDrafts = (assistantResult, { cv = {}, instruction = '', jobOff
 
             return true;
         });
-    const canSuggestSkills = shouldEnhanceDigitalProject
+    const diagnosticOnly = /\b(dis\s+seulement|seulement\s+si|sans\s+modifier|n[e']?\s*applique\s+pas|aucune\s+modification|ne\s+modifie\s+pas|ne\s+change\s+rien)\b/.test(instructionSource);
+    const canSuggestSkills = !diagnosticOnly && (shouldEnhanceDigitalProject
         || educationSuggestions.length > 0
         || normalizeText(jobOffer).length > 0
-        || /\b(comp[eé]tences?|skills?|propose|proposer|ajoute|ajouter|valorise|valoriser|comble|combler|bouche|boucher|complete|compl[eé]ter|remplis|remplir|projets?\s+num[eé]riques?|num[eé]rique|web|autoformation|formation)\b/.test(instructionSource);
+        || /\b(comp[eé]tences?|skills?|propose|proposer|ajoute|ajouter|valorise|valoriser|comble|combler|bouche|boucher|complete|compl[eé]ter|remplis|remplir|projets?\s+num[eé]riques?|num[eé]rique|web|autoformation|formation)\b/.test(instructionSource));
     const suggestedSkills = canSuggestSkills ? normalizeCvSuggestedSkills([
         ...(result.suggestedSkills || []),
         ...(shouldEnhanceDigitalProject ? digitalProjectExperienceDetails.skills : []),
