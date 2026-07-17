@@ -4633,12 +4633,18 @@ const isDigitalProjectExperienceLine = (line = '') => {
     return /\b(projet|projets|numerique|numeriques|digital|digitaux|plateforme|plateformes|web|autoformation|ia|intelligence artificielle|ux|ui|fondatrice|creatrice|developpeuse|sa creation|velours|contadirect)\b/.test(source);
 };
 
+const isEducationTimelineLine = (line = '') => {
+    const source = normalizeTimelineMatch(line);
+
+    return /\b(?:ecole 42|piscine|simplon|formation|certification|iobsp|fimo|permis|niveau|diplome)\b/.test(source);
+};
+
 const getTimelineDedupeKey = (line = '') => {
     const sort = getTimelineEntrySortValue(line);
     const period = sort.start && sort.end ? `${sort.start}-${sort.end}` : '';
     const title = normalizeTimelineMatch(parseExperienceEntry(line).title || '');
 
-    if (period && isDigitalProjectExperienceLine(line)) {
+    if (period && isDigitalProjectExperienceLine(line) && !isEducationTimelineLine(line)) {
         return `digital-project-${period}`;
     }
 
@@ -6211,13 +6217,15 @@ const normalizeSkillItems = (items) =>
 
 const normalizeEducationDisplayItem = (item = '') => {
     const source = normalizeForMatch(item);
+    const hasDigitalTrainingPeriod = /\b2025\s*[-–—]\s*2026\b/.test(item);
+    const digitalTrainingPeriod = hasDigitalTrainingPeriod ? ' - 2025 - 2026' : '';
 
     if (/\b(?:ecole 42|42)\b/.test(source) && /\bpiscine\b/.test(source)) {
-        return 'École 42 — Piscine informatique • Découverte du développement, bases de programmation, autonomie et travail sur projets.';
+        return `École 42 — Piscine informatique${digitalTrainingPeriod} • Découverte du développement, bases de programmation, autonomie et travail sur projets.`;
     }
 
     if (/\bsimplon\b/.test(source)) {
-        return 'Simplon — Formation numérique / développement web • Bases du développement web, intégration web et culture numérique.';
+        return `Simplon — Formation numérique / développement web${digitalTrainingPeriod} • Bases du développement web, intégration web, front-end, back-end et culture numérique.`;
     }
 
     return item;
@@ -6406,8 +6414,19 @@ const mergeKnownExperienceRebuilds = (rawItems, repairedItems) => {
         const signature = getKnownExperienceSignature(item);
         return !signature || !knownSignatures.has(signature);
     });
+    const firstKnownIndex = repairedItems.findIndex((item) => knownSignatures.has(getKnownExperienceSignature(item)));
+    const leadingSupplementalItems = firstKnownIndex > 0
+        ? repairedItems
+            .slice(0, firstKnownIndex)
+            .filter((item) => {
+                const signature = getKnownExperienceSignature(item);
+                return !signature || !knownSignatures.has(signature);
+            })
+        : [];
+    const leadingKeys = new Set(leadingSupplementalItems.map((item) => normalizeForMatch(item)));
+    const remainingSupplementalItems = supplementalItems.filter((item) => !leadingKeys.has(normalizeForMatch(item)));
 
-    return dedupeImportedItems([...knownItems, ...supplementalItems]);
+    return dedupeImportedItems([...leadingSupplementalItems, ...knownItems, ...remainingSupplementalItems]);
 };
 
 const normalizeExperienceImportItems = (items) => {
@@ -8774,6 +8793,173 @@ const hasQuickExperienceDateIntent = (message = '', dateValue = '') => {
     return hasDateTopic || answersPendingDateQuestion || (Boolean(dateValue) && hasCorrectionVerb);
 };
 
+const targetedDigitalCvKeywords = /\b(creatrice|createur|creation|projets? numeriques?|numerique|developpement web|backend|back\s*end|front\s*end|frontend|ecole 42|42|simplon|piscine|autoformation)\b/;
+
+const shouldApplyTargetedDigitalCvCompletion = (message = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(message));
+    const asksToApply = /\b(ajoute|ajouter|rajoute|rajouter|integre|integrer|mets|mettre|met|complete|completer|comble|combler|valorise|valoriser|remets|remet)\b/.test(source);
+    const hasCvScope = /\b(cv|experience|experiences|formation|formations|certification|certifications|competence|competences|accroche|profil|commercial|trou|periode)\b/.test(source);
+
+    return asksToApply && hasCvScope && targetedDigitalCvKeywords.test(source);
+};
+
+const getDigitalCvCompletionExperience = () => ({
+    title: 'Créatrice de projets numériques',
+    meta: 'Projet personnel / Autoformation',
+    date: '2025 - 2026',
+    bullets: [
+        'Création de projets web, structuration des idées et mise en pratique des bases front-end et back-end',
+        'Utilisation d’outils numériques et IA pour concevoir plus vite, organiser le contenu et améliorer l’expérience utilisateur',
+    ],
+});
+
+const getDigitalCvCompletionEducation = () => [
+    'École 42 — Piscine informatique - 2025 - 2026 • Découverte du développement, bases de programmation, autonomie et travail sur projets.',
+    'Simplon — Formation numérique / développement web - 2025 - 2026 • Bases du développement web, intégration web, front-end, back-end et culture numérique.',
+];
+
+const getDigitalCvCompletionSkills = () => [
+    'Relation client',
+    'Conseil client',
+    'Analyse des besoins',
+    'Accompagnement et suivi des clients',
+    'Front-end : HTML, CSS, JavaScript',
+    'Back-end : bases serveur et API',
+    'Intégration web',
+    'Outils numériques et IA',
+    'Organisation du travail',
+    'Travail en autonomie et en équipe',
+];
+
+const getDigitalCvCompletionSummary = () =>
+    'Professionnelle de la relation client avec une expérience en vente, conseil, banque, service premium et transport, j’associe sens commercial, écoute et organisation à une montée en compétences en développement web. À l’aise pour comprendre un besoin, accompagner un client et structurer des projets numériques, je souhaite mettre ce double profil au service d’un poste orienté client et solutions digitales.';
+
+const isDigitalCvCompletionExperience = (entry = {}) =>
+    /\bcreatrice\s+de\s+projets?\s+numeriques?\b/.test(normalizeForMatch(entry.title || ''))
+    || (
+        /\b2025\s*[-–—]\s*2026\b/.test(entry.date || '')
+        && targetedDigitalCvKeywords.test(normalizeForMatch(`${entry.title || ''} ${entry.meta || ''} ${(entry.bullets || []).join(' ')}`))
+    );
+
+const mergeDigitalCvCompletionExperience = () => {
+    const field = getExperienceField();
+    if (!field) {
+        return false;
+    }
+
+    const digitalExperience = getDigitalCvCompletionExperience();
+    const digitalLine = serializeExperienceEntry(digitalExperience);
+    const existingEntries = repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
+    const retainedEntries = existingEntries.filter((entry) => !isDigitalCvCompletionExperience(entry));
+    const nextLines = [digitalLine, ...retainedEntries.map(serializeExperienceEntry).filter(Boolean)];
+    const nextValue = normalizeCvTextareaValue('experience', nextLines.join('\n'));
+
+    if (!nextValue || nextValue === field.value) {
+        return false;
+    }
+
+    field.value = nextValue;
+    clearEditableOverride('experience');
+    return true;
+};
+
+const mergeDigitalCvCompletionEducation = () => {
+    const field = cvForm?.elements.education;
+    if (!field) {
+        return false;
+    }
+
+    const additions = getDigitalCvCompletionEducation().map(normalizeEducationDisplayItem);
+    const existing = normalizeEducationItems(splitLines(field.value));
+    const retained = existing.filter((item) => {
+        const source = normalizeForMatch(item);
+        return !(/\b(?:ecole 42|42)\b/.test(source) && /\bpiscine\b/.test(source)) && !/\bsimplon\b/.test(source);
+    });
+    const nextValue = normalizeCvTextareaValue(
+        'education',
+        sortTimelineEntriesNewestFirst([...retained, ...additions], additions).join('\n')
+    );
+
+    if (!nextValue || nextValue === field.value) {
+        return false;
+    }
+
+    field.value = nextValue;
+    clearEditableOverride('education');
+    return true;
+};
+
+const mergeDigitalCvCompletionSkills = () => {
+    const field = cvForm?.elements.skills;
+    if (!field) {
+        return false;
+    }
+
+    const blockedSkills = [
+        /logique algorithmique/i,
+        /r[ée]solution de probl[eè]mes/i,
+        /pair-to-pair/i,
+        /apprentissage par projet/i,
+    ];
+    const existing = splitLines(field.value)
+        .map(normalizeCvSentenceText)
+        .filter((skill) => skill && !blockedSkills.some((pattern) => pattern.test(skill)));
+    const nextValue = dedupeCvSkillItems([...getDigitalCvCompletionSkills(), ...existing]).join('\n');
+
+    if (!nextValue || nextValue === field.value) {
+        return false;
+    }
+
+    field.value = nextValue;
+    clearEditableOverride('skills');
+    return true;
+};
+
+const applyTargetedDigitalCvCompletion = (message = '') => {
+    if (!cvForm || !shouldApplyTargetedDigitalCvCompletion(message)) {
+        return '';
+    }
+
+    const beforeState = getCvHistoryState();
+    const changes = [];
+    const summaryField = cvForm.elements.summary;
+    const wantsSummary = /\b(accroche|profil|commercial|commerciale|valeur|valorise|valoriser)\b/.test(normalizeForMatch(message));
+
+    if (summaryField && wantsSummary) {
+        const nextSummary = normalizeCvSentenceText(getDigitalCvCompletionSummary());
+        if (nextSummary && nextSummary !== summaryField.value) {
+            summaryField.value = nextSummary;
+            clearEditableOverride('summary');
+            changes.push('accroche commerciale');
+        }
+    }
+
+    if (mergeDigitalCvCompletionExperience()) {
+        changes.push('expérience numérique 2025 - 2026');
+    }
+
+    if (mergeDigitalCvCompletionEducation()) {
+        changes.push('École 42 et Simplon 2025 - 2026');
+    }
+
+    if (mergeDigitalCvCompletionSkills()) {
+        changes.push('compétences web');
+    }
+
+    if (!changes.length) {
+        return 'Le CV contient déjà l’expérience numérique, 42/Simplon et les compétences web demandées.';
+    }
+
+    updateCvPreview();
+    renderExperienceEditor();
+    renderLanguageEditor();
+    commitCvHistoryTransition(beforeState);
+    scheduleCvDraftSave();
+    setCvStatus(`Kirby a complété le CV : ${changes.join(', ')}`);
+
+    return `CV complété proprement : ${changes.join(', ')}. Aucune autre expérience n’a été modifiée.`;
+};
+
 const getQuickExperienceDateCorrection = (message = '') => {
     const date = getQuickExperienceDateValue(message);
     if (!hasQuickExperienceDateIntent(message, date)) {
@@ -9352,6 +9538,7 @@ const applyQuickSalesRefocusCorrection = (message = '') => {
 
 const applyQuickKirbyCorrection = (message = '') => {
     const directCorrections = [
+        applyTargetedDigitalCvCompletion(message),
         applyQuickCvTypographyAdjustment(message),
         getQuickEditorBugReport(message),
         applyQuickTitleGenderCorrection(message),
@@ -10165,6 +10352,10 @@ const shouldApplyKirbyResultDirectly = ({ task = '', instruction = '' } = {}) =>
         return true;
     }
 
+    if (shouldApplyTargetedDigitalCvCompletion(userInstruction)) {
+        return true;
+    }
+
     if (['create', 'autofill'].includes(task)) {
         return isExplicitKirbyApplyInstruction(userInstruction) || looksLikeCvCreationInstruction(userInstruction) || looksLikePastedCv(userInstruction);
     }
@@ -10490,6 +10681,10 @@ const getCvDamageDiagnosticReply = (message = '') => {
 };
 
 const getDigitalExperienceDiagnosticReply = (message = '') => {
+    if (shouldApplyTargetedDigitalCvCompletion(message)) {
+        return '';
+    }
+
     const source = normalizeForMatch(message);
     const asksWhereDigitalExperience = /\b(ou|où|est|passe|pass[ée]e|manque|disparu|disparue)\b/.test(source)
         && /\b(experience|expérience|bloc|periode|période)\b/.test(source)
