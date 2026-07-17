@@ -2254,6 +2254,9 @@ const looksLikeBrokenPdfText = (text) => {
     return weirdRatio > 0.02 || slashCommands >= 2 || markerHits >= 2;
 };
 
+const getUnreadablePdfImportMessage = () =>
+    "Ce PDF est une ancienne version image : l'éditeur ne peut pas récupérer son contenu. Utilisez le Word, ou exportez un nouveau PDF depuis sacreationweb.com puis réimportez-le.";
+
 const applyCompactCvLayout = (autoTriggered = false) => {
     if (!cvForm) {
         return;
@@ -3222,12 +3225,12 @@ const roleSkillSuggestions = {
         'Communication professionnelle',
     ],
     web: [
-        'HTML / CSS',
-        'JavaScript',
-        'Interface responsive',
-        'Organisation de contenu',
-        'Expérience utilisateur',
-        'Correction et optimisation',
+        'Front-end : HTML / CSS',
+        'Notions JavaScript',
+        'Notions back-end',
+        'Intégration web',
+        'Création et mise à jour de sites web',
+        'Outils numériques et IA',
     ],
     admin: [
         'Gestion administrative',
@@ -5990,6 +5993,7 @@ const normalizeSkillItems = (items) =>
                     item.length < 140 &&
                     !looksLikeSectionHeading(item) &&
                     !isLikelyExperienceHeader(item) &&
+                    !/\b(?:logique algorithmique|résolution de problèmes|resolution de problemes|pair-to-pair|apprentissage par projet)\b/i.test(item) &&
                     !/\b(?:formations?|certifications?|ratp|cama[ïi]eu|american express|air france|roissy|nanterre)\b/i.test(item)
             )
     );
@@ -5998,7 +6002,7 @@ const normalizeEducationDisplayItem = (item = '') => {
     const source = normalizeForMatch(item);
 
     if (/\b(?:ecole 42|42)\b/.test(source) && /\bpiscine\b/.test(source)) {
-        return 'École 42 — Piscine informatique • Initiation intensive au développement, logique algorithmique, autonomie, résolution de problèmes et travail en pair-to-pair.';
+        return 'École 42 — Piscine informatique • Découverte du développement, bases de programmation, autonomie et travail sur projets.';
     }
 
     if (/\bsimplon\b/.test(source)) {
@@ -6658,6 +6662,11 @@ const parseImportedCv = (text) => {
         .filter(Boolean);
     if (languageLines.length && cvForm.elements.languages) {
         cvForm.elements.languages.value = dedupeImportedItems(languageLines).join('\n');
+    } else if (cvForm.elements.languages) {
+        cvForm.elements.languages.value = [
+            'Français : Courant',
+            'Anglais : Niveau intermédiaire',
+        ].join('\n');
     }
 
     const activityItems = dedupeImportedItems(
@@ -12029,7 +12038,7 @@ if (cvImportInput) {
             }
 
             if (isPdfDocument(file) && looksLikeBrokenPdfText(text)) {
-                setCvStatus('PDF detecte mais texte inexploitable : utilisez plutot la version Word ou le PDF converti');
+                setCvStatus(getUnreadablePdfImportMessage());
                 event.target.value = '';
                 return;
             }
