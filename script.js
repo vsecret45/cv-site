@@ -136,6 +136,17 @@ const authSignupForm = document.querySelector('#auth-signup-form');
 const authResetPasswordForm = document.querySelector('#auth-reset-password-form');
 const authForgotPasswordButton = document.querySelector('#auth-forgot-password');
 const passwordToggleButtons = document.querySelectorAll('[data-password-toggle]');
+const authClientLink = document.querySelector('#auth-client-link');
+const authSettingsLink = document.querySelector('#auth-settings-link');
+const settingsOpenLoginButton = document.querySelector('#settings-open-login');
+const settingsOpenSignupButton = document.querySelector('#settings-open-signup');
+const settingsChangePasswordButton = document.querySelector('#settings-change-password');
+const settingsLogoutButton = document.querySelector('#settings-logout');
+const settingsDeleteAccountButton = document.querySelector('#settings-delete-account');
+const settingsDangerZone = document.querySelector('#settings-danger-zone');
+const settingsAccountTitle = document.querySelector('#settings-account-title');
+const settingsAccountCopy = document.querySelector('#settings-account-copy');
+const settingsFeedback = document.querySelector('#settings-feedback');
 const cvPrivateGate = document.querySelector('#cv-private-gate');
 const cvGateLoginButton = document.querySelector('#cv-gate-login');
 const cvGateSignupButton = document.querySelector('#cv-gate-signup');
@@ -143,6 +154,8 @@ const PDFJS_MODULE_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/legacy
 const PDFJS_WORKER_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.296/legacy/build/pdf.worker.min.mjs';
 const SUPABASE_BROWSER_MODULE_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 const DEFAULT_CV_SECTION_ORDER = ['summary', 'skills', 'experience', 'projects', 'education', 'activities', 'languages'];
+const CV_ROUNDTRIP_START = 'SACW_CV_DATA_V1_START';
+const CV_ROUNDTRIP_END = 'SACW_CV_DATA_V1_END';
 const getAuthSignupUtils = () => window.AuthSignupUtils || {};
 
 let pdfjsLoader;
@@ -681,6 +694,15 @@ const setCvStatus = (message) => {
     }
 };
 
+const setSettingsFeedback = (message = '', isError = false) => {
+    if (!settingsFeedback) {
+        return;
+    }
+
+    settingsFeedback.textContent = message;
+    settingsFeedback.classList.toggle('is-error', Boolean(isError));
+};
+
 let cvDraftSaveTimer = null;
 let cvHistoryCurrent = '';
 let cvHistoryCoalesceTimer = null;
@@ -726,6 +748,33 @@ const getLegacyDraftStorageKey = (email = 'guest-session') => `sa-cv-private-dra
 const getSecureUserDraftCacheKey = (userId = 'guest') => `sa-cv-secure-draft-v1-${userId}`;
 
 const getLegacyAuthKeys = () => ['sa-cv-private-accounts-v1', 'sa-cv-private-session-v1', getLegacyDraftStorageKey()];
+
+const getCvDraftTimestamp = (payload, fallback = '') => {
+    const value = payload?.savedAt || payload?.updated_at || fallback || '';
+    const timestamp = Date.parse(value);
+    return Number.isFinite(timestamp) ? timestamp : 0;
+};
+
+const pickNewestCvDraftPayload = (drafts = []) =>
+    drafts
+        .filter((draft) => draft?.payload)
+        .sort((left, right) => getCvDraftTimestamp(right.payload, right.updatedAt) - getCvDraftTimestamp(left.payload, left.updatedAt))[0]?.payload || null;
+
+const dedupeExactTrimmedItems = (items = []) => {
+    const seen = new Set();
+    const output = [];
+
+    items.forEach((item) => {
+        const value = String(item || '').trim();
+        if (!value || seen.has(value)) {
+            return;
+        }
+        seen.add(value);
+        output.push(value);
+    });
+
+    return output;
+};
 
 const normalizeSupabaseUser = (user) => {
     if (!user?.id || !user?.email) {
@@ -793,6 +842,19 @@ const writeScopedLocalDraft = (userId, payload) => {
 
     try {
         window.localStorage.setItem(getSecureUserDraftCacheKey(userId), JSON.stringify(payload));
+    } catch (error) {
+        console.error(error);
+    }
+};
+
+const removeScopedLocalDraft = (userId) => {
+    if (!userId) {
+        return;
+    }
+
+    try {
+        window.localStorage.removeItem(getSecureUserDraftCacheKey(userId));
+        window.sessionStorage.removeItem(getSecureUserDraftCacheKey(userId));
     } catch (error) {
         console.error(error);
     }
@@ -1099,10 +1161,27 @@ const updateAuthUi = () => {
     authOpenLoginButton?.classList.toggle('is-hidden', Boolean(currentUser));
     authOpenSignupButton?.classList.toggle('is-hidden', Boolean(currentUser));
     authLogoutButton?.classList.toggle('is-hidden', !currentUser);
+    authClientLink?.classList.toggle('is-hidden', !currentUser);
+    authSettingsLink?.classList.toggle('is-hidden', !currentUser);
+    settingsOpenLoginButton?.classList.toggle('is-hidden', Boolean(currentUser));
+    settingsOpenSignupButton?.classList.toggle('is-hidden', Boolean(currentUser));
+    settingsChangePasswordButton?.classList.toggle('is-hidden', !currentUser);
+    settingsLogoutButton?.classList.toggle('is-hidden', !currentUser);
+    settingsDangerZone?.classList.toggle('is-hidden', !currentUser);
 
     if (authCurrentUserLabel) {
         authCurrentUserLabel.classList.toggle('is-hidden', !currentUser);
         authCurrentUserLabel.textContent = currentUser ? `Connectee : ${currentUser.name || currentUser.email}` : '';
+    }
+
+    if (settingsAccountTitle) {
+        settingsAccountTitle.textContent = currentUser ? 'Compte connecté' : 'Mon compte';
+    }
+
+    if (settingsAccountCopy) {
+        settingsAccountCopy.textContent = currentUser
+            ? `Connectee : ${currentUser.name || currentUser.email}`
+            : 'Connectez-vous pour acceder a votre compte.';
     }
 
     syncCvWorkspaceAccess();
@@ -1541,6 +1620,116 @@ const buildCvDraftPayload = () => {
     };
 };
 
+const encodeUnicodeBase64 = (value = '') => {
+    const bytes = new TextEncoder().encode(value);
+    let binary = '';
+
+    bytes.forEach((byte) => {
+        binary += String.fromCharCode(byte);
+    });
+
+    return btoa(binary);
+};
+
+const decodeUnicodeBase64 = (value = '') => {
+    const binary = atob(value);
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
+};
+
+const buildCvRoundTripPayload = () => ({
+    ...buildCvDraftPayload(),
+    source: 'sa-creation-web-pdf',
+    exportedAt: new Date().toISOString(),
+});
+
+const getCvRoundTripPayloadFromText = (text = '') => {
+    const markerRegex = new RegExp(`${CV_ROUNDTRIP_START}\\s*([A-Za-z0-9+/=\\s]+?)\\s*${CV_ROUNDTRIP_END}`);
+    const match = String(text || '').match(markerRegex);
+
+    if (!match) {
+        return null;
+    }
+
+    try {
+        return JSON.parse(decodeUnicodeBase64(match[1].replace(/\s+/g, '')));
+    } catch (error) {
+        console.error(error);
+        return null;
+    }
+};
+
+const restoreCvPayloadToEditor = (payload) => {
+    if (!cvForm || !payload) {
+        return false;
+    }
+
+    const values = payload?.values && typeof payload.values === 'object' ? payload.values : null;
+
+    if (!values) {
+        return false;
+    }
+
+    resetCvFormToDefaults();
+    resetCvDraftState();
+
+    Object.entries(values).forEach(([key, value]) => {
+        const field = cvForm.elements[key] || [...document.querySelectorAll('[form="cv-form"][name]')]
+            .find((candidate) => candidate.name === key);
+
+        if (!field) {
+            return;
+        }
+
+        if (field.type === 'checkbox') {
+            field.checked = value === true || value === 'true';
+        } else {
+            field.value = value;
+        }
+    });
+
+    cvEditableContent = payload?.editableContent && typeof payload.editableContent === 'object'
+        ? payload.editableContent
+        : {};
+    cvSectionTitleStyles = payload?.sectionTitleStyles && typeof payload.sectionTitleStyles === 'object'
+        ? payload.sectionTitleStyles
+        : {};
+    cvSectionOrder = Array.isArray(payload?.sectionOrder) && payload.sectionOrder.length
+        ? payload.sectionOrder.filter((key) => cvSectionLabels[key])
+        : [...DEFAULT_CV_SECTION_ORDER];
+
+    updateCvPreview();
+    renderExperienceEditor();
+    renderLanguageEditor();
+    setPreviewMode('cv');
+    currentPreviewPage = 1;
+    scrollToPreviewPage(1);
+    scheduleCvDraftSave();
+    return true;
+};
+
+const embedCvRoundTripData = (doc) => {
+    if (!cvForm || !doc || currentPreviewMode !== 'cv') {
+        return;
+    }
+
+    try {
+        const encoded = encodeUnicodeBase64(JSON.stringify(buildCvRoundTripPayload()));
+        const lines = [
+            CV_ROUNDTRIP_START,
+            ...(encoded.match(/.{1,96}/g) || []),
+            CV_ROUNDTRIP_END,
+        ];
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(1);
+        doc.setTextColor(255, 255, 255);
+        doc.text(lines, 1, 296, { lineHeightFactor: 0.72 });
+    } catch (error) {
+        console.error(error);
+    }
+};
+
 const saveCvDraft = async (silent = false) => {
     if (!cvForm) {
         return;
@@ -1817,11 +2006,12 @@ const loadCvDraft = async ({ silent = false } = {}) => {
         resetCvDraftState();
 
         if (currentUser?.id) {
+            const draftCandidates = [];
             try {
                 const client = await initializeSupabaseClient();
                 const { data, error } = await client
                     .from('cv_drafts')
-                    .select('payload')
+                    .select('payload, updated_at')
                     .eq('user_id', currentUser.id)
                     .limit(1)
                     .maybeSingle();
@@ -1830,24 +2020,28 @@ const loadCvDraft = async ({ silent = false } = {}) => {
                     throw error;
                 }
 
-                payload = data?.payload || null;
+                if (data?.payload) {
+                    draftCandidates.push({ payload: data.payload, updatedAt: data.updated_at });
+                }
             } catch (error) {
                 console.error(error);
-                payload = readScopedLocalDraft(currentUser.id);
             }
 
-            if (!payload) {
-                payload = readScopedLocalDraft(currentUser.id);
+            const localPayload = readScopedLocalDraft(currentUser.id);
+            if (localPayload) {
+                draftCandidates.push({ payload: localPayload, updatedAt: localPayload.savedAt });
             }
 
-            if (!payload) {
-                const legacyPayload = readLegacyLocalDraft(currentUser.email);
+            const legacyPayload = readLegacyLocalDraft(currentUser.email);
+            if (legacyPayload) {
+                draftCandidates.push({ payload: legacyPayload, updatedAt: legacyPayload.savedAt });
+                shouldMigrateLegacyDraft = true;
+            }
 
-                if (legacyPayload) {
-                    payload = legacyPayload;
-                    shouldMigrateLegacyDraft = true;
-                    removeLegacyLocalDraft(currentUser.email);
-                }
+            payload = pickNewestCvDraftPayload(draftCandidates);
+
+            if (shouldMigrateLegacyDraft) {
+                removeLegacyLocalDraft(currentUser.email);
             }
         }
 
@@ -4472,8 +4666,7 @@ const updateCvPreview = () => {
         ? prioritizeSkillsForA4(skillItems, { values, maxItems: 8 })
         : skillItems;
     const rawExperienceSourceItems = splitLines(values.experience || '');
-    const rawExperienceItems = dedupeImportedItems(rawExperienceSourceItems);
-    const experienceItems = sortTimelineEntriesNewestFirst(normalizeDigitalProjectTimelinePeriods(repairPreviewExperienceItems(rawExperienceItems)));
+    const experienceItems = repairPreviewExperienceItems(dedupeExactTrimmedItems(rawExperienceSourceItems));
     const rawProjectItems = splitLines(values.projects || '');
     const projectItems = mergeStandaloneDateItems(dedupeImportedItems(rawProjectItems));
     const rawEducationItems = splitLines(values.education || '').filter((item) => !/^[-–—]?\s*\)?$/.test(item.trim()));
@@ -4491,16 +4684,6 @@ const updateCvPreview = () => {
             values.skills = repairedSkillValue;
             clearEditableOverride('skills');
             qualityFixes.push('compétences en double retirées');
-        }
-    }
-
-    if (values.experience && cvForm.elements.experience && experienceItems.length) {
-        const repairedExperienceValue = experienceItems.join('\n');
-        if (repairedExperienceValue !== rawExperienceSourceItems.join('\n')) {
-            cvForm.elements.experience.value = repairedExperienceValue;
-            values.experience = repairedExperienceValue;
-            clearEditableOverride('experience');
-            qualityFixes.push('expériences triées et doublons retirés');
         }
     }
 
@@ -6199,7 +6382,7 @@ const cleanupImportedExperienceField = () => {
         return;
     }
 
-    const repaired = sortTimelineEntriesNewestFirst(normalizeDigitalProjectTimelinePeriods(repairImportedExperienceItems(splitLines(field.value))));
+    const repaired = repairImportedExperienceItems(dedupeExactTrimmedItems(splitLines(field.value)));
     if (repaired.length) {
         field.value = repaired.join('\n');
     }
@@ -6246,6 +6429,12 @@ const buildCvAutopilotInstruction = (message = '') =>
 
 const parseImportedCv = (text) => {
     if (!cvForm || !text) {
+        return;
+    }
+
+    const roundTripPayload = getCvRoundTripPayloadFromText(text);
+    if (roundTripPayload && restoreCvPayloadToEditor(roundTripPayload)) {
+        setCvStatus('CV SA Création Web réimporté à l’identique.');
         return;
     }
 
@@ -6427,7 +6616,7 @@ const parseImportedCv = (text) => {
     const repairedExperienceItems = repairImportedExperienceItems(
         groupImportedExperiences(rawExperienceImportItems)
     );
-    const experienceItems = mergeKnownExperienceRebuilds(rawExperienceImportItems, repairedExperienceItems)
+    const experienceItems = dedupeExactTrimmedItems(repairedExperienceItems)
         .filter((item) => !/^(permis\b|fatima sidi amar\b)/i.test(item));
     const educationItems = normalizeEducationItems(
         splitImportedItems(educationSection || fallbackSections.education.join('\n'))
@@ -6507,8 +6696,6 @@ const parseImportedCv = (text) => {
         cvForm.elements.headlineScale.value = 'normal';
     }
 
-    optimizeCvProfessionally({ fromImport: true });
-    applyCvAutopilotLocalCleanup({ fromImport: true, silent: true });
     clearEditableOverrides();
     updateCvPreview();
     renderExperienceEditor();
@@ -6517,11 +6704,7 @@ const parseImportedCv = (text) => {
     currentPreviewPage = 1;
     scrollToPreviewPage(1);
 
-    setCvStatus('CV importé. Kirby le range, détecte les trous et prépare les ajouts utiles…');
-    void runKirbyCvAssistant({
-        task: 'autofill',
-        instruction: CV_AUTOPILOT_IMPORT_INSTRUCTION,
-    });
+    setCvStatus('CV importé fidèlement. Vérifiez puis sauvegardez le brouillon.');
 };
 
 const normalizeExportHex = (value, fallback = '#2f3f7f') => {
@@ -6606,7 +6789,7 @@ const normalizeExportTimelineEntries = (items, type = 'experience') => {
         ? sortTimelineEntriesNewestFirst(normalizeEducationItems(mergeStandaloneDateItems(items)))
         : type === 'projects'
             ? mergeStandaloneDateItems(items)
-            : sortTimelineEntriesNewestFirst(repairPreviewExperienceItems(items));
+            : repairPreviewExperienceItems(dedupeExactTrimmedItems(items));
 
     return sourceItems
         .map((item) => parseExperienceEntry(item))
@@ -7013,6 +7196,8 @@ const openPdfPreview = (doc, filename, previewWindow = null) => {
 };
 
 const finishPdfExport = (doc, filename, action, previewWindow = null) => {
+    embedCvRoundTripData(doc);
+
     if (action === 'preview' || action === 'print') {
         return openPdfPreview(doc, filename, previewWindow);
     }
@@ -9673,7 +9858,7 @@ const applyKirbyCvResult = (result, task, instruction = '', options = {}) => {
         changes.push('expériences triées par date');
     }
 
-    if (harmonizeExperienceFieldStructure({ silent: true })) {
+    if (allowGlobalCvRewrite && !singleFieldIntent && harmonizeExperienceFieldStructure({ silent: true })) {
         changes.push('expériences harmonisées');
     }
 
@@ -10327,6 +10512,68 @@ const handleAuthSignup = async (event) => {
     }
 };
 
+const handleDeleteAccount = async () => {
+    if (!currentUser?.id) {
+        openAuthModal('login');
+        setSettingsFeedback('Connectez-vous pour supprimer le compte.', true);
+        return;
+    }
+
+    const confirmed = window.confirm('Supprimer définitivement ce compte et ses brouillons CV ? Cette action est irreversible.');
+    if (!confirmed) {
+        return;
+    }
+
+    settingsDeleteAccountButton.disabled = true;
+    setSettingsFeedback('Suppression du compte en cours...');
+
+    try {
+        const client = await initializeSupabaseClient();
+        const { data, error } = await client.auth.getSession();
+
+        if (error) {
+            throw error;
+        }
+
+        const accessToken = data?.session?.access_token;
+        if (!accessToken) {
+            throw new Error('missing_access_token');
+        }
+
+        const response = await fetch('/api/account-delete', {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('account_delete_failed');
+        }
+
+        removeScopedLocalDraft(currentUser.id);
+        removeLegacyLocalDraft(currentUser.email);
+        await client.auth.signOut().catch(() => {});
+        persistAuthSession(null);
+        resetCvDraftState();
+        clearLegacyAuthStorage();
+        resetCvFormToDefaults();
+        updateAuthUi();
+        updateCvPreview();
+        renderExperienceEditor();
+        renderLanguageEditor();
+        resetCvHistory();
+        refreshCvModule();
+        setSettingsFeedback('Compte supprime.');
+        setCvStatus('Compte supprime. Mode invite actif');
+    } catch (error) {
+        console.error(error);
+        setSettingsFeedback('Suppression impossible pour le moment. Reessayez.', true);
+    } finally {
+        settingsDeleteAccountButton.disabled = false;
+    }
+};
+
 const handleAuthLogout = async () => {
     try {
         const client = await initializeSupabaseClient();
@@ -10397,6 +10644,11 @@ cvOpenLinks.forEach((link) => {
 authOpenLoginButton?.addEventListener('click', () => openAuthModal('login'));
 authOpenSignupButton?.addEventListener('click', () => openAuthModal('signup'));
 authLogoutButton?.addEventListener('click', handleAuthLogout);
+settingsOpenLoginButton?.addEventListener('click', () => openAuthModal('login'));
+settingsOpenSignupButton?.addEventListener('click', () => openAuthModal('signup'));
+settingsChangePasswordButton?.addEventListener('click', () => openAuthModal('reset-password'));
+settingsLogoutButton?.addEventListener('click', handleAuthLogout);
+settingsDeleteAccountButton?.addEventListener('click', handleDeleteAccount);
 cvGateLoginButton?.addEventListener('click', () => openAuthModal('login'));
 cvGateSignupButton?.addEventListener('click', () => openAuthModal('signup'));
 authCloseButton?.addEventListener('click', closeAuthModal);
@@ -10644,9 +10896,9 @@ const normalizeCvTextareaValue = (fieldName, value) => {
     }
 
     if (fieldName === 'experience' || fieldName === 'projects') {
-        const timelineItems = repairPreviewExperienceItems(dedupeImportedItems(items));
+        const timelineItems = repairPreviewExperienceItems(dedupeExactTrimmedItems(items));
         return (fieldName === 'experience'
-            ? sortTimelineEntriesNewestFirst(normalizeDigitalProjectTimelinePeriods(timelineItems))
+            ? timelineItems
             : timelineItems
         ).join('\n');
     }
@@ -11783,7 +12035,6 @@ if (cvImportInput) {
             }
 
             parseImportedCv(text);
-            applyCvAutopilotLocalCleanup({ fromImport: true, silent: true });
             commitCvHistoryTransition(historyBeforeImport);
             if (cvPreviewViewport) {
                 cvPreviewViewport.scrollTop = 0;

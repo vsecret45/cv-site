@@ -15,7 +15,7 @@
         rel="stylesheet"
     >
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-    <link rel="stylesheet" href="style.css?v=20260703-typography-fix-v33">
+    <link rel="stylesheet" href="style.css?v=20260717-cv-stability-v1">
 </head>
 <body class="is-preload cv-workspace-page cv-workspace-locked">
     <div class="page-shell">
@@ -787,6 +787,26 @@ Arabe</textarea>
                         </span>
                     </label>
                     <button class="button button-primary" type="submit">Me connecter</button>
+                    <button class="auth-inline-action" type="button" id="auth-forgot-password">Mot de passe oublié ?</button>
+                </form>
+            </div>
+            <div class="auth-modal-panel is-hidden" id="auth-panel-reset-password">
+                <form class="auth-form" id="auth-reset-password-form">
+                    <label class="field">
+                        <span>Nouveau mot de passe</span>
+                        <span class="password-field">
+                            <input type="password" name="password" placeholder="Nouveau mot de passe" required>
+                            <button type="button" data-password-toggle aria-label="Afficher le mot de passe">Afficher</button>
+                        </span>
+                    </label>
+                    <label class="field">
+                        <span>Confirmer le mot de passe</span>
+                        <span class="password-field">
+                            <input type="password" name="confirmPassword" placeholder="Retaper le mot de passe" required>
+                            <button type="button" data-password-toggle aria-label="Afficher le mot de passe">Afficher</button>
+                        </span>
+                    </label>
+                    <button class="button button-primary" type="submit">Mettre à jour le mot de passe</button>
                 </form>
             </div>
             <div class="auth-modal-panel is-hidden" id="auth-panel-signup">
@@ -824,6 +844,7 @@ Arabe</textarea>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js" defer></script>
-    <script src="script.js?v=20260703-kirby-openai-ops-v19" defer></script>
+    <script src="auth-signup-utils.js?v=20260717-cv-stability-v1" defer></script>
+    <script src="script.js?v=20260717-cv-stability-v1" defer></script>
 </body>
 </html>

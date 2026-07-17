@@ -17613,11 +17613,39 @@ body.cv-workspace-page #assistant-toggle {
     color: #1f2d4c;
 }
 
+body.studio-home .auth-modal-dialog .field span,
+body.cv-workspace-page .auth-modal-dialog .field span {
+    color: #1f2d4c;
+}
+
 .auth-modal-dialog .field input,
 .auth-modal-dialog .field textarea,
 .auth-modal-dialog .field select {
     border-color: rgba(91, 127, 192, 0.2);
     background: rgba(255, 255, 255, 0.78);
+    color: #111827;
+    caret-color: #111827;
+}
+
+body.studio-home .auth-modal-dialog .field input,
+body.studio-home .auth-modal-dialog .field textarea,
+body.studio-home .auth-modal-dialog .field select,
+body.cv-workspace-page .auth-modal-dialog .field input,
+body.cv-workspace-page .auth-modal-dialog .field textarea,
+body.cv-workspace-page .auth-modal-dialog .field select {
+    border-color: rgba(91, 127, 192, 0.28);
+    background: rgba(255, 255, 255, 0.86);
+    color: #111827;
+    caret-color: #111827;
+}
+
+.auth-modal-dialog .field input::placeholder,
+.auth-modal-dialog .field textarea::placeholder {
+    color: rgba(31, 45, 76, 0.58);
+}
+
+.auth-feedback.is-error {
+    color: #9f1d2f;
 }
 
 .auth-tab.is-active {

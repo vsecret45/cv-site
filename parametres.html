@@ -15,7 +15,7 @@
         rel="stylesheet"
     >
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-    <link rel="stylesheet" href="style.css?v=20260704-auth-controls-v3">
+    <link rel="stylesheet" href="style.css?v=20260717-cv-stability-v1">
 </head>
 <body class="is-preload studio-home">
     <canvas class="cosmic-page-field" id="cosmic-page-field" aria-hidden="true"></canvas>
@@ -79,6 +79,7 @@
                         <div class="advisor-composer-actions">
                             <button class="button button-primary" type="button" id="settings-open-login">Connexion</button>
                             <button class="button button-secondary" type="button" id="settings-open-signup">Creer un compte</button>
+                            <button class="button button-secondary is-hidden" type="button" id="settings-change-password">Modifier mon mot de passe</button>
                             <button class="button button-secondary is-hidden" type="button" id="settings-logout">Deconnexion</button>
                         </div>
                         <div class="assistant-proposal-details is-hidden" id="settings-danger-zone">
@@ -115,6 +116,26 @@
                         </span>
                     </label>
                     <button class="button button-primary" type="submit">Me connecter</button>
+                    <button class="auth-inline-action" type="button" id="auth-forgot-password">Mot de passe oublié ?</button>
+                </form>
+            </div>
+            <div class="auth-modal-panel is-hidden" id="auth-panel-reset-password">
+                <form class="auth-form" id="auth-reset-password-form">
+                    <label class="field">
+                        <span>Nouveau mot de passe</span>
+                        <span class="password-field">
+                            <input type="password" name="password" placeholder="Nouveau mot de passe" required>
+                            <button type="button" data-password-toggle aria-label="Afficher le mot de passe">Afficher</button>
+                        </span>
+                    </label>
+                    <label class="field">
+                        <span>Confirmer le mot de passe</span>
+                        <span class="password-field">
+                            <input type="password" name="confirmPassword" placeholder="Retaper le mot de passe" required>
+                            <button type="button" data-password-toggle aria-label="Afficher le mot de passe">Afficher</button>
+                        </span>
+                    </label>
+                    <button class="button button-primary" type="submit">Mettre à jour le mot de passe</button>
                 </form>
             </div>
             <div class="auth-modal-panel is-hidden" id="auth-panel-signup">
@@ -148,6 +169,7 @@
         </div>
     </section>
 
-    <script src="script.js?v=20260704-auth-controls-v2" defer></script>
+    <script src="auth-signup-utils.js?v=20260717-cv-stability-v1" defer></script>
+    <script src="script.js?v=20260717-cv-stability-v1" defer></script>
 </body>
 </html>
