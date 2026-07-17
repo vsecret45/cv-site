@@ -6093,7 +6093,7 @@ const normalizeEducationDisplayItem = (item = '') => {
     }
 
     if (/\bsimplon\b/.test(source)) {
-        return 'Simplon — Formation numérique / développement web • Bases du développement web, culture numérique et apprentissage par projet.';
+        return 'Simplon — Formation numérique / développement web • Bases du développement web, intégration web et culture numérique.';
     }
 
     return item;
@@ -10173,6 +10173,13 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
                     return;
                 }
 
+                const queuedDigitalExperienceDiagnosticReply = getDigitalExperienceDiagnosticReply(queuedMessage);
+                if (queuedDigitalExperienceDiagnosticReply) {
+                    hideKirbyCvProposal();
+                    appendAssistantMessage(queuedDigitalExperienceDiagnosticReply, 'bot');
+                    return;
+                }
+
                 const autopilotMode = shouldRunCvAutopilotMode(queuedMessage);
 
                 const localReplies = [];
@@ -10341,6 +10348,32 @@ const getCvDamageDiagnosticReply = (message = '') => {
     return "Je n'applique aucune modification automatique. Utilisez d'abord Annuler si disponible, ou réimportez le Word/PDF fiable. Ensuite je peux corriger une seule ligne à la fois.";
 };
 
+const getDigitalExperienceDiagnosticReply = (message = '') => {
+    const source = normalizeForMatch(message);
+    const asksWhereDigitalExperience = /\b(ou|où|est|passe|pass[ée]e|manque|disparu|disparue)\b/.test(source)
+        && /\b(experience|expérience|bloc|periode|période)\b/.test(source)
+        && /\b(numerique|numérique|web|creatrice|créatrice)\b/.test(source);
+
+    if (!asksWhereDigitalExperience) {
+        return '';
+    }
+
+    const experienceText = getExperienceField()?.value || '';
+    const hasDigitalExperience = /\bcr[eé]atrice\s+de\s+projets?\s+num[eé]riques?\b/i.test(experienceText)
+        && /\b2025\s*[-–]\s*2026\b/.test(experienceText);
+
+    if (hasDigitalExperience) {
+        return "L’expérience « Créatrice de projets numériques — 2025 - 2026 » est bien présente dans la rubrique Expériences.";
+    }
+
+    return [
+        "L’expérience numérique n’est pas dans le CV affiché actuellement.",
+        "À remettre en haut des expériences, sans reconstruire le reste :",
+        "Créatrice de projets numériques",
+        "2025 - 2026",
+    ].join('\n');
+};
+
 const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
     const cleanMessage = message.trim();
 
@@ -10365,6 +10398,13 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
     if (damageDiagnosticReply) {
         hideKirbyCvProposal();
         appendAssistantMessage(damageDiagnosticReply, 'bot');
+        return;
+    }
+
+    const digitalExperienceDiagnosticReply = getDigitalExperienceDiagnosticReply(cleanMessage);
+    if (digitalExperienceDiagnosticReply) {
+        hideKirbyCvProposal();
+        appendAssistantMessage(digitalExperienceDiagnosticReply, 'bot');
         return;
     }
 

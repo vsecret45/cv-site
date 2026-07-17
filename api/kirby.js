@@ -1581,7 +1581,7 @@ Pour l'adaptation a une offre, le titre exact de l'offre collee est prioritaire 
 
 Pour un poste de vente ou de magasin (Vendeur Lifestyle, Vendeur polyvalent, etc.), valorise uniquement les preuves de relation client, conseil, accueil, autonomie et sens du service deja presentes. N'ajoute jamais vente, encaissement ou mise en rayon comme experience si le CV ne les prouve pas. Ces elements peuvent seulement etre proposes dans suggestedSkills avec la mention « a confirmer ».
 
-Pour une periode recente 2025-2026 liee a des projets numeriques, autoformation, IA ou developpement web, propose de preference ce brouillon a valider : titre « Créatrice de projets numériques – Autoformation et développement », periode exacte « 2025 - 2026 » si la derniere experience reelle finit en 2024, missions « Conception et développement de plateformes web », « Gestion de projets digitaux », « Utilisation d’outils d’intelligence artificielle pour le développement », « Coordination de développements avec des assistants IA », « Amélioration de l’expérience utilisateur (UX/UI) », « Tests fonctionnels et suivi des évolutions », « Développement de compétences en gestion de projet, communication digitale et résolution de problèmes ». Propose les competences correspondantes dans suggestedSkills.
+Pour une periode recente 2025-2026 liee a des projets numeriques, autoformation, IA ou developpement web, propose de preference ce brouillon a valider : titre « Créatrice de projets numériques – Autoformation et développement », periode exacte « 2025 - 2026 » si la derniere experience reelle finit en 2024, missions « Conception et développement de plateformes web », « Création et mise à jour de sites web », « Utilisation d’outils d’intelligence artificielle pour le développement », « Coordination de développements avec des assistants IA », « Amélioration de l’expérience utilisateur et des interfaces », « Tests fonctionnels et suivi des évolutions », « Développement de compétences front-end, notions back-end et intégration web ». Propose seulement ces competences prudentes : Front-end : HTML / CSS, Notions JavaScript, Notions back-end, Intégration web, Création et mise à jour de sites web, Outils numériques et IA, Tests fonctionnels, Organisation, Autonomie.
 
 Mode CV rapide prêt à l'emploi : ne pose pas une liste de questions si la demande contient deja les projets, formations, outils ou periodes a valoriser. Dans ce cas, prépare directement une proposition validable. Les questions ne sont utiles que si aucune experience credible ne peut etre redigee.
 
@@ -5873,21 +5873,21 @@ const shouldDraftGapExperience = (instruction = '') =>
     /\b(trou|vide|periode|période|combler|valoriser|projet|autoformation|autodidacte|formation|web|numerique|numérique|digital|ia|entrepreneur|creatrice|créatrice|recherche active|benevolat|bénévolat|mission ponctuelle)\b/i.test(instruction);
 
 const buildCvGapExperience = (gap, context) => {
-    const commonSkills = ['Organisation', 'Autonomie', 'Gestion de projet', 'Résolution de problèmes'];
+    const commonSkills = ['Organisation', 'Autonomie'];
     const byContext = {
         web: {
             title: 'Créatrice de projets numériques - Autoformation et développement',
             organization: 'Projet personnel / Autoformation',
             description: [
                 'Conception et développement de plateformes web.',
-                'Gestion de projets digitaux.',
+                'Création et mise à jour de sites web.',
                 "Utilisation d'outils d'intelligence artificielle pour le développement.",
                 "Coordination de développements avec des assistants IA.",
-                "Amélioration de l'expérience utilisateur (UX/UI).",
+                "Amélioration de l'expérience utilisateur et des interfaces.",
                 'Tests fonctionnels et suivi des évolutions.',
-                'Développement de compétences en gestion de projet, communication digitale et résolution de problèmes.',
+                'Développement de compétences front-end, notions back-end et intégration web.',
             ],
-            skills: ['Gestion de projet', 'Développement web', 'IA', 'Communication digitale', 'UX/UI', 'Tests fonctionnels', ...commonSkills],
+            skills: ['Front-end : HTML / CSS', 'Notions JavaScript', 'Notions back-end', 'Intégration web', 'Création et mise à jour de sites web', 'Outils numériques et IA', 'Tests fonctionnels', ...commonSkills],
         },
         entrepreneur: {
             title: 'Entrepreneure - Création et développement de projet',
@@ -5904,10 +5904,10 @@ const buildCvGapExperience = (gap, context) => {
             organization: 'Formation en autodidacte',
             description: [
                 'Apprentissage progressif par la pratique et les projets.',
-                'Renforcement de la logique, de la méthode de travail et de la résolution de problèmes.',
+                'Renforcement des bases de programmation et de la méthode de travail.',
                 'Veille, exercices pratiques et consolidation des compétences techniques.',
             ],
-            skills: ['Autoformation', 'Apprentissage continu', 'Méthode', ...commonSkills],
+            skills: ['Autoformation', 'Apprentissage continu', 'Bases de programmation', ...commonSkills],
         },
         jobSearch: {
             title: "Recherche active d'emploi - Projet professionnel",
@@ -5935,7 +5935,7 @@ const buildCvGapExperience = (gap, context) => {
             description: [
                 'Développement de compétences par la pratique et la veille.',
                 'Organisation des étapes du projet et suivi des améliorations.',
-                'Renforcement de l’autonomie, de la méthode et de la résolution de problèmes.',
+                'Renforcement de l’autonomie et de la méthode de travail.',
             ],
             skills: ['Projet personnel', 'Autoformation', ...commonSkills],
         },
@@ -5967,8 +5967,8 @@ const buildCvEducationSuggestions = ({ cv, instruction }) => {
         suggestions.push({
             title: 'École 42 - Piscine informatique',
             organization: 'École 42',
-            description: 'Initiation intensive au développement, logique algorithmique, autonomie, résolution de problèmes et travail en pair-to-pair.',
-            skills: ['Logique algorithmique', 'Autonomie', 'Résolution de problèmes', 'Pair-to-pair'],
+            description: 'Découverte du développement, bases de programmation, autonomie et travail sur projets.',
+            skills: ['Bases de programmation', 'Autonomie', 'Travail sur projets'],
             source: 'a valider',
         });
     }
@@ -5977,8 +5977,8 @@ const buildCvEducationSuggestions = ({ cv, instruction }) => {
         suggestions.push({
             title: 'Simplon - Formation numérique / développement web',
             organization: 'Simplon',
-            description: 'Bases du développement web, culture numérique et apprentissage par projet.',
-            skills: ['Développement web', 'Culture numérique', 'Apprentissage par projet'],
+            description: 'Bases du développement web, intégration web et culture numérique.',
+            skills: ['Front-end : HTML / CSS', 'Intégration web', 'Culture numérique'],
             source: 'a valider',
         });
     }
@@ -6140,7 +6140,7 @@ const normalizeCvSuggestedSkills = (skills = []) => {
             return canonical || skill.replace(/\s*[-–—]?\s*[aà]\s+confirmer\b/gi, '').trim();
         })
         .filter(Boolean)
-        .filter((skill) => !/\bgestion\s+de\s+projet\s+digital\b/i.test(skill))
+        .filter((skill) => !/\b(?:gestion\s+de\s+projet\s+digital|ecole\s+42|école\s+42|simplon|projets?\s+num[eé]riques?)\b/i.test(skill))
         .filter((skill) => {
             const key = stripAccents(skill.toLowerCase());
             if (seen.has(key)) {
