@@ -8017,7 +8017,17 @@ const requestKirbyCvAssistant = async ({ task, instruction = '' }) => {
     });
 
     if (!response.ok) {
-        throw new Error('kirby_cv_request_failed');
+        let details = null;
+        try {
+            details = await response.json();
+        } catch (error) {
+            details = null;
+        }
+        const message = details?.message || details?.error || 'kirby_cv_request_failed';
+        const requestError = new Error(message);
+        requestError.details = details;
+        requestError.status = response.status;
+        throw requestError;
     }
 
     return response.json();
@@ -10141,7 +10151,7 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
         return 'Proposition prête. Vérifiez le résumé puis choisissez « Appliquer au CV ».';
     } catch (error) {
         console.error(error);
-        return 'Kirby est momentanément indisponible. Le CV n’a pas été modifié.';
+        return error?.message || 'Kirby est momentanément indisponible. Le CV n’a pas été modifié.';
     } finally {
         isKirbyCvRequestInFlight = false;
 

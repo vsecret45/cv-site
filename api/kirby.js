@@ -6872,7 +6872,7 @@ const getOpenAiCvModels = () => {
     const configured = normalize(process.env.KIRBY_CV_OPENAI_MODEL || process.env.KIRBY_CV_OPENAI_MODELS);
     const models = configured
         ? configured.split(',').map(normalize).filter(Boolean)
-        : ['gpt-5.4', 'gpt-5.4-mini', 'gpt-5.5'];
+        : getOpenAiModels();
 
     return [...new Set(models)];
 };
@@ -7043,10 +7043,10 @@ module.exports = async (request, response) => {
             });
         }
 
-        return json(response, 200, {
-            ok: true,
-            source: 'fallback',
-            cv: buildFallbackCvAssistant({ task, cv, jobOffer, instruction, letter }),
+        return json(response, 503, {
+            ok: false,
+            error: 'kirby_cv_openai_unavailable',
+            message: 'Kirby IA est indisponible pour le CV. Aucune modification n’a été appliquée.',
         });
     }
 
