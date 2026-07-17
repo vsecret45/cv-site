@@ -4600,7 +4600,8 @@ const repairPreviewExperienceItems = (items) => {
         repaired.push(item);
     }
 
-    return dedupeImportedItems(repaired);
+    const repairedItems = dedupeImportedItems(repaired);
+    return mergeKnownExperienceRebuilds([...items, ...repairedItems], repairedItems);
 };
 
 const normalizeTimelineMatch = (value = '') =>
@@ -6511,11 +6512,13 @@ const groupImportedExperiences = (items) => {
         groups.push(current.trim());
     }
 
-    return dedupeImportedItems(
+    const grouped = dedupeImportedItems(
         groups
             .map((item) => item.replace(/\s*•\s*•\s*/g, ' • ').trim())
             .filter((item) => item.length < 420)
     );
+
+    return mergeKnownExperienceRebuilds([...items, ...grouped], grouped);
 };
 
 const getOrphanMonthFragment = (value) => {
@@ -6597,7 +6600,8 @@ const repairImportedExperienceItems = (items) => {
         repaired.push(item);
     }
 
-    return dedupeImportedItems(repaired);
+    const repairedItems = dedupeImportedItems(repaired);
+    return mergeKnownExperienceRebuilds([...items, ...repairedItems], repairedItems);
 };
 
 const cleanupImportedExperienceField = () => {
