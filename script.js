@@ -1990,6 +1990,60 @@ const restorePreviousCvVersion = () => {
     }
 };
 
+const restoreCvHistorySnapshot = (stateJson = '', status = '') => {
+    if (!stateJson || !cvForm) {
+        return false;
+    }
+
+    let state;
+    try {
+        state = JSON.parse(stateJson);
+    } catch (error) {
+        console.error(error);
+        return false;
+    }
+
+    isRestoringCvHistory = true;
+    try {
+        resetCvFormToDefaults();
+        const values = state?.values && typeof state.values === 'object' ? state.values : {};
+        Object.entries(values).forEach(([key, value]) => {
+            const field = cvForm.elements[key] || [...document.querySelectorAll('[form="cv-form"][name]')]
+                .find((candidate) => candidate.name === key);
+            if (!field) {
+                return;
+            }
+
+            if (field.type === 'checkbox') {
+                field.checked = value === true || value === 'true';
+            } else {
+                field.value = value;
+            }
+        });
+
+        cvEditableContent = state?.editableContent && typeof state.editableContent === 'object'
+            ? state.editableContent
+            : {};
+        cvSectionTitleStyles = state?.sectionTitleStyles && typeof state.sectionTitleStyles === 'object'
+            ? state.sectionTitleStyles
+            : {};
+        cvSectionOrder = Array.isArray(state?.sectionOrder) && state.sectionOrder.length
+            ? state.sectionOrder.filter((key) => cvSectionLabels[key])
+            : [...DEFAULT_CV_SECTION_ORDER];
+        renderExperienceEditor();
+        renderLanguageEditor();
+        updateCvPreview();
+        if (status) {
+            setCvStatus(status);
+        }
+        return true;
+    } finally {
+        isRestoringCvHistory = false;
+        cvHistoryCurrent = getCvHistoryState();
+        updateCvUndoControl();
+    }
+};
+
 const loadCvDraft = async ({ silent = false } = {}) => {
     if (!cvForm) {
         return;
@@ -2249,7 +2303,21 @@ const looksLikeBrokenPdfText = (text) => {
     const compact = text.replace(/\s+/g, ' ').trim();
     const weirdChars = (compact.match(/[�□■]/g) || []).length;
     const slashCommands = (compact.match(/\/(Title|Parent|Dest|Next|Prev|Font|Type)\b/g) || []).length;
-    const markerHits = ['%PDF-', '/Parent', '/Dest', '/Next', 'stream', 'endobj'].filter((marker) => compact.includes(marker)).length;
+    const markerHits = [
+        '%PDF-',
+        '/Parent',
+        '/Dest',
+        '/Next',
+        'stream',
+        'endobj',
+        'IHDR',
+        'IDAT',
+        'IEND',
+        'ColorSpace',
+        'xmpmeta',
+        'CreatorTool',
+        'jsPDF',
+    ].filter((marker) => compact.includes(marker)).length;
     const weirdRatio = weirdChars / Math.max(compact.length, 1);
 
     return weirdRatio > 0.02 || slashCommands >= 2 || markerHits >= 2;
@@ -5681,6 +5749,7 @@ const splitImportedItems = (text) =>
     text
         .split(/\n+/)
         .flatMap((line) => line.split(/\s+•\s+/))
+        .flatMap((line) => line.split(/\s+-\s+(?=(?:Machiniste(?:-|\s)?Receveur|Conseill[èe]re commerciale|Responsable Adjointe|Charg[ée]e de client[èe]le)\b)/i))
         .map(cleanImportedSectionLine)
         .filter(Boolean);
 
@@ -6356,6 +6425,17 @@ const repairImportedExperienceItems = (items) => {
         const item = cleanImportedSectionLine(rawItem);
 
         if (!item) {
+            continue;
+        }
+
+        const orphanMonth = getOrphanMonthFragment(item);
+        const nextItem = preparedItems[index + 1] || '';
+        if (orphanMonth && yearLeadingRangeRegex.test(nextItem) && repaired.length) {
+            repaired[repaired.length - 1] = appendStandaloneDateToEntry(
+                repaired[repaired.length - 1],
+                `${orphanMonth} ${nextItem}`
+            );
+            index += 1;
             continue;
         }
 
@@ -12065,13 +12145,13 @@ if (cvImportInput) {
             }
 
             if (!text.trim()) {
-                setCvStatus('Aucun texte exploitable detecte dans ce document');
+                restoreCvHistorySnapshot(historyBeforeImport, 'Aucun texte exploitable detecte dans ce document : CV precedent restaure');
                 event.target.value = '';
                 return;
             }
 
             if (isPdfDocument(file) && looksLikeBrokenPdfText(text)) {
-                setCvStatus(getUnreadablePdfImportMessage());
+                restoreCvHistorySnapshot(historyBeforeImport, getUnreadablePdfImportMessage());
                 event.target.value = '';
                 return;
             }
@@ -12083,7 +12163,7 @@ if (cvImportInput) {
             }
         } catch (error) {
             console.error(error);
-            setCvStatus('Import impossible pour ce document');
+            restoreCvHistorySnapshot(historyBeforeImport, 'Import impossible : CV precedent restaure');
             event.target.value = '';
         }
     });
