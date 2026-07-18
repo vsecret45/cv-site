@@ -6217,11 +6217,11 @@ const normalizeEducationDisplayItem = (item = '') => {
     const digitalTrainingPeriod = hasDigitalTrainingPeriod ? ' - 2025 - 2026' : '';
 
     if (/\b(?:ecole 42|42)\b/.test(source) && /\bpiscine\b/.test(source)) {
-        return `École 42 — Piscine informatique${digitalTrainingPeriod} • Découverte du développement, bases de programmation, autonomie et travail sur projets.`;
+        return `École 42 — Piscine informatique${digitalTrainingPeriod} • Bases de la programmation, logique algorithmique et travail par projets.`;
     }
 
     if (/\bsimplon\b/.test(source)) {
-        return `Simplon — Formation numérique / développement web${digitalTrainingPeriod} • Bases du développement web, intégration web, front-end, back-end et culture numérique.`;
+        return `Simplon — Formation numérique / développement web${digitalTrainingPeriod} • Développement web, intégration, outils numériques et méthodes de projet.`;
     }
 
     return item;
@@ -6234,7 +6234,7 @@ const normalizeEducationItems = (items) =>
             .map((item) => item.replace(/^[-•]\s*/, '').replace(/\s{2,}/g, ' ').trim())
             .filter(
                 (item) => {
-                    const isEducationEntry = educationEntryStartRegex.test(item);
+                    const isEducationEntry = educationEntryStartRegex.test(item) || /\bautoformation\b/i.test(item);
 
                     return (
                         item &&
@@ -8789,29 +8789,36 @@ const hasQuickExperienceDateIntent = (message = '', dateValue = '') => {
     return hasDateTopic || answersPendingDateQuestion || (Boolean(dateValue) && hasCorrectionVerb);
 };
 
-const targetedDigitalCvKeywords = /\b(creatrice|createur|creation|projets? numeriques?|numerique|developpement web|backend|back\s*end|front\s*end|frontend|ecole 42|42|simplon|piscine|autoformation)\b/;
+const targetedDigitalCvKeywords = /\b(creatrice|createur|creation|projets? numeriques?|numerique|informatique|sites? web|developpeuse web|developpeur web|developpement web|backend|back\s*end|front\s*end|frontend|ecole 42|42|simplon|piscine|autoformation)\b/;
 
 const shouldApplyTargetedDigitalCvCompletion = (message = '') => {
     const source = normalizeForMatch(getKirbyUserInstruction(message));
     const asksToApply = /\b(ajoute|ajouter|rajoute|rajouter|integre|integrer|mets|mettre|met|complete|completer|comble|combler|valorise|valoriser|remets|remet)\b/.test(source);
     const hasCvScope = /\b(cv|experience|experiences|formation|formations|certification|certifications|competence|competences|accroche|profil|commercial|trou|periode)\b/.test(source);
+    const containsCompletePersonalExperience = /\b(creatrice\s+de\s+sites?\s+web|developpeuse\s+web|creatrice\s+de\s+projets?\s+numeriques?)\b/.test(source)
+        && /\b2025\s*[-–—]\s*2026\b/.test(source)
+        && /\b(projet personnel|autoformation)\b/.test(source);
 
-    return asksToApply && hasCvScope && targetedDigitalCvKeywords.test(source);
+    return hasCvScope && targetedDigitalCvKeywords.test(source) && (asksToApply || containsCompletePersonalExperience);
 };
 
 const getDigitalCvCompletionExperience = () => ({
-    title: 'Créatrice de projets numériques',
+    title: 'Créatrice de sites web / Développeuse web',
     meta: 'Projet personnel / Autoformation',
     date: '2025 - 2026',
     bullets: [
-        'Création de projets web, structuration des idées et mise en pratique des bases front-end et back-end',
-        'Utilisation d’outils numériques et IA pour concevoir plus vite, organiser le contenu et améliorer l’expérience utilisateur',
+        'Conception et développement de sites vitrines et d’outils web',
+        'Création d’interfaces adaptées aux besoins utilisateurs',
+        'Intégration de fonctionnalités avec assistants IA',
+        'Tests, corrections et amélioration continue des projets',
+        'Gestion autonome de projets numériques',
     ],
 });
 
 const getDigitalCvCompletionEducation = () => [
-    'École 42 — Piscine informatique - 2025 - 2026 • Découverte du développement, bases de programmation, autonomie et travail sur projets.',
-    'Simplon — Formation numérique / développement web - 2025 - 2026 • Bases du développement web, intégration web, front-end, back-end et culture numérique.',
+    'École 42 — Piscine informatique - 2025 - 2026 • Bases de la programmation, logique algorithmique et travail par projets.',
+    'Simplon — Formation numérique / développement web - 2025 - 2026 • Développement web, intégration, outils numériques et méthodes de projet.',
+    'Autoformation en informatique - 2023 • Apprentissage autonome du développement web et des outils numériques. Réalisation de projets personnels et acquisition de nouvelles compétences.',
 ];
 
 const getDigitalCvCompletionSkills = () => [
@@ -8828,10 +8835,11 @@ const getDigitalCvCompletionSkills = () => [
 ];
 
 const getDigitalCvCompletionSummary = () =>
-    'Professionnelle de la relation client avec une expérience en vente, conseil, banque, service premium et transport, j’associe sens commercial, écoute et organisation à une montée en compétences en développement web. À l’aise pour comprendre un besoin, accompagner un client et structurer des projets numériques, je souhaite mettre ce double profil au service d’un poste orienté client et solutions digitales.';
+    'Conseillère de vente orientée client, avec une expérience en accueil, conseil, banque, service premium et transport. J’allie sens commercial, écoute et organisation à une montée en compétences en développement web, pour accompagner les clients avec méthode et proposer des solutions adaptées.';
 
 const isDigitalCvCompletionExperience = (entry = {}) =>
-    /\bcreatrice\s+de\s+projets?\s+numeriques?\b/.test(normalizeForMatch(entry.title || ''))
+    /\bcreatrice\s+de\s+(?:sites?\s+web|projets?\s+numeriques?)\b/.test(normalizeForMatch(entry.title || ''))
+    || /\bdeveloppeuse\s+web\b/.test(normalizeForMatch(entry.title || ''))
     || (
         /\b2025\s*[-–—]\s*2026\b/.test(entry.date || '')
         && targetedDigitalCvKeywords.test(normalizeForMatch(`${entry.title || ''} ${entry.meta || ''} ${(entry.bullets || []).join(' ')}`))
@@ -8869,7 +8877,9 @@ const mergeDigitalCvCompletionEducation = () => {
     const existing = normalizeEducationItems(splitLines(field.value));
     const retained = existing.filter((item) => {
         const source = normalizeForMatch(item);
-        return !(/\b(?:ecole 42|42)\b/.test(source) && /\bpiscine\b/.test(source)) && !/\bsimplon\b/.test(source);
+        return !(/\b(?:ecole 42|42)\b/.test(source) && /\bpiscine\b/.test(source))
+            && !/\bsimplon\b/.test(source)
+            && !(/\bautoformation\b/.test(source) && /\binformatique\b/.test(source));
     });
     const nextValue = normalizeCvTextareaValue(
         'education',
@@ -8918,8 +8928,23 @@ const applyTargetedDigitalCvCompletion = (message = '') => {
 
     const beforeState = getCvHistoryState();
     const changes = [];
+    const source = normalizeForMatch(message);
+    const wantsSalesTarget = /\b(cible\s+du\s+cv|conseillere\s+de\s+vente|conseiller\s+de\s+vente|vente)\b/.test(source);
     const summaryField = cvForm.elements.summary;
-    const wantsSummary = /\b(accroche|profil|commercial|commerciale|valeur|valorise|valoriser)\b/.test(normalizeForMatch(message));
+    const headlineField = cvForm.elements.headline;
+    const jobTargetField = cvForm.elements.jobTarget;
+    const wantsSummary = wantsSalesTarget || /\b(accroche|profil|commercial|commerciale|valeur|valorise|valoriser)\b/.test(source);
+
+    if (wantsSalesTarget) {
+        if (headlineField && headlineField.value !== 'Conseillère de vente') {
+            headlineField.value = 'Conseillère de vente';
+            clearEditableOverride('headline');
+            changes.push('titre Conseillère de vente');
+        }
+        if (jobTargetField && jobTargetField.value !== 'Conseillère de vente') {
+            jobTargetField.value = 'Conseillère de vente';
+        }
+    }
 
     if (summaryField && wantsSummary) {
         const nextSummary = normalizeCvSentenceText(getDigitalCvCompletionSummary());
@@ -10691,18 +10716,21 @@ const getDigitalExperienceDiagnosticReply = (message = '') => {
     }
 
     const experienceText = getExperienceField()?.value || '';
-    const hasDigitalExperience = /\bcr[eé]atrice\s+de\s+projets?\s+num[eé]riques?\b/i.test(experienceText)
-        && /\b2025\s*[-–]\s*2026\b/.test(experienceText);
+    const hasDigitalExperience = (
+        /\bcr[eé]atrice\s+de\s+(?:sites?\s+web|projets?\s+num[eé]riques?)\b/i.test(experienceText)
+        || /\bd[eé]veloppeuse\s+web\b/i.test(experienceText)
+    ) && /\b2025\s*[-–]\s*2026\b/.test(experienceText);
 
     if (hasDigitalExperience) {
-        return "L’expérience « Créatrice de projets numériques — 2025 - 2026 » est bien présente dans la rubrique Expériences.";
+        return "L’expérience « Créatrice de sites web / Développeuse web — 2025 - 2026 » est bien présente dans la rubrique Expériences.";
     }
 
     return [
         "L’expérience numérique n’est pas dans le CV affiché actuellement.",
         "À remettre en haut des expériences, sans reconstruire le reste :",
-        "Créatrice de projets numériques",
+        "Créatrice de sites web / Développeuse web",
         "2025 - 2026",
+        "Projet personnel / Autoformation",
     ].join('\n');
 };
 
@@ -10710,6 +10738,13 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
     const cleanMessage = message.trim();
 
     if (!cleanMessage) {
+        return;
+    }
+
+    const targetedDigitalReply = applyTargetedDigitalCvCompletion(cleanMessage);
+    if (targetedDigitalReply) {
+        hideKirbyCvProposal();
+        appendAssistantMessage(targetedDigitalReply, 'bot');
         return;
     }
 

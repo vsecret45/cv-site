@@ -1581,7 +1581,7 @@ Pour l'adaptation a une offre, le titre exact de l'offre collee est prioritaire 
 
 Pour un poste de vente ou de magasin (Vendeur Lifestyle, Vendeur polyvalent, etc.), valorise uniquement les preuves de relation client, conseil, accueil, autonomie et sens du service deja presentes. N'ajoute jamais vente, encaissement ou mise en rayon comme experience si le CV ne les prouve pas. Ces elements peuvent seulement etre proposes dans suggestedSkills avec la mention « a confirmer ».
 
-Pour une periode recente 2025-2026 liee a des projets numeriques, autoformation, IA ou developpement web, propose de preference ce brouillon a valider : titre « Créatrice de projets numériques – Autoformation et développement », periode exacte « 2025 - 2026 » si la derniere experience reelle finit en 2024, missions « Conception et développement de plateformes web », « Création et mise à jour de sites web », « Utilisation d’outils d’intelligence artificielle pour le développement », « Coordination de développements avec des assistants IA », « Amélioration de l’expérience utilisateur et des interfaces », « Tests fonctionnels et suivi des évolutions », « Développement de compétences front-end, notions back-end et intégration web ». Propose seulement ces competences prudentes : Front-end : HTML / CSS, Notions JavaScript, Notions back-end, Intégration web, Création et mise à jour de sites web, Outils numériques et IA, Tests fonctionnels, Organisation, Autonomie.
+Pour une periode recente 2025-2026 liee a des projets numeriques, autoformation, IA ou developpement web, propose de preference ce brouillon a valider : titre « Créatrice de sites web / Développeuse web », periode exacte « 2025 - 2026 » si la derniere experience reelle finit en 2024, organization « Projet personnel / Autoformation », missions « Conception et développement de sites vitrines et d’outils web », « Création d’interfaces adaptées aux besoins utilisateurs », « Intégration de fonctionnalités avec assistants IA », « Tests, corrections et amélioration continue des projets », « Gestion autonome de projets numériques ». Ne demande pas d'entreprise ni de ville pour cette experience personnelle. Propose seulement ces competences prudentes : Front-end : HTML / CSS, Notions JavaScript, Notions back-end, Intégration web, Création et mise à jour de sites web, Outils numériques et IA, Tests fonctionnels, Organisation, Autonomie.
 
 Si l'utilisateur demande explicitement d'ajouter une nouvelle experience personnelle, projet, autoformation, benevolat ou activite independante avec un intitule et une periode, ne traite pas la periode comme une correction de date d'une experience existante. Renseigne generatedExperiences. L'entreprise n'est pas obligatoire : si aucun employeur n'est fourni, utilise organization « Projet personnel / Autoformation » ou le contexte personnel fourni. Ne demande pas un poste salarie ou une entreprise lorsque le titre et la periode suffisent.
 
@@ -5878,16 +5878,14 @@ const buildCvGapExperience = (gap, context) => {
     const commonSkills = ['Organisation', 'Autonomie'];
     const byContext = {
         web: {
-            title: 'Créatrice de projets numériques - Autoformation et développement',
+            title: 'Créatrice de sites web / Développeuse web',
             organization: 'Projet personnel / Autoformation',
             description: [
-                'Conception et développement de plateformes web.',
-                'Création et mise à jour de sites web.',
-                "Utilisation d'outils d'intelligence artificielle pour le développement.",
-                "Coordination de développements avec des assistants IA.",
-                "Amélioration de l'expérience utilisateur et des interfaces.",
-                'Tests fonctionnels et suivi des évolutions.',
-                'Développement de compétences front-end, notions back-end et intégration web.',
+                'Conception et développement de sites vitrines et d’outils web.',
+                'Création d’interfaces adaptées aux besoins utilisateurs.',
+                'Intégration de fonctionnalités avec assistants IA.',
+                'Tests, corrections et amélioration continue des projets.',
+                'Gestion autonome de projets numériques.',
             ],
             skills: ['Front-end : HTML / CSS', 'Notions JavaScript', 'Notions back-end', 'Intégration web', 'Création et mise à jour de sites web', 'Outils numériques et IA', 'Tests fonctionnels', ...commonSkills],
         },
@@ -5968,8 +5966,9 @@ const buildCvEducationSuggestions = ({ cv, instruction }) => {
     if (/\b(42|ecole 42|piscine)\b/.test(source) && !/\b(42|ecole 42|piscine)\b/.test(existingEducation)) {
         suggestions.push({
             title: 'École 42 - Piscine informatique',
+            period: /\b2025\s*[-–—]\s*2026\b/.test(source) ? '2025 - 2026' : '',
             organization: 'École 42',
-            description: 'Découverte du développement, bases de programmation, autonomie et travail sur projets.',
+            description: 'Bases de la programmation, logique algorithmique et travail par projets.',
             skills: ['Bases de programmation', 'Autonomie', 'Travail sur projets'],
             source: 'a valider',
         });
@@ -5978,9 +5977,21 @@ const buildCvEducationSuggestions = ({ cv, instruction }) => {
     if (/\bsimplon\b/.test(source) && !/\bsimplon\b/.test(existingEducation)) {
         suggestions.push({
             title: 'Simplon - Formation numérique / développement web',
+            period: /\b2025\s*[-–—]\s*2026\b/.test(source) ? '2025 - 2026' : '',
             organization: 'Simplon',
-            description: 'Bases du développement web, intégration web et culture numérique.',
+            description: 'Développement web, intégration, outils numériques et méthodes de projet.',
             skills: ['Front-end : HTML / CSS', 'Intégration web', 'Culture numérique'],
+            source: 'a valider',
+        });
+    }
+
+    if (/\bautoformation\b/.test(source) && /\binformatique\b/.test(source) && /\b2023\b/.test(source) && !/\bautoformation\b/.test(existingEducation)) {
+        suggestions.push({
+            title: 'Autoformation en informatique',
+            period: '2023',
+            organization: '',
+            description: 'Apprentissage autonome du développement web et des outils numériques. Réalisation de projets personnels et acquisition de nouvelles compétences.',
+            skills: ['Développement web', 'Outils numériques', 'Autonomie'],
             source: 'a valider',
         });
     }
@@ -5999,15 +6010,13 @@ const buildCvEducationSuggestions = ({ cv, instruction }) => {
 };
 
 const digitalProjectExperienceDetails = {
-    title: 'Créatrice de projets numériques - Autoformation et développement',
+    title: 'Créatrice de sites web / Développeuse web',
     description: [
-        'Conception et développement de plateformes web.',
-        'Création et mise à jour de sites web.',
-        "Utilisation d'outils d'intelligence artificielle pour le développement.",
-        'Coordination de développements avec des assistants IA.',
-        "Amélioration de l'expérience utilisateur et des interfaces.",
-        'Tests fonctionnels et suivi des évolutions.',
-        'Développement de compétences front-end, notions back-end et intégration web.',
+        'Conception et développement de sites vitrines et d’outils web.',
+        'Création d’interfaces adaptées aux besoins utilisateurs.',
+        'Intégration de fonctionnalités avec assistants IA.',
+        'Tests, corrections et amélioration continue des projets.',
+        'Gestion autonome de projets numériques.',
     ],
     skills: [
         'Front-end : HTML / CSS',
