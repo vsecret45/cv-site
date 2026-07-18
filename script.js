@@ -10805,14 +10805,15 @@ const shouldUseKirbyCvAssistant = (message = '') => Boolean(message.trim());
 
 const getCvDamageDiagnosticReply = (message = '') => {
     const source = normalizeForMatch(message);
-    const reportsEmptyOrBrokenCv = /\b(cv|experience|experiences|rubrique|section)\b/.test(source)
-        && /\b(vide|vides|supprime|supprimees|supprimer|disparu|disparues|efface|effacees|tout supprimer|tout supprime|casse|bug)\b/.test(source);
+    const targetsCv = /\b(cv|experience|experiences|rubrique|section)\b/.test(source);
+    const reportsEmptyOrBrokenCv = /\b(vide|vides|supprime|supprimees|supprimer|disparu|disparues|efface|effacees|tout supprimer|tout supprime|tout a disparu|perdu)\b/.test(source);
+    const asksConcreteEdit = /\b(ajoute|ajouter|deplace|deplacer|place|placer|mets|mettre|corrige|corriger|adapte|adapter|reordonne|reorganise|juste sous|avant|apres|lettre|optimise|optimiser|ameliore|ameliorer|remplace|reformule)\b/.test(source);
 
-    if (!reportsEmptyOrBrokenCv) {
+    if (!targetsCv || !reportsEmptyOrBrokenCv || asksConcreteEdit) {
         return '';
     }
 
-    return "Je n'applique aucune modification automatique. Utilisez d'abord Annuler si disponible, ou réimportez le Word/PDF fiable. Ensuite je peux corriger une seule ligne à la fois.";
+    return "Je vois un signal de CV potentiellement altéré. Je continue quand même la demande en cours, et si besoin on pourra restaurer via Annuler ou réimport fiable.";
 };
 
 const getDigitalExperienceDiagnosticReply = (message = '') => {
@@ -10877,9 +10878,7 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
 
     const damageDiagnosticReply = getCvDamageDiagnosticReply(cleanMessage);
     if (damageDiagnosticReply) {
-        hideKirbyCvProposal();
         appendAssistantMessage(damageDiagnosticReply, 'bot');
-        return;
     }
 
     const digitalExperienceDiagnosticReply = getDigitalExperienceDiagnosticReply(cleanMessage);
