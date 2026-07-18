@@ -9479,84 +9479,6 @@ const getExperienceRemovalIntent = (message = '') => {
     };
 };
 
-const getFrenchNumberValue = (value = '') => {
-    const source = normalizeForMatch(value);
-    const digit = source.match(/\b(\d{1,2})\b/);
-    if (digit) {
-        return Number.parseInt(digit[1], 10);
-    }
-
-    const words = {
-        une: 1,
-        un: 1,
-        deux: 2,
-        trois: 3,
-        quatre: 4,
-        cinq: 5,
-    };
-
-    return words[source.match(/\b(une|un|deux|trois|quatre|cinq)\b/)?.[1]] || 0;
-};
-
-const getExperienceLineCountRemovalRequest = (message = '') => {
-    const source = normalizeForMatch(message);
-    const count = getFrenchNumberValue(source);
-    const periodMatch = source.match(/\b((?:19|20)\d{2})\s*(?:(?:-|a|au|jusqu a|jusqua)\s*)?((?:19|20)\d{2})\b/);
-    const asksRemoval = /\b(supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer)\b/.test(source);
-    const targetsLines = /\b(ligne|lignes|puce|puces|mission|missions|bullet|bullets)\b/.test(source);
-
-    if (!asksRemoval || !targetsLines || !count || !periodMatch) {
-        return null;
-    }
-
-    return {
-        count: Math.min(count, 8),
-        periodStart: periodMatch[1],
-        periodEnd: periodMatch[2],
-    };
-};
-
-const applyQuickExperienceLineCountRemoval = (message = '') => {
-    const request = getExperienceLineCountRemovalRequest(message);
-    const field = getExperienceField();
-
-    if (!request || !field) {
-        return '';
-    }
-
-    const entries = repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
-    const targetIndex = entries.findIndex((entry) => {
-        const years = getExperienceDateYears(entry.date || '');
-        return years[0] === request.periodStart && years[years.length - 1] === request.periodEnd;
-    });
-
-    if (targetIndex < 0 || !entries[targetIndex]) {
-        return '';
-    }
-
-    const targetEntry = entries[targetIndex];
-    const bullets = Array.isArray(targetEntry.bullets) ? targetEntry.bullets : [];
-    if (!bullets.length) {
-        return `Aucune ligne à supprimer dans l’expérience ${request.periodStart} - ${request.periodEnd}.`;
-    }
-
-    const beforeState = getCvHistoryState();
-    const removeCount = Math.min(request.count, bullets.length);
-    entries[targetIndex] = {
-        ...targetEntry,
-        bullets: bullets.slice(0, Math.max(0, bullets.length - removeCount)),
-    };
-    field.value = entries.map(serializeExperienceEntry).filter(Boolean).join('\n');
-    clearEditableOverride('experience');
-    renderExperienceEditor();
-    updateCvPreview();
-    commitCvHistoryTransition(beforeState);
-    scheduleCvDraftSave();
-    setCvStatus(`${removeCount} ligne(s) supprimée(s) dans ${request.periodStart} - ${request.periodEnd}`);
-
-    return `${removeCount} ligne(s) supprimée(s) dans l’expérience ${request.periodStart} - ${request.periodEnd}. Le bloc a été conservé.`;
-};
-
 const getExperienceFieldMatchScore = (value = '', tokens = []) => {
     const haystack = normalizeForMatch(value);
     return tokens.filter((token) => haystack.includes(token)).length;
@@ -9956,7 +9878,6 @@ const applyQuickSalesRefocusCorrection = (message = '') => {
 
 const applyQuickKirbyCorrection = (message = '') => {
     const directCorrections = [
-        applyQuickExperienceLineCountRemoval(message),
         applyQuickExperiencePlacementCorrection(message),
         applyTargetedDigitalCvCompletion(message),
         applyQuickCvTypographyAdjustment(message),
@@ -10762,6 +10683,46 @@ const removeExperienceBulletForOperation = (entries = [], operation = {}) => {
     return changed ? nextEntries : null;
 };
 
+const getKirbyOperationField = (operation = {}) => {
+    if (!operation?.type) {
+        return '';
+    }
+
+    if ([
+        'add_experience',
+        'update_experience_date',
+        'remove_experience_bullet',
+        'remove_experience',
+        'reorder_experiences',
+        'normalize_experience_dates',
+    ].includes(operation.type)) {
+        return 'experience';
+    }
+
+    if (operation.type === 'upsert_language') {
+        return 'languages';
+    }
+
+    if (operation.type === 'set_field' || operation.type === 'remove_section') {
+        return operation.field || '';
+    }
+
+    return '';
+};
+
+const getAllowedKirbyOperationFields = (instruction = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(instruction));
+    const hasEditAction = /\b(ajoute|ajouter|corrige|corriger|change|changer|modifie|modifier|remplace|remplacer|supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|deplace|deplacer|remets|remet|remettre|range|ranger|reordonne|reordonner)\b/.test(source);
+    const targetsExperience = /\b(experience|experiences|poste|postes|bloc|ligne|lignes|puce|puces|mission|missions|periode|date|dates|machiniste|receveur|conseillere|commerciale|responsable|adjointe|chargee|clientele|developpement|informatique|web|2025|2026|2024|2023|2022|2021|2020|2019)\b/.test(source);
+    const targetsOtherField = /\b(formation|formations|education|certification|certifications|competence|competences|langue|langues|profil|accroche|titre|telephone|email|mail|permis|nom|ville|adresse|projet|projets|activite|activites)\b/.test(source);
+
+    if (hasEditAction && targetsExperience && !targetsOtherField) {
+        return new Set(['experience']);
+    }
+
+    return null;
+};
+
 const applyKirbyOperation = (operation = {}, context = {}) => {
     if (!operation?.type) {
         return '';
@@ -10937,7 +10898,15 @@ const applyKirbyOperation = (operation = {}, context = {}) => {
 };
 
 const applyKirbyOperations = (operations = [], context = {}) => {
+    const allowedFields = context?.allowedFields instanceof Set ? context.allowedFields : null;
     const applied = getKirbyCvArray(operations).slice(0, 8)
+        .filter((operation) => {
+            if (!allowedFields) {
+                return true;
+            }
+            const field = getKirbyOperationField(operation);
+            return field && allowedFields.has(field);
+        })
         .map((operation) => applyKirbyOperation(operation, context))
         .filter(Boolean);
 
@@ -10960,11 +10929,13 @@ const applyKirbyCvResult = (result, task, instruction = '', options = {}) => {
     const requiresStrictExperienceOrder = requiresCompleteExperienceOrderInstruction(userInstruction);
     const requestedExperienceMove = isExplicitExperienceMoveInstruction(userInstruction);
     const shouldStripExperienceMonths = shouldRemoveExperienceMonths(userInstruction);
+    const allowedOperationFields = getAllowedKirbyOperationFields(userInstruction);
     const changes = ['autofill', 'create'].includes(task) ? applyKirbyExtractedCv(proposal.extracted) : [];
     const operationChanges = applyKirbyOperations(operationList, {
         experienceOrder: proposal.experienceOrder,
         requireCompleteExperienceOrder: requiresStrictExperienceOrder,
         instruction: userInstruction,
+        allowedFields: allowedOperationFields,
     });
     changes.push(...operationChanges);
     const applyMode = options?.applyMode === 'proposal' ? 'proposal' : 'direct';
@@ -11524,12 +11495,6 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
     const localReplies = [];
     const messageIsOffer = mode !== 'letter' && setJobOfferFromAssistantMessage(cleanMessage);
     hideKirbyCvProposal();
-
-    const directLineRemovalReply = applyQuickExperienceLineCountRemoval(cleanMessage);
-    if (directLineRemovalReply) {
-        appendAssistantMessage(formatKirbyAssistantReply(localReplies, directLineRemovalReply), 'bot');
-        return;
-    }
 
     const assistantInstruction = autopilotMode ? buildCvAutopilotInstruction(cleanMessage) : cleanMessage;
     const reply = shouldUseKirbyCvAssistant(cleanMessage)
