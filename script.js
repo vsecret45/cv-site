@@ -9202,13 +9202,49 @@ const findExperienceIndexByHint = (entries = [], hint = '', excludedIndexes = ne
     return ranked.length ? ranked[0].index : -1;
 };
 
-const getInstructionExperienceDateExpectations = (instruction = '') =>
-    [...String(instruction || '').matchAll(/([A-Za-zÀ-ÖØ-öø-ÿ0-9'’/&,\-\s]{4,}?)\s*[—-]\s*((?:19|20)\d{2}(?:\s*[–-]\s*(?:19|20)\d{2})?)/g)]
+const hasExplicitExperienceDateValueInstruction = (instruction = '') => {
+    const source = normalizeForMatch(instruction);
+    const asksDateValueChange = /\b(modifie|modifier|change|changer|corrige|corriger|remplace|remplacer|mets|mettre|met)\b/.test(source)
+        && /\b(date|dates|periode|periodes)\b/.test(source)
+        && /\b(?:19|20)\d{2}\b/.test(source);
+    const asksOnlyDateOrder = shouldQuickSortExperiences(instruction)
+        && !/\b(?:au lieu de|remplace(?:r)?\s+.+\s+par|change(?:r)?\s+.+\s+en|modifie(?:r)?\s+.+\s+en)\b/.test(source);
+
+    return asksDateValueChange && !asksOnlyDateOrder;
+};
+
+const getInstructionExperienceDateExpectations = (instruction = '') => {
+    if (!hasExplicitExperienceDateValueInstruction(instruction)) {
+        return [];
+    }
+
+    return [...String(instruction || '').matchAll(/([A-Za-zÀ-ÖØ-öø-ÿ0-9'’/&,\-\s]{4,}?)\s*[—-]\s*((?:19|20)\d{2}(?:\s*[–-]\s*(?:19|20)\d{2})?)/g)]
         .map((match) => ({
             hint: (match[1] || '').replace(/\s+/g, ' ').trim(),
             date: normalizeExperienceDateText(match[2] || ''),
         }))
         .filter((entry) => entry.hint && entry.date);
+};
+
+const getExperienceDateYears = (value = '') =>
+    [...String(value || '').matchAll(/\b(?:19|20)\d{2}\b/g)].map((match) => match[0]);
+
+const datesMatchExperienceExpectation = (currentDate = '', expectedDate = '') => {
+    const current = normalizeExperienceDateText(currentDate || '');
+    const expected = normalizeExperienceDateText(expectedDate || '');
+
+    if (current === expected) {
+        return true;
+    }
+
+    const currentYears = getExperienceDateYears(current);
+    const expectedYears = getExperienceDateYears(expected);
+
+    return expectedYears.length > 0
+        && currentYears.length > 0
+        && expectedYears[0] === currentYears[0]
+        && expectedYears[expectedYears.length - 1] === currentYears[currentYears.length - 1];
+};
 
 const getInstructionExperienceMoveConstraint = (instruction = '') => {
     const raw = String(instruction || '').replace(/\s+/g, ' ').trim();
@@ -9262,7 +9298,7 @@ const verifyKirbyExperienceExecution = (instruction = '') => {
             return;
         }
         const currentDate = normalizeExperienceDateText(entries[targetIndex].date || '');
-        if (currentDate !== expected.date) {
+        if (!datesMatchExperienceExpectation(currentDate, expected.date)) {
             reasons.push(`date inattendue pour "${entries[targetIndex].title || expected.hint}" (${currentDate || 'vide'} au lieu de ${expected.date})`);
         }
     });
@@ -10592,9 +10628,82 @@ const findExperienceIndexForOperation = (entries = [], operation = {}) => {
     return entries.length === 1 ? 0 : -1;
 };
 
+const serializeKirbyOperationExperience = (operation = {}) => {
+    const source = operation.experience && typeof operation.experience === 'object'
+        ? operation.experience
+        : {};
+    const description = getKirbyCvArray(source.description || source.bullets || source.missions);
+    const valueFallback = String(operation.value || '').trim();
+
+    if (source.title || source.period || source.organization || description.length) {
+        return serializeExperienceEntry({
+            title: formatCvHeadline(source.title || source.name || 'Expérience à valider'),
+            meta: normalizeCvSentenceText(source.organization || source.company || source.meta || ''),
+            date: normalizeCvSentenceText(source.period || source.date || source.dates || ''),
+            bullets: description.map(normalizeCvSentenceText).filter(Boolean),
+        });
+    }
+
+    return valueFallback ? normalizeCvTextareaValue('experience', valueFallback) : '';
+};
+
+const removeExperienceBulletForOperation = (entries = [], operation = {}) => {
+    const targetIndex = findExperienceIndexForOperation(entries, operation);
+    const removalText = normalizeForMatch(operation.value || operation.target?.currentValue || operation.target?.label || '');
+    const tokens = removalText
+        .split(/[^a-z0-9]+/)
+        .filter((token) => token.length >= 3);
+
+    if (targetIndex < -1 || !tokens.length) {
+        return null;
+    }
+
+    const candidateIndexes = targetIndex >= 0
+        ? [targetIndex]
+        : entries.map((_, index) => index);
+    let changed = false;
+    const nextEntries = entries.map((entry, index) => {
+        if (!candidateIndexes.includes(index)) {
+            return entry;
+        }
+
+        const keptBullets = (entry.bullets || []).filter((bullet) => {
+            const score = getExperienceFieldMatchScore(bullet, tokens);
+            return score < Math.min(tokens.length, 2);
+        });
+
+        if (keptBullets.length !== (entry.bullets || []).length) {
+            changed = true;
+            return { ...entry, bullets: keptBullets };
+        }
+
+        return entry;
+    });
+
+    return changed ? nextEntries : null;
+};
+
 const applyKirbyOperation = (operation = {}, context = {}) => {
     if (!operation?.type) {
         return '';
+    }
+
+    if (operation.type === 'add_experience') {
+        const field = getExperienceField();
+        const line = serializeKirbyOperationExperience(operation);
+        if (!field || !line) {
+            return '';
+        }
+
+        const existing = repairPreviewExperienceItems(splitLines(field.value));
+        const existingKeys = new Set(existing.map((item) => normalizeForMatch(item)));
+        if (existingKeys.has(normalizeForMatch(line))) {
+            return '';
+        }
+
+        field.value = normalizeCvTextareaValue('experience', sortTimelineEntriesNewestFirst([...existing, line], [line]).join('\n'));
+        clearEditableOverride('experience');
+        return 'expérience ajoutée';
     }
 
     if (operation.type === 'update_experience_date') {
@@ -10619,6 +10728,23 @@ const applyKirbyOperation = (operation = {}, context = {}) => {
         field.value = entries.map(serializeExperienceEntry).filter(Boolean).join('\n');
         clearEditableOverride('experience');
         return `date ${entries[index].title || 'expérience'}`;
+    }
+
+    if (operation.type === 'remove_experience_bullet') {
+        const field = getExperienceField();
+        if (!field) {
+            return '';
+        }
+
+        const entries = repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
+        const nextEntries = removeExperienceBulletForOperation(entries, operation);
+        if (!nextEntries) {
+            return '';
+        }
+
+        field.value = nextEntries.map(serializeExperienceEntry).filter(Boolean).join('\n');
+        clearEditableOverride('experience');
+        return 'puce supprimée';
     }
 
     if (operation.type === 'upsert_language') {
@@ -10686,7 +10812,46 @@ const applyKirbyOperation = (operation = {}, context = {}) => {
             }
             throw new Error(reorder.error);
         }
-        return reorder.changed ? 'ordre des expériences' : '';
+        if (reorder.changed) {
+            return 'ordre des expériences';
+        }
+
+        if (!context?.requireCompleteExperienceOrder && sortExperienceFieldNewestFirst()) {
+            return 'expériences triées par date';
+        }
+
+        return '';
+    }
+
+    if (operation.type === 'normalize_experience_dates') {
+        const field = getExperienceField();
+        if (!field) {
+            return '';
+        }
+
+        const mode = normalizeForMatch(operation.value || operation.target?.label || '');
+        const shouldUseYearsOnly = !mode || /years_only|annees|annee|sans mois|year/.test(mode);
+        if (!shouldUseYearsOnly) {
+            return '';
+        }
+
+        const entries = splitLines(field.value).map(parseExperienceEntry);
+        let changed = false;
+        entries.forEach((entry) => {
+            const nextDate = toYearOnlyExperienceDate(entry.date || '');
+            if (nextDate && nextDate !== normalizeExperienceDateText(entry.date || '')) {
+                entry.date = nextDate;
+                changed = true;
+            }
+        });
+
+        if (!changed) {
+            return '';
+        }
+
+        field.value = entries.map(serializeExperienceEntry).filter(Boolean).join('\n');
+        clearEditableOverride('experience');
+        return 'dates uniformisées (années)';
     }
 
     return '';
@@ -10712,6 +10877,7 @@ const applyKirbyCvResult = (result, task, instruction = '', options = {}) => {
     const singleFieldIntent = getSingleFieldEditIntent(userInstruction);
     const operationList = getKirbyCvArray(proposal.operations, 8);
     const hasReorderOperation = operationList.some((operation) => operation?.type === 'reorder_experiences');
+    const hasDateUpdateOperation = operationList.some((operation) => operation?.type === 'update_experience_date');
     const requiresStrictExperienceOrder = requiresCompleteExperienceOrderInstruction(userInstruction);
     const requestedExperienceMove = isExplicitExperienceMoveInstruction(userInstruction);
     const shouldStripExperienceMonths = shouldRemoveExperienceMonths(userInstruction);
@@ -10818,6 +10984,10 @@ const applyKirbyCvResult = (result, task, instruction = '', options = {}) => {
         if (reorder.changed) {
             changes.push('ordre des expériences');
         }
+    }
+
+    if (hasDateUpdateOperation && !keepRequestedExperienceOrder && sortExperienceFieldNewestFirst()) {
+        changes.push('expériences triées par date');
     }
 
     if (shouldStripExperienceMonths) {
@@ -11269,7 +11439,9 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
         })
         : getAssistantReply(cleanMessage);
 
-    if (shouldUseKirbyCvAssistant(cleanMessage) && looksLikeKirbyNoChangeReply(reply)) {
+    const kirbyNeedsFallbackCorrection = shouldUseKirbyCvAssistant(cleanMessage)
+        && (looksLikeKirbyNoChangeReply(reply) || /mise a jour partielle|mise à jour partielle/i.test(reply));
+    if (kirbyNeedsFallbackCorrection) {
         const quickReply = applyQuickKirbyCorrection(cleanMessage);
         if (quickReply) {
             appendAssistantMessage(formatKirbyAssistantReply(localReplies, `${reply}\n${quickReply}`), 'bot');
