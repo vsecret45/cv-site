@@ -18227,22 +18227,22 @@ body.prestations-page #ia-cv .small-service-card {
     body.cv-workspace-page .cv-preview-viewport {
         width: 100%;
         max-width: 100%;
-        overflow-x: auto;
+        overflow-x: hidden;
         overflow-y: visible;
         padding: 0.65rem 0.4rem 1rem;
         -webkit-overflow-scrolling: touch;
     }
 
     body.cv-workspace-page .cv-preview-stage {
-        width: max-content;
+        width: 100%;
         min-width: 100%;
-        justify-items: start;
+        justify-items: center;
     }
 
     body.cv-workspace-page .cv-preview {
-        width: var(--cv-page-width);
-        min-width: var(--cv-page-width);
-        max-width: none;
-        margin: 0;
+        width: min(100%, var(--cv-page-width));
+        min-width: 0;
+        max-width: var(--cv-page-width);
+        margin: 0 auto;
     }
 }

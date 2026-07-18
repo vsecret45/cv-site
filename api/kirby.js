@@ -1594,12 +1594,14 @@ Selon la tache demandee :
 - "letter" : redige letter.subject et letter.body. La lettre doit etre directement utilisable, faire 900 caracteres maximum et ne jamais affirmer un fait absent du CV.
 
 Actions d'edition directes :
+- Toute demande utilisateur de modification explicite (deplacer, corriger, remplacer, ajouter, retirer, reformuler) doit produire une ou plusieurs operations applicatives dans "operations". N envoie pas uniquement un conseil textuel.
 - Si l'utilisateur demande une modification ciblee d'un element existant (date/periode d'une experience, niveau de langue, suppression/retrait, correction d'un champ), renseigne "operations" avec l'action a appliquer. Ne cree pas de nouveau bloc pour une correction.
 - Si la demande cible explicitement un seul champ (titre, langue, date, telephone, email, profil, nom, ville, permis), ne lance pas d'optimisation globale : laisse periodGaps, generatedExperiences, educationSuggestions, suggestedSkills et layout vides sauf demande explicite d'optimisation globale.
 - Pour corriger une date d'experience existante, utilise type "update_experience_date", renseigne "value" avec la nouvelle date/periode, et cible l'experience avec target.index si le contexte de selection le fournit, sinon target.title, target.organization ou target.currentValue.
 - Pour ajouter ou modifier une langue, utilise type "upsert_language", value = niveau, target.label = langue.
 - Pour modifier un champ simple, utilise type "set_field", field parmi fullName, location, phone, email, permit, headline, summary, skills, education, activities, projects, languages, value = contenu final.
 - Pour supprimer une experience existante ou un doublon d'experience, utilise type "remove_experience" et cible l'experience avec target.index si le contexte de selection le fournit, sinon target.title, target.organization ou target.currentValue. Ne regenere jamais cette experience dans generatedExperiences pour la meme demande.
+- Pour deplacer/reordonner les experiences, utilise type "reorder_experiences" et renvoie un experienceOrder COMPLET avec tous les intitules actuels, exactement une fois chacun, dans le nouvel ordre final.
 - Si la demande est comprise mais qu'il manque une cible ou une valeur, renseigne "bugReport" seulement si l'application aurait du pouvoir agir. Sinon explique dans "suggestions" la precision manquante.
 
 Le resultat doit rester court et tenir sur une page de CV : une accroche de 300 caracteres maximum, 10 competences appliquees maximum, 8 mots-cles et 6 suggestions maximum. Reponds uniquement avec un JSON valide, sans markdown.
@@ -5638,7 +5640,7 @@ const sanitizeCvAssistantResult = (result, cv = {}) => {
         headline: limitCvText(result && result.headline, 90),
         summary: limitCvText(result && result.summary, 300),
         skills: toCvStringList(result && result.skills, 10, 80),
-        experienceOrder: [...orderedTitles, ...sourceExperienceTitles.filter((title) => !orderedTitles.includes(title))],
+        experienceOrder: orderedTitles,
         languages,
         periodGaps: sanitizeCvPeriodGaps(result && result.periodGaps),
         generatedExperiences: sanitizeCvGeneratedExperiences(result && result.generatedExperiences),
@@ -6423,6 +6425,7 @@ const buildOpenAiCvPrompt = ({ task, cv, jobOffer, instruction, letter, interact
     'Ordre d affichage attendu : experiences et formations datees de la plus recente a la plus ancienne. Les certifications sans date restent sans date et passent apres les entrees datees, sans date inventee.',
     'Pour les formations/certifications non presentes mais mentionnees par l utilisateur (Ecole 42, Piscine informatique, Simplon, formations courtes, certificats, ateliers), renseigne educationSuggestions au lieu de les melanger aux experiences.',
     'Si la consigne demande une correction ciblee, retourne une operation applicative dans operations. Ne remplace pas une correction par une proposition generique.',
+    'Si la consigne demande de deplacer/reordonner une experience, renvoie un experienceOrder complet (toutes les experiences existantes, exactement une fois, dans l ordre final).',
     'Respecte strictement le schema du systeme. Les intitules dans experienceOrder doivent etre les intitules exacts du CV source.',
 ].filter(Boolean).join('\n\n');
 

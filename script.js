@@ -1762,6 +1762,25 @@ const buildCvRoundTripPayload = () => ({
     exportedAt: new Date().toISOString(),
 });
 
+const buildCvRoundTripMarkerBlock = () => {
+    if (!cvForm || currentPreviewMode !== 'cv') {
+        return '';
+    }
+
+    try {
+        const encoded = encodeUnicodeBase64(JSON.stringify(buildCvRoundTripPayload()));
+        const lines = [
+            CV_ROUNDTRIP_START,
+            ...(encoded.match(/.{1,96}/g) || []),
+            CV_ROUNDTRIP_END,
+        ];
+        return lines.join('\n');
+    } catch (error) {
+        console.error(error);
+        return '';
+    }
+};
+
 const getCvRoundTripPayloadFromText = (text = '') => {
     const markerRegex = new RegExp(`${CV_ROUNDTRIP_START}\\s*([A-Za-z0-9+/=\\s]+?)\\s*${CV_ROUNDTRIP_END}`);
     const match = String(text || '').match(markerRegex);
@@ -1833,12 +1852,11 @@ const embedCvRoundTripData = (doc) => {
     }
 
     try {
-        const encoded = encodeUnicodeBase64(JSON.stringify(buildCvRoundTripPayload()));
-        const lines = [
-            CV_ROUNDTRIP_START,
-            ...(encoded.match(/.{1,96}/g) || []),
-            CV_ROUNDTRIP_END,
-        ];
+        const markerBlock = buildCvRoundTripMarkerBlock();
+        if (!markerBlock) {
+            return;
+        }
+        const lines = markerBlock.split('\n');
 
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(1);
@@ -2307,6 +2325,13 @@ const isLegacyWordDocument = (file) => {
     const mime = (file?.type || '').toLowerCase();
 
     return filename.endsWith('.doc') || mime.includes('msword');
+};
+
+const looksLikeWordHtmlExport = (text = '') => {
+    const source = String(text || '');
+    return /<html[\s>]/i.test(source)
+        && /<\/html>/i.test(source)
+        && (/cv-preview|cv-intelligent|SACW_CV_DATA_V1_START/i.test(source));
 };
 
 const isDocxDocument = (file) => {
@@ -7180,6 +7205,8 @@ const buildWordTimeline = (entries, data, options = {}) => {
 
 const buildWordCvHtml = (data) => {
     const meta = data.metaParts.join(' | ');
+    const marker = buildCvRoundTripMarkerBlock();
+    const markerComment = marker ? `\n  <!-- ${marker} -->` : '';
     const maybeProjects = data.projects.length
         ? `${buildWordSectionTitle('Projets', data)}${buildWordTimeline(data.projects, data, { compact: true })}`
         : '';
@@ -7217,6 +7244,7 @@ const buildWordCvHtml = (data) => {
     ${maybeLanguages}
     ${maybeActivities}
   </div>
+  ${markerComment}
 </body>
 </html>`;
 };
@@ -7301,6 +7329,8 @@ const getPreviewCloneForOfficeExport = () => {
 const buildPreviewWordHtml = () => {
     const clone = getPreviewCloneForOfficeExport();
     const title = currentPreviewMode === 'letter' ? 'Lettre de motivation' : 'CV';
+    const marker = buildCvRoundTripMarkerBlock();
+    const markerComment = marker ? `\n<!-- ${marker} -->` : '';
 
     if (!clone) {
         return currentPreviewMode === 'letter' ? buildLetterWordHtml() : buildWordCvHtml(getCvExportData());
@@ -7321,6 +7351,7 @@ const buildPreviewWordHtml = () => {
 </head>
 <body>
   ${clone.outerHTML}
+  ${markerComment}
 </body>
 </html>`;
 };
@@ -7892,6 +7923,8 @@ const exportWebVersion = () => {
 
     const activePreview = currentPreviewMode === 'letter' ? letterPagePreview : previewNodes.preview;
     const clone = activePreview?.cloneNode(true);
+    const marker = buildCvRoundTripMarkerBlock();
+    const markerComment = marker ? `\n  <!-- ${marker} -->` : '';
     clone?.querySelectorAll('.cv-section-actions').forEach((node) => node.remove());
     const html = `
 <!DOCTYPE html>
@@ -7910,6 +7943,7 @@ const exportWebVersion = () => {
 </head>
 <body>
   <article class="cv">${clone?.innerHTML || activePreview?.innerHTML || ''}</article>
+  ${markerComment}
 </body>
     </html>`;
     downloadFile(currentPreviewMode === 'letter' ? 'lettre-web.html' : 'cv-web.html', html, 'text/html');
@@ -9575,40 +9609,77 @@ const applyQuickKirbyCorrection = (message = '') => {
     return applyQuickExperienceSortCorrection(message);
 };
 
-const reorderExistingExperiences = (order = []) => {
+const isExplicitExperienceMoveInstruction = (instruction = '') => {
+    const source = normalizeForMatch(String(instruction || '')).replace(/[’']/g, ' ');
+    const targetsExperience = /\b(experience|experiences|parcours)\b/.test(source);
+    const asksMove = /\b(deplace|deplacer|bouge|bouger|remonte|descend|place|placer|mets|mettre|juste sous|sous|au dessus|avant|apres|inverse|intervertis|reordonne|reorganise)\b/.test(source);
+
+    return targetsExperience && asksMove;
+};
+
+const applyRequestedExperienceOrder = (order = [], options = {}) => {
     const field = getExperienceField();
     const lines = field ? repairPreviewExperienceItems(splitLines(field.value)) : [];
+    const requireComplete = Boolean(options?.requireComplete);
 
     if (!field || !lines.length || !Array.isArray(order) || !order.length) {
-        return false;
+        return {
+            changed: false,
+            error: requireComplete ? "Kirby n'a pas fourni un ordre complet des expériences." : '',
+        };
     }
 
-    const rankForLine = (line) => {
-        const normalizedLine = normalizeForMatch(line);
-        const parsedTitle = normalizeForMatch(parseExperienceEntry(line).title || '');
-        const rank = order.findIndex((title) => {
-            const normalizedTitle = normalizeForMatch(title || '');
-            return normalizedTitle && (
-                normalizedLine.includes(normalizedTitle) ||
-                normalizedTitle.includes(parsedTitle) ||
-                parsedTitle.includes(normalizedTitle)
-            );
-        });
+    const normalizedOrder = order
+        .map((title) => normalizeForMatch(title || ''))
+        .filter(Boolean);
+    const entries = lines.map((line, index) => ({
+        index,
+        line,
+        title: normalizeForMatch(parseExperienceEntry(line).title || ''),
+        full: normalizeForMatch(line),
+    }));
+    const selectedIndexes = [];
+    const usedIndexes = new Set();
 
-        return rank === -1 ? Number.MAX_SAFE_INTEGER : rank;
-    };
+    normalizedOrder.forEach((normalizedTitle) => {
+        const candidate = entries.find((entry) =>
+            !usedIndexes.has(entry.index)
+            && (entry.full.includes(normalizedTitle)
+                || normalizedTitle.includes(entry.title)
+                || entry.title.includes(normalizedTitle))
+        );
+        if (!candidate) {
+            return;
+        }
+        usedIndexes.add(candidate.index);
+        selectedIndexes.push(candidate.index);
+    });
 
-    const reordered = lines
-        .map((line, index) => ({ line, index, rank: rankForLine(line) }))
-        .sort((left, right) => left.rank - right.rank || left.index - right.index)
-        .map((item) => item.line);
+    const missingIndexes = entries
+        .map((entry) => entry.index)
+        .filter((index) => !usedIndexes.has(index));
+
+    if (requireComplete && (missingIndexes.length || selectedIndexes.length !== entries.length)) {
+        return {
+            changed: false,
+            error: "Ordre incomplet : Kirby doit renvoyer toutes les expériences dans le nouvel ordre avant d'appliquer la modification.",
+        };
+    }
+
+    const reordered = [...selectedIndexes, ...missingIndexes]
+        .map((index) => entries.find((entry) => entry.index === index)?.line || '')
+        .filter(Boolean);
 
     if (reordered.join('\n') === lines.join('\n')) {
-        return false;
+        return { changed: false, error: '' };
     }
 
     field.value = reordered.join('\n');
-    return true;
+    return { changed: true, error: '' };
+};
+
+const reorderExistingExperiences = (order = []) => {
+    return applyRequestedExperienceOrder(order, { requireComplete: false }).changed;
 };
 
 const mergeKirbyLanguages = (languages = []) => {
@@ -10124,7 +10195,7 @@ const findExperienceIndexForOperation = (entries = [], operation = {}) => {
     return entries.length === 1 ? 0 : -1;
 };
 
-const applyKirbyOperation = (operation = {}) => {
+const applyKirbyOperation = (operation = {}, context = {}) => {
     if (!operation?.type) {
         return '';
     }
@@ -10202,16 +10273,27 @@ const applyKirbyOperation = (operation = {}) => {
     }
 
     if (operation.type === 'reorder_experiences') {
-        const changed = sortExperienceFieldNewestFirst();
-        return changed ? 'ordre des expériences' : '';
+        const inlineOrder = splitLines(operation.value || '')
+            .map((item) => normalizeCvSentenceText(item))
+            .filter(Boolean);
+        const requestedOrder = inlineOrder.length
+            ? inlineOrder
+            : getKirbyCvArray(context?.experienceOrder, 20);
+        const reorder = applyRequestedExperienceOrder(requestedOrder, {
+            requireComplete: Boolean(context?.requireCompleteExperienceOrder),
+        });
+        if (reorder.error) {
+            throw new Error(reorder.error);
+        }
+        return reorder.changed ? 'ordre des expériences' : '';
     }
 
     return '';
 };
 
-const applyKirbyOperations = (operations = []) => {
+const applyKirbyOperations = (operations = [], context = {}) => {
     const applied = getKirbyCvArray(operations).slice(0, 8)
-        .map(applyKirbyOperation)
+        .map((operation) => applyKirbyOperation(operation, context))
         .filter(Boolean);
 
     return [...new Set(applied)];
@@ -10227,8 +10309,14 @@ const applyKirbyCvResult = (result, task, instruction = '', options = {}) => {
     const userInstruction = getKirbyUserInstruction(instruction);
     const languageOnlyIntent = isLanguageFocusedInstruction(userInstruction) && !looksLikePastedCv(userInstruction);
     const singleFieldIntent = getSingleFieldEditIntent(userInstruction);
+    const operationList = getKirbyCvArray(proposal.operations, 8);
+    const hasReorderOperation = operationList.some((operation) => operation?.type === 'reorder_experiences');
+    const requiresStrictExperienceOrder = hasReorderOperation || isExplicitExperienceMoveInstruction(userInstruction);
     const changes = ['autofill', 'create'].includes(task) ? applyKirbyExtractedCv(proposal.extracted) : [];
-    const operationChanges = applyKirbyOperations(proposal.operations);
+    const operationChanges = applyKirbyOperations(operationList, {
+        experienceOrder: proposal.experienceOrder,
+        requireCompleteExperienceOrder: requiresStrictExperienceOrder,
+    });
     changes.push(...operationChanges);
     const applyMode = options?.applyMode === 'proposal' ? 'proposal' : 'direct';
     const directTargetedUpdate = applyMode === 'direct' && (operationChanges.length || singleFieldIntent || languageOnlyIntent);
@@ -10312,11 +10400,18 @@ const applyKirbyCvResult = (result, task, instruction = '', options = {}) => {
         changes.push('compétences suggérées');
     }
 
-    if (allowGlobalCvRewrite && !singleFieldIntent && reorderExistingExperiences(proposal.experienceOrder)) {
-        changes.push('ordre des expériences');
+    const keepRequestedExperienceOrder = requiresStrictExperienceOrder || operationChanges.includes('ordre des expériences');
+    if (allowGlobalCvRewrite && !singleFieldIntent) {
+        const reorder = applyRequestedExperienceOrder(proposal.experienceOrder, { requireComplete: requiresStrictExperienceOrder });
+        if (reorder.error) {
+            throw new Error(reorder.error);
+        }
+        if (reorder.changed) {
+            changes.push('ordre des expériences');
+        }
     }
 
-    if (allowGlobalCvRewrite && !singleFieldIntent && sortExperienceFieldNewestFirst()) {
+    if (allowGlobalCvRewrite && !singleFieldIntent && !keepRequestedExperienceOrder && sortExperienceFieldNewestFirst()) {
         changes.push('expériences triées par date');
     }
 
@@ -10504,7 +10599,10 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
         return 'Proposition prête. Vérifiez le résumé puis choisissez « Appliquer au CV ».';
     } catch (error) {
         console.error(error);
-        return error?.message || 'Kirby est momentanément indisponible. Le CV n’a pas été modifié.';
+        const message = error?.message || 'Kirby est momentanément indisponible. Le CV n’a pas été modifié.';
+        setCvStatus(`Erreur Kirby : ${message}`);
+        setAssistantActivity(`Kirby · ${message}`, false);
+        return message;
     } finally {
         isKirbyCvRequestInFlight = false;
 
@@ -12632,7 +12730,7 @@ setPreviewMode('cv');
 if (cvImportInput) {
     cvImportInput.addEventListener('click', (event) => {
         event.target.value = '';
-        setCvStatus('Choisissez un PDF, DOCX ou texte a importer');
+        setCvStatus('Choisissez un PDF, DOC, DOCX ou texte a importer');
     });
 
     cvImportInput.addEventListener('change', async (event) => {
@@ -12645,19 +12743,21 @@ if (cvImportInput) {
 
         try {
             setCvStatus('Import en cours...');
-
-            if (isLegacyWordDocument(file)) {
-                setCvStatus('Le format .doc ancien doit etre converti en .docx avant import');
-                event.target.value = '';
-                return;
-            }
-
             let text = '';
 
             if (isPdfDocument(file)) {
                 text = await extractTextFromPdf(file);
             } else if (isDocxDocument(file)) {
                 text = await extractTextFromDocx(file);
+            } else if (isLegacyWordDocument(file)) {
+                const legacyText = await file.text();
+                const hasRoundTripData = Boolean(getCvRoundTripPayloadFromText(legacyText));
+                if (!hasRoundTripData && !looksLikeWordHtmlExport(legacyText)) {
+                    setCvStatus('Le format .doc binaire ancien doit etre converti en .docx. Les exports Word SA Creation Web restent importables.');
+                    event.target.value = '';
+                    return;
+                }
+                text = legacyText;
             } else if (isBinaryDocument(file)) {
                 setCvStatus('Format non pris en charge pour l import automatique');
                 event.target.value = '';
@@ -12756,34 +12856,43 @@ if (assistantApplyButton) {
             return;
         }
 
-        const proposalState = pendingKirbyCvProposal;
-        const beforeApplySnapshot = getKirbyCvSnapshot();
-        const reply = applyKirbyCvResult(
-            proposalState.result,
-            proposalState.task,
-            proposalState.instruction,
-            { applyMode: 'proposal' }
-        );
-        const afterApplySnapshot = getKirbyCvSnapshot();
-        const operationDriven = hasKirbyOperations(proposalState.result);
-        hideKirbyCvProposal();
-        if (assistantInput) {
-            assistantInput.value = '';
+        try {
+            const proposalState = pendingKirbyCvProposal;
+            const beforeApplySnapshot = getKirbyCvSnapshot();
+            const reply = applyKirbyCvResult(
+                proposalState.result,
+                proposalState.task,
+                proposalState.instruction,
+                { applyMode: 'proposal' }
+            );
+            const afterApplySnapshot = getKirbyCvSnapshot();
+            const operationDriven = hasKirbyOperations(proposalState.result);
+            hideKirbyCvProposal();
+            if (assistantInput) {
+                assistantInput.value = '';
+            }
+            if (operationDriven && beforeApplySnapshot === afterApplySnapshot) {
+                const operation = proposalState.result?.cv?.operations?.[0] || {};
+                const report = saveKirbyBugReport({
+                    ...(proposalState.result?.cv?.bugReport || {}),
+                    category: proposalState.result?.cv?.bugReport?.category || 'bug application',
+                    summary: proposalState.result?.cv?.bugReport?.summary || 'La demande a été comprise par Kirby, mais l’application n’a pas modifié le CV.',
+                    expectedAction: operation.reason || operation.type || 'Appliquer l’opération demandée',
+                    target: getOperationTargetText(operation) || operation.field || 'CV',
+                    instruction: proposalState.instruction,
+                });
+                appendAssistantMessage(formatKirbyBugReportReply(report), 'bot');
+                return;
+            }
+            appendAssistantMessage(reply, 'bot');
+        } catch (error) {
+            console.error(error);
+            const message = error?.message || "Erreur lors de l'application des modifications Kirby.";
+            hideKirbyCvProposal();
+            setCvStatus(`Erreur Kirby : ${message}`);
+            setAssistantActivity(`Kirby · ${message}`, false);
+            appendAssistantMessage(message, 'bot');
         }
-        if (operationDriven && beforeApplySnapshot === afterApplySnapshot) {
-            const operation = proposalState.result?.cv?.operations?.[0] || {};
-            const report = saveKirbyBugReport({
-                ...(proposalState.result?.cv?.bugReport || {}),
-                category: proposalState.result?.cv?.bugReport?.category || 'bug application',
-                summary: proposalState.result?.cv?.bugReport?.summary || 'La demande a été comprise par Kirby, mais l’application n’a pas modifié le CV.',
-                expectedAction: operation.reason || operation.type || 'Appliquer l’opération demandée',
-                target: getOperationTargetText(operation) || operation.field || 'CV',
-                instruction: proposalState.instruction,
-            });
-            appendAssistantMessage(formatKirbyBugReportReply(report), 'bot');
-            return;
-        }
-        appendAssistantMessage(reply, 'bot');
     });
 }
 
