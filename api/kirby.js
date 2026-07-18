@@ -1601,7 +1601,7 @@ Actions d'edition directes :
 - Pour ajouter ou modifier une langue, utilise type "upsert_language", value = niveau, target.label = langue.
 - Pour modifier un champ simple, utilise type "set_field", field parmi fullName, location, phone, email, permit, headline, summary, skills, education, activities, projects, languages, value = contenu final.
 - Pour supprimer une experience existante ou un doublon d'experience, utilise type "remove_experience" et cible l'experience avec target.index si le contexte de selection le fournit, sinon target.title, target.organization ou target.currentValue. Ne regenere jamais cette experience dans generatedExperiences pour la meme demande.
-- Pour deplacer/reordonner les experiences, utilise type "reorder_experiences" et renvoie un experienceOrder COMPLET avec tous les intitules actuels, exactement une fois chacun, dans le nouvel ordre final.
+- Pour deplacer/reordonner les experiences, utilise type "reorder_experiences" et renvoie experienceOrder dans le meilleur ordre possible a partir de la demande (liste complete si disponible, sinon ordre partiel exploitable sans bloquer l'application).
 - Si la demande est comprise mais qu'il manque une cible ou une valeur, renseigne "bugReport" seulement si l'application aurait du pouvoir agir. Sinon explique dans "suggestions" la precision manquante.
 
 Le resultat doit rester court et tenir sur une page de CV : une accroche de 300 caracteres maximum, 10 competences appliquees maximum, 8 mots-cles et 6 suggestions maximum. Reponds uniquement avec un JSON valide, sans markdown.

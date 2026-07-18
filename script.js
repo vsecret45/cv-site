@@ -9191,6 +9191,8 @@ const getExperienceHintScore = (entry = {}, hint = '') => {
     return [...new Set(tokens)].filter((token) => haystack.includes(token)).length;
 };
 
+const experienceMonthTokenRegex = /\b(janv|janvier|fevr|fevrier|mars|avr|avril|mai|juin|juil|juillet|aout|sept|septembre|oct|octobre|nov|novembre|dec|decembre)\b/i;
+
 const findExperienceIndexByHint = (entries = [], hint = '', excludedIndexes = new Set()) => {
     const ranked = entries
         .map((entry, index) => ({ index, score: getExperienceHintScore(entry, hint) }))
@@ -9198,6 +9200,119 @@ const findExperienceIndexByHint = (entries = [], hint = '', excludedIndexes = ne
         .sort((left, right) => right.score - left.score);
 
     return ranked.length ? ranked[0].index : -1;
+};
+
+const getInstructionExperienceDateExpectations = (instruction = '') =>
+    [...String(instruction || '').matchAll(/([A-Za-zÀ-ÖØ-öø-ÿ0-9'’/&,\-\s]{4,}?)\s*[—-]\s*((?:19|20)\d{2}(?:\s*[–-]\s*(?:19|20)\d{2})?)/g)]
+        .map((match) => ({
+            hint: (match[1] || '').replace(/\s+/g, ' ').trim(),
+            date: normalizeExperienceDateText(match[2] || ''),
+        }))
+        .filter((entry) => entry.hint && entry.date);
+
+const getInstructionExperienceMoveConstraint = (instruction = '') => {
+    const raw = String(instruction || '').replace(/\s+/g, ' ').trim();
+    const relationMatch = raw.match(/(.+?)(?:juste\s+en\s+dessous|juste\s+sous|en\s+dessous|sous|apres|après)\s*[:\-]?\s*(.+)/i);
+
+    if (!relationMatch) {
+        return null;
+    }
+
+    return {
+        movedHint: relationMatch[1].trim(),
+        anchorHint: relationMatch[2].trim(),
+    };
+};
+
+const verifyKirbyExperienceExecution = (instruction = '') => {
+    const field = getExperienceField();
+    if (!field) {
+        return { ok: false, reasons: ['champ expérience introuvable'] };
+    }
+
+    const constraints = {
+        removeMonths: shouldRemoveExperienceMonths(instruction),
+        move: getInstructionExperienceMoveConstraint(instruction),
+        expectedDates: getInstructionExperienceDateExpectations(instruction),
+    };
+    const lines = splitLines(field.value);
+    const entries = lines.map(parseExperienceEntry);
+    const reasons = [];
+
+    if (constraints.removeMonths) {
+        const hasMonths = lines.some((line) => experienceMonthTokenRegex.test(normalizeForMatch(line)));
+        if (hasMonths) {
+            reasons.push('les mois sont toujours présents dans les expériences');
+        }
+    }
+
+    if (constraints.move) {
+        const anchorIndex = findExperienceIndexByHint(entries, constraints.move.anchorHint);
+        const movedIndex = findExperienceIndexByHint(entries, constraints.move.movedHint, new Set(anchorIndex >= 0 ? [anchorIndex] : []));
+        if (anchorIndex < 0 || movedIndex < 0) {
+            reasons.push('impossible d’identifier clairement les deux expériences à repositionner');
+        } else if (movedIndex !== anchorIndex + 1) {
+            reasons.push('le bloc ciblé n’est pas juste sous l’expérience de référence');
+        }
+    }
+
+    constraints.expectedDates.forEach((expected) => {
+        const targetIndex = findExperienceIndexByHint(entries, expected.hint);
+        if (targetIndex < 0 || !entries[targetIndex]) {
+            return;
+        }
+        const currentDate = normalizeExperienceDateText(entries[targetIndex].date || '');
+        if (currentDate !== expected.date) {
+            reasons.push(`date inattendue pour "${entries[targetIndex].title || expected.hint}" (${currentDate || 'vide'} au lieu de ${expected.date})`);
+        }
+    });
+
+    if (previewNodes.experience && (constraints.move || constraints.expectedDates.length || constraints.removeMonths)) {
+        const previewText = normalizeForMatch(previewNodes.experience.textContent || '');
+        if (!previewText) {
+            reasons.push('aperçu visuel indisponible');
+        } else {
+            const checkEntries = [];
+
+            if (constraints.move) {
+                const anchorIndex = findExperienceIndexByHint(entries, constraints.move.anchorHint);
+                const movedIndex = findExperienceIndexByHint(entries, constraints.move.movedHint, new Set(anchorIndex >= 0 ? [anchorIndex] : []));
+                if (anchorIndex >= 0 && entries[anchorIndex]) {
+                    checkEntries.push(entries[anchorIndex]);
+                }
+                if (movedIndex >= 0 && entries[movedIndex]) {
+                    checkEntries.push(entries[movedIndex]);
+                }
+            }
+
+            constraints.expectedDates.forEach((expected) => {
+                const targetIndex = findExperienceIndexByHint(entries, expected.hint);
+                if (targetIndex >= 0 && entries[targetIndex]) {
+                    checkEntries.push(entries[targetIndex]);
+                }
+            });
+
+            const uniqueChecks = dedupeKirbyArray(checkEntries, (entry) => normalizeForMatch(entry?.title || ''));
+            const missingPreviewEntries = uniqueChecks.some((entry) => {
+                const titleToken = normalizeForMatch(entry.title || '').slice(0, 36);
+                return titleToken && !previewText.includes(titleToken);
+            });
+
+            if (missingPreviewEntries) {
+                reasons.push('aperçu visuel non synchronisé avec les données du formulaire');
+            }
+        }
+    }
+
+    const payload = buildCvDraftPayload();
+    if ((payload?.values?.experience || '') !== field.value) {
+        reasons.push('la sauvegarde du brouillon ne reflète pas l’état courant du formulaire');
+    }
+
+    return {
+        ok: reasons.length === 0,
+        reasons,
+    };
 };
 
 const applyQuickExperiencePlacementCorrection = (message = '') => {
@@ -9762,12 +9877,11 @@ const requiresCompleteExperienceOrderInstruction = (instruction = '') => {
 const applyRequestedExperienceOrder = (order = [], options = {}) => {
     const field = getExperienceField();
     const lines = field ? splitLines(field.value) : [];
-    const requireComplete = Boolean(options?.requireComplete);
 
     if (!field || !lines.length || !Array.isArray(order) || !order.length) {
         return {
             changed: false,
-            error: requireComplete ? "Kirby n'a pas fourni un ordre complet des expériences." : '',
+            error: '',
         };
     }
 
@@ -9838,13 +9952,6 @@ const applyRequestedExperienceOrder = (order = [], options = {}) => {
     const missingIndexes = entries
         .map((entry) => entry.index)
         .filter((index) => !usedIndexes.has(index));
-
-    if (requireComplete && (missingIndexes.length || selectedIndexes.length !== entries.length)) {
-        return {
-            changed: false,
-            error: "Ordre incomplet : Kirby doit renvoyer toutes les expériences dans le nouvel ordre avant d'appliquer la modification.",
-        };
-    }
 
     const reordered = [...selectedIndexes, ...missingIndexes]
         .map((index) => entries.find((entry) => entry.index === index)?.line || '')
@@ -10498,7 +10605,7 @@ const applyKirbyCvResult = (result, task, instruction = '', options = {}) => {
     const changes = ['autofill', 'create'].includes(task) ? applyKirbyExtractedCv(proposal.extracted) : [];
     const operationChanges = applyKirbyOperations(operationList, {
         experienceOrder: proposal.experienceOrder,
-        requireCompleteExperienceOrder: hasReorderOperation || requiresStrictExperienceOrder,
+        requireCompleteExperienceOrder: requiresStrictExperienceOrder,
     });
     changes.push(...operationChanges);
     const applyMode = options?.applyMode === 'proposal' ? 'proposal' : 'direct';
@@ -10647,10 +10754,27 @@ const applyKirbyCvResult = (result, task, instruction = '', options = {}) => {
         renderLanguageEditor();
         changes.push('mise en page compacte');
     }
+
+    const mustVerifyExperienceExecution = requestedExperienceMove
+        || shouldStripExperienceMonths
+        || operationList.some((operation) => ['reorder_experiences', 'update_experience_date'].includes(operation?.type));
+    let verificationWarning = '';
+    if (mustVerifyExperienceExecution) {
+        const verification = verifyKirbyExperienceExecution(userInstruction);
+        if (!verification.ok) {
+            verificationWarning = `Mise à jour partielle : ${verification.reasons.join(' ; ')}.`;
+            setCvStatus('Kirby a appliqué la demande partiellement');
+        }
+    }
+
     scheduleCvDraftSave();
 
     if (task === 'letter' && didApplyLetter) {
         setPreviewMode('letter');
+    }
+
+    if (verificationWarning) {
+        return verificationWarning;
     }
 
     setCvStatus(changes.length ? `Kirby a mis à jour le CV : ${changes.join(', ')}` : 'Kirby a analysé le CV');
