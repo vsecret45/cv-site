@@ -9479,6 +9479,84 @@ const getExperienceRemovalIntent = (message = '') => {
     };
 };
 
+const getFrenchNumberValue = (value = '') => {
+    const source = normalizeForMatch(value);
+    const digit = source.match(/\b(\d{1,2})\b/);
+    if (digit) {
+        return Number.parseInt(digit[1], 10);
+    }
+
+    const words = {
+        une: 1,
+        un: 1,
+        deux: 2,
+        trois: 3,
+        quatre: 4,
+        cinq: 5,
+    };
+
+    return words[source.match(/\b(une|un|deux|trois|quatre|cinq)\b/)?.[1]] || 0;
+};
+
+const getExperienceLineCountRemovalRequest = (message = '') => {
+    const source = normalizeForMatch(message);
+    const count = getFrenchNumberValue(source);
+    const periodMatch = source.match(/\b((?:19|20)\d{2})\s*(?:(?:-|a|au|jusqu a|jusqua)\s*)?((?:19|20)\d{2})\b/);
+    const asksRemoval = /\b(supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer)\b/.test(source);
+    const targetsLines = /\b(ligne|lignes|puce|puces|mission|missions|bullet|bullets)\b/.test(source);
+
+    if (!asksRemoval || !targetsLines || !count || !periodMatch) {
+        return null;
+    }
+
+    return {
+        count: Math.min(count, 8),
+        periodStart: periodMatch[1],
+        periodEnd: periodMatch[2],
+    };
+};
+
+const applyQuickExperienceLineCountRemoval = (message = '') => {
+    const request = getExperienceLineCountRemovalRequest(message);
+    const field = getExperienceField();
+
+    if (!request || !field) {
+        return '';
+    }
+
+    const entries = repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
+    const targetIndex = entries.findIndex((entry) => {
+        const years = getExperienceDateYears(entry.date || '');
+        return years[0] === request.periodStart && years[years.length - 1] === request.periodEnd;
+    });
+
+    if (targetIndex < 0 || !entries[targetIndex]) {
+        return '';
+    }
+
+    const targetEntry = entries[targetIndex];
+    const bullets = Array.isArray(targetEntry.bullets) ? targetEntry.bullets : [];
+    if (!bullets.length) {
+        return `Aucune ligne à supprimer dans l’expérience ${request.periodStart} - ${request.periodEnd}.`;
+    }
+
+    const beforeState = getCvHistoryState();
+    const removeCount = Math.min(request.count, bullets.length);
+    entries[targetIndex] = {
+        ...targetEntry,
+        bullets: bullets.slice(0, Math.max(0, bullets.length - removeCount)),
+    };
+    field.value = entries.map(serializeExperienceEntry).filter(Boolean).join('\n');
+    clearEditableOverride('experience');
+    renderExperienceEditor();
+    updateCvPreview();
+    commitCvHistoryTransition(beforeState);
+    scheduleCvDraftSave();
+    setCvStatus(`${removeCount} ligne(s) supprimée(s) dans ${request.periodStart} - ${request.periodEnd}`);
+
+    return `${removeCount} ligne(s) supprimée(s) dans l’expérience ${request.periodStart} - ${request.periodEnd}. Le bloc a été conservé.`;
+};
+
 const getExperienceFieldMatchScore = (value = '', tokens = []) => {
     const haystack = normalizeForMatch(value);
     return tokens.filter((token) => haystack.includes(token)).length;
@@ -9878,6 +9956,7 @@ const applyQuickSalesRefocusCorrection = (message = '') => {
 
 const applyQuickKirbyCorrection = (message = '') => {
     const directCorrections = [
+        applyQuickExperienceLineCountRemoval(message),
         applyQuickExperiencePlacementCorrection(message),
         applyTargetedDigitalCvCompletion(message),
         applyQuickCvTypographyAdjustment(message),
@@ -11445,6 +11524,13 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
     const localReplies = [];
     const messageIsOffer = mode !== 'letter' && setJobOfferFromAssistantMessage(cleanMessage);
     hideKirbyCvProposal();
+
+    const directLineRemovalReply = applyQuickExperienceLineCountRemoval(cleanMessage);
+    if (directLineRemovalReply) {
+        appendAssistantMessage(formatKirbyAssistantReply(localReplies, directLineRemovalReply), 'bot');
+        return;
+    }
+
     const assistantInstruction = autopilotMode ? buildCvAutopilotInstruction(cleanMessage) : cleanMessage;
     const reply = shouldUseKirbyCvAssistant(cleanMessage)
         ? await runKirbyCvAssistant({
