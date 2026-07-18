@@ -9617,6 +9617,21 @@ const isExplicitExperienceMoveInstruction = (instruction = '') => {
     return targetsExperience && asksMove;
 };
 
+const requiresCompleteExperienceOrderInstruction = (instruction = '') => {
+    const raw = String(instruction || '').trim();
+    const source = normalizeForMatch(raw).replace(/[’']/g, ' ');
+    const targetsExperience = /\b(experience|experiences|parcours)\b/.test(source);
+    const asksOrder = /\b(ordre|reordonne|reorganise|classement|sequence|liste)\b/.test(source);
+    const asksCompleteOrder = /\b(complet|completement|toutes|tout|integral|entier|ordre suivant|nouvel ordre|dans cet ordre)\b/.test(source);
+    const hasNumberedOrder = /\b1[\)\.\-]\s*\S+[\s\S]*\b2[\)\.\-]\s*\S+/i.test(raw);
+
+    if (!targetsExperience) {
+        return false;
+    }
+
+    return asksCompleteOrder || (asksOrder && hasNumberedOrder);
+};
+
 const applyRequestedExperienceOrder = (order = [], options = {}) => {
     const field = getExperienceField();
     const lines = field ? repairPreviewExperienceItems(splitLines(field.value)) : [];
@@ -10311,7 +10326,8 @@ const applyKirbyCvResult = (result, task, instruction = '', options = {}) => {
     const singleFieldIntent = getSingleFieldEditIntent(userInstruction);
     const operationList = getKirbyCvArray(proposal.operations, 8);
     const hasReorderOperation = operationList.some((operation) => operation?.type === 'reorder_experiences');
-    const requiresStrictExperienceOrder = hasReorderOperation || isExplicitExperienceMoveInstruction(userInstruction);
+    const requiresStrictExperienceOrder = requiresCompleteExperienceOrderInstruction(userInstruction);
+    const requestedExperienceMove = isExplicitExperienceMoveInstruction(userInstruction);
     const changes = ['autofill', 'create'].includes(task) ? applyKirbyExtractedCv(proposal.extracted) : [];
     const operationChanges = applyKirbyOperations(operationList, {
         experienceOrder: proposal.experienceOrder,
@@ -10400,7 +10416,7 @@ const applyKirbyCvResult = (result, task, instruction = '', options = {}) => {
         changes.push('compétences suggérées');
     }
 
-    const keepRequestedExperienceOrder = requiresStrictExperienceOrder || operationChanges.includes('ordre des expériences');
+    const keepRequestedExperienceOrder = requestedExperienceMove || requiresStrictExperienceOrder || operationChanges.includes('ordre des expériences');
     if (allowGlobalCvRewrite && !singleFieldIntent) {
         const reorder = applyRequestedExperienceOrder(proposal.experienceOrder, { requireComplete: requiresStrictExperienceOrder });
         if (reorder.error) {
