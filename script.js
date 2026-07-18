@@ -491,7 +491,7 @@ const applyCvPreset = (preset) => {
     }
 
     const form = cvForm.elements;
-    const defaultEmail = currentUser?.email || 'email@exemple.com';
+    const defaultEmail = 'email@exemple.com';
 
     if (['client', 'banking', 'transport', 'admin'].includes(preset)) {
         clearEditableOverrides();
@@ -1358,10 +1358,6 @@ const resetCvFormToDefaults = () => {
 const applyCurrentUserDefaults = () => {
     if (!cvForm || !currentUser) {
         return;
-    }
-
-    if (cvForm.elements.email) {
-        cvForm.elements.email.value = currentUser.email;
     }
 
     if (cvForm.elements.fullName && currentUser.name && (!cvForm.elements.fullName.value || cvForm.elements.fullName.value === defaultCvValues.fullName)) {
