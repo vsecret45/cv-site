@@ -1595,6 +1595,7 @@ Selon la tache demandee :
 
 Actions d'edition directes :
 - Si l'utilisateur demande une modification ciblee d'un element existant (date/periode d'une experience, niveau de langue, suppression/retrait, correction d'un champ), renseigne "operations" avec l'action a appliquer. Ne cree pas de nouveau bloc pour une correction.
+- Si l'utilisateur demande de deplacer, monter, descendre ou placer une experience sous/au-dessus d'une autre, retourne obligatoirement operations avec type "reorder_experiences" ET experienceOrder avec la liste complete des experiences existantes dans l'ordre final attendu. N'annonce jamais un changement d'ordre sans cette liste complete.
 - Si la demande cible explicitement un seul champ (titre, langue, date, telephone, email, profil, nom, ville, permis), ne lance pas d'optimisation globale : laisse periodGaps, generatedExperiences, educationSuggestions, suggestedSkills et layout vides sauf demande explicite d'optimisation globale.
 - Pour corriger une date d'experience existante, utilise type "update_experience_date", renseigne "value" avec la nouvelle date/periode, et cible l'experience avec target.index si le contexte de selection le fournit, sinon target.title, target.organization ou target.currentValue.
 - Pour ajouter ou modifier une langue, utilise type "upsert_language", value = niveau, target.label = langue.
@@ -5625,9 +5626,43 @@ const sanitizeCvAssistantResult = (result, cv = {}) => {
     const sourceTitlesByNormalized = new Map(
         sourceExperienceTitles.map((title) => [stripAccents(title).toLowerCase(), title])
     );
-    const orderedTitles = toCvStringList(result && result.experienceOrder, 8, 110)
-        .map((title) => sourceTitlesByNormalized.get(stripAccents(title).toLowerCase()))
-        .filter(Boolean);
+    const normalizeExperienceOrderTitle = (title = '') =>
+        stripAccents(normalize(title).toLowerCase())
+            .replace(/[^a-z0-9]+/g, ' ')
+            .replace(/\s{2,}/g, ' ')
+            .trim();
+    const sourceExperienceTitleMatches = sourceExperienceTitles.map((title) => ({
+        title,
+        normalized: normalizeExperienceOrderTitle(title),
+    }));
+    const resolveExperienceOrderTitle = (title = '') => {
+        const exactMatch = sourceTitlesByNormalized.get(stripAccents(title).toLowerCase());
+        if (exactMatch) {
+            return exactMatch;
+        }
+
+        const normalized = normalizeExperienceOrderTitle(title);
+        if (!normalized) {
+            return '';
+        }
+
+        return sourceExperienceTitleMatches.find((item) =>
+            item.normalized.includes(normalized) || normalized.includes(item.normalized)
+        )?.title || '';
+    };
+    const operationOrderTitles = (Array.isArray(result && result.operations) ? result.operations : [])
+        .filter((operation) => operation && operation.type === 'reorder_experiences')
+        .flatMap((operation) => toCvStringList(String(operation.value || '').split('|'), 8, 110));
+    const orderSource = operationOrderTitles.length >= 2
+        ? operationOrderTitles
+        : result && result.experienceOrder;
+    const orderedTitles = toCvStringList(orderSource, 8, 110)
+        .map(resolveExperienceOrderTitle)
+        .filter(Boolean)
+        .filter((title, index, list) => list.indexOf(title) === index);
+    const safeExperienceOrder = orderedTitles.length >= Math.min(sourceExperienceTitles.length, 2)
+        ? [...orderedTitles, ...sourceExperienceTitles.filter((title) => !orderedTitles.includes(title))]
+        : sourceExperienceTitles;
     const languages = (Array.isArray(result && result.languages) ? result.languages : [])
         .map(normalizeCvLanguage)
         .filter(Boolean)
@@ -5638,7 +5673,7 @@ const sanitizeCvAssistantResult = (result, cv = {}) => {
         headline: limitCvText(result && result.headline, 90),
         summary: limitCvText(result && result.summary, 300),
         skills: toCvStringList(result && result.skills, 10, 80),
-        experienceOrder: [...orderedTitles, ...sourceExperienceTitles.filter((title) => !orderedTitles.includes(title))],
+        experienceOrder: safeExperienceOrder,
         languages,
         periodGaps: sanitizeCvPeriodGaps(result && result.periodGaps),
         generatedExperiences: sanitizeCvGeneratedExperiences(result && result.generatedExperiences),
