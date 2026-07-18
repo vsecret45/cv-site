@@ -195,6 +195,7 @@ let lastAssistantAction = null;
 let pendingKirbyCvProposal = null;
 let queuedAssistantPrompt = '';
 let activeKirbyMode = 'optimize';
+let kirbyConversationHistory = [];
 
 const previewNodes = {
     fullName: document.querySelector('#preview-name'),
@@ -8095,6 +8096,13 @@ const appendAssistantMessage = (text, role) => {
     }
 
     assistantThread.scrollTop = assistantThread.scrollHeight;
+
+    if (['user', 'bot'].includes(role)) {
+        kirbyConversationHistory = [
+            ...kirbyConversationHistory,
+            { role, message },
+        ].slice(-12);
+    }
 };
 
 const getKirbyCvSource = () => {
@@ -8146,13 +8154,14 @@ const getKirbyCvInteractionContext = () => {
         selectedText,
         activeExperienceIndex: selectedExperienceIndex,
         activeExperience: getActiveExperienceLine(),
+        recentConversation: kirbyConversationHistory.slice(-8),
         pendingQuestion: pendingExperienceDateCorrectionIndex !== null ? 'date_experience' : '',
         precisionPolicy: [
-            'Kirby agit comme un assistant de precision pour la mise en page du CV.',
-            'Il ne modifie pas les sections deja correctes.',
-            'Il propose une correction ciblee a la fois.',
-            'Il demande confirmation avant toute grosse modification de structure ou de repartition.',
-            'Il verifie le resultat avant d annoncer que le travail est termine.',
+            'Kirby agit comme un assistant CV autonome orienté résultat.',
+            'Il comprend l objectif global, puis exécute toutes les actions explicites et implicites nécessaires.',
+            'Il préserve strictement les sections non demandées.',
+            'Il sauvegarde et vérifie le résultat avant confirmation.',
+            'Il pose une question uniquement si une ambiguïté réelle empêche l exécution fiable.',
         ].join(' '),
     };
 };
@@ -10592,40 +10601,33 @@ const applyKirbyCvResult = (result, task, instruction = '', options = {}) => {
 const shouldApplyKirbyResultDirectly = ({ task = '', instruction = '' } = {}) => {
     const userInstruction = getKirbyUserInstruction(instruction);
     const source = normalizeForMatch(userInstruction);
-    const precisionSensitive = /\b(mise en page|aeration|aération|align|alignement|hierarchie|hiérarchie|lisibilite|lisibilité|espace|espacement|marge|padding|colonne|colonnes|section|titre|titres|pdf|a4|export|equilibr|equilibre|equilibree|equilibree|repart|repartition|descend|monte|remonte|decale|decalage|largeur|hauteur|respiration|glass|crystal)\b/.test(source);
+    const suggestionOnly = /\b(propose|proposer|suggestion|suggestions|sans appliquer|ne modifie pas|juste analyser|analyse seulement|a valider|à valider)\b/.test(source);
 
-    if (isLanguageFocusedInstruction(userInstruction)) {
+    if (suggestionOnly) {
+        return false;
+    }
+
+    if (task === 'assistant') {
         return true;
     }
 
-    if (isSingleFieldEditIntent(userInstruction)) {
+    if (task === 'adapt') {
         return true;
     }
 
-    if (shouldApplyTargetedDigitalCvCompletion(userInstruction)) {
+    if (task === 'optimize') {
+        return true;
+    }
+
+    if (task === 'letter') {
         return true;
     }
 
     if (['create', 'autofill'].includes(task)) {
-        return isExplicitKirbyApplyInstruction(userInstruction) || looksLikeCvCreationInstruction(userInstruction) || looksLikePastedCv(userInstruction);
+        return true;
     }
 
-    if (precisionSensitive) {
-        return false;
-    }
-
-    if (task !== 'optimize') {
-        return false;
-    }
-
-    if (/\b(trou|periode|période|vide|combler|valoriser|autoformation|autodidacte|projet personnel|entrepreneur|creatrice|créatrice|formation|certification|certificat|atelier|simplon|ecole 42|école 42|piscine|benevolat|bénévolat|mission ponctuelle|recherche active)\b/.test(source)
-        && !isExplicitKirbyApplyInstruction(userInstruction)) {
-        return false;
-    }
-
-    return isExplicitKirbyApplyInstruction(userInstruction)
-        && !looksLikePastedCv(userInstruction)
-        && !looksLikeJobOffer(userInstruction);
+    return isExplicitKirbyApplyInstruction(userInstruction);
 };
 
 const hasKirbyOperations = (result = {}) => getKirbyCvArray(result?.cv?.operations).length > 0;
@@ -10743,46 +10745,8 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
         const queuedMessage = queuedAssistantPrompt;
         queuedAssistantPrompt = '';
         if (queuedMessage) {
-            window.setTimeout(async () => {
-                const languageFocused = isLanguageFocusedInstruction(queuedMessage);
-                if (languageFocused && !hasLanguageNameInInstruction(queuedMessage)) {
-                    hideKirbyCvProposal();
-                    appendAssistantMessage('Quelle langue et quel niveau dois-je ajouter ? Exemple : Français courant, Anglais notions.', 'bot');
-                    return;
-                }
-
-                const quickReply = applyQuickKirbyCorrection(queuedMessage);
-                if (quickReply) {
-                    hideKirbyCvProposal();
-                    appendAssistantMessage(quickReply, 'bot');
-                    return;
-                }
-
-                const queuedDigitalExperienceDiagnosticReply = getDigitalExperienceDiagnosticReply(queuedMessage);
-                if (queuedDigitalExperienceDiagnosticReply) {
-                    hideKirbyCvProposal();
-                    appendAssistantMessage(queuedDigitalExperienceDiagnosticReply, 'bot');
-                    return;
-                }
-
-                const autopilotMode = shouldRunCvAutopilotMode(queuedMessage);
-
-                const localReplies = [];
-                if (autopilotMode) {
-                    const autopilotChanges = applyCvAutopilotLocalCleanup({ readyLayout: true, silent: true });
-                    if (autopilotChanges.length) {
-                        localReplies.push(`J'ai déjà préparé la structure : ${autopilotChanges.join(', ')}.`);
-                    }
-                }
-
-                const messageIsOffer = setJobOfferFromAssistantMessage(queuedMessage);
-                hideKirbyCvProposal();
-                const assistantInstruction = autopilotMode ? buildCvAutopilotInstruction(queuedMessage) : queuedMessage;
-                const reply = await runKirbyCvAssistant({
-                    task: messageIsOffer ? 'adapt' : getAssistantTask(queuedMessage, activeKirbyMode),
-                    instruction: assistantInstruction,
-                });
-                appendAssistantMessage(formatKirbyAssistantReply(localReplies, reply), 'bot');
+            window.setTimeout(() => {
+                void handleAssistantPrompt(queuedMessage, activeKirbyMode);
             }, 0);
         }
     }
@@ -10796,6 +10760,11 @@ const formatKirbyAssistantReply = (localReplies = [], reply = '') => {
     }
 
     return [...localReplies, cleanReply].filter(Boolean).join('\n\n');
+};
+
+const looksLikeKirbyNoChangeReply = (reply = '') => {
+    const source = normalizeForMatch(String(reply || ''));
+    return /\b(indisponible|n a pas pu|pas pu|erreur|aucune modification|deja aligne|deja alignee|proposition prete)\b/.test(source);
 };
 
 const runAssistantAction = (action, message = '') => {
@@ -10974,23 +10943,9 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
         return;
     }
 
-    const targetedDigitalReply = applyTargetedDigitalCvCompletion(cleanMessage);
-    if (targetedDigitalReply) {
-        hideKirbyCvProposal();
-        appendAssistantMessage(targetedDigitalReply, 'bot');
-        return;
-    }
-
     if (isKirbyCvRequestInFlight) {
         queuedAssistantPrompt = cleanMessage;
         setAssistantActivity('Demande enregistrée : Kirby la traitera après l’analyse en cours.', true);
-        return;
-    }
-
-    const languageFocused = isLanguageFocusedInstruction(cleanMessage);
-    if (languageFocused && !hasLanguageNameInInstruction(cleanMessage)) {
-        hideKirbyCvProposal();
-        appendAssistantMessage('Quelle langue et quel niveau dois-je ajouter ? Exemple : Français courant, Anglais notions.', 'bot');
         return;
     }
 
@@ -10999,30 +10954,9 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
         appendAssistantMessage(damageDiagnosticReply, 'bot');
     }
 
-    const digitalExperienceDiagnosticReply = getDigitalExperienceDiagnosticReply(cleanMessage);
-    if (digitalExperienceDiagnosticReply) {
-        hideKirbyCvProposal();
-        appendAssistantMessage(digitalExperienceDiagnosticReply, 'bot');
-        return;
-    }
-
-    const quickReply = applyQuickKirbyCorrection(cleanMessage);
-    if (quickReply) {
-        hideKirbyCvProposal();
-        appendAssistantMessage(quickReply, 'bot');
-        return;
-    }
-
     const autopilotMode = shouldRunCvAutopilotMode(cleanMessage);
 
     const localReplies = [];
-    if (autopilotMode) {
-        const autopilotChanges = applyCvAutopilotLocalCleanup({ readyLayout: true, silent: true });
-        if (autopilotChanges.length) {
-            localReplies.push(`J'ai déjà préparé la structure : ${autopilotChanges.join(', ')}.`);
-        }
-    }
-
     const messageIsOffer = mode !== 'letter' && setJobOfferFromAssistantMessage(cleanMessage);
     hideKirbyCvProposal();
     const assistantInstruction = autopilotMode ? buildCvAutopilotInstruction(cleanMessage) : cleanMessage;
@@ -11032,6 +10966,15 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
             instruction: assistantInstruction,
         })
         : getAssistantReply(cleanMessage);
+
+    if (shouldUseKirbyCvAssistant(cleanMessage) && looksLikeKirbyNoChangeReply(reply)) {
+        const quickReply = applyQuickKirbyCorrection(cleanMessage);
+        if (quickReply) {
+            appendAssistantMessage(formatKirbyAssistantReply(localReplies, `${reply}\n${quickReply}`), 'bot');
+            return;
+        }
+    }
+
     appendAssistantMessage(formatKirbyAssistantReply(localReplies, reply), 'bot');
 };
 
