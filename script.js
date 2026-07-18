@@ -9761,7 +9761,7 @@ const requiresCompleteExperienceOrderInstruction = (instruction = '') => {
 
 const applyRequestedExperienceOrder = (order = [], options = {}) => {
     const field = getExperienceField();
-    const lines = field ? repairPreviewExperienceItems(splitLines(field.value)) : [];
+    const lines = field ? splitLines(field.value) : [];
     const requireComplete = Boolean(options?.requireComplete);
 
     if (!field || !lines.length || !Array.isArray(order) || !order.length) {
@@ -9774,6 +9774,38 @@ const applyRequestedExperienceOrder = (order = [], options = {}) => {
     const normalizedOrder = order
         .map((title) => normalizeForMatch(title || ''))
         .filter(Boolean);
+    const getOrderTokens = (value = '') =>
+        normalizeForMatch(value)
+            .split(/[^a-z0-9]+/)
+            .filter((token) => token.length >= 3)
+            .filter((token) => !new Set(['experience', 'experiences', 'poste', 'parcours', 'projet', 'personnel']).has(token));
+    const toOrderAlias = (value = '') =>
+        normalizeForMatch(value)
+            .replace(/\b(creatrice?|createur|developpeur|developpeuse|developpement|web|informatique|numerique|digital)\b/g, 'digital');
+    const getOrderMatchScore = (entry = {}, normalizedTitle = '') => {
+        const tokens = getOrderTokens(normalizedTitle);
+        const fullAlias = toOrderAlias(entry.full || '');
+        const titleAlias = toOrderAlias(entry.title || '');
+        const orderAlias = toOrderAlias(normalizedTitle);
+
+        let score = 0;
+        if (entry.full.includes(normalizedTitle)) {
+            score += 10;
+        }
+        if (normalizedTitle.includes(entry.title) || entry.title.includes(normalizedTitle)) {
+            score += 8;
+        }
+        if (fullAlias.includes(orderAlias) || orderAlias.includes(titleAlias)) {
+            score += 6;
+        }
+
+        if (tokens.length) {
+            const tokenScore = tokens.filter((token) => entry.full.includes(token) || entry.title.includes(token)).length;
+            score += tokenScore * 2;
+        }
+
+        return score;
+    };
     const entries = lines.map((line, index) => ({
         index,
         line,
@@ -9784,15 +9816,21 @@ const applyRequestedExperienceOrder = (order = [], options = {}) => {
     const usedIndexes = new Set();
 
     normalizedOrder.forEach((normalizedTitle) => {
-        const candidate = entries.find((entry) =>
-            !usedIndexes.has(entry.index)
-            && (entry.full.includes(normalizedTitle)
-                || normalizedTitle.includes(entry.title)
-                || entry.title.includes(normalizedTitle))
-        );
-        if (!candidate) {
+        const rankedCandidates = entries
+            .filter((entry) => !usedIndexes.has(entry.index))
+            .map((entry) => ({ entry, score: getOrderMatchScore(entry, normalizedTitle) }))
+            .filter((item) => item.score > 0)
+            .sort((left, right) => right.score - left.score);
+
+        if (!rankedCandidates.length) {
             return;
         }
+
+        if (rankedCandidates.length > 1 && rankedCandidates[0].score === rankedCandidates[1].score) {
+            return;
+        }
+
+        const candidate = rankedCandidates[0].entry;
         usedIndexes.add(candidate.index);
         selectedIndexes.push(candidate.index);
     });
@@ -10310,16 +10348,7 @@ const getOperationTargetScore = (entry = {}, operation = {}) => {
 };
 
 const findExperienceIndexForOperation = (entries = [], operation = {}) => {
-    const targetIndex = Number.isInteger(operation.target?.index) ? operation.target.index : null;
-    if (targetIndex !== null && entries[targetIndex]) {
-        return targetIndex;
-    }
-
-    const selectedIndex = getSelectedExperienceIndex();
     const targetText = getOperationTargetText(operation);
-    if (selectedIndex !== null && entries[selectedIndex] && (!targetText || /cette|selection|sélection/i.test(targetText))) {
-        return selectedIndex;
-    }
 
     const scores = entries
         .map((entry, index) => ({ index, score: getOperationTargetScore(entry, operation) }))
@@ -10332,6 +10361,16 @@ const findExperienceIndexForOperation = (entries = [], operation = {}) => {
 
     if (scores.length) {
         return scores[0].index;
+    }
+
+    const targetIndex = Number.isInteger(operation.target?.index) ? operation.target.index : null;
+    if (targetIndex !== null && entries[targetIndex]) {
+        return targetIndex;
+    }
+
+    const selectedIndex = getSelectedExperienceIndex();
+    if (selectedIndex !== null && entries[selectedIndex] && (!targetText || /cette|selection|sélection/i.test(targetText))) {
+        return selectedIndex;
     }
 
     return entries.length === 1 ? 0 : -1;
@@ -10349,7 +10388,7 @@ const applyKirbyOperation = (operation = {}, context = {}) => {
             return '';
         }
 
-        const entries = repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
+        const entries = splitLines(field.value).map(parseExperienceEntry);
         const index = findExperienceIndexForOperation(entries, operation);
         if (index < 0 || !entries[index]) {
             return '';
@@ -10399,7 +10438,7 @@ const applyKirbyOperation = (operation = {}, context = {}) => {
             return '';
         }
 
-        const entries = repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
+        const entries = splitLines(field.value).map(parseExperienceEntry);
         const index = findExperienceIndexForOperation(entries, operation);
         if (index < 0 || !entries[index]) {
             return '';
@@ -10455,6 +10494,7 @@ const applyKirbyCvResult = (result, task, instruction = '', options = {}) => {
     const hasReorderOperation = operationList.some((operation) => operation?.type === 'reorder_experiences');
     const requiresStrictExperienceOrder = requiresCompleteExperienceOrderInstruction(userInstruction);
     const requestedExperienceMove = isExplicitExperienceMoveInstruction(userInstruction);
+    const shouldStripExperienceMonths = shouldRemoveExperienceMonths(userInstruction);
     const changes = ['autofill', 'create'].includes(task) ? applyKirbyExtractedCv(proposal.extracted) : [];
     const operationChanges = applyKirbyOperations(operationList, {
         experienceOrder: proposal.experienceOrder,
@@ -10551,6 +10591,25 @@ const applyKirbyCvResult = (result, task, instruction = '', options = {}) => {
         }
         if (reorder.changed) {
             changes.push('ordre des expériences');
+        }
+    }
+
+    if (shouldStripExperienceMonths) {
+        const experienceField = getExperienceField();
+        const entries = experienceField ? splitLines(experienceField.value).map(parseExperienceEntry) : [];
+        let monthRemoved = false;
+
+        entries.forEach((entry) => {
+            const nextDate = toYearOnlyExperienceDate(entry.date || '');
+            if (nextDate && nextDate !== normalizeExperienceDateText(entry.date || '')) {
+                entry.date = nextDate;
+                monthRemoved = true;
+            }
+        });
+
+        if (monthRemoved && experienceField) {
+            experienceField.value = entries.map(serializeExperienceEntry).filter(Boolean).join('\n');
+            changes.push('dates uniformisées (années)');
         }
     }
 
