@@ -9292,7 +9292,15 @@ const verifyKirbyExperienceExecution = (instruction = '') => {
                 }
             });
 
-            const uniqueChecks = dedupeKirbyArray(checkEntries, (entry) => normalizeForMatch(entry?.title || ''));
+            const seenTitles = new Set();
+            const uniqueChecks = checkEntries.filter((entry) => {
+                const key = normalizeForMatch(entry?.title || '');
+                if (!key || seenTitles.has(key)) {
+                    return false;
+                }
+                seenTitles.add(key);
+                return true;
+            });
             const missingPreviewEntries = uniqueChecks.some((entry) => {
                 const titleToken = normalizeForMatch(entry.title || '').slice(0, 36);
                 return titleToken && !previewText.includes(titleToken);
