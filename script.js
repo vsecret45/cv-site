@@ -10690,6 +10690,7 @@ const getKirbyOperationField = (operation = {}) => {
 
     if ([
         'add_experience',
+        'update_experience_title',
         'update_experience_date',
         'remove_experience_bullet',
         'remove_experience',
@@ -10723,6 +10724,37 @@ const getAllowedKirbyOperationFields = (instruction = '') => {
     return null;
 };
 
+const isExperienceSetFieldTooDestructive = (nextValue = '', instruction = '') => {
+    const field = getExperienceField();
+    if (!field) {
+        return false;
+    }
+
+    const source = normalizeForMatch(getKirbyUserInstruction(instruction));
+    const asksBulletRemoval = /\b(supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer)\b/.test(source)
+        && /\b(ligne|lignes|puce|puces|mission|missions)\b/.test(source);
+    const existingEntries = repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
+    const nextEntries = repairPreviewExperienceItems(splitLines(nextValue)).map(parseExperienceEntry);
+
+    if (!existingEntries.length || !nextEntries.length) {
+        return false;
+    }
+
+    if (nextEntries.length < existingEntries.length) {
+        return true;
+    }
+
+    if (!asksBulletRemoval) {
+        const existingBulletCount = existingEntries.reduce((total, entry) => total + (entry.bullets || []).length, 0);
+        const nextBulletCount = nextEntries.reduce((total, entry) => total + (entry.bullets || []).length, 0);
+        if (nextBulletCount < existingBulletCount) {
+            return true;
+        }
+    }
+
+    return false;
+};
+
 const applyKirbyOperation = (operation = {}, context = {}) => {
     if (!operation?.type) {
         return '';
@@ -10744,6 +10776,25 @@ const applyKirbyOperation = (operation = {}, context = {}) => {
         field.value = normalizeCvTextareaValue('experience', sortTimelineEntriesNewestFirst([...existing, line], [line]).join('\n'));
         clearEditableOverride('experience');
         return 'expérience ajoutée';
+    }
+
+    if (operation.type === 'update_experience_title') {
+        const field = getExperienceField();
+        const title = formatCvHeadline(operation.value || operation.target?.label || '');
+        if (!field || !title) {
+            return '';
+        }
+
+        const entries = splitLines(field.value).map(parseExperienceEntry);
+        const index = findExperienceIndexForOperation(entries, operation);
+        if (index < 0 || !entries[index] || entries[index].title === title) {
+            return '';
+        }
+
+        entries[index] = { ...entries[index], title };
+        field.value = entries.map(serializeExperienceEntry).filter(Boolean).join('\n');
+        clearEditableOverride('experience');
+        return `titre ${title}`;
     }
 
     if (operation.type === 'update_experience_date') {
@@ -10798,6 +10849,9 @@ const applyKirbyOperation = (operation = {}, context = {}) => {
         const field = fieldName && cvForm?.elements[fieldName];
         const value = String(operation.value || '').trim();
         if (!field || !value || field.value.trim() === value) {
+            return '';
+        }
+        if (fieldName === 'experience' && isExperienceSetFieldTooDestructive(value, context?.instruction || '')) {
             return '';
         }
         field.value = ['skills', 'education', 'activities', 'projects', 'languages'].includes(fieldName)

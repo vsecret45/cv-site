@@ -1598,6 +1598,8 @@ Actions d'edition directes :
 - Si l'utilisateur demande une modification ciblee d'un element existant (date/periode d'une experience, niveau de langue, suppression/retrait, correction d'un champ), renseigne "operations" avec l'action a appliquer. Ne cree pas de nouveau bloc pour une correction.
 - Si la demande cible explicitement un seul champ (titre, langue, date, telephone, email, profil, nom, ville, permis), ne lance pas d'optimisation globale : laisse periodGaps, generatedExperiences, educationSuggestions, suggestedSkills et layout vides sauf demande explicite d'optimisation globale.
 - Si la demande cible une experience, une date d'experience, une ligne, une puce ou une mission d'experience, modifie uniquement "experience". Ne modifie pas education, skills, summary, headline, languages, projects ni layout sauf demande explicite.
+- Pour renommer une experience existante, utilise type "update_experience_title", value = nouveau titre, et cible l'experience avec target.index si possible, sinon target.title ou target.currentValue.
+- Pour une demande qui combine ordre des experiences, renommage et date, retourne plusieurs operations ciblees : "reorder_experiences", "update_experience_title" et "update_experience_date". N'utilise jamais "set_field" sur field "experience" pour ce cas, car cela risque d'ecraser les puces.
 - Si l'utilisateur demande de supprimer N lignes/puces/missions dans une experience existante, retourne uniquement des operations type "remove_experience_bullet" ciblees sur cette experience. Si les lignes exactes ne sont pas nommees, prends les N dernieres missions de l'experience ciblee et mets leur texte exact dans "value", une operation par mission. Ne remplace pas tout le champ experience avec "set_field" et ne supprime pas le bloc entier sauf si l'utilisateur le demande explicitement.
 - Pour corriger une date d'experience existante, utilise type "update_experience_date", renseigne "value" avec la nouvelle date/periode, et cible l'experience avec target.index si le contexte de selection le fournit, sinon target.title, target.organization ou target.currentValue.
 - Pour ajouter ou modifier une langue, utilise type "upsert_language", value = niveau, target.label = langue.
@@ -1667,7 +1669,7 @@ Schema JSON obligatoire :
     "compact": false
   },
   "operations": [{
-    "type": "update_experience_date | upsert_language | set_field | remove_section | reorder_experiences | remove_experience | remove_experience_bullet",
+    "type": "update_experience_title | update_experience_date | upsert_language | set_field | remove_section | reorder_experiences | remove_experience | remove_experience_bullet",
     "field": "experience | languages | fullName | location | phone | email | permit | headline | summary | skills | education | activities | projects",
     "target": {
       "index": 0,
@@ -5439,7 +5441,7 @@ const sanitizeCvLayout = (value) => {
     };
 };
 
-const CV_OPERATION_TYPES = new Set(['update_experience_date', 'upsert_language', 'set_field', 'remove_section', 'reorder_experiences', 'remove_experience', 'remove_experience_bullet']);
+const CV_OPERATION_TYPES = new Set(['update_experience_title', 'update_experience_date', 'upsert_language', 'set_field', 'remove_section', 'reorder_experiences', 'remove_experience', 'remove_experience_bullet']);
 const CV_OPERATION_FIELDS = new Set(['experience', 'languages', 'fullName', 'location', 'phone', 'email', 'permit', 'headline', 'summary', 'skills', 'education', 'activities', 'projects']);
 
 const sanitizeCvOperation = (value) => {
