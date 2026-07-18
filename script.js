@@ -9150,6 +9150,123 @@ const applyQuickExperienceDateCorrection = (message = '') => {
     return `Date mise à jour pour ${title} : ${correction.date}.`;
 };
 
+const shouldRemoveExperienceMonths = (message = '') => {
+    const source = normalizeForMatch(message);
+    return /\b(supprime|supprimer|retire|retirer|enleve|enlever|sans)\b/.test(source)
+        && /\b(mois|mensuel|janv|janvier|fevr|fevrier|mars|avril|mai|juin|juil|juillet|aout|sept|septembre|oct|octobre|nov|novembre|dec|decembre)\b/.test(source);
+};
+
+const toYearOnlyExperienceDate = (value = '') => {
+    const years = String(value || '').match(/\b(19|20)\d{2}\b/g) || [];
+    if (!years.length) {
+        return normalizeExperienceDateText(value || '');
+    }
+    if (years.length === 1) {
+        return years[0];
+    }
+    return `${years[0]} - ${years[years.length - 1]}`;
+};
+
+const getExperienceHintScore = (entry = {}, hint = '') => {
+    const source = normalizeForMatch(hint);
+    const haystack = normalizeForMatch(`${entry.title || ''} ${entry.meta || ''} ${entry.date || ''}`);
+    const tokens = source
+        .split(/[^a-z0-9]+/)
+        .filter((token) => token.length >= 4)
+        .filter((token) => !new Set(['juste', 'dessous', 'sous', 'apres', 'apres', 'dessus', 'ligne', 'poste', 'experience']).has(token));
+
+    if (!tokens.length) {
+        return 0;
+    }
+
+    return [...new Set(tokens)].filter((token) => haystack.includes(token)).length;
+};
+
+const findExperienceIndexByHint = (entries = [], hint = '', excludedIndexes = new Set()) => {
+    const ranked = entries
+        .map((entry, index) => ({ index, score: getExperienceHintScore(entry, hint) }))
+        .filter((item) => item.score > 0 && !excludedIndexes.has(item.index))
+        .sort((left, right) => right.score - left.score);
+
+    return ranked.length ? ranked[0].index : -1;
+};
+
+const applyQuickExperiencePlacementCorrection = (message = '') => {
+    const field = getExperienceField();
+    if (!field) {
+        return '';
+    }
+
+    const source = normalizeForMatch(message);
+    const asksDirectPlacement = /\b(juste\s+en\s+dessous|juste\s+sous|en\s+dessous|sous|apres|après)\b/.test(source)
+        && /\b(experience|experiences|poste|parcours)\b/.test(source);
+    const removeMonths = shouldRemoveExperienceMonths(message);
+
+    if (!asksDirectPlacement && !removeMonths) {
+        return '';
+    }
+
+    const entries = repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
+    if (!entries.length) {
+        return '';
+    }
+
+    let changed = false;
+    let moved = false;
+    let monthsRemoved = false;
+
+    if (asksDirectPlacement) {
+        const placementMatch = message.match(/([\s\S]*?)(?:juste\s+en\s+dessous|juste\s+sous|en\s+dessous|sous|apres|après)\s*[:\-]?\s*([\s\S]*)/i);
+        if (placementMatch) {
+            const anchorHint = placementMatch[1] || '';
+            const movedHint = placementMatch[2] || '';
+            const anchorIndex = findExperienceIndexByHint(entries, anchorHint);
+            const movedIndex = findExperienceIndexByHint(entries, movedHint, new Set(anchorIndex >= 0 ? [anchorIndex] : []));
+
+            if (anchorIndex >= 0 && movedIndex >= 0 && anchorIndex !== movedIndex) {
+                const [movedEntry] = entries.splice(movedIndex, 1);
+                const anchorAfterRemoval = movedIndex < anchorIndex ? anchorIndex - 1 : anchorIndex;
+                const targetIndex = Math.min(anchorAfterRemoval + 1, entries.length);
+                entries.splice(targetIndex, 0, movedEntry);
+                moved = true;
+                changed = true;
+            }
+        }
+    }
+
+    if (removeMonths) {
+        entries.forEach((entry) => {
+            const nextDate = toYearOnlyExperienceDate(entry.date || '');
+            if (nextDate && nextDate !== normalizeExperienceDateText(entry.date || '')) {
+                entry.date = nextDate;
+                monthsRemoved = true;
+                changed = true;
+            }
+        });
+    }
+
+    if (!changed) {
+        return '';
+    }
+
+    const beforeState = getCvHistoryState();
+    field.value = entries.map(serializeExperienceEntry).filter(Boolean).join('\n');
+    clearEditableOverride('experience');
+    renderExperienceEditor();
+    updateCvPreview();
+    commitCvHistoryTransition(beforeState);
+    scheduleCvDraftSave();
+    setCvStatus('Expériences réorganisées');
+
+    if (moved && monthsRemoved) {
+        return 'Expérience déplacée juste sous le poste demandé et mois supprimés des périodes.';
+    }
+    if (moved) {
+        return 'Expérience déplacée juste sous le poste demandé.';
+    }
+    return 'Mois supprimés des périodes d’expériences.';
+};
+
 const shouldQuickSortExperiences = (message = '') => {
     const source = normalizeForMatch(message);
 
@@ -9593,6 +9710,7 @@ const applyQuickSalesRefocusCorrection = (message = '') => {
 
 const applyQuickKirbyCorrection = (message = '') => {
     const directCorrections = [
+        applyQuickExperiencePlacementCorrection(message),
         applyTargetedDigitalCvCompletion(message),
         applyQuickCvTypographyAdjustment(message),
         getQuickEditorBugReport(message),
