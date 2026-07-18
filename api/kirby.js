@@ -7004,8 +7004,24 @@ const callOpenAiCvAssistant = async ({ task, cv, jobOffer, instruction, letter, 
 };
 
 module.exports = async (request, response) => {
+    if (request.method === 'GET' || request.method === 'HEAD') {
+        response.setHeader('Allow', 'GET, HEAD, POST');
+
+        if (request.method === 'HEAD') {
+            response.statusCode = 200;
+            response.end();
+            return;
+        }
+
+        return json(response, 200, {
+            ok: true,
+            service: 'kirby',
+            message: 'Kirby est disponible. Utilisez POST /api/kirby pour lancer une analyse.',
+        });
+    }
+
     if (request.method !== 'POST') {
-        response.setHeader('Allow', 'POST');
+        response.setHeader('Allow', 'GET, HEAD, POST');
         return json(response, 405, { error: 'method_not_allowed' });
     }
 
