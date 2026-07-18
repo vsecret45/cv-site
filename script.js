@@ -10724,6 +10724,14 @@ const getAllowedKirbyOperationFields = (instruction = '') => {
     return null;
 };
 
+const isExperienceScopedEditInstruction = (instruction = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(instruction));
+    const hasEditAction = /\b(ajoute|ajouter|corrige|corriger|change|changer|modifie|modifier|remplace|remplacer|renomme|renommer|supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|deplace|deplacer|place|placer|remets|remet|remettre|range|ranger|reordonne|reordonner|ordre|chronologique)\b/.test(source);
+    const hasExperienceScope = /\b(experience|experiences|bloc|poste|postes|ligne|lignes|puce|puces|mission|missions|periode|date|dates|machiniste|receveur|conseillere|commerciale|responsable|adjointe|chargee|clientele|developpement|informatique|web|autodidacte|2025|2026|2024|2023|2022|2021|2020|2019)\b/.test(source);
+
+    return hasEditAction && hasExperienceScope;
+};
+
 const isExperienceSetFieldTooDestructive = (nextValue = '', instruction = '') => {
     const field = getExperienceField();
     if (!field) {
@@ -10984,6 +10992,7 @@ const applyKirbyCvResult = (result, task, instruction = '', options = {}) => {
     const requestedExperienceMove = isExplicitExperienceMoveInstruction(userInstruction);
     const shouldStripExperienceMonths = shouldRemoveExperienceMonths(userInstruction);
     const allowedOperationFields = getAllowedKirbyOperationFields(userInstruction);
+    const experienceScopedIntent = isExperienceScopedEditInstruction(userInstruction);
     const changes = ['autofill', 'create'].includes(task) ? applyKirbyExtractedCv(proposal.extracted) : [];
     const operationChanges = applyKirbyOperations(operationList, {
         experienceOrder: proposal.experienceOrder,
@@ -10993,7 +11002,7 @@ const applyKirbyCvResult = (result, task, instruction = '', options = {}) => {
     });
     changes.push(...operationChanges);
     const applyMode = options?.applyMode === 'proposal' ? 'proposal' : 'direct';
-    const directTargetedUpdate = hasReorderOperation || (applyMode === 'direct' && (operationChanges.length || singleFieldIntent || languageOnlyIntent));
+    const directTargetedUpdate = experienceScopedIntent || hasReorderOperation || (applyMode === 'direct' && (operationChanges.length || singleFieldIntent || languageOnlyIntent));
     const allowGlobalCvRewrite = !directTargetedUpdate;
 
     if (languageOnlyIntent && !['autofill', 'create'].includes(task)) {
@@ -11168,6 +11177,11 @@ const applyKirbyCvResult = (result, task, instruction = '', options = {}) => {
 
     if (verificationWarning) {
         return verificationWarning;
+    }
+
+    if (!changes.length && experienceScopedIntent) {
+        setCvStatus('Kirby n’a pas appliqué la modification ciblée');
+        return 'Kirby n’a pas appliqué la modification demandée aux expériences. Le CV n’a pas été modifié.';
     }
 
     setCvStatus(changes.length ? `Kirby a mis à jour le CV : ${changes.join(', ')}` : 'Kirby a analysé le CV');
