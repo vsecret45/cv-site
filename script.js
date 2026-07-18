@@ -11182,6 +11182,20 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
             const afterApplySnapshot = getKirbyCvSnapshot();
             const operationFailed = (operationDriven || singleFieldDriven) && beforeApplySnapshot === afterApplySnapshot;
             if (operationFailed) {
+                if (/^Le CV est déjà aligné/i.test(String(reply || '').trim())) {
+                    hideKirbyCvProposal();
+                    setAssistantActivity(`${runtimeLabel} · ${reply}`, false);
+                    return reply;
+                }
+
+                const fallbackSnapshot = getKirbyCvSnapshot();
+                const fallbackReply = applyQuickKirbyCorrection(instruction);
+                if (fallbackReply && getKirbyCvSnapshot() !== fallbackSnapshot) {
+                    hideKirbyCvProposal();
+                    setAssistantActivity(`${runtimeLabel} · ${fallbackReply}`, false);
+                    return fallbackReply;
+                }
+
                 const report = saveKirbyBugReport({
                     ...(result.cv?.bugReport || {}),
                     category: result.cv?.bugReport?.category || 'bug application',
