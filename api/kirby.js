@@ -1594,14 +1594,18 @@ Selon la tache demandee :
 - "letter" : redige letter.subject et letter.body. La lettre doit etre directement utilisable, faire 900 caracteres maximum et ne jamais affirmer un fait absent du CV.
 
 Actions d'edition directes :
-- Si l'utilisateur demande une modification ciblee d'un element existant (date/periode d'une experience, niveau de langue, suppression/retrait, correction d'un champ), renseigne "operations" avec l'action a appliquer. Ne cree pas de nouveau bloc pour une correction.
+- Si l'utilisateur demande une modification ciblee ou globale d'un element du CV (ajout d'experience, date/periode, retrait des mois, suppression de puce/ligne, niveau de langue, suppression/retrait, correction d'un champ), renseigne "operations" avec l'action a appliquer. Ne te contente jamais de suggestions, notice ou bugReport si une action peut etre executee avec le CV fourni.
+- Une demande comme « sauvegarde le CV », « applique et sauvegarde », « confirme apres verification » doit produire une modification seulement si une modification est demandee ; sinon laisse operations vide et notice courte. Ne transforme jamais cette demande en correction de date.
 - Si l'utilisateur demande de deplacer, monter, descendre ou placer une experience sous/au-dessus d'une autre, retourne obligatoirement operations avec type "reorder_experiences" ET experienceOrder avec la liste complete des experiences existantes dans l'ordre final attendu. N'annonce jamais un changement d'ordre sans cette liste complete.
 - Si la demande cible explicitement un seul champ (titre, langue, date, telephone, email, profil, nom, ville, permis), ne lance pas d'optimisation globale : laisse periodGaps, generatedExperiences, educationSuggestions, suggestedSkills et layout vides sauf demande explicite d'optimisation globale.
+- Pour ajouter une experience avec assez d'informations (au moins titre ou organisme, periode ou missions), utilise type "add_experience". Renseigne operation.experience avec title, period, organization et description. N'utilise pas bugReport si l'experience peut etre ajoutee comme brouillon factuel a partir de la demande.
 - Pour corriger une date d'experience existante, utilise type "update_experience_date", renseigne "value" avec la nouvelle date/periode, et cible l'experience avec target.index si le contexte de selection le fournit, sinon target.title, target.organization ou target.currentValue.
+- Pour retirer les mois des dates d'experiences, utilise type "normalize_experience_dates", field "experience", value "years_only". Cela s'applique a toutes les experiences, sans demander quelle experience.
+- Pour supprimer une puce, une mission ou une ligne dans une experience, utilise type "remove_experience_bullet". Cible l'experience si possible et mets dans value le texte de la puce ou les mots distinctifs a retirer.
 - Pour ajouter ou modifier une langue, utilise type "upsert_language", value = niveau, target.label = langue.
 - Pour modifier un champ simple, utilise type "set_field", field parmi fullName, location, phone, email, permit, headline, summary, skills, education, activities, projects, languages, value = contenu final.
 - Pour supprimer une experience existante ou un doublon d'experience, utilise type "remove_experience" et cible l'experience avec target.index si le contexte de selection le fournit, sinon target.title, target.organization ou target.currentValue. Ne regenere jamais cette experience dans generatedExperiences pour la meme demande.
-- Si la demande est comprise mais qu'il manque une cible ou une valeur, renseigne "bugReport" seulement si l'application aurait du pouvoir agir. Sinon explique dans "suggestions" la precision manquante.
+- Si la demande est comprise mais qu'il manque une cible ou une valeur, pose une precision dans "suggestions". Renseigne "bugReport" seulement pour signaler un dysfonctionnement explicite de l'application, jamais comme reponse normale a une demande d'edition du CV.
 
 Le resultat doit rester court et tenir sur une page de CV : une accroche de 300 caracteres maximum, 10 competences appliquees maximum, 8 mots-cles et 6 suggestions maximum. Reponds uniquement avec un JSON valide, sans markdown.
 
@@ -1664,7 +1668,7 @@ Schema JSON obligatoire :
     "compact": false
   },
   "operations": [{
-    "type": "update_experience_date | upsert_language | set_field | remove_section | reorder_experiences | remove_experience",
+    "type": "add_experience | update_experience_date | normalize_experience_dates | remove_experience_bullet | upsert_language | set_field | remove_section | reorder_experiences | remove_experience",
     "field": "experience | languages | fullName | location | phone | email | permit | headline | summary | skills | education | activities | projects",
     "target": {
       "index": 0,
@@ -1673,7 +1677,13 @@ Schema JSON obligatoire :
       "organization": "employeur/lieu si connu",
       "currentValue": "valeur actuelle si utile"
     },
-    "value": "nouvelle valeur a appliquer",
+    "value": "nouvelle valeur a appliquer ou texte a retirer",
+    "experience": {
+      "title": "titre de l'experience a ajouter",
+      "period": "periode",
+      "organization": "organisation ou contexte",
+      "description": ["mission courte et factuelle"]
+    },
     "reason": "raison courte"
   }],
   "bugReport": {
@@ -5436,7 +5446,17 @@ const sanitizeCvLayout = (value) => {
     };
 };
 
-const CV_OPERATION_TYPES = new Set(['update_experience_date', 'upsert_language', 'set_field', 'remove_section', 'reorder_experiences', 'remove_experience']);
+const CV_OPERATION_TYPES = new Set([
+    'add_experience',
+    'update_experience_date',
+    'normalize_experience_dates',
+    'remove_experience_bullet',
+    'upsert_language',
+    'set_field',
+    'remove_section',
+    'reorder_experiences',
+    'remove_experience',
+]);
 const CV_OPERATION_FIELDS = new Set(['experience', 'languages', 'fullName', 'location', 'phone', 'email', 'permit', 'headline', 'summary', 'skills', 'education', 'activities', 'projects']);
 
 const sanitizeCvOperation = (value) => {
@@ -5464,6 +5484,7 @@ const sanitizeCvOperation = (value) => {
             currentValue: limitCvText(rawTarget.currentValue || rawTarget.current || value.currentValue, 160),
         },
         value: limitCvMultilineText(value.value || value.newValue || value.date || value.level, 900),
+        experience: sanitizeCvGeneratedExperience(value.experience || value.entry || value.item),
         reason: limitCvText(value.reason || value.summary, 180),
     };
 };

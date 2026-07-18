@@ -8916,6 +8916,50 @@ const getQuickExperienceDateValue = (message = '') => {
     return singleMatch ? normalizeExperienceDateText(singleMatch[1]) : '';
 };
 
+const normalizeExperienceDateToYearsOnly = (value = '') => {
+    const years = [...String(value || '').matchAll(/\b(?:19|20)\d{2}\b/g)].map((match) => match[0]);
+    const uniqueYears = [...new Set(years)];
+
+    if (!uniqueYears.length) {
+        return normalizeExperienceDateText(value);
+    }
+
+    return uniqueYears.length === 1 ? uniqueYears[0] : `${uniqueYears[0]} - ${uniqueYears[uniqueYears.length - 1]}`;
+};
+
+const removeExperienceDateMonths = () => {
+    const field = getExperienceField();
+    if (!field) {
+        return false;
+    }
+
+    const entries = repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
+    let changed = false;
+    const nextEntries = entries.map((entry) => {
+        const nextDate = normalizeExperienceDateToYearsOnly(entry.date || '');
+        if (nextDate !== (entry.date || '')) {
+            changed = true;
+            return { ...entry, date: nextDate };
+        }
+        return entry;
+    });
+
+    if (!changed) {
+        return false;
+    }
+
+    field.value = nextEntries.map(serializeExperienceEntry).filter(Boolean).join('\n');
+    clearEditableOverride('experience');
+    return true;
+};
+
+const shouldRemoveExperienceDateMonths = (message = '') => {
+    const source = normalizeForMatch(message);
+    return /\b(supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|masque|masquer)\b/.test(source)
+        && /\b(mois|dates?|periodes?|experiences?|cv)\b/.test(source)
+        && /\b(mois|avr|avril|janv|janvier|fevr|fevrier|mars|mai|juin|juil|juillet|aout|sept|septembre|oct|octobre|nov|novembre|dec|decembre)\b/.test(source);
+};
+
 const hasNewExperienceAdditionIntent = (message = '') => {
     const source = normalizeForMatch(getKirbyUserInstruction(message));
     const hasAddVerb = /\b(ajoute|ajouter|rajoute|rajouter|insere|inserer|integre|integrer|cree|creer)\b/.test(source);
@@ -8931,12 +8975,18 @@ const hasQuickExperienceDateIntent = (message = '', dateValue = '') => {
         return false;
     }
 
+    if (shouldRemoveExperienceDateMonths(message)) {
+        return false;
+    }
+
     const source = normalizeForMatch(message);
     const hasDateTopic = /\b(date|dates|periode|periodes)\b/.test(source);
     const hasCorrectionVerb = /\b(modifie|modifier|change|changer|corrige|corriger|remplace|remplacer|mets|mettre|met)\b/.test(source);
-    const answersPendingDateQuestion = Boolean(dateValue) && Number.isInteger(pendingExperienceDateCorrectionIndex);
+    const answersPendingDateQuestion = Boolean(dateValue)
+        && Number.isInteger(pendingExperienceDateCorrectionIndex)
+        && !/\b(cv|sauvegarde|sauvegarder|persistance|confirme|confirmer|verifie|verifier|vérifie|vérifier)\b/.test(source);
 
-    return hasDateTopic || answersPendingDateQuestion || (Boolean(dateValue) && hasCorrectionVerb);
+    return answersPendingDateQuestion || (hasDateTopic && hasCorrectionVerb) || (Boolean(dateValue) && hasCorrectionVerb);
 };
 
 const targetedDigitalCvKeywords = /\b(creatrice|createur|creation|projets? numeriques?|numerique|informatique|sites? web|developpeuse web|developpeur web|developpement web|backend|back\s*end|front\s*end|frontend|ecole 42|42|simplon|piscine|autoformation)\b/;
@@ -9264,6 +9314,45 @@ const applyQuickExperienceDateCorrection = (message = '') => {
     scheduleCvDraftSave();
     setCvStatus(`Date mise à jour : ${title}`);
     return `Date mise à jour pour ${title} : ${correction.date}.`;
+};
+
+const applyQuickExperienceDateMonthRemoval = (message = '') => {
+    if (!shouldRemoveExperienceDateMonths(message)) {
+        return '';
+    }
+
+    const beforeState = getCvHistoryState();
+    const changed = removeExperienceDateMonths();
+    if (!changed) {
+        pendingExperienceDateCorrectionIndex = null;
+        return 'Les dates des expériences sont déjà affichées sans mois.';
+    }
+
+    pendingExperienceDateCorrectionIndex = null;
+    renderExperienceEditor();
+    updateCvPreview();
+    commitCvHistoryTransition(beforeState);
+    scheduleCvDraftSave();
+    setCvStatus('Mois retirés des dates');
+    return 'Mois retirés des dates des expériences.';
+};
+
+const isExplicitCvSaveInstruction = (message = '') => {
+    const source = normalizeForMatch(message);
+    return /\b(cv|brouillon|modifications?|changements?)\b/.test(source)
+        && /\b(sauvegarde|sauvegarder|enregistre|enregistrer|persiste|persister)\b/.test(source);
+};
+
+const persistCvFromKirbyInstruction = async () => {
+    const persistence = await persistCvDraftImmediately();
+    if (!isCvPersistenceConfirmed(persistence)) {
+        setAssistantActivity(`Sauvegarde non confirmée. ${formatCvPersistenceDetail(persistence)}.`, false);
+        return `Sauvegarde non confirmée. ${formatCvPersistenceDetail(persistence)}.`;
+    }
+
+    const reply = `CV sauvegardé. ${formatCvPersistenceDetail(persistence)}.`;
+    setAssistantActivity(reply, false);
+    return reply;
 };
 
 const shouldQuickSortExperiences = (message = '') => {
@@ -9714,6 +9803,7 @@ const applyQuickKirbyCorrection = (message = '') => {
         getQuickEditorBugReport(message),
         applyQuickTitleGenderCorrection(message),
         applyQuickLanguageCorrections(message),
+        applyQuickExperienceDateMonthRemoval(message),
         applyQuickExperienceDateCorrection(message),
         applyQuickExperienceRemoval(message),
     ].filter(Boolean);
@@ -9726,7 +9816,7 @@ const applyQuickKirbyCorrection = (message = '') => {
 };
 
 const isQuickKirbyMutationReply = (reply = '') =>
-    /^(CV complété|Langues mises à jour|Titre appliqué|Date mise à jour|Expériences rangées|Mention supprimée|Doublons supprimés|Expérience supprimée|CV recentré)/i.test(String(reply || '').trim());
+    /^(CV complété|Langues mises à jour|Titre appliqué|Date mise à jour|Mois retirés|Expériences rangées|Mention supprimée|Doublons supprimés|Expérience supprimée|CV recentré)/i.test(String(reply || '').trim());
 
 const reorderExistingExperiences = (order = []) => {
     const field = getExperienceField();
@@ -10293,9 +10383,82 @@ const findExperienceIndexForOperation = (entries = [], operation = {}) => {
     return entries.length === 1 ? 0 : -1;
 };
 
+const serializeKirbyOperationExperience = (operation = {}) => {
+    const source = operation.experience && typeof operation.experience === 'object'
+        ? operation.experience
+        : {};
+    const description = getKirbyCvArray(source.description || source.bullets || source.missions);
+    const valueFallback = String(operation.value || '').trim();
+
+    if (source.title || source.period || source.organization || description.length) {
+        return serializeExperienceEntry({
+            title: formatCvHeadline(source.title || source.name || 'Expérience à valider'),
+            meta: normalizeCvSentenceText(source.organization || source.company || source.meta || ''),
+            date: normalizeCvSentenceText(source.period || source.date || source.dates || ''),
+            bullets: description.map(normalizeCvSentenceText).filter(Boolean),
+        });
+    }
+
+    return valueFallback ? normalizeCvTextareaValue('experience', valueFallback) : '';
+};
+
+const removeExperienceBulletForOperation = (entries = [], operation = {}) => {
+    const targetIndex = findExperienceIndexForOperation(entries, operation);
+    const removalText = normalizeForMatch(operation.value || operation.target?.currentValue || operation.target?.label || '');
+    const tokens = removalText
+        .split(/[^a-z0-9]+/)
+        .filter((token) => token.length >= 3);
+
+    if (targetIndex < -1 || !tokens.length) {
+        return null;
+    }
+
+    const candidateIndexes = targetIndex >= 0
+        ? [targetIndex]
+        : entries.map((_, index) => index);
+    let changed = false;
+    const nextEntries = entries.map((entry, index) => {
+        if (!candidateIndexes.includes(index)) {
+            return entry;
+        }
+
+        const keptBullets = (entry.bullets || []).filter((bullet) => {
+            const score = getExperienceFieldMatchScore(bullet, tokens);
+            return score < Math.min(tokens.length, 2);
+        });
+
+        if (keptBullets.length !== (entry.bullets || []).length) {
+            changed = true;
+            return { ...entry, bullets: keptBullets };
+        }
+
+        return entry;
+    });
+
+    return changed ? nextEntries : null;
+};
+
 const applyKirbyOperation = (operation = {}, context = {}) => {
     if (!operation?.type) {
         return '';
+    }
+
+    if (operation.type === 'add_experience') {
+        const field = getExperienceField();
+        const line = serializeKirbyOperationExperience(operation);
+        if (!field || !line) {
+            return '';
+        }
+
+        const existing = repairPreviewExperienceItems(splitLines(field.value));
+        const existingKeys = new Set(existing.map((item) => normalizeForMatch(item)));
+        if (existingKeys.has(normalizeForMatch(line))) {
+            return '';
+        }
+
+        field.value = normalizeCvTextareaValue('experience', sortTimelineEntriesNewestFirst([...existing, line], [line]).join('\n'));
+        clearEditableOverride('experience');
+        return 'expérience ajoutée';
     }
 
     if (operation.type === 'update_experience_date') {
@@ -10320,6 +10483,34 @@ const applyKirbyOperation = (operation = {}, context = {}) => {
         field.value = entries.map(serializeExperienceEntry).filter(Boolean).join('\n');
         clearEditableOverride('experience');
         return `date ${entries[index].title || 'expérience'}`;
+    }
+
+    if (operation.type === 'normalize_experience_dates') {
+        const wantsYearsOnly = /\b(years?_only|annees?_seules?|sans_mois|remove_months|mois)\b/i.test(operation.value || '')
+            || shouldRemoveExperienceDateMonths(operation.reason || '');
+
+        if (!wantsYearsOnly) {
+            return '';
+        }
+
+        return removeExperienceDateMonths() ? 'mois retirés des dates' : '';
+    }
+
+    if (operation.type === 'remove_experience_bullet') {
+        const field = getExperienceField();
+        if (!field) {
+            return '';
+        }
+
+        const entries = repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
+        const nextEntries = removeExperienceBulletForOperation(entries, operation);
+        if (!nextEntries) {
+            return '';
+        }
+
+        field.value = nextEntries.map(serializeExperienceEntry).filter(Boolean).join('\n');
+        clearEditableOverride('experience');
+        return 'puce supprimée';
     }
 
     if (operation.type === 'upsert_language') {
@@ -10564,6 +10755,8 @@ const shouldApplyKirbyResultDirectly = ({ task = '', instruction = '' } = {}) =>
     const userInstruction = getKirbyUserInstruction(instruction);
     const source = normalizeForMatch(userInstruction);
     const precisionSensitive = /\b(mise en page|aeration|aération|align|alignement|hierarchie|hiérarchie|lisibilite|lisibilité|espace|espacement|marge|padding|colonne|colonnes|section|titre|titres|pdf|a4|export|equilibr|equilibre|equilibree|equilibree|repart|repartition|descend|monte|remonte|decale|decalage|largeur|hauteur|respiration|glass|crystal)\b/.test(source);
+    const actionableCvEdit = /\b(cv|experience|experiences|mission|missions|puce|puces|ligne|lignes|date|dates|periode|periodes|mois|profil|accroche|competence|competences|formation|formations|rubrique|rubriques)\b/.test(source)
+        && /\b(ajoute|ajouter|rajoute|rajouter|insere|inserer|integre|integrer|supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|modifie|modifier|change|changer|corrige|corriger|remplace|remplacer|deplace|deplacer|monte|descend|range|ranger|reorganise|reorganiser|reformule|reformuler|raccourcis|raccourcir|harmonise|harmoniser|sauvegarde|sauvegarder|applique|appliquer)\b/.test(source);
 
     if (isLanguageFocusedInstruction(userInstruction)) {
         return true;
@@ -10583,6 +10776,10 @@ const shouldApplyKirbyResultDirectly = ({ task = '', instruction = '' } = {}) =>
 
     if (precisionSensitive) {
         return false;
+    }
+
+    if (actionableCvEdit && !looksLikePastedCv(userInstruction) && !looksLikeJobOffer(userInstruction)) {
+        return true;
     }
 
     if (task !== 'optimize') {
@@ -10732,6 +10929,12 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
                         return;
                     }
                     appendAssistantMessage(quickReply, 'bot');
+                    return;
+                }
+
+                if (isExplicitCvSaveInstruction(queuedMessage)) {
+                    hideKirbyCvProposal();
+                    appendAssistantMessage(await persistCvFromKirbyInstruction(), 'bot');
                     return;
                 }
 
@@ -10996,6 +11199,12 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
             return;
         }
         appendAssistantMessage(quickReply, 'bot');
+        return;
+    }
+
+    if (isExplicitCvSaveInstruction(cleanMessage)) {
+        hideKirbyCvProposal();
+        appendAssistantMessage(await persistCvFromKirbyInstruction(), 'bot');
         return;
     }
 
