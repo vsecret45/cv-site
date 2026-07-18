@@ -10449,11 +10449,11 @@ const applyKirbyCvResult = (result, task, instruction = '', options = {}) => {
     const changes = ['autofill', 'create'].includes(task) ? applyKirbyExtractedCv(proposal.extracted) : [];
     const operationChanges = applyKirbyOperations(operationList, {
         experienceOrder: proposal.experienceOrder,
-        requireCompleteExperienceOrder: requiresStrictExperienceOrder,
+        requireCompleteExperienceOrder: hasReorderOperation || requiresStrictExperienceOrder,
     });
     changes.push(...operationChanges);
     const applyMode = options?.applyMode === 'proposal' ? 'proposal' : 'direct';
-    const directTargetedUpdate = applyMode === 'direct' && (operationChanges.length || singleFieldIntent || languageOnlyIntent);
+    const directTargetedUpdate = hasReorderOperation || (applyMode === 'direct' && (operationChanges.length || singleFieldIntent || languageOnlyIntent));
     const allowGlobalCvRewrite = !directTargetedUpdate;
 
     if (languageOnlyIntent && !['autofill', 'create'].includes(task)) {
@@ -10534,7 +10534,7 @@ const applyKirbyCvResult = (result, task, instruction = '', options = {}) => {
         changes.push('compétences suggérées');
     }
 
-    const keepRequestedExperienceOrder = requestedExperienceMove || requiresStrictExperienceOrder || operationChanges.includes('ordre des expériences');
+    const keepRequestedExperienceOrder = hasReorderOperation || requestedExperienceMove || requiresStrictExperienceOrder || operationChanges.includes('ordre des expériences');
     if (allowGlobalCvRewrite && !singleFieldIntent) {
         const reorder = applyRequestedExperienceOrder(proposal.experienceOrder, { requireComplete: requiresStrictExperienceOrder });
         if (reorder.error) {
