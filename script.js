@@ -9882,6 +9882,107 @@ const requiresCompleteExperienceOrderInstruction = (instruction = '') => {
     return asksCompleteOrder || (asksOrder && hasNumberedOrder);
 };
 
+const getDeterministicExperienceMoveRequest = (instruction = '') => {
+    const source = String(instruction || '').replace(/\s+/g, ' ').trim();
+    if (!source) {
+        return null;
+    }
+
+    const patterns = [
+        /\b(?:deplace|deplacer|place|placer|mets|mettre|bouge|bouger)\s+(.+?)\s+(?:juste\s+)?(?:sous|apres)\s+(.+)$/i,
+    ];
+
+    for (const pattern of patterns) {
+        const match = source.match(pattern);
+        if (match) {
+            const fromLabel = normalizeCvSentenceText(match[1] || '');
+            const toLabel = normalizeCvSentenceText(match[2] || '');
+            if (fromLabel && toLabel) {
+                return { fromLabel, toLabel };
+            }
+        }
+    }
+
+    return null;
+};
+
+const findExperienceIndexByLabel = (entries = [], label = '', options = {}) => {
+    const excludeIndexes = options.excludeIndexes instanceof Set ? options.excludeIndexes : new Set();
+    const normalizedLabel = normalizeForMatch(label);
+
+    if (!normalizedLabel) {
+        return -1;
+    }
+
+    const scored = entries
+        .map((entry, index) => ({ entry, index }))
+        .filter(({ index }) => !excludeIndexes.has(index))
+        .map(({ entry, index }) => {
+            const title = normalizeForMatch(entry.title || '');
+            const full = normalizeForMatch(entry.full || '');
+            let score = 0;
+            if (title === normalizedLabel) {
+                score += 100;
+            }
+            if (title && (title.includes(normalizedLabel) || normalizedLabel.includes(title))) {
+                score += 30;
+            }
+            if (full && (full.includes(normalizedLabel) || normalizedLabel.includes(full))) {
+                score += 15;
+            }
+            const tokens = normalizedLabel.split(/[^a-z0-9]+/).filter((token) => token.length >= 3);
+            score += tokens.filter((token) => title.includes(token) || full.includes(token)).length;
+            return { index, score };
+        })
+        .filter((item) => item.score > 0)
+        .sort((left, right) => right.score - left.score);
+
+    return scored.length ? scored[0].index : -1;
+};
+
+const applyDeterministicExperienceMoveFromInstruction = (instruction = '') => {
+    const request = getDeterministicExperienceMoveRequest(instruction);
+    const field = getExperienceField();
+    const lines = field ? repairPreviewExperienceItems(splitLines(field.value)) : [];
+
+    if (!request || !field || lines.length < 2) {
+        return { changed: false, error: '' };
+    }
+
+    const entries = lines.map((line) => {
+        const parsed = parseExperienceEntry(line);
+        return {
+            line,
+            title: parsed.title || '',
+            full: `${parsed.title || ''} ${parsed.meta || ''} ${parsed.date || ''}`,
+        };
+    });
+
+    const sourceIndex = findExperienceIndexByLabel(entries, request.fromLabel);
+    if (sourceIndex === -1) {
+        return { changed: false, error: '' };
+    }
+
+    const targetIndex = findExperienceIndexByLabel(entries, request.toLabel, {
+        excludeIndexes: new Set([sourceIndex]),
+    });
+    if (targetIndex === -1) {
+        return { changed: false, error: '' };
+    }
+
+    const reordered = [...lines];
+    const [moved] = reordered.splice(sourceIndex, 1);
+    const insertionIndex = sourceIndex < targetIndex ? targetIndex : targetIndex + 1;
+    reordered.splice(insertionIndex, 0, moved);
+
+    if (reordered.join('\n') === lines.join('\n')) {
+        return { changed: false, error: '' };
+    }
+
+    field.value = reordered.join('\n');
+    return { changed: true, error: '' };
+};
+
 const applyRequestedExperienceOrder = (order = [], options = {}) => {
     const field = getExperienceField();
     const lines = field ? splitLines(field.value) : [];
@@ -10579,6 +10680,10 @@ const applyKirbyOperation = (operation = {}, context = {}) => {
             requireComplete: Boolean(context?.requireCompleteExperienceOrder),
         });
         if (reorder.error) {
+            const fallbackMove = applyDeterministicExperienceMoveFromInstruction(context?.instruction || '');
+            if (fallbackMove.changed) {
+                return 'ordre des expériences';
+            }
             throw new Error(reorder.error);
         }
         return reorder.changed ? 'ordre des expériences' : '';
@@ -10614,6 +10719,7 @@ const applyKirbyCvResult = (result, task, instruction = '', options = {}) => {
     const operationChanges = applyKirbyOperations(operationList, {
         experienceOrder: proposal.experienceOrder,
         requireCompleteExperienceOrder: requiresStrictExperienceOrder,
+        instruction: userInstruction,
     });
     changes.push(...operationChanges);
     const applyMode = options?.applyMode === 'proposal' ? 'proposal' : 'direct';
@@ -10702,7 +10808,12 @@ const applyKirbyCvResult = (result, task, instruction = '', options = {}) => {
     if (allowGlobalCvRewrite && !singleFieldIntent) {
         const reorder = applyRequestedExperienceOrder(proposal.experienceOrder, { requireComplete: requiresStrictExperienceOrder });
         if (reorder.error) {
-            throw new Error(reorder.error);
+            const fallbackMove = applyDeterministicExperienceMoveFromInstruction(userInstruction);
+            if (fallbackMove.changed) {
+                changes.push('ordre des expériences');
+            } else {
+                throw new Error(reorder.error);
+            }
         }
         if (reorder.changed) {
             changes.push('ordre des expériences');
