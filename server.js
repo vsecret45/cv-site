@@ -5,6 +5,8 @@ const contactHandler = require('./api/contact');
 const accountDeleteHandler = require('./api/account-delete');
 const cvAuthConfigHandler = require('./api/cv-auth-config');
 const kirbyHandler = require('./api/kirby');
+const kirbyCvHandler = require('./api/kirby-cv');
+const authObservabilityHandler = require('./api/auth-observability');
 
 const root = __dirname;
 const port = Number.parseInt(process.env.PORT || '8000', 10);
@@ -91,6 +93,7 @@ const sendStaticFile = (request, response) => {
     const streamResolvedFile = (resolvedPath) => {
         response.writeHead(200, {
             'Content-Type': mimeTypes[path.extname(resolvedPath).toLowerCase()] || 'application/octet-stream',
+            'Cache-Control': 'no-store',
         });
         fs.createReadStream(resolvedPath).pipe(response);
     };
@@ -136,9 +139,20 @@ const server = http.createServer((request, response) => {
         return;
     }
 
+    if (request.url && request.url.startsWith('/api/kirby-cv')) {
+        loadEnv();
+        kirbyCvHandler(request, response);
+        return;
+    }
+
     if (request.url && request.url.startsWith('/api/kirby')) {
         loadEnv();
         kirbyHandler(request, response);
+        return;
+    }
+
+    if (request.url && request.url.startsWith('/api/auth-observability')) {
+        authObservabilityHandler(request, response);
         return;
     }
 

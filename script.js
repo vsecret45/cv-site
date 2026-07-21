@@ -1868,9 +1868,17 @@ const embedCvRoundTripData = (doc) => {
     }
 };
 
+const areCvDraftPayloadsEquivalent = (left, right) => {
+    try {
+        return JSON.stringify(left || null) === JSON.stringify(right || null);
+    } catch (error) {
+        return false;
+    }
+};
+
 const saveCvDraft = async (silent = false) => {
     if (!cvForm) {
-        return;
+        return { status: 'failed', detail: 'cv_form_unavailable' };
     }
 
     const focusedEditableNode = document.activeElement?.closest?.('[contenteditable="true"]');
@@ -1883,12 +1891,13 @@ const saveCvDraft = async (silent = false) => {
             openAuthModal('login');
             setCvStatus('Connectez-vous pour sauvegarder votre brouillon');
         }
-        return;
+        return { status: 'unauthenticated', detail: 'missing_user', payload: buildCvDraftPayload() };
     }
+
+    const payload = buildCvDraftPayload();
 
     try {
         const client = await initializeSupabaseClient();
-        const payload = buildCvDraftPayload();
         const { error } = await client
             .from('cv_drafts')
             .upsert(
@@ -1906,17 +1915,89 @@ const saveCvDraft = async (silent = false) => {
             throw error;
         }
 
-        writeScopedLocalDraft(currentUser.id, payload);
+        const { data: persistedDraft, error: readError } = await client
+            .from('cv_drafts')
+            .select('payload, updated_at')
+            .eq('user_id', currentUser.id)
+            .limit(1)
+            .maybeSingle();
+
+        if (readError) {
+            throw readError;
+        }
+
+        if (!areCvDraftPayloadsEquivalent(persistedDraft?.payload, payload)) {
+            throw new Error('supabase_persistence_mismatch');
+        }
+
+        const localSaved = writeScopedLocalDraft(currentUser.id, payload);
         removeLegacyLocalDraft(currentUser.email);
         clearLegacyAuthStorage();
-        setCvStatus(silent ? 'Brouillon securise enregistre' : 'CV sauvegarde dans votre espace prive');
+        setCvStatus(silent
+            ? `Brouillon sécurisé enregistré${localSaved ? ' · cache local à jour' : ''}`
+            : `CV sauvegardé dans votre espace privé${localSaved ? ' · cache local à jour' : ''}`);
+        return {
+            status: 'saved',
+            detail: localSaved ? 'supabase_confirmed_local_cache_updated' : 'supabase_confirmed_local_cache_failed',
+            payload,
+            localSaved,
+        };
     } catch (error) {
         console.error(error);
-        writeScopedLocalDraft(currentUser.id, buildCvDraftPayload());
+        const localSaved = writeScopedLocalDraft(currentUser.id, payload);
         if (!silent) {
-            setCvStatus('Sauvegarde locale privee active en attendant la table securisee');
+            setCvStatus(localSaved
+                ? 'Sauvegarde locale privée active en attendant la table sécurisée'
+                : 'Erreur de persistance : le CV affiché n’est pas sauvegardé');
         }
+        return localSaved
+            ? { status: 'local_fallback', detail: error?.message || 'supabase_failed_local_saved', payload }
+            : { status: 'failed', detail: error?.message || 'supabase_and_local_failed', payload };
     }
+};
+
+const isCvPersistenceConfirmed = (result = {}) =>
+    result.status === 'saved' || (result.status === 'local_fallback' && !currentUser?.id);
+
+const formatCvPersistenceDetail = (result = {}) => {
+    if (result.status === 'saved') {
+        return result.localSaved
+            ? 'Sauvegarde Supabase confirmée · cache local mis à jour'
+            : 'Sauvegarde Supabase confirmée · cache local non confirmé';
+    }
+
+    if (result.status === 'local_fallback') {
+        return currentUser?.id
+            ? 'Cache local mis à jour · Supabase indisponible'
+            : 'Cache local navigateur mis à jour · connexion requise pour synchroniser';
+    }
+
+    if (result.status === 'unauthenticated') {
+        return 'Modification appliquée à l’écran, mais aucune sauvegarde confirmée';
+    }
+
+    return `Erreur de persistance${result.detail ? ` : ${result.detail}` : ''}`;
+};
+
+const persistCvDraftImmediately = async () => {
+    window.clearTimeout(cvDraftSaveTimer);
+    return saveCvDraft(true);
+};
+
+const buildKirbyPersistenceReply = (changes = [], persistence = {}) => {
+    const detail = formatCvPersistenceDetail(persistence);
+
+    if (!isCvPersistenceConfirmed(persistence)) {
+        setCvStatus('Modification Kirby non sauvegardée');
+        return `Modification appliquée à l’écran, mais non sauvegardée. ${detail}. Rechargez seulement après une sauvegarde confirmée.`;
+    }
+
+    const prefix = persistence.status === 'saved'
+        ? 'CV mis à jour'
+        : 'CV mis à jour localement';
+
+    setCvStatus(`${prefix} : ${changes.join(', ')} · ${detail}`);
+    return `${prefix} : ${changes.join(', ')}. ${detail}.`;
 };
 
 const getCvHistoryState = () => {
@@ -8185,7 +8266,7 @@ const getKirbyLetterSource = () => ({
 });
 
 const requestKirbyCvAssistant = async ({ task, instruction = '' }) => {
-    const response = await fetch('/api/kirby', {
+    const response = await fetch('/api/kirby-cv', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -10628,6 +10709,108 @@ const findExperienceIndexForOperation = (entries = [], operation = {}) => {
     return entries.length === 1 ? 0 : -1;
 };
 
+const getPositionReferenceText = (reference = {}) => [
+    reference.label,
+    reference.title,
+    reference.organization,
+    reference.date,
+    reference.currentValue,
+].filter(Boolean).join(' ');
+
+const findExperienceIndexForPositionReference = (entries = [], reference = {}) => {
+    const operation = {
+        target: {
+            label: reference.label || '',
+            title: reference.title || '',
+            organization: reference.organization || '',
+            currentValue: reference.date || reference.currentValue || '',
+        },
+    };
+    const targetText = getPositionReferenceText(reference);
+
+    if (!targetText) {
+        return -1;
+    }
+
+    const scores = entries
+        .map((entry, index) => ({ index, score: getOperationTargetScore(entry, operation) }))
+        .filter((item) => item.score > 0)
+        .sort((left, right) => right.score - left.score);
+
+    if (scores.length > 1 && scores[0].score === scores[1].score) {
+        return -2;
+    }
+
+    return scores.length ? scores[0].index : -1;
+};
+
+const getReorderPosition = (operation = {}) => {
+    const position = operation.position && typeof operation.position === 'object' ? operation.position : {};
+    const beforeText = getPositionReferenceText(position.before);
+    const afterText = getPositionReferenceText(position.after);
+
+    if (beforeText) {
+        return { direction: 'before', reference: position.before };
+    }
+
+    if (afterText) {
+        return { direction: 'after', reference: position.after };
+    }
+
+    return null;
+};
+
+const moveExperienceForOperation = (operation = {}) => {
+    const field = getExperienceField();
+    const lines = field ? repairPreviewExperienceItems(splitLines(field.value)) : [];
+    const entries = lines.map(parseExperienceEntry);
+    const position = getReorderPosition(operation);
+
+    if (!field || lines.length < 2 || !position) {
+        return { changed: false, status: 'missing_position' };
+    }
+
+    const fromIndex = findExperienceIndexForOperation(entries, operation);
+    if (fromIndex === -2) {
+        return { changed: false, status: 'ambiguous_target' };
+    }
+    if (fromIndex < 0 || !lines[fromIndex]) {
+        return { changed: false, status: 'target_not_found' };
+    }
+
+    const referenceIndex = findExperienceIndexForPositionReference(entries, position.reference);
+    if (referenceIndex === -2) {
+        return { changed: false, status: 'ambiguous_reference' };
+    }
+    if (referenceIndex < 0 || !lines[referenceIndex]) {
+        return { changed: false, status: 'reference_not_found' };
+    }
+    if (fromIndex === referenceIndex) {
+        return { changed: false, status: 'already_ordered' };
+    }
+
+    const nextLines = [...lines];
+    const [movedLine] = nextLines.splice(fromIndex, 1);
+    const referenceIndexAfterRemoval = referenceIndex > fromIndex ? referenceIndex - 1 : referenceIndex;
+    const insertIndex = position.direction === 'after'
+        ? referenceIndexAfterRemoval + 1
+        : referenceIndexAfterRemoval;
+
+    if (nextLines[insertIndex] === movedLine || nextLines[insertIndex - 1] === movedLine) {
+        return { changed: false, status: 'already_ordered' };
+    }
+
+    nextLines.splice(insertIndex, 0, movedLine);
+    const nextValue = nextLines.join('\n');
+    if (nextValue === lines.join('\n')) {
+        return { changed: false, status: 'already_ordered' };
+    }
+
+    field.value = nextValue;
+    clearEditableOverride('experience');
+    return { changed: true, status: 'moved' };
+};
+
 const serializeKirbyOperationExperience = (operation = {}) => {
     const source = operation.experience && typeof operation.experience === 'object'
         ? operation.experience
@@ -10793,16 +10976,21 @@ const applyKirbyOperation = (operation = {}, context = {}) => {
             return '';
         }
 
-        const entries = splitLines(field.value).map(parseExperienceEntry);
+        const entries = repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
         const index = findExperienceIndexForOperation(entries, operation);
-        if (index < 0 || !entries[index] || entries[index].title === title) {
+        if (index < 0 || !entries[index]) {
             return '';
+        }
+
+        const previous = formatCvHeadline(entries[index].title || '');
+        if (normalizeForMatch(previous) === normalizeForMatch(title)) {
+            return 'intitulé déjà correct';
         }
 
         entries[index] = { ...entries[index], title };
         field.value = entries.map(serializeExperienceEntry).filter(Boolean).join('\n');
         clearEditableOverride('experience');
-        return `titre ${title}`;
+        return `intitulé ${title}`;
     }
 
     if (operation.type === 'update_experience_date') {
@@ -10820,7 +11008,7 @@ const applyKirbyOperation = (operation = {}, context = {}) => {
 
         const previous = entries[index].date || '';
         if (normalizeExperienceDateText(previous) === date) {
-            return '';
+            return 'date déjà correcte';
         }
 
         entries[index] = { ...entries[index], date };
@@ -10898,6 +11086,14 @@ const applyKirbyOperation = (operation = {}, context = {}) => {
     }
 
     if (operation.type === 'reorder_experiences') {
+        const relativeMove = moveExperienceForOperation(operation);
+        if (relativeMove.changed) {
+            return 'ordre des expériences';
+        }
+        if (relativeMove.status === 'already_ordered') {
+            return 'ordre déjà correct';
+        }
+
         const inlineOrder = splitLines(operation.value || '')
             .map((item) => normalizeCvSentenceText(item))
             .filter(Boolean);
@@ -10975,7 +11171,46 @@ const applyKirbyOperations = (operations = [], context = {}) => {
     return [...new Set(applied)];
 };
 
-const applyKirbyCvResult = (result, task, instruction = '', options = {}) => {
+const isKirbyNoopSuccessReply = (reply = '') =>
+    /\bdéjà\b|\bdeja\b|\bdéjà correct\b|\bdéjà aligné\b|\bdeja aligne\b/i.test(String(reply || ''));
+
+const getKirbyApplyFailureReply = (result = {}, instruction = '') => {
+    const operation = result?.cv?.operations?.[0] || {};
+    const operationType = operation.type || '';
+    const target = getOperationTargetText(operation);
+
+    if (operationType === 'reorder_experiences') {
+        setCvStatus('Précision nécessaire pour déplacer l’expérience');
+        const position = getReorderPosition(operation);
+        const reference = position ? getPositionReferenceText(position.reference) : '';
+        return reference
+            ? `Je n’ai pas pu identifier sans risque l’expérience à déplacer ou la référence « ${reference} ». Précisez le poste et la date exacte.`
+            : 'Où souhaitez-vous placer cette expérience : avant ou après quelle autre expérience ?';
+    }
+
+    if (['update_experience_title', 'update_experience_date', 'remove_experience', 'remove_experience_bullet'].includes(operationType)) {
+        setCvStatus('Précision nécessaire pour modifier le CV');
+        return target
+            ? `Je n’ai pas pu identifier une seule expérience correspondant à « ${target} ». Précisez le poste, l’entreprise ou la date.`
+            : 'Quelle expérience souhaitez-vous modifier ? Précisez le poste, l’entreprise ou la date.';
+    }
+
+    const report = saveKirbyBugReport({
+        ...(result?.cv?.bugReport || {}),
+        category: result?.cv?.bugReport?.category || 'bug application',
+        summary: result?.cv?.bugReport?.summary || 'La demande a été comprise par Kirby, mais l’application n’a pas modifié le CV.',
+        expectedAction: operation.reason || operation.type || 'Appliquer l’opération demandée',
+        target: getOperationTargetText(operation) || operation.field || 'CV',
+        instruction,
+    });
+
+    const reply = formatKirbyBugReportReply(report);
+    setCvStatus('Mise à jour Kirby non appliquée');
+    setAssistantActivity(reply, false);
+    return reply;
+};
+
+const applyKirbyCvResult = async (result, task, instruction = '', options = {}) => {
     const proposal = result?.cv;
 
     if (!cvForm || !proposal || typeof proposal !== 'object') {
@@ -11169,8 +11404,6 @@ const applyKirbyCvResult = (result, task, instruction = '', options = {}) => {
         }
     }
 
-    scheduleCvDraftSave();
-
     if (task === 'letter' && didApplyLetter) {
         setPreviewMode('letter');
     }
@@ -11184,8 +11417,13 @@ const applyKirbyCvResult = (result, task, instruction = '', options = {}) => {
         return 'Kirby n’a pas appliqué la modification demandée aux expériences. Le CV n’a pas été modifié.';
     }
 
-    setCvStatus(changes.length ? `Kirby a mis à jour le CV : ${changes.join(', ')}` : 'Kirby a analysé le CV');
-    return changes.length ? `CV mis à jour : ${changes.join(', ')}.` : 'Le CV est déjà aligné avec votre demande.';
+    if (!changes.length) {
+        setCvStatus('Kirby a analysé le CV');
+        return 'Le CV est déjà aligné avec votre demande.';
+    }
+
+    const persistence = await persistCvDraftImmediately();
+    return buildKirbyPersistenceReply(changes, persistence);
 };
 
 const shouldApplyKirbyResultDirectly = ({ task = '', instruction = '' } = {}) => {
@@ -11296,9 +11534,18 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
 
         if (canApplyDirectly) {
             const beforeApplySnapshot = getKirbyCvSnapshot();
-            const reply = applyKirbyCvResult(result, task, instruction, { applyMode: 'direct' });
-            const afterApplySnapshot = getKirbyCvSnapshot();
-            const operationFailed = (operationDriven || singleFieldDriven) && beforeApplySnapshot === afterApplySnapshot;
+            isApplyingKirbyCvChange = true;
+            let reply = '';
+            let afterApplySnapshot = beforeApplySnapshot;
+            try {
+                reply = await applyKirbyCvResult(result, task, instruction, { applyMode: 'direct' });
+                afterApplySnapshot = getKirbyCvSnapshot();
+            } finally {
+                isApplyingKirbyCvChange = false;
+            }
+            const operationFailed = (operationDriven || singleFieldDriven)
+                && beforeApplySnapshot === afterApplySnapshot
+                && !isKirbyNoopSuccessReply(reply);
             if (operationFailed) {
                 if (/^Le CV est déjà aligné/i.test(String(reply || '').trim())) {
                     hideKirbyCvProposal();
@@ -11314,17 +11561,10 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
                     return fallbackReply;
                 }
 
-                const report = saveKirbyBugReport({
-                    ...(result.cv?.bugReport || {}),
-                    category: result.cv?.bugReport?.category || 'bug application',
-                    summary: result.cv?.bugReport?.summary || 'La demande a été comprise par Kirby, mais l’application n’a pas modifié le CV.',
-                    expectedAction: result.cv?.operations?.[0]?.reason || result.cv?.operations?.[0]?.type || 'Appliquer l’opération demandée',
-                    target: getOperationTargetText(result.cv?.operations?.[0]) || result.cv?.operations?.[0]?.field || 'CV',
-                    instruction,
-                });
+                const failureReply = getKirbyApplyFailureReply(result, instruction);
                 hideKirbyCvProposal();
-                setAssistantActivity(`${runtimeLabel} · ${formatKirbyBugReportReply(report)}`, false);
-                return formatKirbyBugReportReply(report);
+                setAssistantActivity(`${runtimeLabel} · ${failureReply}`, false);
+                return failureReply;
             }
             hideKirbyCvProposal();
             setAssistantActivity(`${runtimeLabel} · Modification appliquée. Retour permet d’annuler.`, false);

@@ -1598,9 +1598,12 @@ Actions d'edition directes :
 - Si l'utilisateur demande une modification ciblee d'un element existant (date/periode d'une experience, niveau de langue, suppression/retrait, correction d'un champ), renseigne "operations" avec l'action a appliquer. Ne cree pas de nouveau bloc pour une correction.
 - Si la demande cible explicitement un seul champ (titre, langue, date, telephone, email, profil, nom, ville, permis), ne lance pas d'optimisation globale : laisse periodGaps, generatedExperiences, educationSuggestions, suggestedSkills et layout vides sauf demande explicite d'optimisation globale.
 - Si la demande cible une experience, une date d'experience, une ligne, une puce ou une mission d'experience, modifie uniquement "experience". Ne modifie pas education, skills, summary, headline, languages, projects ni layout sauf demande explicite.
-- Pour renommer une experience existante, utilise type "update_experience_title", value = nouveau titre, et cible l'experience avec target.index si possible, sinon target.title ou target.currentValue.
+- Pour renommer une experience existante, utilise type "update_experience_title", value = nouveau titre, et cible l'experience avec target.index si possible, sinon target.title, target.organization ou target.currentValue. Ne modifie jamais l'entreprise, les dates ou les missions pour une correction d'intitule.
 - Pour une demande qui combine ordre des experiences, renommage et date, retourne plusieurs operations ciblees : "reorder_experiences", "update_experience_title" et "update_experience_date". N'utilise jamais "set_field" sur field "experience" pour ce cas, car cela risque d'ecraser les puces.
 - Si l'utilisateur demande de supprimer N lignes/puces/missions dans une experience existante, retourne uniquement des operations type "remove_experience_bullet" ciblees sur cette experience. Si les lignes exactes ne sont pas nommees, prends les N dernieres missions de l'experience ciblee et mets leur texte exact dans "value", une operation par mission. Ne remplace pas tout le champ experience avec "set_field" et ne supprime pas le bloc entier sauf si l'utilisateur le demande explicitement.
+- Une demande comme « sauvegarde le CV », « applique et sauvegarde », « confirme apres verification » doit produire une modification seulement si une modification est demandee ; sinon laisse operations vide et notice courte. Ne transforme jamais cette demande en correction de date.
+- Si l'utilisateur demande de deplacer, monter, descendre ou placer une experience sous/au-dessus d'une autre, retourne obligatoirement operations avec type "reorder_experiences". Si possible, renseigne experienceOrder avec la liste complete des experiences existantes dans l'ordre final attendu. Sinon renseigne operation.position.before ou operation.position.after avec la reference exacte de l'experience voisine. Ne change aucun intitule pour fabriquer l'ordre.
+- Pour ajouter une experience avec assez d'informations (au moins titre ou organisme, periode ou missions), utilise type "add_experience". Renseigne operation.experience avec title, period, organization et description. N'utilise pas bugReport si l'experience peut etre ajoutee comme brouillon factuel a partir de la demande.
 - Pour corriger une date d'experience existante, utilise type "update_experience_date", renseigne "value" avec la nouvelle date/periode, et cible l'experience avec target.index si le contexte de selection le fournit, sinon target.title, target.organization ou target.currentValue.
 - Pour ajouter ou modifier une langue, utilise type "upsert_language", value = niveau, target.label = langue.
 - Pour modifier un champ simple, utilise type "set_field", field parmi fullName, location, phone, email, permit, headline, summary, skills, education, activities, projects, languages, value = contenu final.
@@ -1669,7 +1672,7 @@ Schema JSON obligatoire :
     "compact": false
   },
   "operations": [{
-    "type": "update_experience_title | update_experience_date | upsert_language | set_field | remove_section | reorder_experiences | remove_experience | remove_experience_bullet",
+    "type": "add_experience | update_experience_title | update_experience_date | normalize_experience_dates | remove_experience_bullet | upsert_language | set_field | remove_section | reorder_experiences | remove_experience",
     "field": "experience | languages | fullName | location | phone | email | permit | headline | summary | skills | education | activities | projects",
     "target": {
       "index": 0,
@@ -1678,7 +1681,17 @@ Schema JSON obligatoire :
       "organization": "employeur/lieu si connu",
       "currentValue": "valeur actuelle si utile"
     },
-    "value": "nouvelle valeur a appliquer",
+    "value": "nouvelle valeur a appliquer ou texte a retirer",
+    "experience": {
+      "title": "titre de l'experience a ajouter",
+      "period": "periode",
+      "organization": "organisation ou contexte",
+      "description": ["mission courte et factuelle"]
+    },
+    "position": {
+      "before": {"title": "titre exact de l'experience voisine", "date": "date si utile", "organization": "employeur si utile"},
+      "after": {"title": "titre exact de l'experience voisine", "date": "date si utile", "organization": "employeur si utile"}
+    },
     "reason": "raison courte"
   }],
   "bugReport": {
@@ -5441,7 +5454,18 @@ const sanitizeCvLayout = (value) => {
     };
 };
 
-const CV_OPERATION_TYPES = new Set(['update_experience_title', 'update_experience_date', 'upsert_language', 'set_field', 'remove_section', 'reorder_experiences', 'remove_experience', 'remove_experience_bullet']);
+const CV_OPERATION_TYPES = new Set([
+    'add_experience',
+    'update_experience_title',
+    'update_experience_date',
+    'normalize_experience_dates',
+    'remove_experience_bullet',
+    'upsert_language',
+    'set_field',
+    'remove_section',
+    'reorder_experiences',
+    'remove_experience',
+]);
 const CV_OPERATION_FIELDS = new Set(['experience', 'languages', 'fullName', 'location', 'phone', 'email', 'permit', 'headline', 'summary', 'skills', 'education', 'activities', 'projects']);
 
 const sanitizeCvOperation = (value) => {
@@ -5455,6 +5479,15 @@ const sanitizeCvOperation = (value) => {
     }
 
     const rawTarget = value.target && typeof value.target === 'object' ? value.target : {};
+    const rawPosition = value.position && typeof value.position === 'object' ? value.position : {};
+    const sanitizePositionTarget = (positionTarget) => {
+        const source = positionTarget && typeof positionTarget === 'object' ? positionTarget : {};
+        return {
+            title: limitCvText(source.title || source.label || source.name || source.role, 120),
+            organization: limitCvText(source.organization || source.company || source.meta, 120),
+            date: limitCvText(source.date || source.period || source.dates || source.currentValue, 80),
+        };
+    };
     const rawIndex = Number.isInteger(rawTarget.index) ? rawTarget.index : Number.isInteger(value.index) ? value.index : null;
     const field = CV_OPERATION_FIELDS.has(value.field) ? value.field : '';
 
@@ -5469,6 +5502,11 @@ const sanitizeCvOperation = (value) => {
             currentValue: limitCvText(rawTarget.currentValue || rawTarget.current || value.currentValue, 160),
         },
         value: limitCvMultilineText(value.value || value.newValue || value.date || value.level, 900),
+        experience: sanitizeCvGeneratedExperience(value.experience || value.entry || value.item),
+        position: {
+            before: sanitizePositionTarget(rawPosition.before || value.before),
+            after: sanitizePositionTarget(rawPosition.after || value.after),
+        },
         reason: limitCvText(value.reason || value.summary, 180),
     };
 };
@@ -5631,9 +5669,43 @@ const sanitizeCvAssistantResult = (result, cv = {}) => {
     const sourceTitlesByNormalized = new Map(
         sourceExperienceTitles.map((title) => [stripAccents(title).toLowerCase(), title])
     );
-    const orderedTitles = toCvStringList(result && result.experienceOrder, 8, 110)
-        .map((title) => sourceTitlesByNormalized.get(stripAccents(title).toLowerCase()))
-        .filter(Boolean);
+    const normalizeExperienceOrderTitle = (title = '') =>
+        stripAccents(normalize(title).toLowerCase())
+            .replace(/[^a-z0-9]+/g, ' ')
+            .replace(/\s{2,}/g, ' ')
+            .trim();
+    const sourceExperienceTitleMatches = sourceExperienceTitles.map((title) => ({
+        title,
+        normalized: normalizeExperienceOrderTitle(title),
+    }));
+    const resolveExperienceOrderTitle = (title = '') => {
+        const exactMatch = sourceTitlesByNormalized.get(stripAccents(title).toLowerCase());
+        if (exactMatch) {
+            return exactMatch;
+        }
+
+        const normalized = normalizeExperienceOrderTitle(title);
+        if (!normalized) {
+            return '';
+        }
+
+        return sourceExperienceTitleMatches.find((item) =>
+            item.normalized.includes(normalized) || normalized.includes(item.normalized)
+        )?.title || '';
+    };
+    const operationOrderTitles = (Array.isArray(result && result.operations) ? result.operations : [])
+        .filter((operation) => operation && operation.type === 'reorder_experiences')
+        .flatMap((operation) => toCvStringList(String(operation.value || '').split('|'), 8, 110));
+    const orderSource = operationOrderTitles.length >= 2
+        ? operationOrderTitles
+        : result && result.experienceOrder;
+    const orderedTitles = toCvStringList(orderSource, 8, 110)
+        .map(resolveExperienceOrderTitle)
+        .filter(Boolean)
+        .filter((title, index, list) => list.indexOf(title) === index);
+    const safeExperienceOrder = orderedTitles.length >= Math.min(sourceExperienceTitles.length, 2)
+        ? [...orderedTitles, ...sourceExperienceTitles.filter((title) => !orderedTitles.includes(title))]
+        : sourceExperienceTitles;
     const languages = (Array.isArray(result && result.languages) ? result.languages : [])
         .map(normalizeCvLanguage)
         .filter(Boolean)
@@ -5644,7 +5716,7 @@ const sanitizeCvAssistantResult = (result, cv = {}) => {
         headline: limitCvText(result && result.headline, 90),
         summary: limitCvText(result && result.summary, 300),
         skills: toCvStringList(result && result.skills, 10, 80),
-        experienceOrder: orderedTitles,
+        experienceOrder: safeExperienceOrder,
         languages,
         periodGaps: sanitizeCvPeriodGaps(result && result.periodGaps),
         generatedExperiences: sanitizeCvGeneratedExperiences(result && result.generatedExperiences),
@@ -6430,6 +6502,8 @@ const buildOpenAiCvPrompt = ({ task, cv, jobOffer, instruction, letter, interact
     'Pour les formations/certifications non presentes mais mentionnees par l utilisateur (Ecole 42, Piscine informatique, Simplon, formations courtes, certificats, ateliers), renseigne educationSuggestions au lieu de les melanger aux experiences.',
     'Si la consigne demande une correction ciblee, retourne une operation applicative dans operations. Ne remplace pas une correction par une proposition generique.',
     'Si la consigne demande de deplacer/reordonner une experience, renvoie un experienceOrder complet (toutes les experiences existantes, exactement une fois, dans l ordre final).',
+    'Pour une modification locale, laisse vides les champs non demandes : ne renomme pas un poste, une entreprise, une date, une mission, le titre global, l accroche ou les competences si la consigne ne le demande pas explicitement.',
+    'Pour un deplacement avant/apres une autre experience, retourne une operation reorder_experiences avec position.before ou position.after si tu ne peux pas produire un experienceOrder complet.',
     'Respecte strictement le schema du systeme. Les intitules dans experienceOrder doivent etre les intitules exacts du CV source.',
 ].filter(Boolean).join('\n\n');
 
