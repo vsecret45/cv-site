@@ -1996,7 +1996,8 @@ const saveCvDraft = async (silent = false) => {
     }
 };
 
-const isCvPersistenceConfirmed = (result = {}) => ['saved', 'local_fallback'].includes(result.status);
+const isCvPersistenceConfirmed = (result = {}) =>
+    result.status === 'saved' || (result.status === 'local_fallback' && !currentUser?.id);
 
 const formatCvPersistenceDetail = (result = {}) => {
     if (result.status === 'saved') {
@@ -8290,7 +8291,7 @@ const getKirbyLetterSource = () => ({
 });
 
 const requestKirbyCvAssistant = async ({ task, instruction = '' }) => {
-    const response = await fetch('/api/kirby', {
+    const response = await fetch('/api/kirby-cv', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -10383,6 +10384,108 @@ const findExperienceIndexForOperation = (entries = [], operation = {}) => {
     return entries.length === 1 ? 0 : -1;
 };
 
+const getPositionReferenceText = (reference = {}) => [
+    reference.label,
+    reference.title,
+    reference.organization,
+    reference.date,
+    reference.currentValue,
+].filter(Boolean).join(' ');
+
+const findExperienceIndexForPositionReference = (entries = [], reference = {}) => {
+    const operation = {
+        target: {
+            label: reference.label || '',
+            title: reference.title || '',
+            organization: reference.organization || '',
+            currentValue: reference.date || reference.currentValue || '',
+        },
+    };
+    const targetText = getPositionReferenceText(reference);
+
+    if (!targetText) {
+        return -1;
+    }
+
+    const scores = entries
+        .map((entry, index) => ({ index, score: getOperationTargetScore(entry, operation) }))
+        .filter((item) => item.score > 0)
+        .sort((left, right) => right.score - left.score);
+
+    if (scores.length > 1 && scores[0].score === scores[1].score) {
+        return -2;
+    }
+
+    return scores.length ? scores[0].index : -1;
+};
+
+const getReorderPosition = (operation = {}) => {
+    const position = operation.position && typeof operation.position === 'object' ? operation.position : {};
+    const beforeText = getPositionReferenceText(position.before);
+    const afterText = getPositionReferenceText(position.after);
+
+    if (beforeText) {
+        return { direction: 'before', reference: position.before };
+    }
+
+    if (afterText) {
+        return { direction: 'after', reference: position.after };
+    }
+
+    return null;
+};
+
+const moveExperienceForOperation = (operation = {}) => {
+    const field = getExperienceField();
+    const lines = field ? repairPreviewExperienceItems(splitLines(field.value)) : [];
+    const entries = lines.map(parseExperienceEntry);
+    const position = getReorderPosition(operation);
+
+    if (!field || lines.length < 2 || !position) {
+        return { changed: false, status: 'missing_position' };
+    }
+
+    const fromIndex = findExperienceIndexForOperation(entries, operation);
+    if (fromIndex === -2) {
+        return { changed: false, status: 'ambiguous_target' };
+    }
+    if (fromIndex < 0 || !lines[fromIndex]) {
+        return { changed: false, status: 'target_not_found' };
+    }
+
+    const referenceIndex = findExperienceIndexForPositionReference(entries, position.reference);
+    if (referenceIndex === -2) {
+        return { changed: false, status: 'ambiguous_reference' };
+    }
+    if (referenceIndex < 0 || !lines[referenceIndex]) {
+        return { changed: false, status: 'reference_not_found' };
+    }
+    if (fromIndex === referenceIndex) {
+        return { changed: false, status: 'already_ordered' };
+    }
+
+    const nextLines = [...lines];
+    const [movedLine] = nextLines.splice(fromIndex, 1);
+    const referenceIndexAfterRemoval = referenceIndex > fromIndex ? referenceIndex - 1 : referenceIndex;
+    const insertIndex = position.direction === 'after'
+        ? referenceIndexAfterRemoval + 1
+        : referenceIndexAfterRemoval;
+
+    if (nextLines[insertIndex] === movedLine || nextLines[insertIndex - 1] === movedLine) {
+        return { changed: false, status: 'already_ordered' };
+    }
+
+    nextLines.splice(insertIndex, 0, movedLine);
+    const nextValue = nextLines.join('\n');
+    if (nextValue === lines.join('\n')) {
+        return { changed: false, status: 'already_ordered' };
+    }
+
+    field.value = nextValue;
+    clearEditableOverride('experience');
+    return { changed: true, status: 'moved' };
+};
+
 const serializeKirbyOperationExperience = (operation = {}) => {
     const source = operation.experience && typeof operation.experience === 'object'
         ? operation.experience
@@ -10461,6 +10564,30 @@ const applyKirbyOperation = (operation = {}, context = {}) => {
         return 'expérience ajoutée';
     }
 
+    if (operation.type === 'update_experience_title') {
+        const field = getExperienceField();
+        const title = formatCvHeadline(operation.value || '');
+        if (!field || !title) {
+            return '';
+        }
+
+        const entries = repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
+        const index = findExperienceIndexForOperation(entries, operation);
+        if (index < 0 || !entries[index]) {
+            return '';
+        }
+
+        const previous = formatCvHeadline(entries[index].title || '');
+        if (normalizeForMatch(previous) === normalizeForMatch(title)) {
+            return 'intitulé déjà correct';
+        }
+
+        entries[index] = { ...entries[index], title };
+        field.value = entries.map(serializeExperienceEntry).filter(Boolean).join('\n');
+        clearEditableOverride('experience');
+        return `intitulé ${title}`;
+    }
+
     if (operation.type === 'update_experience_date') {
         const field = getExperienceField();
         const date = normalizeExperienceDateText(operation.value || '');
@@ -10476,7 +10603,7 @@ const applyKirbyOperation = (operation = {}, context = {}) => {
 
         const previous = entries[index].date || '';
         if (normalizeExperienceDateText(previous) === date) {
-            return '';
+            return 'date déjà correcte';
         }
 
         entries[index] = { ...entries[index], date };
@@ -10562,16 +10689,22 @@ const applyKirbyOperation = (operation = {}, context = {}) => {
     }
 
     if (operation.type === 'reorder_experiences') {
+        const relativeMove = moveExperienceForOperation(operation);
+        if (relativeMove.changed) {
+            return 'ordre des expériences';
+        }
+        if (relativeMove.status === 'already_ordered') {
+            return 'ordre déjà correct';
+        }
+
         const changed = reorderExistingExperiences(context.experienceOrder);
         if (changed) {
             return 'ordre des expériences';
         }
 
-        if (Array.isArray(context.experienceOrder) && context.experienceOrder.length) {
-            return '';
-        }
-
-        return sortExperienceFieldNewestFirst() ? 'ordre des expériences' : '';
+        return Array.isArray(context.experienceOrder) && context.experienceOrder.length
+            ? ''
+            : sortExperienceFieldNewestFirst() ? 'ordre des expériences' : '';
     }
 
     return '';
@@ -10585,8 +10718,30 @@ const applyKirbyOperations = (operations = [], context = {}) => {
     return [...new Set(applied)];
 };
 
+const isKirbyNoopSuccessReply = (reply = '') =>
+    /\bdéjà\b|\bdeja\b|\bdéjà correct\b|\bdéjà aligné\b|\bdeja aligne\b/i.test(String(reply || ''));
+
 const getKirbyApplyFailureReply = (result = {}, instruction = '') => {
     const operation = result?.cv?.operations?.[0] || {};
+    const operationType = operation.type || '';
+    const target = getOperationTargetText(operation);
+
+    if (operationType === 'reorder_experiences') {
+        setCvStatus('Précision nécessaire pour déplacer l’expérience');
+        const position = getReorderPosition(operation);
+        const reference = position ? getPositionReferenceText(position.reference) : '';
+        return reference
+            ? `Je n’ai pas pu identifier sans risque l’expérience à déplacer ou la référence « ${reference} ». Précisez le poste et la date exacte.`
+            : 'Où souhaitez-vous placer cette expérience : avant ou après quelle autre expérience ?';
+    }
+
+    if (['update_experience_title', 'update_experience_date', 'remove_experience', 'remove_experience_bullet'].includes(operationType)) {
+        setCvStatus('Précision nécessaire pour modifier le CV');
+        return target
+            ? `Je n’ai pas pu identifier une seule expérience correspondant à « ${target} ». Précisez le poste, l’entreprise ou la date.`
+            : 'Quelle expérience souhaitez-vous modifier ? Précisez le poste, l’entreprise ou la date.';
+    }
+
     const report = saveKirbyBugReport({
         ...(result?.cv?.bugReport || {}),
         category: result?.cv?.bugReport?.category || 'bug application',
@@ -10613,6 +10768,7 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
     const languageOnlyIntent = isLanguageFocusedInstruction(userInstruction) && !looksLikePastedCv(userInstruction);
     const singleFieldIntent = getSingleFieldEditIntent(userInstruction);
     const hasOperationIntent = getKirbyCvArray(proposal.operations).length > 0;
+    const hasDateUpdateOperation = getKirbyCvArray(proposal.operations).some((operation) => operation?.type === 'update_experience_date');
     const changes = ['autofill', 'create'].includes(task) ? applyKirbyExtractedCv(proposal.extracted) : [];
     const operationChanges = applyKirbyOperations(proposal.operations, { experienceOrder: proposal.experienceOrder });
     changes.push(...operationChanges);
@@ -10702,6 +10858,10 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
 
     if (allowGlobalCvRewrite && !singleFieldIntent && reorderExistingExperiences(proposal.experienceOrder)) {
         changes.push('ordre des expériences');
+    }
+
+    if (hasDateUpdateOperation && sortExperienceFieldNewestFirst()) {
+        changes.push('expériences triées par date');
     }
 
     if (allowGlobalCvRewrite && !singleFieldIntent && sortExperienceFieldNewestFirst()) {
@@ -10881,7 +11041,9 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
             } finally {
                 isApplyingKirbyCvChange = false;
             }
-            const operationFailed = (operationDriven || singleFieldDriven) && beforeApplySnapshot === afterApplySnapshot;
+            const operationFailed = (operationDriven || singleFieldDriven)
+                && beforeApplySnapshot === afterApplySnapshot
+                && !isKirbyNoopSuccessReply(reply);
             if (operationFailed) {
                 hideKirbyCvProposal();
                 return `${runtimeLabel} · ${getKirbyApplyFailureReply(result, instruction)}`;

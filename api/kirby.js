@@ -1596,9 +1596,10 @@ Selon la tache demandee :
 Actions d'edition directes :
 - Si l'utilisateur demande une modification ciblee ou globale d'un element du CV (ajout d'experience, date/periode, retrait des mois, suppression de puce/ligne, niveau de langue, suppression/retrait, correction d'un champ), renseigne "operations" avec l'action a appliquer. Ne te contente jamais de suggestions, notice ou bugReport si une action peut etre executee avec le CV fourni.
 - Une demande comme « sauvegarde le CV », « applique et sauvegarde », « confirme apres verification » doit produire une modification seulement si une modification est demandee ; sinon laisse operations vide et notice courte. Ne transforme jamais cette demande en correction de date.
-- Si l'utilisateur demande de deplacer, monter, descendre ou placer une experience sous/au-dessus d'une autre, retourne obligatoirement operations avec type "reorder_experiences" ET experienceOrder avec la liste complete des experiences existantes dans l'ordre final attendu. N'annonce jamais un changement d'ordre sans cette liste complete.
+- Si l'utilisateur demande de deplacer, monter, descendre ou placer une experience sous/au-dessus d'une autre, retourne obligatoirement operations avec type "reorder_experiences". Si possible, renseigne experienceOrder avec la liste complete des experiences existantes dans l'ordre final attendu. Sinon renseigne operation.position.before ou operation.position.after avec la reference exacte de l'experience voisine. Ne change aucun intitule pour fabriquer l'ordre.
 - Si la demande cible explicitement un seul champ (titre, langue, date, telephone, email, profil, nom, ville, permis), ne lance pas d'optimisation globale : laisse periodGaps, generatedExperiences, educationSuggestions, suggestedSkills et layout vides sauf demande explicite d'optimisation globale.
 - Pour ajouter une experience avec assez d'informations (au moins titre ou organisme, periode ou missions), utilise type "add_experience". Renseigne operation.experience avec title, period, organization et description. N'utilise pas bugReport si l'experience peut etre ajoutee comme brouillon factuel a partir de la demande.
+- Pour corriger uniquement l'intitule d'une experience existante, utilise type "update_experience_title", renseigne "value" avec le nouvel intitule exact, et cible l'experience avec target.index si le contexte de selection le fournit, sinon target.title, target.organization ou target.currentValue. Ne modifie jamais l'entreprise, les dates ou les missions pour une correction d'intitule.
 - Pour corriger une date d'experience existante, utilise type "update_experience_date", renseigne "value" avec la nouvelle date/periode, et cible l'experience avec target.index si le contexte de selection le fournit, sinon target.title, target.organization ou target.currentValue.
 - Pour retirer les mois des dates d'experiences, utilise type "normalize_experience_dates", field "experience", value "years_only". Cela s'applique a toutes les experiences, sans demander quelle experience.
 - Pour supprimer une puce, une mission ou une ligne dans une experience, utilise type "remove_experience_bullet". Cible l'experience si possible et mets dans value le texte de la puce ou les mots distinctifs a retirer.
@@ -1668,7 +1669,7 @@ Schema JSON obligatoire :
     "compact": false
   },
   "operations": [{
-    "type": "add_experience | update_experience_date | normalize_experience_dates | remove_experience_bullet | upsert_language | set_field | remove_section | reorder_experiences | remove_experience",
+    "type": "add_experience | update_experience_title | update_experience_date | normalize_experience_dates | remove_experience_bullet | upsert_language | set_field | remove_section | reorder_experiences | remove_experience",
     "field": "experience | languages | fullName | location | phone | email | permit | headline | summary | skills | education | activities | projects",
     "target": {
       "index": 0,
@@ -1683,6 +1684,10 @@ Schema JSON obligatoire :
       "period": "periode",
       "organization": "organisation ou contexte",
       "description": ["mission courte et factuelle"]
+    },
+    "position": {
+      "before": {"title": "titre exact de l'experience voisine", "date": "date si utile", "organization": "employeur si utile"},
+      "after": {"title": "titre exact de l'experience voisine", "date": "date si utile", "organization": "employeur si utile"}
     },
     "reason": "raison courte"
   }],
@@ -5448,6 +5453,7 @@ const sanitizeCvLayout = (value) => {
 
 const CV_OPERATION_TYPES = new Set([
     'add_experience',
+    'update_experience_title',
     'update_experience_date',
     'normalize_experience_dates',
     'remove_experience_bullet',
@@ -5470,6 +5476,15 @@ const sanitizeCvOperation = (value) => {
     }
 
     const rawTarget = value.target && typeof value.target === 'object' ? value.target : {};
+    const rawPosition = value.position && typeof value.position === 'object' ? value.position : {};
+    const sanitizePositionTarget = (positionTarget) => {
+        const source = positionTarget && typeof positionTarget === 'object' ? positionTarget : {};
+        return {
+            title: limitCvText(source.title || source.label || source.name || source.role, 120),
+            organization: limitCvText(source.organization || source.company || source.meta, 120),
+            date: limitCvText(source.date || source.period || source.dates || source.currentValue, 80),
+        };
+    };
     const rawIndex = Number.isInteger(rawTarget.index) ? rawTarget.index : Number.isInteger(value.index) ? value.index : null;
     const field = CV_OPERATION_FIELDS.has(value.field) ? value.field : '';
 
@@ -5485,6 +5500,10 @@ const sanitizeCvOperation = (value) => {
         },
         value: limitCvMultilineText(value.value || value.newValue || value.date || value.level, 900),
         experience: sanitizeCvGeneratedExperience(value.experience || value.entry || value.item),
+        position: {
+            before: sanitizePositionTarget(rawPosition.before || value.before),
+            after: sanitizePositionTarget(rawPosition.after || value.after),
+        },
         reason: limitCvText(value.reason || value.summary, 180),
     };
 };
@@ -6479,6 +6498,8 @@ const buildOpenAiCvPrompt = ({ task, cv, jobOffer, instruction, letter, interact
     'Ordre d affichage attendu : experiences et formations datees de la plus recente a la plus ancienne. Les certifications sans date restent sans date et passent apres les entrees datees, sans date inventee.',
     'Pour les formations/certifications non presentes mais mentionnees par l utilisateur (Ecole 42, Piscine informatique, Simplon, formations courtes, certificats, ateliers), renseigne educationSuggestions au lieu de les melanger aux experiences.',
     'Si la consigne demande une correction ciblee, retourne une operation applicative dans operations. Ne remplace pas une correction par une proposition generique.',
+    'Pour une modification locale, laisse vides les champs non demandes : ne renomme pas un poste, une entreprise, une date, une mission, le titre global, l accroche ou les competences si la consigne ne le demande pas explicitement.',
+    'Pour un deplacement avant/apres une autre experience, retourne une operation reorder_experiences avec position.before ou position.after si tu ne peux pas produire un experienceOrder complet.',
     'Respecte strictement le schema du systeme. Les intitules dans experienceOrder doivent etre les intitules exacts du CV source.',
 ].filter(Boolean).join('\n\n');
 
