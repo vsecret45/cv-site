@@ -1868,9 +1868,40 @@ const embedCvRoundTripData = (doc) => {
     }
 };
 
+const getComparableCvDraftPayload = (payload = {}) => {
+    const source = payload && typeof payload === 'object' ? payload : {};
+    return {
+        values: source.values && typeof source.values === 'object' ? source.values : {},
+        editableContent: source.editableContent && typeof source.editableContent === 'object' ? source.editableContent : {},
+        sectionTitleStyles: source.sectionTitleStyles && typeof source.sectionTitleStyles === 'object' ? source.sectionTitleStyles : {},
+        sectionOrder: Array.isArray(source.sectionOrder) ? source.sectionOrder : [],
+    };
+};
+
+const getStableComparableValue = (value) => {
+    if (Array.isArray(value)) {
+        return value.map(getStableComparableValue);
+    }
+
+    if (!value || typeof value !== 'object') {
+        return value ?? null;
+    }
+
+    return Object.keys(value)
+        .sort()
+        .reduce((output, key) => {
+            const nextValue = value[key];
+            if (typeof nextValue !== 'undefined') {
+                output[key] = getStableComparableValue(nextValue);
+            }
+            return output;
+        }, {});
+};
+
 const areCvDraftPayloadsEquivalent = (left, right) => {
     try {
-        return JSON.stringify(left || null) === JSON.stringify(right || null);
+        return JSON.stringify(getStableComparableValue(getComparableCvDraftPayload(left))) ===
+            JSON.stringify(getStableComparableValue(getComparableCvDraftPayload(right)));
     } catch (error) {
         return false;
     }
