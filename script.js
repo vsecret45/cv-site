@@ -1967,8 +1967,8 @@ const saveCvDraft = async (silent = false) => {
         removeLegacyLocalDraft(currentUser.email);
         clearLegacyAuthStorage();
         setCvStatus(silent
-            ? `Brouillon sécurisé enregistré${localSaved ? ' · cache local à jour' : ''}`
-            : `CV sauvegardé dans votre espace privé${localSaved ? ' · cache local à jour' : ''}`);
+            ? 'Brouillon sécurisé enregistré'
+            : 'CV sauvegardé dans votre espace privé');
         return {
             status: 'saved',
             detail: localSaved ? 'supabase_confirmed_local_cache_updated' : 'supabase_confirmed_local_cache_failed',
@@ -1981,7 +1981,7 @@ const saveCvDraft = async (silent = false) => {
         if (!silent) {
             setCvStatus(localSaved
                 ? 'Sauvegarde locale privée active en attendant la table sécurisée'
-                : 'Erreur de persistance : le CV affiché n’est pas sauvegardé');
+                : 'Erreur d’enregistrement : le CV affiché n’est pas sauvegardé');
         }
         return localSaved
             ? { status: 'local_fallback', detail: error?.message || 'supabase_failed_local_saved', payload }
@@ -1993,24 +1993,47 @@ const isCvPersistenceConfirmed = (result = {}) =>
     (result.status === 'saved' && result.localSaved === true)
     || (result.status === 'local_fallback' && !currentUser?.id);
 
+const formatCvPersistenceErrorDetail = (detail = '') => {
+    const normalized = normalizeForMatch(detail || '');
+
+    if (!normalized) {
+        return '';
+    }
+
+    if (normalized.includes('persistence_mismatch')) {
+        return 'la sauvegarde relue ne correspond pas au CV affiché';
+    }
+
+    if (normalized.includes('supabase') || normalized.includes('fetch') || normalized.includes('network')) {
+        return 'le service de sauvegarde est indisponible';
+    }
+
+    if (normalized.includes('local')) {
+        return 'l’enregistrement local a échoué';
+    }
+
+    return 'la sauvegarde n’a pas pu être confirmée';
+};
+
 const formatCvPersistenceDetail = (result = {}) => {
     if (result.status === 'saved') {
         return result.localSaved
-            ? 'Sauvegarde Supabase confirmée · cache local mis à jour'
-            : 'Sauvegarde Supabase confirmée · cache local non confirmé';
+            ? 'Modification enregistrée'
+            : 'Enregistrement non confirmé';
     }
 
     if (result.status === 'local_fallback') {
         return currentUser?.id
-            ? 'Cache local mis à jour · Supabase indisponible'
-            : 'Cache local navigateur mis à jour · connexion requise pour synchroniser';
+            ? 'Enregistrement en ligne indisponible, copie temporaire conservée'
+            : 'Brouillon conservé sur cet appareil · connexion requise pour synchroniser';
     }
 
     if (result.status === 'unauthenticated') {
-        return 'Modification appliquée à l’écran, mais aucune sauvegarde confirmée';
+        return 'Modification affichée, mais non enregistrée';
     }
 
-    return `Erreur de persistance${result.detail ? ` : ${result.detail}` : ''}`;
+    const detail = formatCvPersistenceErrorDetail(result.detail);
+    return `Erreur d’enregistrement${detail ? ` : ${detail}` : ''}`;
 };
 
 const persistCvDraftImmediately = async () => {
