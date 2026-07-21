@@ -9478,8 +9478,10 @@ const applyQuickExperiencePlacementCorrection = (message = '') => {
     }
 
     const source = normalizeForMatch(message);
-    const asksDirectPlacement = /\b(juste\s+en\s+dessous|juste\s+sous|en\s+dessous|sous|apres|après)\b/.test(source)
-        && /\b(experience|experiences|poste|parcours)\b/.test(source);
+    const asksDirectPlacement = Boolean(getDeterministicExperienceMoveRequest(message)) || (
+        /\b(juste\s+en\s+dessous|juste\s+sous|en\s+dessous|sous|apres|après|au\s+dessus|au-dessus|avant)\b/.test(source)
+        && /\b(experience|experiences|poste|parcours|developpement|web|conseillere|commerciale|responsable|adjointe|chargee|clientele|2026|2025|2024|2023|2022|2021|2020)\b/.test(source)
+    );
     const removeMonths = shouldRemoveExperienceMonths(message);
 
     if (!asksDirectPlacement && !removeMonths) {
@@ -9496,21 +9498,19 @@ const applyQuickExperiencePlacementCorrection = (message = '') => {
     let monthsRemoved = false;
 
     if (asksDirectPlacement) {
-        const placementMatch = message.match(/([\s\S]*?)(?:juste\s+en\s+dessous|juste\s+sous|en\s+dessous|sous|apres|après)\s*[:\-]?\s*([\s\S]*)/i);
-        if (placementMatch) {
-            const anchorHint = placementMatch[1] || '';
-            const movedHint = placementMatch[2] || '';
-            const anchorIndex = findExperienceIndexByHint(entries, anchorHint);
-            const movedIndex = findExperienceIndexByHint(entries, movedHint, new Set(anchorIndex >= 0 ? [anchorIndex] : []));
+        const moveRequest = getDeterministicExperienceMoveRequest(message);
+        const movedIndex = moveRequest ? findExperienceIndexByHint(entries, moveRequest.fromLabel) : -1;
+        const anchorIndex = moveRequest ? findExperienceIndexByHint(entries, moveRequest.toLabel, new Set(movedIndex >= 0 ? [movedIndex] : [])) : -1;
 
-            if (anchorIndex >= 0 && movedIndex >= 0 && anchorIndex !== movedIndex) {
-                const [movedEntry] = entries.splice(movedIndex, 1);
-                const anchorAfterRemoval = movedIndex < anchorIndex ? anchorIndex - 1 : anchorIndex;
-                const targetIndex = Math.min(anchorAfterRemoval + 1, entries.length);
-                entries.splice(targetIndex, 0, movedEntry);
-                moved = true;
-                changed = true;
-            }
+        if (moveRequest && anchorIndex >= 0 && movedIndex >= 0 && anchorIndex !== movedIndex) {
+            const [movedEntry] = entries.splice(movedIndex, 1);
+            const anchorAfterRemoval = movedIndex < anchorIndex ? anchorIndex - 1 : anchorIndex;
+            const targetIndex = moveRequest.direction === 'before'
+                ? Math.max(anchorAfterRemoval, 0)
+                : Math.min(anchorAfterRemoval + 1, entries.length);
+            entries.splice(targetIndex, 0, movedEntry);
+            moved = true;
+            changed = true;
         }
     }
 
@@ -10009,7 +10009,7 @@ const applyQuickKirbyCorrection = (message = '') => {
 
 const isExplicitExperienceMoveInstruction = (instruction = '') => {
     const source = normalizeForMatch(String(instruction || '')).replace(/[’']/g, ' ');
-    const targetsExperience = /\b(experience|experiences|parcours)\b/.test(source);
+    const targetsExperience = /\b(experience|experiences|parcours|poste|postes|developpement|web|conseillere|commerciale|responsable|adjointe|chargee|clientele|2026|2025|2024|2023|2022|2021|2020)\b/.test(source);
     const asksMove = /\b(deplace|deplacer|bouge|bouger|remonte|descend|place|placer|mets|mettre|juste sous|sous|au dessus|avant|apres|inverse|intervertis|reordonne|reorganise)\b/.test(source);
 
     return targetsExperience && asksMove;
@@ -10031,22 +10031,29 @@ const requiresCompleteExperienceOrderInstruction = (instruction = '') => {
 };
 
 const getDeterministicExperienceMoveRequest = (instruction = '') => {
-    const source = String(instruction || '').replace(/\s+/g, ' ').trim();
+    const source = normalizeForMatch(String(instruction || '')).replace(/[’']/g, ' ').replace(/\s+/g, ' ').trim();
     if (!source) {
         return null;
     }
 
     const patterns = [
-        /\b(?:deplace|deplacer|place|placer|mets|mettre|bouge|bouger)\s+(.+?)\s+(?:juste\s+)?(?:sous|apres)\s+(.+)$/i,
+        {
+            direction: 'after',
+            pattern: /\b(?:deplace|deplacer|place|placer|mets|mettre|bouge|bouger)?\s*(.+?)\s+(?:juste\s+)?(?:en\s+dessous\s+de|dessous|sous|apres|après)\s+(.+)$/i,
+        },
+        {
+            direction: 'before',
+            pattern: /\b(?:deplace|deplacer|place|placer|mets|mettre|bouge|bouger)?\s*(.+?)\s+(?:juste\s+)?(?:au-dessus\s+de|au\s+dessus\s+de|au-dessus|au\s+dessus|avant)\s+(.+)$/i,
+        },
     ];
 
-    for (const pattern of patterns) {
+    for (const { direction, pattern } of patterns) {
         const match = source.match(pattern);
         if (match) {
             const fromLabel = normalizeCvSentenceText(match[1] || '');
             const toLabel = normalizeCvSentenceText(match[2] || '');
             if (fromLabel && toLabel) {
-                return { fromLabel, toLabel };
+                return { fromLabel, toLabel, direction };
             }
         }
     }
@@ -10120,7 +10127,10 @@ const applyDeterministicExperienceMoveFromInstruction = (instruction = '') => {
 
     const reordered = [...lines];
     const [moved] = reordered.splice(sourceIndex, 1);
-    const insertionIndex = sourceIndex < targetIndex ? targetIndex : targetIndex + 1;
+    const targetIndexAfterRemoval = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
+    const insertionIndex = request.direction === 'before'
+        ? targetIndexAfterRemoval
+        : targetIndexAfterRemoval + 1;
     reordered.splice(insertionIndex, 0, moved);
 
     if (reordered.join('\n') === lines.join('\n')) {
@@ -11440,6 +11450,12 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
     }
 
     if (verificationWarning) {
+        if (changes.length) {
+            const persistence = await persistCvDraftImmediately();
+            return isCvPersistenceConfirmed(persistence)
+                ? `${verificationWarning} ${formatCvPersistenceDetail(persistence)}.`
+                : `Modification appliquée à l’écran, mais non sauvegardée. ${formatCvPersistenceDetail(persistence)}.`;
+        }
         return verificationWarning;
     }
 
@@ -11587,9 +11603,13 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
                 const fallbackSnapshot = getKirbyCvSnapshot();
                 const fallbackReply = applyQuickKirbyCorrection(instruction);
                 if (fallbackReply && getKirbyCvSnapshot() !== fallbackSnapshot) {
+                    const persistence = await persistCvDraftImmediately();
+                    const finalReply = isCvPersistenceConfirmed(persistence)
+                        ? `${fallbackReply} ${formatCvPersistenceDetail(persistence)}.`
+                        : `Modification appliquée à l’écran, mais non sauvegardée. ${formatCvPersistenceDetail(persistence)}.`;
                     hideKirbyCvProposal();
-                    setAssistantActivity(`${runtimeLabel} · ${fallbackReply}`, false);
-                    return fallbackReply;
+                    setAssistantActivity(`${runtimeLabel} · ${finalReply}`, false);
+                    return finalReply;
                 }
 
                 const failureReply = getKirbyApplyFailureReply(result, instruction);
@@ -11846,9 +11866,14 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
     const kirbyNeedsFallbackCorrection = shouldUseKirbyCvAssistant(cleanMessage)
         && (looksLikeKirbyNoChangeReply(reply) || /mise a jour partielle|mise à jour partielle/i.test(reply));
     if (kirbyNeedsFallbackCorrection) {
+        const fallbackSnapshot = getKirbyCvSnapshot();
         const quickReply = applyQuickKirbyCorrection(cleanMessage);
-        if (quickReply) {
-            appendAssistantMessage(formatKirbyAssistantReply(localReplies, `${reply}\n${quickReply}`), 'bot');
+        if (quickReply && getKirbyCvSnapshot() !== fallbackSnapshot) {
+            const persistence = await persistCvDraftImmediately();
+            const finalQuickReply = isCvPersistenceConfirmed(persistence)
+                ? `${quickReply} ${formatCvPersistenceDetail(persistence)}.`
+                : `Modification appliquée à l’écran, mais non sauvegardée. ${formatCvPersistenceDetail(persistence)}.`;
+            appendAssistantMessage(formatKirbyAssistantReply(localReplies, `${reply}\n${finalQuickReply}`), 'bot');
             return;
         }
     }
