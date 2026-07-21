@@ -10007,6 +10007,34 @@ const applyQuickKirbyCorrection = (message = '') => {
     return applyQuickExperienceSortCorrection(message);
 };
 
+const shouldApplyLocalExperienceOperationBeforeOpenAi = (message = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(message));
+    const dateCorrection = getQuickExperienceDateCorrection(message);
+    const asksExperienceRemoval = hasExplicitDestructiveCvRemoval(message)
+        && /\b(experience|experiences|poste|postes|mission|missions|ligne|lignes|puce|puces|developpement|web|conseillere|commerciale|responsable|adjointe|chargee|clientele)\b/.test(source);
+
+    return isExplicitExperienceMoveInstruction(message)
+        || Boolean(getDeterministicExperienceMoveRequest(message))
+        || Boolean(dateCorrection)
+        || shouldQuickSortExperiences(message)
+        || asksExperienceRemoval;
+};
+
+const applyLocalExperienceOperationBeforeOpenAi = (message = '') => {
+    if (!shouldApplyLocalExperienceOperationBeforeOpenAi(message)) {
+        return '';
+    }
+
+    const replies = [
+        applyQuickExperiencePlacementCorrection(message),
+        applyQuickExperienceDateCorrection(message),
+        applyQuickExperienceRemoval(message),
+        applyQuickExperienceSortCorrection(message),
+    ].filter(Boolean);
+
+    return replies.join(' ');
+};
+
 const isExplicitExperienceMoveInstruction = (instruction = '') => {
     const source = normalizeForMatch(String(instruction || '')).replace(/[’']/g, ' ');
     const targetsExperience = /\b(experience|experiences|parcours|poste|postes|developpement|web|conseillere|commerciale|responsable|adjointe|chargee|clientele|2026|2025|2024|2023|2022|2021|2020)\b/.test(source);
@@ -11854,6 +11882,19 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
     const localReplies = [];
     const messageIsOffer = mode !== 'letter' && setJobOfferFromAssistantMessage(cleanMessage);
     hideKirbyCvProposal();
+
+    if (shouldApplyLocalExperienceOperationBeforeOpenAi(cleanMessage)) {
+        const localSnapshot = getKirbyCvSnapshot();
+        const localReply = applyLocalExperienceOperationBeforeOpenAi(cleanMessage);
+        if (localReply && getKirbyCvSnapshot() !== localSnapshot) {
+            const persistence = await persistCvDraftImmediately();
+            const finalLocalReply = isCvPersistenceConfirmed(persistence)
+                ? `${localReply} ${formatCvPersistenceDetail(persistence)}.`
+                : `Modification appliquée à l’écran, mais non sauvegardée. ${formatCvPersistenceDetail(persistence)}.`;
+            appendAssistantMessage(formatKirbyAssistantReply(localReplies, finalLocalReply), 'bot');
+            return;
+        }
+    }
 
     const assistantInstruction = autopilotMode ? buildCvAutopilotInstruction(cleanMessage) : cleanMessage;
     const reply = shouldUseKirbyCvAssistant(cleanMessage)
