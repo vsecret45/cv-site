@@ -848,13 +848,15 @@ const readScopedLocalDraft = (userId) => {
 
 const writeScopedLocalDraft = (userId, payload) => {
     if (!userId || !payload) {
-        return;
+        return false;
     }
 
     try {
         window.localStorage.setItem(getSecureUserDraftCacheKey(userId), JSON.stringify(payload));
+        return true;
     } catch (error) {
         console.error(error);
+        return false;
     }
 };
 
@@ -1988,7 +1990,8 @@ const saveCvDraft = async (silent = false) => {
 };
 
 const isCvPersistenceConfirmed = (result = {}) =>
-    result.status === 'saved' || (result.status === 'local_fallback' && !currentUser?.id);
+    (result.status === 'saved' && result.localSaved === true)
+    || (result.status === 'local_fallback' && !currentUser?.id);
 
 const formatCvPersistenceDetail = (result = {}) => {
     if (result.status === 'saved') {
@@ -2310,7 +2313,7 @@ const loadCvDraft = async ({ silent = false } = {}) => {
         resetCvDraftState();
 
         if (currentUser?.id) {
-            const draftCandidates = [];
+            let supabaseReadFailed = false;
             try {
                 const client = await initializeSupabaseClient();
                 const { data, error } = await client
@@ -2325,26 +2328,30 @@ const loadCvDraft = async ({ silent = false } = {}) => {
                 }
 
                 if (data?.payload) {
-                    draftCandidates.push({ payload: data.payload, updatedAt: data.updated_at });
+                    payload = data.payload;
                 }
             } catch (error) {
                 console.error(error);
+                supabaseReadFailed = true;
             }
 
-            const localPayload = readScopedLocalDraft(currentUser.id);
-            if (localPayload) {
-                draftCandidates.push({ payload: localPayload, updatedAt: localPayload.savedAt });
+            if (!payload) {
+                const draftCandidates = [];
+                const localPayload = readScopedLocalDraft(currentUser.id);
+                if (localPayload) {
+                    draftCandidates.push({ payload: localPayload, updatedAt: localPayload.savedAt });
+                }
+
+                const legacyPayload = readLegacyLocalDraft(currentUser.email);
+                if (legacyPayload) {
+                    draftCandidates.push({ payload: legacyPayload, updatedAt: legacyPayload.savedAt });
+                    shouldMigrateLegacyDraft = true;
+                }
+
+                payload = pickNewestCvDraftPayload(draftCandidates);
             }
 
-            const legacyPayload = readLegacyLocalDraft(currentUser.email);
-            if (legacyPayload) {
-                draftCandidates.push({ payload: legacyPayload, updatedAt: legacyPayload.savedAt });
-                shouldMigrateLegacyDraft = true;
-            }
-
-            payload = pickNewestCvDraftPayload(draftCandidates);
-
-            if (shouldMigrateLegacyDraft) {
+            if (shouldMigrateLegacyDraft && !supabaseReadFailed) {
                 removeLegacyLocalDraft(currentUser.email);
             }
         }
@@ -4735,7 +4742,9 @@ const repairPreviewExperienceItems = (items) => {
     }
 
     const repairedItems = dedupeImportedItems(repaired);
-    return mergeKnownExperienceRebuilds([...items, ...repairedItems], repairedItems);
+    return hasStructuredExperience
+        ? repairedItems
+        : mergeKnownExperienceRebuilds([...items, ...repairedItems], repairedItems);
 };
 
 const normalizeTimelineMatch = (value = '') =>
@@ -9488,6 +9497,22 @@ const applyQuickExperiencePlacementCorrection = (message = '') => {
         return '';
     }
 
+    if (asksDirectPlacement && !removeMonths) {
+        const beforeState = getCvHistoryState();
+        const moveResult = applyDeterministicExperienceMoveFromInstruction(message);
+        if (!moveResult.changed) {
+            return '';
+        }
+
+        clearEditableOverride('experience');
+        renderExperienceEditor();
+        updateCvPreview();
+        commitCvHistoryTransition(beforeState);
+        scheduleCvDraftSave();
+        setCvStatus('Expériences réorganisées');
+        return 'Expérience déplacée juste sous le poste demandé.';
+    }
+
     const entries = repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
     if (!entries.length) {
         return '';
@@ -10025,8 +10050,11 @@ const applyLocalExperienceOperationBeforeOpenAi = (message = '') => {
         return '';
     }
 
+    if (isExplicitExperienceMoveInstruction(message) || getDeterministicExperienceMoveRequest(message)) {
+        return applyQuickExperiencePlacementCorrection(message);
+    }
+
     const replies = [
-        applyQuickExperiencePlacementCorrection(message),
         applyQuickExperienceDateCorrection(message),
         applyQuickExperienceRemoval(message),
         applyQuickExperienceSortCorrection(message),
@@ -10058,6 +10086,12 @@ const requiresCompleteExperienceOrderInstruction = (instruction = '') => {
     return asksCompleteOrder || (asksOrder && hasNumberedOrder);
 };
 
+const cleanDeterministicExperienceMoveLabel = (label = '') =>
+    normalizeCvSentenceText(label || '')
+        .replace(/\s+(?:et|,)\s+(?:au-dessus|au\s+dessus|avant|en\s+dessous|dessous|sous|apres|après)\b.*$/i, '')
+        .replace(/\s+(?:et|,)\s+(?:les?\s+)?experiences?\s+plus\s+ancien(?:ne)?s?\b.*$/i, '')
+        .trim();
+
 const getDeterministicExperienceMoveRequest = (instruction = '') => {
     const source = normalizeForMatch(String(instruction || '')).replace(/[’']/g, ' ').replace(/\s+/g, ' ').trim();
     if (!source) {
@@ -10078,8 +10112,8 @@ const getDeterministicExperienceMoveRequest = (instruction = '') => {
     for (const { direction, pattern } of patterns) {
         const match = source.match(pattern);
         if (match) {
-            const fromLabel = normalizeCvSentenceText(match[1] || '');
-            const toLabel = normalizeCvSentenceText(match[2] || '');
+            const fromLabel = cleanDeterministicExperienceMoveLabel(match[1] || '');
+            const toLabel = cleanDeterministicExperienceMoveLabel(match[2] || '');
             if (fromLabel && toLabel) {
                 return { fromLabel, toLabel, direction };
             }
@@ -10126,7 +10160,7 @@ const findExperienceIndexByLabel = (entries = [], label = '', options = {}) => {
 const applyDeterministicExperienceMoveFromInstruction = (instruction = '') => {
     const request = getDeterministicExperienceMoveRequest(instruction);
     const field = getExperienceField();
-    const lines = field ? repairPreviewExperienceItems(splitLines(field.value)) : [];
+    const lines = field ? splitLines(field.value) : [];
 
     if (!request || !field || lines.length < 2) {
         return { changed: false, error: '' };
@@ -10167,6 +10201,99 @@ const applyDeterministicExperienceMoveFromInstruction = (instruction = '') => {
 
     field.value = reordered.join('\n');
     return { changed: true, error: '' };
+};
+
+const getExperienceTitleOrderFromLines = (lines = []) =>
+    lines.map((line) => parseExperienceEntry(line).title || '').filter(Boolean);
+
+const getCurrentExperienceFormTitleOrder = () => {
+    const field = getExperienceField();
+    return field ? getExperienceTitleOrderFromLines(splitLines(field.value)) : [];
+};
+
+const getVisibleExperienceTitleOrder = () =>
+    [...(previewNodes.experience?.querySelectorAll('.cv-experience-title') || [])]
+        .map((node) => node.textContent.trim())
+        .filter(Boolean);
+
+const areExperienceTitleOrdersEqual = (left = [], right = []) =>
+    left.length === right.length && left.every((title, index) => title === right[index]);
+
+const getExpectedExperienceMoveTitleOrder = (instruction = '', experienceValue = '') => {
+    const request = getDeterministicExperienceMoveRequest(instruction);
+    const lines = splitLines(experienceValue);
+
+    if (!request || lines.length < 2) {
+        return [];
+    }
+
+    const entries = lines.map((line) => {
+        const parsed = parseExperienceEntry(line);
+        return {
+            line,
+            title: parsed.title || '',
+            full: `${parsed.title || ''} ${parsed.meta || ''} ${parsed.date || ''}`,
+        };
+    });
+    const sourceIndex = findExperienceIndexByLabel(entries, request.fromLabel);
+    if (sourceIndex === -1) {
+        return [];
+    }
+
+    const targetIndex = findExperienceIndexByLabel(entries, request.toLabel, {
+        excludeIndexes: new Set([sourceIndex]),
+    });
+    if (targetIndex === -1) {
+        return [];
+    }
+
+    const reordered = [...lines];
+    const [moved] = reordered.splice(sourceIndex, 1);
+    const targetIndexAfterRemoval = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
+    const insertionIndex = request.direction === 'before'
+        ? targetIndexAfterRemoval
+        : targetIndexAfterRemoval + 1;
+    reordered.splice(insertionIndex, 0, moved);
+
+    return getExperienceTitleOrderFromLines(reordered);
+};
+
+const verifyExperienceMovePersistenceAndRender = async (expectedOrder = [], persistence = {}) => {
+    if (!expectedOrder.length) {
+        return { ok: isCvPersistenceConfirmed(persistence), formOrder: [], visibleOrder: [] };
+    }
+
+    if (!isCvPersistenceConfirmed(persistence)) {
+        return {
+            ok: false,
+            formOrder: getCurrentExperienceFormTitleOrder(),
+            visibleOrder: getVisibleExperienceTitleOrder(),
+            reason: 'persistence_not_confirmed',
+        };
+    }
+
+    try {
+        await loadCvDraft({ silent: true });
+        await new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
+    } catch (error) {
+        console.error(error);
+        return {
+            ok: false,
+            formOrder: getCurrentExperienceFormTitleOrder(),
+            visibleOrder: getVisibleExperienceTitleOrder(),
+            reason: error?.message || 'reload_failed',
+        };
+    }
+
+    const formOrder = getCurrentExperienceFormTitleOrder();
+    const visibleOrder = getVisibleExperienceTitleOrder();
+
+    return {
+        ok: areExperienceTitleOrdersEqual(expectedOrder, formOrder)
+            && areExperienceTitleOrdersEqual(expectedOrder, visibleOrder),
+        formOrder,
+        visibleOrder,
+    };
 };
 
 const applyRequestedExperienceOrder = (order = [], options = {}) => {
@@ -11885,12 +12012,17 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
 
     if (shouldApplyLocalExperienceOperationBeforeOpenAi(cleanMessage)) {
         const localSnapshot = getKirbyCvSnapshot();
+        const expectedMoveOrder = getExpectedExperienceMoveTitleOrder(cleanMessage, getExperienceField()?.value || '');
         const localReply = applyLocalExperienceOperationBeforeOpenAi(cleanMessage);
         if (localReply && getKirbyCvSnapshot() !== localSnapshot) {
             const persistence = await persistCvDraftImmediately();
-            const finalLocalReply = isCvPersistenceConfirmed(persistence)
+            const moveVerification = await verifyExperienceMovePersistenceAndRender(expectedMoveOrder, persistence);
+            if (!moveVerification.ok) {
+                setCvStatus('Modification Kirby non confirmée après relecture');
+            }
+            const finalLocalReply = moveVerification.ok
                 ? `${localReply} ${formatCvPersistenceDetail(persistence)}.`
-                : `Modification appliquée à l’écran, mais non sauvegardée. ${formatCvPersistenceDetail(persistence)}.`;
+                : `Modification non confirmée après relecture. ${formatCvPersistenceDetail(persistence)}. L’ordre attendu n’est pas identique dans la sauvegarde et l’interface.`;
             appendAssistantMessage(formatKirbyAssistantReply(localReplies, finalLocalReply), 'bot');
             return;
         }
