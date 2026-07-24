@@ -2359,18 +2359,50 @@ body.cv-workspace-page .assistant-toggle::before {
     white-space: pre-line;
 }
 
+.cv-letter-page {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    overflow: visible;
+}
+
 .letter-subject {
     font-weight: 700;
     color: #2f3f7f;
+    margin: 0 0 0.6rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid rgba(47, 63, 127, 0.18);
 }
 
 .letter-body {
     color: var(--text-soft);
-    line-height: 1.8;
+    line-height: 1.56;
+    white-space: pre-line;
 }
 
-.cv-letter-page {
-    position: relative;
+.letter-page-body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.8rem;
+    min-height: 0;
+}
+
+.letter-page-body .letter-body {
+    font-size: 0.9rem;
+    color: #4a5568;
+}
+
+.letter-contact-footer {
+    margin: auto 0 0;
+    padding-top: 0.65rem;
+    border-top: 1px solid rgba(47, 63, 127, 0.16);
+    color: #5b6475;
+    font-size: 0.82rem;
+    line-height: 1.35;
+    text-align: center;
+    white-space: normal;
 }
 
 .cv-preview.size-large {
@@ -2378,7 +2410,7 @@ body.cv-workspace-page .assistant-toggle::before {
 }
 
 .cv-preview.size-compact {
-    font-size: 0.88rem;
+    font-size: 0.94rem;
 }
 
 .cv-preview.palette-indigo {
@@ -2855,13 +2887,195 @@ body.is-exporting-pdf .cv-label {
     display: none !important;
 }
 
+body.is-exporting-pdf .pdf-export-root {
+    width: 210mm !important;
+    height: 297mm !important;
+    overflow: hidden !important;
+    background: #ffffff !important;
+}
+
+body.is-exporting-pdf .pdf-export-root,
+body.is-exporting-pdf .pdf-export-root * {
+    animation: none !important;
+    transition: none !important;
+}
+
+body.is-exporting-pdf .pdf-export-root .cv-preview {
+    width: 210mm !important;
+    height: 297mm !important;
+    min-height: 297mm !important;
+    max-height: 297mm !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+}
+
+body.is-exporting-pdf .pdf-export-root .cv-preview:not(.template-digital):not(.template-holographic) {
+    padding: 9mm 10mm 8.5mm !important;
+}
+
+body.is-exporting-pdf .pdf-export-root.is-paginated-export {
+    height: auto !important;
+    min-height: 297mm !important;
+    overflow: visible !important;
+}
+
+body.is-exporting-pdf .pdf-export-root.is-paginated-export .cv-preview {
+    height: auto !important;
+    min-height: 297mm !important;
+    max-height: none !important;
+    overflow: visible !important;
+}
+
+body.is-exporting-pdf .pdf-export-root.is-letter-export .cv-preview.cv-letter-page:not(.template-digital):not(.template-holographic) {
+    display: flex !important;
+    height: auto !important;
+    min-height: 297mm !important;
+    max-height: none !important;
+    padding: 7mm 9mm 6mm !important;
+    gap: 0.75rem !important;
+    overflow: visible !important;
+}
+
+body.is-exporting-pdf .pdf-export-root.is-letter-export .letter-page-body {
+    flex: 1 !important;
+}
+
+body.is-exporting-pdf .pdf-export-root.is-letter-export .letter-page-body .letter-body {
+    font-size: 0.88rem !important;
+    line-height: 1.5 !important;
+}
+
+body.is-exporting-pdf .pdf-export-root.is-letter-export .letter-contact-footer {
+    padding-top: 0.5rem !important;
+}
+
+body.is-exporting-pdf .pdf-export-root .cv-header {
+    gap: 0.34rem !important;
+    padding-bottom: 0.68rem !important;
+}
+
+body.is-exporting-pdf .pdf-export-root #preview-name {
+    font-size: 1.82rem !important;
+    line-height: 1.04 !important;
+}
+
+body.is-exporting-pdf .pdf-export-root #preview-headline {
+    margin-top: 0.18rem !important;
+    font-size: 1.02rem !important;
+    line-height: 1.18 !important;
+}
+
+body.is-exporting-pdf .pdf-export-root .cv-meta {
+    row-gap: 0.18rem !important;
+    column-gap: 0.7rem !important;
+    font-size: 0.84rem !important;
+    line-height: 1.32 !important;
+}
+
+body.is-exporting-pdf .pdf-export-root #preview-summary,
+body.is-exporting-pdf .pdf-export-root #preview-skills,
+body.is-exporting-pdf .pdf-export-root #preview-experience,
+body.is-exporting-pdf .pdf-export-root #preview-projects,
+body.is-exporting-pdf .pdf-export-root #preview-education,
+body.is-exporting-pdf .pdf-export-root #preview-languages,
+body.is-exporting-pdf .pdf-export-root #preview-activities {
+    line-height: 1.28 !important;
+}
+
+body.is-exporting-pdf .pdf-export-root .cv-body {
+    gap: 0.58rem !important;
+    padding-top: 0.58rem !important;
+}
+
+body.is-exporting-pdf .pdf-export-root .cv-body section {
+    gap: 0.24rem !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+}
+
+body.is-exporting-pdf .pdf-export-root .cv-body h4 {
+    font-size: 0.82rem !important;
+    line-height: 1.12 !important;
+}
+
+body.is-exporting-pdf .pdf-export-root .cv-list-compact {
+    display: grid !important;
+    columns: auto !important;
+    column-count: auto !important;
+    column-width: auto !important;
+    column-gap: normal !important;
+    column-fill: balance !important;
+    gap: 0.1rem 0.7rem !important;
+    overflow: visible !important;
+}
+
+body.is-exporting-pdf .pdf-export-root .cv-list-compact li,
+body.is-exporting-pdf .pdf-export-root .cv-experience-bullets li {
+    display: block !important;
+    list-style: none !important;
+    break-inside: auto !important;
+    margin-bottom: 0.06rem !important;
+    line-height: 1.22 !important;
+}
+
+body.is-exporting-pdf .pdf-export-root .cv-experience-list > .cv-experience-item {
+    padding-top: 0.22rem !important;
+    padding-bottom: 0.24rem !important;
+}
+
+body.is-exporting-pdf .pdf-export-root .cv-experience-list .cv-experience-bullets {
+    margin-top: 0.08rem !important;
+    gap: 0.04rem !important;
+}
+
+body.is-exporting-pdf .pdf-export-root .cv-experience-list .cv-experience-head {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) max-content !important;
+    align-items: start !important;
+    column-gap: 0.55rem !important;
+    width: 100% !important;
+}
+
+body.is-exporting-pdf .pdf-export-root .cv-experience-list .cv-experience-title {
+    min-width: 0 !important;
+    overflow-wrap: anywhere !important;
+}
+
+body.is-exporting-pdf .pdf-export-root .cv-experience-list .cv-experience-date {
+    justify-self: end !important;
+    max-width: 100% !important;
+    text-align: right !important;
+    white-space: nowrap !important;
+}
+
+body.is-exporting-pdf .pdf-export-root .cv-modern-layout,
+body.is-exporting-pdf .pdf-export-root .cv-modern-sidebar,
+body.is-exporting-pdf .pdf-export-root .cv-modern-main,
+body.is-exporting-pdf .pdf-export-root .cv-body,
+body.is-exporting-pdf .pdf-export-root .cv-body section,
+body.is-exporting-pdf .pdf-export-root .cv-experience-list,
+body.is-exporting-pdf .pdf-export-root .cv-experience-item,
+body.is-exporting-pdf .pdf-export-root .cv-experience-head {
+    width: auto !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+}
+
+body.is-exporting-pdf .pdf-export-root .cv-modern-layout {
+    width: 100% !important;
+}
+
 body.is-exporting-pdf .cv-preview.template-digital,
 body.is-exporting-pdf .cv-preview.template-holographic {
     width: 210mm !important;
+    height: 297mm !important;
     min-height: 297mm !important;
+    max-height: 297mm !important;
     aspect-ratio: auto !important;
     border-radius: 0 !important;
-    padding: 8.5mm 8.8mm 8mm !important;
+    padding: 9mm 9.5mm 8.5mm !important;
     box-shadow: none !important;
 }
 
@@ -2884,15 +3098,15 @@ body.is-exporting-pdf .cv-modern-contact-line {
 
 body.is-exporting-pdf .cv-preview.template-digital .cv-header,
 body.is-exporting-pdf .cv-preview.template-holographic .cv-header {
-    min-height: 33mm !important;
-    padding: 5.6mm 6mm 4.5mm !important;
-    gap: 0.12rem !important;
+    min-height: 35mm !important;
+    padding: 6mm 6.4mm 4.8mm !important;
+    gap: 0.18rem !important;
 }
 
 body.is-exporting-pdf .cv-preview.template-digital #preview-name,
 body.is-exporting-pdf .cv-preview.template-holographic #preview-name {
-    font-size: clamp(1.32rem, 2vw, 1.7rem) !important;
-    line-height: 0.96 !important;
+    font-size: clamp(1.68rem, 2vw, 1.96rem) !important;
+    line-height: 1.02 !important;
     margin-bottom: 0.8mm !important;
 }
 
@@ -2900,7 +3114,7 @@ body.is-exporting-pdf .cv-preview.template-digital #preview-headline,
 body.is-exporting-pdf .cv-preview.template-holographic #preview-headline {
     margin-top: 1.4mm !important;
     padding: 0.2rem 0.5rem !important;
-    font-size: 0.82em !important;
+    font-size: 0.95em !important;
 }
 
 body.is-exporting-pdf .cv-preview.template-digital .cv-meta,
@@ -2910,19 +3124,19 @@ body.is-exporting-pdf .cv-preview.template-holographic .cv-meta {
 
 body.is-exporting-pdf .cv-preview.template-digital .cv-meta-item,
 body.is-exporting-pdf .cv-preview.template-holographic .cv-meta-item {
-    padding: 0.08rem 0.26rem !important;
-    font-size: 0.76em !important;
+    padding: 0.1rem 0.3rem !important;
+    font-size: 0.86em !important;
 }
 
 body.is-exporting-pdf .cv-preview.template-digital .cv-body,
 body.is-exporting-pdf .cv-preview.template-holographic .cv-body {
-    gap: 0.34rem !important;
-    padding-top: 1.5mm !important;
+    gap: 0.46rem !important;
+    padding-top: 1.8mm !important;
 }
 
 body.is-exporting-pdf .cv-preview.template-digital .cv-body section,
 body.is-exporting-pdf .cv-preview.template-holographic .cv-body section {
-    padding: 0.34rem 0.42rem 0.36rem !important;
+    padding: 0.42rem 0.5rem 0.44rem !important;
     border-radius: 14px !important;
 }
 
@@ -2939,27 +3153,34 @@ body.is-exporting-pdf .cv-preview.template-holographic .cv-section-head {
 
 body.is-exporting-pdf .cv-preview.template-digital .cv-body h4,
 body.is-exporting-pdf .cv-preview.template-holographic .cv-body h4 {
-    padding: 0.08rem 0.32rem !important;
-    font-size: 0.7rem !important;
+    padding: 0.1rem 0.34rem !important;
+    font-size: 0.82rem !important;
 }
 
 body.is-exporting-pdf .cv-preview.template-digital .cv-list-compact,
 body.is-exporting-pdf .cv-preview.template-holographic .cv-list-compact {
-    gap: 0.02rem 0.45rem !important;
+    gap: 0.06rem 0.52rem !important;
     padding: 0.01rem 0.02rem 0 0.14rem !important;
 }
 
 body.is-exporting-pdf .cv-preview.template-digital section[data-section-key="skills"] .cv-list-compact,
 body.is-exporting-pdf .cv-preview.template-holographic section[data-section-key="skills"] .cv-list-compact {
-    grid-template-columns: 1fr !important;
     gap: 0.04rem !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-digital section[data-section-key="skills"] .cv-list-compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-holographic section[data-section-key="skills"] .cv-list-compact {
+    grid-template-columns: 1fr !important;
 }
 
 body.is-exporting-pdf .cv-preview.template-digital .cv-list-compact li,
 body.is-exporting-pdf .cv-preview.template-holographic .cv-list-compact li,
 body.is-exporting-pdf .cv-preview.template-digital .cv-experience-bullets li,
 body.is-exporting-pdf .cv-preview.template-holographic .cv-experience-bullets li {
-    line-height: 1.08 !important;
+    line-height: 1.2 !important;
 }
 
 body.is-exporting-pdf .cv-preview.template-digital .cv-experience-list > .cv-experience-item,
@@ -2975,20 +3196,20 @@ body.is-exporting-pdf .cv-preview.template-holographic .cv-experience-list > .cv
 
 body.is-exporting-pdf .cv-preview.template-digital .cv-experience-title,
 body.is-exporting-pdf .cv-preview.template-holographic .cv-experience-title {
-    font-size: 0.9em !important;
-    line-height: 1.14 !important;
+    font-size: 1em !important;
+    line-height: 1.18 !important;
 }
 
 body.is-exporting-pdf .cv-preview.template-digital .cv-experience-date,
 body.is-exporting-pdf .cv-preview.template-holographic .cv-experience-date {
     padding: 0.02rem 0.18rem !important;
-    font-size: 0.52em !important;
+    font-size: 0.68em !important;
 }
 
 body.is-exporting-pdf .cv-preview.template-digital .cv-experience-meta,
 body.is-exporting-pdf .cv-preview.template-holographic .cv-experience-meta {
-    font-size: 0.7em !important;
-    line-height: 1.14 !important;
+    font-size: 0.82em !important;
+    line-height: 1.18 !important;
 }
 
 body.is-exporting-pdf .cv-preview.template-holographic::before,
@@ -3050,6 +3271,209 @@ body.is-exporting-pdf .cv-preview.template-holographic .cv-modern-sidebar .cv-li
     line-height: 1.16 !important;
     overflow-wrap: break-word !important;
     white-space: normal !important;
+}
+
+body.is-exporting-pdf .pdf-export-root.is-paginated-export .cv-preview.template-digital,
+body.is-exporting-pdf .pdf-export-root.is-paginated-export .cv-preview.template-holographic {
+    height: auto !important;
+    min-height: 297mm !important;
+    max-height: none !important;
+    overflow: visible !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-digital,
+body.is-exporting-pdf .cv-preview.template-holographic {
+    background: #ffffff !important;
+    border: 0 !important;
+    color: #172033 !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-digital::before,
+body.is-exporting-pdf .cv-preview.template-digital::after,
+body.is-exporting-pdf .cv-preview.template-holographic::before,
+body.is-exporting-pdf .cv-preview.template-holographic::after {
+    content: "" !important;
+    display: none !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-digital .cv-header,
+body.is-exporting-pdf .cv-preview.template-holographic .cv-header {
+    min-height: auto !important;
+    background: #ffffff !important;
+    border: 0 !important;
+    border-bottom: 1px solid rgba(47, 63, 127, 0.18) !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-digital #preview-name,
+body.is-exporting-pdf .cv-preview.template-holographic #preview-name,
+body.is-exporting-pdf .cv-preview.template-digital #preview-headline,
+body.is-exporting-pdf .cv-preview.template-holographic #preview-headline,
+body.is-exporting-pdf .cv-preview.template-digital #preview-summary,
+body.is-exporting-pdf .cv-preview.template-holographic #preview-summary,
+body.is-exporting-pdf .cv-preview.template-digital .cv-meta,
+body.is-exporting-pdf .cv-preview.template-holographic .cv-meta,
+body.is-exporting-pdf .cv-preview.template-digital .cv-meta-item,
+body.is-exporting-pdf .cv-preview.template-holographic .cv-meta-item,
+body.is-exporting-pdf .cv-preview.template-digital .cv-experience-title,
+body.is-exporting-pdf .cv-preview.template-holographic .cv-experience-title,
+body.is-exporting-pdf .cv-preview.template-digital .cv-experience-meta,
+body.is-exporting-pdf .cv-preview.template-holographic .cv-experience-meta,
+body.is-exporting-pdf .cv-preview.template-digital .cv-list-compact,
+body.is-exporting-pdf .cv-preview.template-holographic .cv-list-compact,
+body.is-exporting-pdf .cv-preview.template-digital .cv-experience-bullets,
+body.is-exporting-pdf .cv-preview.template-holographic .cv-experience-bullets {
+    opacity: 1 !important;
+    filter: none !important;
+    text-shadow: none !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-digital .cv-meta-item,
+body.is-exporting-pdf .cv-preview.template-holographic .cv-meta-item,
+body.is-exporting-pdf .cv-preview.template-digital #preview-headline,
+body.is-exporting-pdf .cv-preview.template-holographic #preview-headline,
+body.is-exporting-pdf .cv-preview.template-digital .cv-body h4,
+body.is-exporting-pdf .cv-preview.template-holographic .cv-body h4 {
+    background: transparent !important;
+    border-color: rgba(47, 63, 127, 0.18) !important;
+    box-shadow: none !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-digital .cv-body section,
+body.is-exporting-pdf .cv-preview.template-holographic .cv-body section,
+body.is-exporting-pdf .cv-preview.template-holographic .cv-modern-sidebar section,
+body.is-exporting-pdf .cv-preview.template-holographic .cv-modern-main section {
+    background: #ffffff !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-digital .cv-body section::before,
+body.is-exporting-pdf .cv-preview.template-holographic .cv-body section::before,
+body.is-exporting-pdf .cv-preview.template-holographic .cv-modern-sidebar section::before,
+body.is-exporting-pdf .cv-preview.template-holographic .cv-modern-main section::before {
+    content: "" !important;
+    display: none !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-holographic .cv-modern-layout {
+    display: grid !important;
+    grid-template-columns: 50mm minmax(0, 1fr) !important;
+    column-gap: 6mm !important;
+    min-height: auto !important;
+    background: #ffffff !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-holographic .cv-modern-sidebar {
+    max-width: 50mm !important;
+    padding: 0 4mm 0 0 !important;
+    border-right: 1px solid rgba(47, 63, 127, 0.18) !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-holographic .cv-modern-main {
+    padding: 0 !important;
+    min-width: 0 !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-digital {
+    padding: 6mm 8mm 7mm !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-digital .cv-header {
+    padding: 3.6mm 0 3.2mm !important;
+    gap: 0.08rem !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-digital #preview-name {
+    font-size: 1.72rem !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-digital #preview-headline {
+    margin-top: 0.6mm !important;
+    padding: 0.04rem 0 !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-digital .cv-meta {
+    gap: 0.08rem 0.58rem !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-digital .cv-meta-item {
+    padding: 0 !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-digital .cv-body {
+    gap: 0.2rem !important;
+    padding-top: 1mm !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-digital .cv-body section,
+body.is-exporting-pdf .cv-preview.template-digital .cv-body section[data-section-key] {
+    padding: 0.12rem 0 0.14rem !important;
+    border-bottom: 1px solid rgba(47, 63, 127, 0.1) !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-digital .cv-body section[data-section-key="skills"] {
+    padding-bottom: 1.18rem !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-digital .cv-section-head {
+    margin-bottom: 0.02rem !important;
+    padding: 0 !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-digital .cv-body h4 {
+    padding: 0.02rem 0 0.06rem !important;
+    font-size: 0.78rem !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-digital #preview-summary {
+    padding: 0 !important;
+    line-height: 1.18 !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-digital .cv-list-compact {
+    gap: 0.04rem 0.7rem !important;
+    padding: 0 0 0 0.2rem !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-digital .cv-list-compact li,
+body.is-exporting-pdf .cv-preview.template-digital .cv-experience-bullets li {
+    line-height: 1.12 !important;
+    margin-bottom: 0 !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-digital .cv-experience-list > .cv-experience-item {
+    padding: 0.08rem 0 0.12rem !important;
+    border-radius: 0 !important;
+    border-bottom: 1px solid rgba(47, 63, 127, 0.1) !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-digital .cv-experience-list > .cv-experience-item + .cv-experience-item {
+    margin-top: 0 !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-digital .cv-experience-title {
+    font-size: 0.92em !important;
+    line-height: 1.08 !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-digital .cv-experience-meta {
+    font-size: 0.8em !important;
+    line-height: 1.08 !important;
+}
+
+body.is-exporting-pdf .cv-preview.template-digital .cv-experience-bullets {
+    margin-top: 0.02rem !important;
+    gap: 0 !important;
 }
 
 .cv-preview.template-modern .cv-body {
@@ -3227,6 +3651,37 @@ body.is-exporting-pdf .cv-preview.template-holographic .cv-modern-sidebar .cv-li
     cursor: text;
     transition: color 0.2s ease;
     outline: none;
+}
+
+#preview-name,
+#preview-headline,
+#preview-summary,
+#preview-skills,
+#preview-experience,
+#preview-projects,
+#preview-education,
+#preview-languages,
+#preview-activities {
+    direction: ltr;
+    unicode-bidi: plaintext;
+}
+
+#preview-name *,
+#preview-headline *,
+#preview-summary *,
+#preview-skills *,
+#preview-experience *,
+#preview-projects *,
+#preview-education *,
+#preview-languages *,
+#preview-activities * {
+    direction: inherit;
+    unicode-bidi: inherit;
+}
+
+.cv-section-actions,
+.cv-section-action {
+    user-select: none;
 }
 
 #preview-meta[contenteditable="false"] {
@@ -3476,7 +3931,7 @@ body.is-exporting-pdf .cv-preview.template-holographic .cv-modern-sidebar .cv-li
 }
 
 .cv-preview.size-compact {
-    font-size: 0.84rem;
+    font-size: 0.94rem;
 }
 
 .cv-preview.size-compact .cv-experience-list .cv-experience-head {
@@ -3490,7 +3945,7 @@ body.is-exporting-pdf .cv-preview.template-holographic .cv-modern-sidebar .cv-li
 }
 
 .cv-preview.spacing-tight {
-    line-height: 1.28;
+    line-height: 1.34;
 }
 
 .cv-preview.spacing-airy {
@@ -4605,13 +5060,13 @@ body.is-exporting-pdf .cv-preview.template-holographic .cv-modern-sidebar .cv-li
 .cv-preview.template-digital.size-compact .cv-body h4,
 .cv-preview.template-holographic.size-compact .cv-body h4 {
     padding: 0.12rem 0.46rem;
-    font-size: 0.78rem;
+    font-size: 0.82rem;
     letter-spacing: 0.11em;
 }
 
 .cv-preview.template-holographic.size-compact .cv-body h4 {
     padding: 0.08rem 0.32rem;
-    font-size: 0.7rem;
+    font-size: 0.78rem;
 }
 
 .cv-preview.template-digital.size-compact #preview-summary,
@@ -4636,12 +5091,12 @@ body.is-exporting-pdf .cv-preview.template-holographic .cv-modern-sidebar .cv-li
 .cv-preview.template-holographic.size-compact .cv-list-compact li,
 .cv-preview.template-digital.size-compact .cv-experience-bullets li,
 .cv-preview.template-holographic.size-compact .cv-experience-bullets li {
-    line-height: 1.16;
+    line-height: 1.2;
 }
 
 .cv-preview.template-holographic.size-compact .cv-list-compact li,
 .cv-preview.template-holographic.size-compact .cv-experience-bullets li {
-    line-height: 1.08;
+    line-height: 1.18;
 }
 
 .cv-preview.template-digital.size-compact .cv-experience-list > .cv-experience-item,
@@ -4675,7 +5130,7 @@ body.is-exporting-pdf .cv-preview.template-holographic .cv-modern-sidebar .cv-li
 
 .cv-preview.template-digital.size-compact .cv-experience-title,
 .cv-preview.template-holographic.size-compact .cv-experience-title {
-    font-size: 0.9em;
+    font-size: 0.96em;
 }
 
 .cv-preview.template-holographic.size-compact .cv-experience-title {
@@ -4686,12 +5141,12 @@ body.is-exporting-pdf .cv-preview.template-holographic .cv-modern-sidebar .cv-li
 .cv-preview.template-digital.size-compact .cv-experience-date,
 .cv-preview.template-holographic.size-compact .cv-experience-date {
     padding: 0.04rem 0.26rem;
-    font-size: 0.6em;
+    font-size: 0.72em;
 }
 
 .cv-preview.template-holographic.size-compact .cv-experience-date {
     padding: 0.02rem 0.18rem;
-    font-size: 0.52em;
+    font-size: 0.68em;
 }
 
 .cv-preview.template-digital.size-compact .cv-experience-meta,
@@ -4700,7 +5155,7 @@ body.is-exporting-pdf .cv-preview.template-holographic .cv-modern-sidebar .cv-li
 }
 
 .cv-preview.template-holographic.size-compact .cv-experience-meta {
-    font-size: 0.7em;
+    font-size: 0.82em;
     line-height: 1.16;
 }
 
@@ -4959,8 +5414,11 @@ body.is-exporting-pdf .cv-preview.template-holographic .cv-modern-sidebar .cv-li
 }
 
 .cv-experience-list .cv-experience-head {
+    display: grid;
     grid-template-columns: minmax(0, 1fr) max-content;
     gap: 0.18rem 0.75rem;
+    align-items: start;
+    width: 100%;
 }
 
 .cv-experience-list .cv-experience-title {
@@ -4970,11 +5428,14 @@ body.is-exporting-pdf .cv-preview.template-holographic .cv-modern-sidebar .cv-li
 }
 
 .cv-experience-list .cv-experience-date {
+    justify-self: end;
     padding: 0;
     border-radius: 0;
     background: transparent;
     color: var(--cv-accent);
     font-size: 0.78em;
+    text-align: right;
+    max-width: 100%;
 }
 
 .cv-experience-list .cv-experience-meta {
@@ -5039,7 +5500,7 @@ body.is-exporting-pdf .cv-preview.template-holographic .cv-modern-sidebar .cv-li
 }
 
 .cv-preview.template-modern.size-compact {
-    font-size: 0.92rem;
+    font-size: 0.94rem;
 }
 
 .cv-preview.template-modern > .cv-header,
@@ -6617,6 +7078,16 @@ body.cv-workspace-page .preview-toolbar-group-tools {
     .cv-letter-page,
     [data-preview-doc="letter"] {
         display: none !important;
+    }
+
+    body.is-letter-preview #cv-preview {
+        display: none !important;
+    }
+
+    body.is-letter-preview #letter-page-preview,
+    body.is-letter-preview .cv-letter-page[data-preview-doc="letter"] {
+        display: flex !important;
+        visibility: visible !important;
     }
 
     #cv-intelligent,

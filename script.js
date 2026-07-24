@@ -85,6 +85,8 @@ const letterPageTitle = document.querySelector('#letter-page-title');
 const letterPageMeta = document.querySelector('#letter-page-meta');
 const letterSubjectPage = document.querySelector('#letter-subject-page');
 const letterBodyPage = document.querySelector('#letter-body-page');
+const letterContactFooter = document.querySelector('#letter-contact-footer');
+const letterContactFooterPage = document.querySelector('#letter-contact-footer-page');
 const coverLetterPanel = document.querySelector('#cover-letter-panel');
 const interactiveCards = document.querySelectorAll('.interactive-card');
 const assistantToggle = document.querySelector('#assistant-toggle');
@@ -285,9 +287,9 @@ const templatePresets = {
         fontTheme: 'inter',
         colorTheme: 'graphite',
         designMood: 'clean',
-        fontSize: 'compact',
+        fontSize: 'normal',
         headlineScale: 'normal',
-        lineSpacing: 'tight',
+        lineSpacing: 'normal',
         textAlign: 'left',
         accentColor: '#24324a',
         paperColor: '#ffffff',
@@ -343,9 +345,9 @@ const templatePresets = {
         fontTheme: 'lato',
         colorTheme: 'graphite',
         designMood: 'clean',
-        fontSize: 'compact',
+        fontSize: 'normal',
         headlineScale: 'normal',
-        lineSpacing: 'tight',
+        lineSpacing: 'normal',
         textAlign: 'left',
         accentColor: '#334155',
         paperColor: '#ffffff',
@@ -356,9 +358,9 @@ const templatePresets = {
         fontTheme: 'lato',
         colorTheme: 'indigo',
         designMood: 'luxury',
-        fontSize: 'compact',
+        fontSize: 'normal',
         headlineScale: 'normal',
-        lineSpacing: 'tight',
+        lineSpacing: 'normal',
         textAlign: 'left',
         accentColor: '#8a6727',
         paperColor: '#ffffff',
@@ -369,7 +371,7 @@ const templatePresets = {
         fontTheme: 'manrope',
         colorTheme: 'rose',
         designMood: 'clean',
-        fontSize: 'compact',
+        fontSize: 'normal',
         headlineScale: 'normal',
         lineSpacing: 'normal',
         textAlign: 'left',
@@ -382,9 +384,9 @@ const templatePresets = {
         fontTheme: 'lato',
         colorTheme: 'graphite',
         designMood: 'clean',
-        fontSize: 'compact',
+        fontSize: 'normal',
         headlineScale: 'normal',
-        lineSpacing: 'tight',
+        lineSpacing: 'normal',
         textAlign: 'left',
         accentColor: '#334155',
         paperColor: '#ffffff',
@@ -395,9 +397,9 @@ const templatePresets = {
         fontTheme: 'lato',
         colorTheme: 'indigo',
         designMood: 'clean',
-        fontSize: 'compact',
+        fontSize: 'normal',
         headlineScale: 'normal',
-        lineSpacing: 'tight',
+        lineSpacing: 'normal',
         textAlign: 'left',
         accentColor: '#2f3f7f',
         sidebarColor: '#eef1f7',
@@ -410,7 +412,7 @@ const templatePresets = {
         fontTheme: 'manrope',
         colorTheme: 'rose',
         designMood: 'clean',
-        fontSize: 'compact',
+        fontSize: 'normal',
         headlineScale: 'normal',
         lineSpacing: 'normal',
         textAlign: 'left',
@@ -423,14 +425,38 @@ const templatePresets = {
         fontTheme: 'manrope',
         colorTheme: 'graphite',
         designMood: 'luxury',
-        fontSize: 'compact',
+        fontSize: 'normal',
         headlineScale: 'normal',
-        lineSpacing: 'tight',
+        lineSpacing: 'normal',
         textAlign: 'left',
         accentColor: '#9a7b43',
         paperColor: '#ffffff',
         frameColor: '#d8bd7c',
     },
+};
+
+const retiredTemplatePresets = new Set(['digital', 'holographic', 'creative']);
+const fallbackTemplatePreset = 'premium';
+
+const normalizeLayoutTheme = (layoutTheme = '') =>
+    retiredTemplatePresets.has(String(layoutTheme)) ? fallbackTemplatePreset : layoutTheme;
+
+const normalizeCurrentLayoutTheme = (values = {}) => {
+    const normalizedTheme = normalizeLayoutTheme(values.layoutTheme || cvForm?.elements.layoutTheme?.value || fallbackTemplatePreset);
+
+    if (values.layoutTheme !== normalizedTheme) {
+        values.layoutTheme = normalizedTheme;
+    }
+
+    if (cvForm?.elements.layoutTheme && cvForm.elements.layoutTheme.value !== normalizedTheme) {
+        cvForm.elements.layoutTheme.value = normalizedTheme;
+    }
+
+    if (previewLayoutTheme && previewLayoutTheme.value !== normalizedTheme) {
+        previewLayoutTheme.value = normalizedTheme;
+    }
+
+    return normalizedTheme;
 };
 
 const modernColorPalettes = {
@@ -686,11 +712,14 @@ const splitLines = (value) =>
         .map((line) => line.trim())
         .filter(Boolean);
 
+const stripDirectionalFormatting = (value = '') =>
+    String(value || '').replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '');
+
 const toTitleCase = (value) =>
     value.replace(/\w\S*/g, (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
 
 const normalizeImportedText = (text) =>
-    text
+    stripDirectionalFormatting(text)
         .replace(/\r/g, '\n')
         .replace(/[ \t]+/g, ' ')
         .replace(/\u00a0/g, ' ')
@@ -729,6 +758,8 @@ let cvHistoryCoalesceTimer = null;
 let isCvHistoryCoalescing = false;
 let isRestoringCvHistory = false;
 let isLoadingCvDraft = false;
+let isImportingCvPreview = false;
+let lastUserLayoutThemeChangeAt = 0;
 const cvUndoStack = [];
 const CV_HISTORY_LIMIT = 15;
 const CV_STYLE_HISTORY_FIELDS = [
@@ -748,6 +779,15 @@ const CV_STYLE_HISTORY_FIELDS = [
 ];
 
 const scheduleCvDraftSave = () => {
+    if (isLoadingCvDraft) {
+        return;
+    }
+
+    if (isImportingCvPreview) {
+        setCvStatus('Import chargé en aperçu : vérifiez puis sauvegardez manuellement.');
+        return;
+    }
+
     window.clearTimeout(cvDraftSaveTimer);
     cvDraftSaveTimer = window.setTimeout(() => {
         saveCvDraft(true);
@@ -770,6 +810,11 @@ const CV_GUEST_DRAFT_CACHE_KEY = 'sa-cv-guest-draft-v1';
 
 const getLegacyAuthKeys = () => ['sa-cv-private-accounts-v1', 'sa-cv-private-session-v1', getLegacyDraftStorageKey()];
 
+const isOfficialCvPersistenceHost = () => {
+    const hostname = window.location.hostname.replace(/^www\./i, '').toLowerCase();
+    return window.location.protocol === 'https:' && hostname === 'sacreationweb.com';
+};
+
 const getCvDraftTimestamp = (payload, fallback = '') => {
     const value = payload?.savedAt || payload?.updated_at || fallback || '';
     const timestamp = Date.parse(value);
@@ -791,8 +836,29 @@ const getComparableCvDraftPayload = (payload = {}) => {
     };
 };
 
+const getStableComparableValue = (value) => {
+    if (Array.isArray(value)) {
+        return value.map(getStableComparableValue);
+    }
+
+    if (!value || typeof value !== 'object') {
+        return value ?? null;
+    }
+
+    return Object.keys(value)
+        .sort()
+        .reduce((output, key) => {
+            const nextValue = value[key];
+            if (typeof nextValue !== 'undefined') {
+                output[key] = getStableComparableValue(nextValue);
+            }
+            return output;
+        }, {});
+};
+
 const areCvDraftPayloadsEquivalent = (left = {}, right = {}) =>
-    JSON.stringify(getComparableCvDraftPayload(left)) === JSON.stringify(getComparableCvDraftPayload(right));
+    JSON.stringify(getStableComparableValue(getComparableCvDraftPayload(left))) ===
+    JSON.stringify(getStableComparableValue(getComparableCvDraftPayload(right)));
 
 const dedupeExactTrimmedItems = (items = []) => {
     const seen = new Set();
@@ -899,7 +965,9 @@ const writeScopedLocalDraft = (userId, payload) => {
         return false;
     }
 
-    return writeLocalDraftByKey(getSecureUserDraftCacheKey(userId), payload);
+    let safePayload = preserveExistingLayoutForSilentSave(payload, readScopedLocalDraft(userId), true);
+    safePayload = preserveExistingLayoutForSilentSave(safePayload, readGuestLocalDraft(), true);
+    return writeLocalDraftByKey(getSecureUserDraftCacheKey(userId), safePayload);
 };
 
 const writeGuestLocalDraft = (payload) => {
@@ -910,6 +978,37 @@ const writeGuestLocalDraft = (payload) => {
     };
 
     return writeLocalDraftByKey(CV_GUEST_DRAFT_CACHE_KEY, guestPayload);
+};
+
+const preserveExistingLayoutForSilentSave = (payload, existingPayload, silent = false) => {
+    const existingValues = existingPayload?.values;
+    const nextValues = payload?.values;
+
+    if (!silent || !existingValues || !nextValues) {
+        return payload;
+    }
+
+    const recentManualLayoutChange = Date.now() - lastUserLayoutThemeChangeAt < 2500;
+    if (
+        recentManualLayoutChange ||
+        nextValues.layoutTheme !== 'ats' ||
+        !existingValues.layoutTheme ||
+        existingValues.layoutTheme === 'ats'
+    ) {
+        return payload;
+    }
+
+    const values = { ...nextValues };
+    CV_STYLE_HISTORY_FIELDS.forEach((fieldName) => {
+        if (existingValues[fieldName]) {
+            values[fieldName] = existingValues[fieldName];
+        }
+    });
+
+    return {
+        ...payload,
+        values,
+    };
 };
 
 const removeScopedLocalDraft = (userId) => {
@@ -1422,7 +1521,35 @@ const applyCurrentUserDefaults = () => {
         return;
     }
 
-    if (cvForm.elements.fullName && currentUser.name && (!cvForm.elements.fullName.value || cvForm.elements.fullName.value === defaultCvValues.fullName)) {
+    const fullNameField = cvForm.elements.fullName;
+    const currentFullName = fullNameField?.value?.trim() || '';
+    const defaultFullName = (defaultCvValues.fullName || '').trim();
+    const isGenericFullNamePlaceholder = (value = '') => {
+        const normalized = String(value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, ' ')
+            .trim();
+        return !normalized || [
+            'votre nom',
+            'votre nom complet',
+            'nom complet',
+            'nom prenom',
+            'prenom nom',
+        ].includes(normalized);
+    };
+    const defaultFullNameIsPlaceholder = isGenericFullNamePlaceholder(defaultFullName);
+
+    if (
+        fullNameField &&
+        currentUser.name &&
+        (
+            !currentFullName ||
+            isGenericFullNamePlaceholder(currentFullName) ||
+            (currentFullName === defaultFullName && defaultFullNameIsPlaceholder)
+        )
+    ) {
         cvForm.elements.fullName.value = currentUser.name;
     }
 };
@@ -1524,6 +1651,16 @@ const applyEditableNodeStyleState = (node, styleState = {}) => {
     node.style.textTransform = style.textTransform;
 };
 
+const enforceEditableTextDirection = (node) => {
+    if (!node) {
+        return;
+    }
+
+    node.setAttribute('dir', 'ltr');
+    node.style.direction = 'ltr';
+    node.style.unicodeBidi = 'plaintext';
+};
+
 const isDefaultEditableStyleState = (styleState = {}) =>
     !styleState.fontFamily &&
     !styleState.fontSize &&
@@ -1581,7 +1718,7 @@ const trimTrailingBreaks = (container) => {
 const appendSanitizedInlineChildren = (source, target) => {
     [...(source?.childNodes || [])].forEach((child) => {
         if (child.nodeType === Node.TEXT_NODE) {
-            const text = (child.textContent || '').replace(/\u00a0/g, ' ');
+            const text = stripDirectionalFormatting(child.textContent || '').replace(/\u00a0/g, ' ');
             if (text) {
                 target.appendChild(document.createTextNode(text));
             }
@@ -1651,7 +1788,7 @@ const appendSanitizedInlineChildren = (source, target) => {
                 if (target.childNodes.length) {
                     target.appendChild(document.createElement('br'));
                 }
-                target.appendChild(document.createTextNode(`• ${item.textContent.trim()}`));
+                target.appendChild(document.createTextNode(`• ${stripDirectionalFormatting(item.textContent || '').trim()}`));
                 if (index < child.querySelectorAll('li').length - 1) {
                     target.appendChild(document.createElement('br'));
                 }
@@ -1745,6 +1882,7 @@ const normalizeEditableNode = (node) => {
         ? sanitizeListHtml(node.innerHTML)
         : sanitizeTextBlockHtml(node.innerHTML);
     applyEditableNodeStyleState(node, styleState);
+    enforceEditableTextDirection(node);
 };
 
 const storeEditableNodeState = (node) => {
@@ -1916,25 +2054,44 @@ const saveCvDraft = async (silent = false) => {
         return { status: 'failed', detail: 'cv_form_unavailable' };
     }
 
+    if (silent && isLoadingCvDraft) {
+        return { status: 'skipped', detail: 'draft_loading_in_progress' };
+    }
+
     const focusedEditableNode = document.activeElement?.closest?.('[contenteditable="true"]');
     if (focusedEditableNode) {
         syncPreviewEditableNode(focusedEditableNode, { refreshPreview: false });
     }
 
     if (!currentUser?.id) {
-        const payload = buildCvDraftPayload();
+        let payload = buildCvDraftPayload();
+        payload = preserveExistingLayoutForSilentSave(payload, readGuestLocalDraft(), silent);
         const localSaved = writeGuestLocalDraft(payload);
         if (!silent) {
             setCvStatus(localSaved
-                ? 'Sauvegarde locale navigateur active. Connectez-vous pour synchroniser votre CV.'
-                : 'Connectez-vous pour sauvegarder votre brouillon');
+                ? 'Aperçu conservé dans ce navigateur. Connectez-vous pour enregistrer votre CV.'
+                : 'Connectez-vous pour enregistrer votre brouillon.');
         }
         return localSaved
             ? { status: 'local_fallback', detail: 'guest_local_storage', payload }
             : { status: 'unauthenticated', detail: 'guest_local_storage_failed', payload };
     }
 
-    const payload = buildCvDraftPayload();
+    let payload = buildCvDraftPayload();
+    payload = preserveExistingLayoutForSilentSave(payload, readScopedLocalDraft(currentUser.id), silent);
+    payload = preserveExistingLayoutForSilentSave(payload, readGuestLocalDraft(), silent);
+
+    if (!isOfficialCvPersistenceHost()) {
+        const localSaved = writeScopedLocalDraft(currentUser.id, payload);
+        if (!silent) {
+            setCvStatus(localSaved
+                ? 'Aperçu conservé dans ce navigateur. Le CV publié n’est pas modifié.'
+                : 'Aperçu non enregistré. Le CV publié n’est pas modifié.');
+        }
+        return localSaved
+            ? { status: 'local_fallback', detail: 'remote_persistence_disabled_on_local_host', payload, localSaved }
+            : { status: 'failed', detail: 'local_test_cache_failed_remote_disabled', payload, localSaved };
+    }
 
     try {
         const client = await initializeSupabaseClient();
@@ -1974,8 +2131,8 @@ const saveCvDraft = async (silent = false) => {
         removeLegacyLocalDraft(currentUser.email);
         clearLegacyAuthStorage();
         setCvStatus(silent
-            ? `Brouillon sécurisé enregistré${localSaved ? ' · cache local à jour' : ''}`
-            : `CV sauvegardé dans votre espace privé${localSaved ? ' · cache local à jour' : ''}`);
+            ? 'Brouillon enregistré.'
+            : 'CV sauvegardé dans votre espace privé.');
         return {
             status: 'saved',
             detail: localSaved ? 'supabase_confirmed_local_cache_updated' : 'supabase_confirmed_local_cache_failed',
@@ -1987,8 +2144,8 @@ const saveCvDraft = async (silent = false) => {
         const localSaved = writeScopedLocalDraft(currentUser.id, payload);
         if (!silent) {
             setCvStatus(localSaved
-                ? 'Sauvegarde locale privée active en attendant la table sécurisée'
-                : 'Erreur de persistance : le CV affiché n’est pas sauvegardé');
+                ? 'Enregistrement non confirmé. Le CV affiché reste disponible dans cet aperçu.'
+                : 'Enregistrement non confirmé.');
         }
         return localSaved
             ? { status: 'local_fallback', detail: error?.message || 'supabase_failed_local_saved', payload }
@@ -1997,26 +2154,31 @@ const saveCvDraft = async (silent = false) => {
 };
 
 const isCvPersistenceConfirmed = (result = {}) =>
-    result.status === 'saved' || (result.status === 'local_fallback' && !currentUser?.id);
+    result.status === 'saved';
+
+const isCvLocalPreviewPersistence = (result = {}) =>
+    result.status === 'local_fallback'
+    && currentUser?.id
+    && !isOfficialCvPersistenceHost();
 
 const formatCvPersistenceDetail = (result = {}) => {
     if (result.status === 'saved') {
-        return result.localSaved
-            ? 'Sauvegarde Supabase confirmée · cache local mis à jour'
-            : 'Sauvegarde Supabase confirmée · cache local non confirmé';
+        return 'Brouillon enregistré.';
     }
 
-    if (result.status === 'local_fallback') {
-        return currentUser?.id
-            ? 'Cache local mis à jour · Supabase indisponible'
-            : 'Cache local navigateur mis à jour · connexion requise pour synchroniser';
+    if (isCvLocalPreviewPersistence(result)) {
+        return 'Modification appliquée pour cet aperçu. Elle ne sera pas enregistrée sur le CV publié.';
+    }
+
+    if (result.status === 'local_fallback' && !currentUser?.id) {
+        return 'Modification appliquée pour cet aperçu. Connectez-vous pour l’enregistrer.';
     }
 
     if (result.status === 'unauthenticated') {
-        return 'Modification appliquée à l’écran, mais aucune sauvegarde confirmée';
+        return 'Modification appliquée à l’écran, mais l’enregistrement n’a pas été confirmé.';
     }
 
-    return `Erreur de persistance${result.detail ? ` : ${result.detail}` : ''}`;
+    return 'Modification appliquée à l’écran, mais l’enregistrement n’a pas été confirmé.';
 };
 
 const persistCvDraftImmediately = async () => {
@@ -2027,17 +2189,37 @@ const persistCvDraftImmediately = async () => {
 const buildKirbyPersistenceReply = (changes = [], persistence = {}) => {
     const detail = formatCvPersistenceDetail(persistence);
 
-    if (!isCvPersistenceConfirmed(persistence)) {
-        setCvStatus('Modification Kirby non sauvegardée');
-        return `Modification appliquée à l’écran, mais non sauvegardée. ${detail}. Rechargez seulement après une sauvegarde confirmée.`;
+    if (isCvLocalPreviewPersistence(persistence)) {
+        setCvStatus('Modification appliquée pour cet aperçu. Le CV publié n’est pas modifié.');
+        return detail;
     }
 
-    const prefix = persistence.status === 'saved'
-        ? 'CV mis à jour'
-        : 'CV mis à jour localement';
+    if (!isCvPersistenceConfirmed(persistence)) {
+        setCvStatus('Modification appliquée, enregistrement non confirmé.');
+        return detail;
+    }
 
-    setCvStatus(`${prefix} : ${changes.join(', ')} · ${detail}`);
-    return `${prefix} : ${changes.join(', ')}. ${detail}.`;
+    const prefix = 'CV mis à jour';
+
+    setCvStatus(`${prefix} : ${changes.join(', ')}`);
+    return `${prefix} : ${changes.join(', ')}. ${detail}`;
+};
+
+const buildKirbyQuickPersistenceReply = (quickReply = '', persistence = {}) => {
+    const detail = formatCvPersistenceDetail(persistence);
+
+    if (isCvLocalPreviewPersistence(persistence)) {
+        setCvStatus('Modification appliquée pour cet aperçu. Le CV publié n’est pas modifié.');
+        return detail;
+    }
+
+    if (!isCvPersistenceConfirmed(persistence)) {
+        setCvStatus('Modification appliquée, enregistrement non confirmé.');
+        return detail;
+    }
+
+    setCvStatus('Modification Kirby enregistrée.');
+    return `${quickReply}\n${detail}`;
 };
 
 const getCvHistoryState = () => {
@@ -2317,53 +2499,58 @@ const loadCvDraft = async ({ silent = false } = {}) => {
 
     try {
         isLoadingCvDraft = true;
+        window.clearTimeout(cvDraftSaveTimer);
+        cvDraftSaveTimer = null;
+        const forceFilledDefaults = new URLSearchParams(window.location.search).has('filled');
+        const forceLetterPreview = new URLSearchParams(window.location.search).has('letter');
         let payload = null;
         let savedHistory = [];
         let shouldMigrateLegacyDraft = false;
 
         resetCvFormToDefaults();
-        applyCurrentUserDefaults();
+        if (!forceFilledDefaults) {
+            applyCurrentUserDefaults();
+        }
         resetCvDraftState();
 
-        if (currentUser?.id) {
-            const draftCandidates = [];
+        if (!forceFilledDefaults && currentUser?.id) {
+            let remotePayload = null;
             try {
-                const client = await initializeSupabaseClient();
-                const { data, error } = await client
-                    .from('cv_drafts')
-                    .select('payload, updated_at')
-                    .eq('user_id', currentUser.id)
-                    .limit(1)
-                    .maybeSingle();
+                if (isOfficialCvPersistenceHost()) {
+                    const client = await initializeSupabaseClient();
+                    const { data, error } = await client
+                        .from('cv_drafts')
+                        .select('payload, updated_at')
+                        .eq('user_id', currentUser.id)
+                        .limit(1)
+                        .maybeSingle();
 
-                if (error) {
-                    throw error;
-                }
+                    if (error) {
+                        throw error;
+                    }
 
-                if (data?.payload) {
-                    draftCandidates.push({ payload: data.payload, updatedAt: data.updated_at });
+                    remotePayload = data?.payload || null;
                 }
             } catch (error) {
                 console.error(error);
             }
 
             const localPayload = readScopedLocalDraft(currentUser.id);
-            if (localPayload) {
-                draftCandidates.push({ payload: localPayload, updatedAt: localPayload.savedAt });
-            }
-
             const legacyPayload = readLegacyLocalDraft(currentUser.email);
-            if (legacyPayload) {
-                draftCandidates.push({ payload: legacyPayload, updatedAt: legacyPayload.savedAt });
+
+            if (remotePayload) {
+                payload = remotePayload;
+            } else if (localPayload) {
+                payload = localPayload;
+            } else if (legacyPayload) {
+                payload = legacyPayload;
                 shouldMigrateLegacyDraft = true;
             }
-
-            payload = pickNewestCvDraftPayload(draftCandidates);
 
             if (shouldMigrateLegacyDraft) {
                 removeLegacyLocalDraft(currentUser.email);
             }
-        } else {
+        } else if (!forceFilledDefaults) {
             payload = readGuestLocalDraft();
         }
 
@@ -2413,11 +2600,13 @@ const loadCvDraft = async ({ silent = false } = {}) => {
             cvSectionOrder = Array.isArray(payload?.sectionOrder) && payload.sectionOrder.length
                 ? payload.sectionOrder.filter((key) => cvSectionLabels[key])
                 : [...DEFAULT_CV_SECTION_ORDER];
-        } else {
+        } else if (!forceFilledDefaults) {
             applyCurrentUserDefaults();
         }
 
-        applyCurrentUserDefaults();
+        if (!forceFilledDefaults) {
+            applyCurrentUserDefaults();
+        }
         const didAddDefaultLanguages = applyDefaultLanguagesIfMissing();
         updateCvPreview();
         renderExperienceEditor();
@@ -2427,12 +2616,19 @@ const loadCvDraft = async ({ silent = false } = {}) => {
             await saveCvDraft(true);
         }
         if (!silent) {
-            setCvStatus(currentUser ? 'Brouillon prive charge' : 'Mode invite actif');
+            setCvStatus(forceFilledDefaults ? 'CV prérempli dans cet aperçu' : currentUser ? 'Brouillon prive charge' : 'Mode invite actif');
+        }
+        if (forceLetterPreview) {
+            window.setTimeout(() => {
+                generateCoverLetter();
+            }, 0);
         }
     } catch (error) {
         console.error(error);
         setCvStatus('Impossible de charger le brouillon securise');
     } finally {
+        window.clearTimeout(cvDraftSaveTimer);
+        cvDraftSaveTimer = null;
         isLoadingCvDraft = false;
     }
 };
@@ -2604,19 +2800,19 @@ const applyCompactCvLayout = (autoTriggered = false) => {
     const headlineScaleField = cvForm.elements.headlineScale;
 
     if (fontSizeField) {
-        fontSizeField.value = 'compact';
+        fontSizeField.value = 'normal';
     }
 
     if (lineSpacingField) {
-        lineSpacingField.value = 'tight';
+        lineSpacingField.value = 'normal';
     }
 
     if (headlineScaleField) {
-        headlineScaleField.value = 'compact';
+        headlineScaleField.value = 'normal';
     }
 
     if (autoTriggered) {
-        setCvStatus('Mise en page compacte appliquee sans retirer de contenu');
+        setCvStatus('Mise en page lisible conservée sans compaction automatique');
     }
 };
 
@@ -2673,6 +2869,8 @@ const getPreviewPageCount = () => currentPreviewMode === 'cv'
 
 const setPreviewMode = (mode) => {
     currentPreviewMode = mode === 'letter' ? 'letter' : 'cv';
+    document.body.classList.toggle('is-letter-preview', currentPreviewMode === 'letter');
+    document.body.classList.toggle('is-cv-preview', currentPreviewMode === 'cv');
 
     if (previewNodes.preview) {
         const showCv = currentPreviewMode === 'cv';
@@ -2686,7 +2884,7 @@ const setPreviewMode = (mode) => {
         const showLetter = currentPreviewMode === 'letter';
         letterPagePreview.classList.toggle('is-hidden-preview', !showLetter);
         letterPagePreview.setAttribute('aria-hidden', String(!showLetter));
-        letterPagePreview.style.display = showLetter ? 'block' : 'none';
+        letterPagePreview.style.display = showLetter ? 'flex' : 'none';
         letterPagePreview.style.visibility = showLetter ? 'visible' : 'hidden';
     }
 
@@ -2735,7 +2933,7 @@ const fitCvToSinglePage = () => {
     }
     applyCompactCvLayout(false);
     updateCvPreview();
-    setCvStatus('CV compacte sur demande pour tenir sur 1 page');
+    setCvStatus('Mise en page lisible conservée. Ajustez le modèle si le CV dépasse une page.');
 };
 
 const getPrintFieldBackup = () => {
@@ -2780,7 +2978,15 @@ const restorePrintFieldBackup = (backup) => {
     updateCvPreview();
 };
 
-const getCvFormValues = () => cvForm ? Object.fromEntries(new FormData(cvForm).entries()) : {};
+const getCvFormValues = () => {
+    if (!cvForm) {
+        return {};
+    }
+
+    const values = Object.fromEntries(new FormData(cvForm).entries());
+    values.layoutTheme = normalizeLayoutTheme(values.layoutTheme || fallbackTemplatePreset);
+    return values;
+};
 
 const a4CommercialPriorityTerms = [
     'vente',
@@ -2911,7 +3117,7 @@ const applyA4ContentCompaction = () => {
     }
 
     const values = getCvFormValues();
-    const layoutTheme = values.layoutTheme || 'wordpro';
+    const layoutTheme = normalizeLayoutTheme(values.layoutTheme || 'wordpro');
     const isGlassTemplate = layoutTheme === 'digital' || layoutTheme === 'holographic';
 
     const applySkillsLimit = (maxItems) => {
@@ -3024,8 +3230,7 @@ const optimizeForPrint = () => {
     }
 
     const backup = getPrintFieldBackup();
-    fitCvToSinglePage();
-    applyA4ContentCompaction();
+    updateCvPreview();
 
     return backup;
 };
@@ -3194,33 +3399,42 @@ const parseExperienceEntry = (line) => {
     }
 
     const bulletParts = withoutDate
+        .replace(/\s*\(\s*\)/g, '')
         .split(/\s+•\s+/)
         .map((part) => part.trim())
         .filter(Boolean);
     const header = bulletParts.shift() || cleanLine;
     const headerParts = header.split(/\s+[–-]\s+/).map((part) => part.trim()).filter(Boolean);
+    const firstTwoPartsAreDigitalTitle =
+        headerParts.length >= 2 &&
+        /^d[ée]veloppement web$/i.test(headerParts[0]) &&
+        /^projets? autodidactes?$/i.test(headerParts[1]);
     const secondPartIsTitleComplement =
         headerParts.length >= 3 &&
         /^(?:receveur|client[eè]le|commerciale?|vendeuse|adjoint[e]?|assistant[e]?)\b/i.test(headerParts[1]) &&
         /[,/]|(?:ratp|ceidf|cama[ïi]eu|american express|air france|entreprise|soci[ée]t[ée])/i.test(headerParts.slice(2).join(' '));
-    const title = secondPartIsTitleComplement
+    const title = firstTwoPartsAreDigitalTitle
+        ? `${headerParts[0]} – ${headerParts[1]}`.replace(/\s{2,}/g, ' ').trim()
+        : secondPartIsTitleComplement
         ? `${headerParts[0]}-${headerParts[1]}`.replace(/\s{2,}/g, ' ').trim()
         : headerParts[0] || header;
-    const meta = secondPartIsTitleComplement
+    const meta = firstTwoPartsAreDigitalTitle
+        ? headerParts.slice(2).join(' - ')
+        : secondPartIsTitleComplement
         ? headerParts.slice(2).join(' - ')
         : headerParts.slice(1).join(' - ');
 
     return {
-        title: title.replace(/^(?:(?:[•\-\u2022]|→)\s*)+/g, '').trim(),
-        meta: meta.replace(/\s{2,}/g, ' ').replace(/\s+,/g, ',').replace(/,\s*$/g, '').trim(),
+        title: cleanCvText(title.replace(/^(?:(?:[•\-\u2022]|→)\s*)+/g, '')),
+        meta: cleanCvText(meta.replace(/\s{2,}/g, ' ').replace(/\s+,/g, ',').replace(/,\s*$/g, '')),
         date,
         bullets: bulletParts.length
             ? dedupeImportedItems(
                 bulletParts.map((bullet) =>
-                    bullet
+                    cleanCvText(bullet
                         .replace(/^(?:(?:[•\-\u2022]|→)\s*)+/g, '')
                         .replace(/\s{2,}/g, ' ')
-                        .trim()
+                    )
                 )
             )
             : [],
@@ -3295,6 +3509,7 @@ const renderTimelineList = (target, items, options = {}) => {
 
 const cleanCvText = (value = '') =>
     value
+        .replace(/\s*\(\s*\)/g, '')
         .replace(/\s+/g, ' ')
         .replace(/\s+([,.])/g, '$1')
         .replace(/\s+([;:!?])/g, '$1')
@@ -3880,8 +4095,8 @@ const setCvFieldIfDefault = (fieldName, value) => {
 };
 
 const getDefaultCvLanguagesValue = () => [
-    'Français : Courant',
-    'Anglais : Niveau intermédiaire',
+    'Français : langue maternelle',
+    'Anglais : intermédiaire',
 ].join('\n');
 
 const applyDefaultLanguagesIfMissing = () => {
@@ -3902,11 +4117,14 @@ const applyReadyCvBase = (message = '') => {
     }
 
     if (hasMeaningfulCvContent()) {
-        optimizeCvProfessionally();
+        applyReadyCvLayout();
+        renderExperienceEditor();
+        renderLanguageEditor();
+        updateCvPreview();
         return {
-            mode: 'optimized',
+            mode: 'preserved',
             context: getCvRoleContext(message),
-            experienceCount: repairPreviewExperienceItems(splitLines(cvForm.elements.experience?.value || '')).length,
+            experienceCount: splitLines(cvForm.elements.experience?.value || '').length,
         };
     }
 
@@ -3924,7 +4142,7 @@ const applyReadyCvBase = (message = '') => {
     setCvFieldIfDefault('experience', template.experiences.map(serializeExperienceEntry).join('\n'));
     setCvFieldIfDefault('projects', (template.projects || []).join('\n'));
     setCvFieldIfDefault('education', template.education.join('\n'));
-    setCvFieldIfDefault('languages', 'Français\nAnglais');
+    setCvFieldIfDefault('languages', getDefaultCvLanguagesValue());
     setCvFieldIfDefault('activities', template.activities.join('\n'));
 
     if (cvForm.elements.cvMode) {
@@ -3946,10 +4164,10 @@ const applyReadyCvBase = (message = '') => {
         cvForm.elements.textAlign.value = 'left';
     }
     if (cvForm.elements.lineSpacing) {
-        cvForm.elements.lineSpacing.value = 'tight';
+        cvForm.elements.lineSpacing.value = 'normal';
     }
     if (cvForm.elements.fontSize) {
-        cvForm.elements.fontSize.value = 'compact';
+        cvForm.elements.fontSize.value = 'normal';
     }
 
     clearEditableOverrides();
@@ -3970,8 +4188,8 @@ const applyReadyCvBase = (message = '') => {
 };
 
 const getReadyCvAssistantReply = (result) => {
-    if (result.mode === 'optimized') {
-        return `J'ai corrigé et optimisé le CV déjà présent : accroche, compétences et ${result.experienceCount || 0} expérience(s) ont été harmonisées. Le document est prêt à ajuster puis exporter.`;
+    if (result.mode === 'preserved') {
+        return `CV existant préservé : contenu et ordre inchangés. Choisissez un modèle ou demandez une correction ciblée.`;
     }
 
     if (result.mode === 'created') {
@@ -4043,9 +4261,9 @@ const getKnownExperienceFallbackData = (entry = {}) => {
             strict: true,
             meta: 'CEIDF, Montigny-le-Bretonneux',
             bullets: [
-                'Conseil et accompagnement des clients',
-                'Analyse des besoins et proposition de solutions bancaires',
-                'Développement de la relation client',
+                'Conseil à distance',
+                'Analyse des besoins',
+                'Proposition de solutions bancaires adaptées',
             ],
         };
     }
@@ -4055,9 +4273,10 @@ const getKnownExperienceFallbackData = (entry = {}) => {
             strict: true,
             meta: 'Camaïeu, Rueil-Malmaison',
             bullets: [
-                'Accueil, conseil et fidélisation de la clientèle',
-                'Développement du chiffre d’affaires et gestion du point de vente',
-                'Coordination de l’équipe et organisation quotidienne',
+                'Management de l’équipe',
+                'Développement du chiffre d’affaires',
+                'Gestion des stocks',
+                'Fidélisation de la clientèle',
             ],
         };
     }
@@ -4067,9 +4286,10 @@ const getKnownExperienceFallbackData = (entry = {}) => {
             strict: true,
             meta: 'American Express / Air France, Roissy',
             bullets: [
-                'Accompagnement d’une clientèle premium',
-                'Gestion des contrats et suivi des demandes',
-                'Service personnalisé et résolution des situations complexes',
+                'Conseil et accompagnement des voyageurs',
+                'Constitution et suivi des dossiers',
+                'Vente de produits et services financiers',
+                'Développement commercial et fidélisation',
             ],
         };
     }
@@ -4285,9 +4505,9 @@ const normalizeLanguageLevel = (value = '') => {
         'niveau professionnel': 'Niveau professionnel',
         'professional working proficiency': 'Niveau professionnel',
         'working proficiency': 'Niveau professionnel',
-        intermediaire: 'Niveau intermédiaire',
-        'niveau intermediaire': 'Niveau intermédiaire',
-        intermediate: 'Niveau intermédiaire',
+        intermediaire: 'intermédiaire',
+        'niveau intermediaire': 'intermédiaire',
+        intermediate: 'intermédiaire',
         notions: 'Notions',
         notion: 'Notions',
         'a preciser': '',
@@ -4525,7 +4745,10 @@ const renderEditableTextNode = (node, target, text) => {
         return;
     }
 
-    node.textContent = text;
+    node.textContent = stripDirectionalFormatting(text);
+    if (node.isContentEditable) {
+        enforceEditableTextDirection(node);
+    }
 };
 
 // Récupère les anciennes coordonnées quand une édition directe les a collées
@@ -4746,6 +4969,10 @@ const repairPreviewExperienceItems = (items) => {
     }
 
     const repairedItems = dedupeImportedItems(repaired);
+    if (hasStructuredExperience) {
+        return repairedItems;
+    }
+
     return mergeKnownExperienceRebuilds([...items, ...repairedItems], repairedItems);
 };
 
@@ -4830,9 +5057,9 @@ const dedupeExperienceTimelineEntries = (entries = []) => {
 
 const sortTimelineEntriesNewestFirst = (entries = [], addedEntries = []) => {
     const addedKeys = new Set(addedEntries.map((entry) => normalizeTimelineMatch(entry)));
-    const dedupedEntries = dedupeExperienceTimelineEntries(entries);
+    const sortableEntries = entries.filter(Boolean);
 
-    return dedupedEntries
+    return sortableEntries
         .map((line, index) => ({
             line,
             index,
@@ -4885,7 +5112,7 @@ const normalizeDigitalProjectTimelinePeriods = (entries = []) => {
 
 const sortExperienceFieldNewestFirst = () => {
     const field = getExperienceField();
-    const lines = field ? normalizeDigitalProjectTimelinePeriods(repairPreviewExperienceItems(splitLines(field.value))) : [];
+    const lines = field ? splitLines(field.value) : [];
 
     if (!field || lines.length < 2) {
         return false;
@@ -4913,17 +5140,21 @@ const applyReadyCvLayout = () => {
         colorTheme: 'graphite',
         designMood: 'clean',
         textAlign: 'left',
-        fontSize: 'compact',
-        lineSpacing: 'tight',
+        fontSize: 'normal',
+        lineSpacing: 'normal',
         headlineScale: 'normal',
         accentColor: '#24324a',
         paperColor: '#ffffff',
         frameColor: '#d8dee8',
     };
     let changed = false;
+    const preserveExistingStyle = hasMeaningfulCvContent();
 
     Object.entries(layoutDefaults).forEach(([fieldName, value]) => {
         const field = cvForm.elements[fieldName];
+        if (preserveExistingStyle && field?.value) {
+            return;
+        }
         if (field && field.value !== value) {
             field.value = value;
             changed = true;
@@ -4968,14 +5199,6 @@ const applyCvAutopilotLocalCleanup = ({ readyLayout = false, fromImport = false,
     const before = getCvAutopilotFieldSnapshot();
     const changes = [];
 
-    proofreadCvTextFields({ silent: true });
-    cleanupImportedExperienceField();
-    cleanupImportedEducationField();
-
-    if (sortExperienceFieldNewestFirst()) {
-        changes.push('expériences triées');
-    }
-
     if (readyLayout || fromImport) {
         if (applyReadyCvLayout()) {
             changes.push('mise en forme prête');
@@ -4984,12 +5207,6 @@ const applyCvAutopilotLocalCleanup = ({ readyLayout = false, fromImport = false,
 
     clearEditableOverrides();
     updateCvPreview();
-
-    if (getRenderedCvPageCount() > 1) {
-        applyCompactCvLayout(false);
-        changes.push('CV compacté sur une page');
-        updateCvPreview();
-    }
 
     renderExperienceEditor();
     renderLanguageEditor();
@@ -5007,6 +5224,57 @@ const applyCvAutopilotLocalCleanup = ({ readyLayout = false, fromImport = false,
     return [...new Set(changes)];
 };
 
+const hasExplicitExperienceOrderCommand = (message = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(message)).replace(/\s+/g, ' ').trim();
+
+    return [
+        /\b(?:range|ranger|trie|trier|classe|classer)\s+(?:les\s+|mes\s+)?(?:experience|experiences|parcours)\b/,
+        /\b(?:remets?|remettre|mets?|mettre)\s+(?:les\s+|mes\s+)?(?:experience|experiences|parcours)\s+(?:dans|en|par|selon)\s+(?:l\s*)?(?:ordre|chronolog)/,
+        /\b(?:ordre|chronolog)\s+(?:des|de mes|pour les)\s+(?:experience|experiences|parcours)\b/,
+        /\b(?:experience|experiences|parcours)\s+(?:dans|en|par|selon)\s+(?:l\s*)?(?:ordre|chronolog)/,
+        /\b(?:organise|organiser|reorganise|reorganiser)\s+(?:les\s+|mes\s+)?(?:experience|experiences|parcours)\s+(?:par\s+date|par\s+dates|chronolog|dans\s+l\s*ordre)/,
+        /\b(?:plus\s+recent|plus\s+recente|plus\s+ancien|plus\s+ancienne)\s+(?:a|vers|au|en\s+premier|en\s+dernier).*\b(?:experience|experiences|parcours)\b/,
+        /\b(?:experience|experiences|parcours).*\b(?:plus\s+recent|plus\s+recente|plus\s+ancien|plus\s+ancienne)\b/,
+        /\b2023\b.*\b(?:mauvais|mauvaise|mal|pas\s+au\s+bon|en\s+bas|trop\s+bas|bas|endroits?|emdroits?|place|plac[eé]e?|position)\b/,
+        /\b(?:mauvais|mauvaise|mal|pas\s+au\s+bon|en\s+bas|trop\s+bas|bas|endroits?|emdroits?|place|plac[eé]e?|position)\b.*\b2023\b/,
+    ].some((pattern) => pattern.test(source));
+};
+
+const isExperienceOrderCleanupIntent = (message = '') =>
+    hasExplicitExperienceOrderCommand(message) && !hasExplicitDestructiveCvRemoval(message);
+
+const applyExperienceOrderCleanupFromKirby = async (message = '') => {
+    if (!cvForm || !isExperienceOrderCleanupIntent(message)) {
+        return '';
+    }
+
+    const field = getExperienceField();
+    if (!field || !field.value.trim()) {
+        return "Je n'ai trouvé aucune expérience à ranger. Importez ou saisissez d'abord les expériences.";
+    }
+
+    const beforeState = getCvHistoryState();
+    const changes = [];
+
+    if (sortExperienceFieldNewestFirst()) {
+        changes.push('expériences triées par date');
+    }
+
+    clearEditableOverride('experience');
+    updateCvPreview();
+    renderExperienceEditor();
+    commitCvHistoryTransition(beforeState);
+
+    if (!changes.length) {
+        setCvStatus('Expériences déjà rangées');
+        return 'Les expériences sont déjà rangées de la plus récente à la plus ancienne. Aucun contenu supprimé.';
+    }
+
+    const persistence = await persistCvDraftImmediately();
+    setCvStatus('Expériences rangées par date');
+    return buildKirbyPersistenceReply(changes, persistence);
+};
+
 const updateCvPreview = () => {
     if (!cvForm || !previewNodes.preview) {
         return;
@@ -5014,8 +5282,15 @@ const updateCvPreview = () => {
 
     const formData = new FormData(cvForm);
     const values = Object.fromEntries(formData.entries());
+    normalizeCurrentLayoutTheme(values);
 
-    renderEditableTextNode(previewNodes.fullName, 'fullName', values.fullName || 'Votre nom');
+    const safeFullName = getSafeFullNameValue(values.fullName || '');
+    if (values.fullName && !safeFullName && cvForm.elements.fullName) {
+        cvForm.elements.fullName.value = '';
+    } else if (safeFullName && values.fullName !== safeFullName && cvForm.elements.fullName) {
+        cvForm.elements.fullName.value = safeFullName;
+    }
+    renderEditableTextNode(previewNodes.fullName, 'fullName', safeFullName || 'Votre nom');
     syncModernPreviewStructure(values.layoutTheme || '');
     renderEditableContactNode(previewNodes.meta, values);
     renderEditableTextNode(previewNodes.headline, 'headline', values.headline || 'Intitule du metier');
@@ -5030,52 +5305,17 @@ const updateCvPreview = () => {
         ? prioritizeSkillsForA4(skillItems, { values, maxItems: 8 })
         : skillItems;
     const rawExperienceSourceItems = splitLines(values.experience || '');
-    const experienceItems = repairPreviewExperienceItems(dedupeExactTrimmedItems(rawExperienceSourceItems));
+    const experienceItems = repairPreviewExperienceItems(rawExperienceSourceItems);
     const rawProjectItems = splitLines(values.projects || '');
     const projectItems = mergeStandaloneDateItems(dedupeImportedItems(rawProjectItems));
     const rawEducationItems = splitLines(values.education || '').filter((item) => !/^[-–—]?\s*\)?$/.test(item.trim()));
-    let educationItems = sortTimelineEntriesNewestFirst(normalizeEducationItems(rawEducationItems));
+    let educationItems = normalizeEducationItems(rawEducationItems);
     const rawLanguageItems = splitLines(values.languages || '');
     const languageItems = dedupeImportedItems(rawLanguageItems);
     const rawActivityItems = splitLines(values.activities || '');
     const activityItems = dedupeImportedItems(rawActivityItems);
 
     const qualityFixes = [];
-    if (values.skills && cvForm.elements.skills && skillItems.length) {
-        const repairedSkillValue = skillItems.join('\n');
-        if (repairedSkillValue !== rawSkillItems.join('\n')) {
-            cvForm.elements.skills.value = repairedSkillValue;
-            values.skills = repairedSkillValue;
-            clearEditableOverride('skills');
-            qualityFixes.push('compétences en double retirées');
-        }
-    }
-
-    if (values.education && cvForm.elements.education && educationItems.length) {
-        const repairedEducationValue = educationItems.join('\n');
-        if (repairedEducationValue !== rawEducationItems.join('\n')) {
-            cvForm.elements.education.value = repairedEducationValue;
-            values.education = repairedEducationValue;
-            clearEditableOverride('education');
-        }
-    }
-
-    const normalizeRepeatedField = (fieldName, rawItems, cleanedItems, target, label) => {
-        const field = cvForm.elements[fieldName];
-        const cleanedValue = cleanedItems.join('\n');
-        if (!values[fieldName] || !field || !cleanedValue || cleanedValue === rawItems.join('\n')) {
-            return;
-        }
-
-        field.value = cleanedValue;
-        values[fieldName] = cleanedValue;
-        clearEditableOverride(target);
-        qualityFixes.push(label);
-    };
-
-    normalizeRepeatedField('projects', rawProjectItems, projectItems, 'projects', 'répétitions de projets retirées');
-    normalizeRepeatedField('languages', rawLanguageItems, languageItems, 'languages', 'répétitions de langues retirées');
-    normalizeRepeatedField('activities', rawActivityItems, activityItems, 'activities', 'répétitions d’activités retirées');
 
     let previewProjectItems = projectItems;
     let previewLanguageItems = languageItems;
@@ -5200,7 +5440,11 @@ const updateCvPreview = () => {
         const showLetter = currentPreviewMode === 'letter';
         letterPagePreview.classList.toggle('is-hidden-preview', !showLetter);
         letterPagePreview.setAttribute('aria-hidden', String(!showLetter));
+        letterPagePreview.style.display = showLetter ? 'flex' : 'none';
+        letterPagePreview.style.visibility = showLetter ? 'visible' : 'hidden';
     }
+
+    syncLetterContactFooter();
 
     if (previewHeadlineScale) {
         previewHeadlineScale.value = values.headlineScale || 'normal';
@@ -5496,6 +5740,24 @@ const adaptCvToJobOffer = () => {
     return true;
 };
 
+const getLetterContactFooterText = () => [
+    cvForm?.elements.location?.value,
+    cvForm?.elements.phone?.value,
+    cvForm?.elements.email?.value,
+]
+    .map((value) => String(value || '').replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+    .join(' | ');
+
+const syncLetterContactFooter = () => {
+    const footerText = getLetterContactFooterText();
+    [letterContactFooter, letterContactFooterPage].forEach((node) => {
+        if (node && footerText) {
+            node.textContent = footerText;
+        }
+    });
+};
+
 const generateCoverLetter = () => {
     const company = (letterCompanyField?.value || 'votre entreprise').trim();
     const role = (letterRoleField?.value || cvForm?.elements.headline?.value || 'poste vise').trim();
@@ -5503,15 +5765,22 @@ const generateCoverLetter = () => {
     const style = letterStyleField?.value || 'classic';
     const profile = (cvForm?.elements.summary?.value || '').trim();
     const skills = splitLines(cvForm?.elements.skills?.value || '').slice(0, 4).join(', ');
+    const companyKey = normalizeForMatch(company);
+    const roleKey = normalizeForMatch(role);
+    const isRetailSalesLetter = /\b(vendeur|vendeuse|vente|conseil|boutique|commercial|client)\b/.test(`${companyKey} ${roleKey}`);
 
-    let body = `Madame, Monsieur,\n\nJe vous adresse ma candidature pour le poste de ${role} au sein de ${company}. ${profile || 'Mon parcours m a permis de developper une approche claire, structuree et orientee resultat.'}\n\n`;
+    let body = `Madame, Monsieur,\n\nJe vous adresse ma candidature pour le poste de ${role} au sein de ${company}. ${profile || 'Mon parcours m’a permis de développer une approche claire, structurée et orientée satisfaction client.'}\n\n`;
 
-    if (style === 'short') {
-        body += `Mes competences en ${skills || 'creation digitale et structuration de projets'} me permettent de contribuer rapidement a vos besoins. Ma motivation principale est de ${motivation}.\n\nJe reste disponible pour echanger.\n\nCordialement,`;
+    if (isRetailSalesLetter) {
+        body += `Mon parcours m’a permis de développer une expérience solide en accueil, conseil, vente et accompagnement client. J’ai l’habitude d’écouter les besoins, de proposer des solutions adaptées et de construire une relation de confiance durable avec les clients.\n\n`;
+        body += `Votre offre retient particulièrement mon attention pour son exigence de qualité de service, sa dimension commerciale et l’importance accordée à l’expérience client. Je souhaite ${motivation}, tout en contribuant aux objectifs collectifs de la boutique.\n\n`;
+        body += `Organisée, autonome et attachée au travail d’équipe, je saurai respecter les process, représenter l’image de ${company} avec sérieux et participer à une expérience client soignée et personnalisée.\n\nJe serais ravie de pouvoir échanger avec vous afin de vous présenter plus en détail ma motivation.\n\nCordialement,`;
+    } else if (style === 'short') {
+        body += `Mes competences en ${skills || 'relation client, organisation et accompagnement'} me permettent de contribuer rapidement a vos besoins. Ma motivation principale est de ${motivation}.\n\nJe reste disponible pour echanger.\n\nCordialement,`;
     } else if (style === 'modern') {
-        body += `J aime concevoir des solutions utiles, lisibles et adaptees aux attentes terrain. Mes competences en ${skills || 'interfaces, organisation et experience utilisateur'} peuvent renforcer vos projets. Je souhaite aujourd hui ${motivation}.\n\nJe serais ravie d apporter cette energie et cette rigueur a ${company}.\n\nBien cordialement,`;
+        body += `J aime concevoir des solutions utiles, lisibles et adaptees aux attentes terrain. Mes competences en ${skills || 'relation client, organisation et experience utilisateur'} peuvent renforcer vos projets. Je souhaite aujourd hui ${motivation}.\n\nJe serais ravie d apporter cette energie et cette rigueur a ${company}.\n\nBien cordialement,`;
     } else {
-        body += `Au fil de mes experiences, j ai developpe des competences en ${skills || 'creation digitale, organisation et accompagnement'}. Elles me permettent d aborder les projets avec rigueur, sens du detail et capacite d adaptation. Je souhaite aujourd hui ${motivation}.\n\nJe serais ravie de pouvoir mettre ces competences au service de ${company}.\n\nCordialement,`;
+        body += `Au fil de mes experiences, j ai developpe des competences en ${skills || 'relation client, organisation et accompagnement'}. Elles me permettent d aborder les missions avec rigueur, sens du service et capacite d adaptation. Je souhaite aujourd hui ${motivation}.\n\nJe serais ravie de pouvoir mettre ces competences au service de ${company}.\n\nCordialement,`;
     }
 
     const signature = (cvForm?.elements.fullName?.value || 'Votre nom').trim();
@@ -5542,6 +5811,7 @@ const generateCoverLetter = () => {
         letterBodyPage.textContent = body;
     }
 
+    syncLetterContactFooter();
     updatePreviewViewport();
     setPreviewMode('letter');
 };
@@ -5554,25 +5824,46 @@ const normalizeLetterBodyForOutput = (rawBody = '', signature = 'Votre nom') => 
         .replace(/\n{3,}/g, '\n\n')
         .trim();
 
-    const compactBody = cleaned
-        .split(/\n+/)
-        .map((line) => line.trim())
-        .filter(Boolean)
-        .join(' ')
-        .replace(/\s{2,}/g, ' ')
-        .trim();
-
-    const hasCall = /\b(Madame,\s*Monsieur|Madame|Monsieur)\b/i.test(cleaned);
-    const hasPoliteness = /\b(Cordialement|Bien cordialement|Je vous prie d[’']agr[ée]er|Veuillez agr[ée]er)\b/i.test(cleaned);
+    const paragraphs = cleaned
+        .split(/\n\s*\n+/)
+        .map((paragraph) => paragraph
+            .split(/\n+/)
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .join(' ')
+            .replace(/\s{2,}/g, ' ')
+            .trim())
+        .filter(Boolean);
     const safeSignature = (signature || 'Votre nom').trim();
+    const salutationPattern = /^(Madame,\s*Monsieur,?|Madame,?|Monsieur,?)\s*(.*)$/i;
+    const firstParagraphMatch = paragraphs[0]?.match(salutationPattern);
+    const salutation = firstParagraphMatch ? `${firstParagraphMatch[1].replace(/,+$/g, '')},` : 'Madame, Monsieur,';
+    let bodyParagraphs = firstParagraphMatch
+        ? [firstParagraphMatch[2], ...paragraphs.slice(1)].map((paragraph) => paragraph.trim()).filter(Boolean)
+        : paragraphs;
+    const closingIndex = bodyParagraphs.findIndex((paragraph) =>
+        /\b(Cordialement|Bien cordialement|Je vous prie d[’']agr[ée]er|Veuillez agr[ée]er)\b/i.test(paragraph)
+    );
+    let closing = '';
 
-    const parts = [];
-    parts.push(hasCall ? 'Madame, Monsieur,' : 'Madame, Monsieur,');
-    parts.push(compactBody || 'Je vous propose ma candidature et reste disponible pour un echange.');
-    parts.push(hasPoliteness ? '' : "Je vous prie d'agreer, Madame, Monsieur, l'expression de mes salutations distinguees.");
-    parts.push(safeSignature);
+    if (closingIndex !== -1) {
+        closing = bodyParagraphs
+            .slice(closingIndex)
+            .join(' ')
+            .replace(new RegExp(safeSignature.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'), '')
+            .replace(/\s{2,}/g, ' ')
+            .trim();
+        bodyParagraphs = bodyParagraphs.slice(0, closingIndex);
+    } else {
+        closing = "Je vous prie d'agreer, Madame, Monsieur, l'expression de mes salutations distinguees.";
+    }
 
-    return parts.filter(Boolean).join('\n\n');
+    return [
+        salutation,
+        ...(bodyParagraphs.length ? bodyParagraphs : ['Je vous propose ma candidature et reste disponible pour un echange.']),
+        closing,
+        safeSignature,
+    ].filter(Boolean).join('\n\n');
 };
 
 const autoOrganizeCv = () => {
@@ -5677,9 +5968,6 @@ const proofreadCvTextFields = ({ silent = false } = {}) => {
     });
 
     clearEditableOverrides();
-    cleanupImportedExperienceField();
-    cleanupImportedEducationField();
-
     if (!silent) {
         renderExperienceEditor();
         updateCvPreview();
@@ -5733,9 +6021,6 @@ const optimizeCvProfessionally = ({ fromImport = false } = {}) => {
         enrichCvSkills({ silent: true });
     }
 
-    cleanupImportedExperienceField();
-    cleanupImportedEducationField();
-    sortExperienceFieldNewestFirst();
     clearEditableOverrides();
     updateCvPreview();
     renderExperienceEditor();
@@ -5872,6 +6157,84 @@ const cleanImportedSectionLine = (line) =>
         .replace(/^\.\s*(\d{4})$/g, '$1')
         .replace(/\s{2,}/g, ' ')
         .trim();
+
+const emailPattern = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
+const phonePattern = /(?:\+33|0)[\s.\-]?\d(?:[\s.\-]?\d{2}){4}/;
+
+const looksLikeContactLine = (line = '') => {
+    const source = String(line || '');
+    const normalized = normalizeForMatch(source);
+
+    return emailPattern.test(source) ||
+        phonePattern.test(source) ||
+        /\b(?:e[- ]?mail|mail|telephone|t[ée]l|phone|portable|mobile|permis|adresse|ville|code postal|linkedin|github|portfolio|www|https?)\b/.test(normalized) ||
+        /\b(?:gmail|hotmail|outlook|icloud|yahoo|live|wanadoo|orange|free|laposte)\s*(?:fr|com|net|org)\b/.test(normalized);
+};
+
+const stripContactTokensFromLine = (line = '') =>
+    stripDirectionalFormatting(line)
+        .replace(emailPattern, ' ')
+        .replace(phonePattern, ' ')
+        .replace(/\b(?:e[- ]?mail|mail|telephone|t[ée]l|phone|portable|mobile|permis)\s*:?\s*.*$/i, ' ')
+        .replace(/\b(?:gmail|hotmail|outlook|icloud|yahoo|live|wanadoo|orange|free|laposte)\s*(?:fr|com|net|org)\b/gi, ' ')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+
+const looksLikePersonNameLine = (line = '') => {
+    const candidate = stripContactTokensFromLine(line);
+    const normalized = normalizeForMatch(candidate);
+
+    if (
+        !candidate ||
+        candidate.length < 5 ||
+        candidate.length > 42 ||
+        looksLikeSectionHeading(candidate) ||
+        looksLikeContactLine(line) && !candidate.includes(' ')
+    ) {
+        return false;
+    }
+
+    if (/\b(?:conseill|responsable|developp|machiniste|receveur|vente|client|transport|banque|formation|certification|projet|experience|competence)\b/.test(normalized)) {
+        return false;
+    }
+
+    return /^[A-ZÀ-ÖØ-Ý' -]{6,}$/.test(candidate) ||
+        /^[A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÖØ-öø-ÿ' -]+$/.test(candidate);
+};
+
+const getImportedNameCandidate = (lines = []) => {
+    const source = lines.find(looksLikePersonNameLine) || '';
+    return stripContactTokensFromLine(source);
+};
+
+const getSafeFullNameValue = (value = '') => {
+    const rawValue = stripDirectionalFormatting(value).replace(/\s{2,}/g, ' ').trim();
+    const cleanedCandidate = stripContactTokensFromLine(rawValue);
+
+    if (cleanedCandidate && looksLikePersonNameLine(cleanedCandidate)) {
+        return cleanedCandidate;
+    }
+
+    return looksLikeContactLine(rawValue) ? '' : rawValue;
+};
+
+const extractFullNameFromPersonalDetailsInstruction = (value = '') => {
+    const rawValue = stripDirectionalFormatting(value);
+    const explicitMatch = rawValue.match(/\b(?:nom(?:\s+et\s+pr[eé]nom)?|pr[eé]nom(?:\s+et\s+nom)?)\s*:?\s*([A-ZÀ-ÖØ-Ý][\p{L}'’.-]+(?:\s+[A-ZÀ-ÖØ-Ý][\p{L}'’.-]+){1,4})\b/iu);
+
+    if (explicitMatch) {
+        return getSafeFullNameValue(explicitMatch[1]);
+    }
+
+    const candidateLines = rawValue
+        .replace(emailPattern, '\n')
+        .replace(phonePattern, '\n')
+        .replace(/\bpermis\s*:?\s*[A-Z](?:\s*(?:,|\/|et|&)\s*[A-Z])*\b/gi, '\n')
+        .split(/[\n|;]+/)
+        .map((line) => line.replace(/\b(?:coordonn[ée]es?|coordonees?|contact|telephone|t[ée]l|mobile|email|e-mail|mail|adresse mail|courriel)\b\s*:?\s*/gi, '').trim());
+
+    return getImportedNameCandidate(candidateLines);
+};
 
 const looksLikeSectionHeading = (line) => {
     const normalized = normalizeForMatch(line);
@@ -6373,7 +6736,7 @@ const normalizeEducationDisplayItem = (item = '') => {
         return `Simplon — Formation numérique / développement web${digitalTrainingPeriod} • Développement web, intégration, outils numériques et méthodes de projet.`;
     }
 
-    return item;
+    return cleanCvText(item);
 };
 
 const normalizeEducationItems = (items) =>
@@ -6509,17 +6872,15 @@ const rebuildKnownFragmentedExperiences = (items) => {
     }
 
     if (/\bCEIDF\b/i.test(text) && /Conseill[èe]re commerciale/i.test(text)) {
-        entries.push('Conseillère commerciale - CEIDF, Montigny-le-Bretonneux - nov. 2022 • Relation client à distance, analyse des besoins et proposition de produits bancaires');
+        entries.push('Conseillère commerciale digitale - CEIDF, Montigny-le-Bretonneux - nov. 2022 • Conseil à distance • Analyse des besoins • Proposition de solutions bancaires adaptées');
     }
 
     if (/\bCama[ïi]eu\b/i.test(text) && /Responsable Adjointe/i.test(text)) {
-        entries.push('Responsable Adjointe - Camaïeu, Rueil-Malmaison - oct. 2021 - oct. 2022 • Gestion d’équipe, chiffre d’affaires, stocks, relation client directe personnalisée');
+        entries.push('Responsable Adjointe - Camaïeu, Rueil-Malmaison - oct. 2021 - oct. 2022 • Management de l’équipe • Développement du chiffre d’affaires • Gestion des stocks • Fidélisation de la clientèle');
     }
 
     if (/American Express|Air France|\bAF\b/i.test(text) && /(?:Charg[ée]e\s+de|Conseill[èe]re(?:\s+de)?)\s+client[èe]le/i.test(text)) {
-        const americanDate = /sept\.?\s*2019/i.test(text) ? 'sept. 2019 - 2021' : '2020 - 2021';
-        const americanRole = /Conseill[èe]re(?:\s+de)?\s+client[èe]le/i.test(text) ? 'Conseillère clientèle' : 'Chargée de clientèle';
-        entries.push(`${americanRole} - American Express / Air France, Roissy - ${americanDate} • Service premium, gestion de contrats et accompagnement personnalisé`);
+        entries.push('Conseillère commerciale - American Express / Air France, Roissy - 2019 – 2021 • Conseil et accompagnement des voyageurs • Constitution et suivi des dossiers • Vente de produits et services financiers • Développement commercial et fidélisation');
     }
 
     return entries.length >= 2 ? dedupeImportedItems(entries) : [];
@@ -6765,6 +7126,10 @@ const repairImportedExperienceItems = (items) => {
     }
 
     const repairedItems = dedupeImportedItems(repaired);
+    if (hasStructuredExperience) {
+        return repairedItems;
+    }
+
     return mergeKnownExperienceRebuilds([...items, ...repairedItems], repairedItems);
 };
 
@@ -6788,7 +7153,7 @@ const cleanupImportedEducationField = () => {
         return;
     }
 
-    const repaired = sortTimelineEntriesNewestFirst(normalizeEducationItems(splitLines(field.value).filter((item) => !/^[-–—]?\s*\)?$/.test(item.trim()))));
+    const repaired = normalizeEducationItems(splitLines(field.value).filter((item) => !/^[-–—]?\s*\)?$/.test(item.trim())));
     if (repaired.length) {
         field.value = repaired.join('\n');
     }
@@ -6797,8 +7162,8 @@ const cleanupImportedEducationField = () => {
 const CV_AUTOPILOT_IMPORT_INSTRUCTION = [
     "Prends le CV importé en main comme un CV rapide prêt à l'emploi.",
     "Nettoie la structure, harmonise les titres, les langues, les compétences et la rubrique Formations & certifications.",
-    "Range les expériences de la plus récente date à la plus ancienne et nettoie uniquement les doublons stricts, sans supprimer de rubrique ni de contenu réel.",
-    "Détecte les périodes vides. Si les informations déjà présentes permettent de comprendre la période, prépare directement une expérience cohérente à valider au lieu de poser des questions.",
+    "Conserve strictement l'ordre des expériences tel qu'il apparaît dans le CV, sauf si l'utilisateur demande explicitement un rangement.",
+    "Détecte les périodes vides sans réorganiser ni fusionner les expériences.",
     "Valorise les projets numériques, l'autoformation et les formations/certifications réellement présentes ou explicitement demandées, comme École 42 ou Simplon, dans les bonnes rubriques.",
     "Propose les compétences utiles liées aux expériences générées. L'utilisateur validera les ajouts de fond avant insertion.",
 ].join(' ');
@@ -6810,7 +7175,7 @@ const shouldRunCvAutopilotMode = (message = '') => {
         return false;
     }
 
-    return /\b(prend|prends|prendre|pilote|autopilote|cv pret|pret a l emploi|pret a l'emploi|auto organise|auto-organise|organise tout|range tout|ranger tout|remplis|remplir|mise en forme|met en forme|mets en forme|bouche|boucher|combler|trou|periode vide|periode non renseignee|periode non renseigne|certification|certifications|ecole 42|simplon)\b/.test(source);
+    return /\b(prend|prends|prendre|pilote|autopilote|cv pret|pret a l emploi|pret a l'emploi|auto organise|auto-organise|organise tout|range tout|ranger tout|remplis|remplir|mise en forme|met en forme|mets en forme|bouche|boucher|combler|trou|periode vide|periode non renseignee|periode non renseigne)\b/.test(source);
 };
 
 const buildCvAutopilotInstruction = (message = '') =>
@@ -6866,26 +7231,23 @@ const parseImportedCv = (text) => {
     }
     cvSectionOrder = [...DEFAULT_CV_SECTION_ORDER];
 
-    const nameLine =
-        cleanLines.find((line) => !looksLikeSectionHeading(line) && /^[A-ZÀ-ÖØ-Ý' -]{6,}$/.test(line) && line.length < 40) ||
-        cleanLines.find((line) => !looksLikeSectionHeading(line) && /^[A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÖØ-öø-ÿ' -]+$/.test(line) && line.length < 40) ||
-        '';
+    const nameLine = getImportedNameCandidate(cleanLines);
 
     if (nameLine) {
-        cvForm.elements.fullName.value = toTitleCase(nameLine.toLowerCase());
+        cvForm.elements.fullName.value = toTitleCase(getSafeFullNameValue(nameLine).toLowerCase());
     }
 
-    const emailLine = cleanLines.find((line) => /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i.test(line));
+    const emailLine = cleanLines.find((line) => emailPattern.test(line));
     if (emailLine) {
-        const match = emailLine.match(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i);
+        const match = emailLine.match(emailPattern);
         if (match) {
             cvForm.elements.email.value = match[0];
         }
     }
 
-    const phoneLine = cleanLines.find((line) => /(\+33|0)[\s.\-]?\d([\s.\-]?\d{2}){4}/.test(line));
+    const phoneLine = cleanLines.find((line) => phonePattern.test(line));
     if (phoneLine) {
-        const match = phoneLine.match(/(\+33|0)[\s.\-]?\d([\s.\-]?\d{2}){4}/);
+        const match = phoneLine.match(phonePattern);
         if (match) {
             cvForm.elements.phone.value = match[0];
         }
@@ -6905,8 +7267,8 @@ const parseImportedCv = (text) => {
         const extractedLocation = normalizeImportedLineFragments(extractLocationValue(locationLine) || locationLine);
         cvForm.elements.location.value = extractedLocation
             .replace(new RegExp((cvForm.elements.fullName.value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'), '')
-            .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i, '')
-            .replace(/(\+33|0)[\s.\-]?\d([\s.\-]?\d{2}){4}/, '')
+            .replace(emailPattern, '')
+            .replace(phonePattern, '')
             .replace(/\s{2,}/g, ' ')
             .trim();
     }
@@ -7066,31 +7428,6 @@ const parseImportedCv = (text) => {
         cvForm.elements.activities.value = activityItems.join('\n');
     }
 
-    const importStyleDefaults = {
-        layoutTheme: 'ats',
-        fontTheme: 'inter',
-        colorTheme: 'graphite',
-        designMood: 'clean',
-        textAlign: 'left',
-        fontSize: 'compact',
-        lineSpacing: 'tight',
-        headlineScale: 'normal',
-        accentColor: '#24324a',
-        paperColor: '#ffffff',
-        frameColor: '#d8dee8',
-    };
-
-    Object.entries(importStyleDefaults).forEach(([fieldName, value]) => {
-        const field = cvForm.elements[fieldName];
-        if (field) {
-            field.value = value;
-        }
-    });
-
-    if (cvForm.elements.headlineScale) {
-        cvForm.elements.headlineScale.value = 'normal';
-    }
-
     clearEditableOverrides();
     updateCvPreview();
     renderExperienceEditor();
@@ -7147,6 +7484,7 @@ const exportFontFamilyMap = {
 const cleanExportText = (value = '') =>
     normalizeCvSentenceText(String(value || ''))
         .replace(/^(?:(?:[•\-\u2022]|→)\s*|o\s+)+/gi, '')
+        .replace(/\s*\(\s*\)/g, '')
         .replace(/\s{2,}/g, ' ')
         .trim();
 
@@ -7175,16 +7513,16 @@ const splitExportItems = (value, options = {}) => {
             .replace(/^(?:activit[eé]s? et int[eé]r[eê]ts?|centres? d[’']?int[eé]r[eê]t)\s*[:\-]\s*/i, '')
             .split(separator)
             .map(cleanExportText)
-            .filter((item) => item && item.length <= maxLength && !looksLikeSectionHeading(item))
+            .filter((item) => item && !looksLikeSectionHeading(item))
     );
 };
 
 const normalizeExportTimelineEntries = (items, type = 'experience') => {
     const sourceItems = type === 'education'
-        ? sortTimelineEntriesNewestFirst(normalizeEducationItems(mergeStandaloneDateItems(items)))
+        ? normalizeEducationItems(mergeStandaloneDateItems(items))
         : type === 'projects'
             ? mergeStandaloneDateItems(items)
-            : repairPreviewExperienceItems(dedupeExactTrimmedItems(items));
+            : repairPreviewExperienceItems(items);
 
     return sourceItems
         .map((item) => parseExperienceEntry(item))
@@ -7192,7 +7530,7 @@ const normalizeExportTimelineEntries = (items, type = 'experience') => {
             title: cleanExportText(entry.title),
             meta: cleanExportText(entry.meta),
             date: cleanExportText(entry.date),
-            bullets: splitExportItems(entry.bullets || [], { maxLength: 190 }).slice(0, 4),
+            bullets: splitExportItems(entry.bullets || [], { maxLength: 190 }),
         }))
         .filter((entry) => entry.title || entry.meta || entry.date || entry.bullets.length);
 };
@@ -7202,15 +7540,9 @@ const prepareCvForExport = () => {
         return;
     }
 
-    proofreadCvTextFields({ silent: true });
-    cleanupImportedExperienceField();
-    cleanupImportedEducationField();
-
-    clearEditableOverrides();
     renderExperienceEditor();
     renderLanguageEditor();
     updateCvPreview();
-    scheduleCvDraftSave();
 };
 
 const getCvExportData = () => {
@@ -7236,12 +7568,12 @@ const getCvExportData = () => {
             shouldShowPermit ? permit : '',
         ].filter(Boolean),
         summary: cleanExportText(values.summary || ''),
-        skills: dedupeCvSkillItems(splitExportItems(values.skills || '')).slice(0, 10),
+        skills: dedupeCvSkillItems(splitExportItems(values.skills || '')),
         experiences: normalizeExportTimelineEntries(splitLines(values.experience || ''), 'experience'),
         projects: normalizeExportTimelineEntries(splitLines(values.projects || ''), 'projects'),
         education: normalizeExportTimelineEntries(splitLines(values.education || ''), 'education'),
-        activities: splitExportItems(values.activities || '', { splitSlash: true, splitHyphen: true, maxLength: 130 }).slice(0, 6),
-        languages: splitExportItems(values.languages || '', { splitSlash: true, maxLength: 80 }).slice(0, 5),
+        activities: splitExportItems(values.activities || '', { splitSlash: true, splitHyphen: true, maxLength: 130 }),
+        languages: splitExportItems(values.languages || '', { splitSlash: true, maxLength: 80 }),
         accent,
         soft,
         paper,
@@ -7375,6 +7707,7 @@ const buildLetterWordHtml = () => {
     const headline = cleanExportText(cvForm?.elements.headline?.value || 'Titre du metier');
     const subject = cleanExportText(letterSubject?.textContent || 'Objet : Candidature');
     const body = escapeHtml(letterBody?.textContent || '').replace(/\n/g, '<br>');
+    const contactFooter = cleanExportText(letterContactFooter?.textContent || letterContactFooterPage?.textContent || getLetterContactFooterText());
 
     return `
 <!DOCTYPE html>
@@ -7392,6 +7725,7 @@ const buildLetterWordHtml = () => {
   <p style="font-weight:700;margin:0 0 18pt;color:#2f3f7f;">${escapeHtml(headline)}</p>
   <p style="font-weight:700;margin:0 0 14pt;">${escapeHtml(subject)}</p>
   <p>${body}</p>
+  ${contactFooter ? `<p style="margin:20pt 0 0;padding-top:8pt;border-top:1pt solid #d7deec;font-size:9.5pt;color:#5b6475;text-align:center;">${escapeHtml(contactFooter)}</p>` : ''}
 </body>
 </html>`;
 };
@@ -7423,6 +7757,173 @@ const copyComputedStylesForExport = (source, clone) => {
     });
 };
 
+const unlockExportCloneLayout = (clone) => {
+    if (!clone) {
+        return;
+    }
+
+    const resetBoxLocks = (node) => {
+        [
+            'width',
+            'inline-size',
+            'max-width',
+            'max-inline-size',
+            'min-width',
+            'min-inline-size',
+            'height',
+            'block-size',
+            'max-height',
+            'max-block-size',
+            'min-height',
+            'min-block-size',
+        ].forEach((property) => node.style.removeProperty(property));
+        node.style.setProperty('max-width', '100%', 'important');
+        node.style.setProperty('min-width', '0', 'important');
+    };
+
+    clone
+        .querySelectorAll('.cv-modern-layout, .cv-modern-sidebar, .cv-modern-main, .cv-body, .cv-body section, .cv-section-head, .cv-body h4, .cv-list-compact, .cv-list-compact li, .cv-experience-list, .cv-experience-item, .cv-experience-head, .cv-experience-title, .cv-experience-date, .cv-experience-meta, .cv-experience-bullets, .cv-experience-bullets li')
+        .forEach(resetBoxLocks);
+
+    clone.querySelectorAll('.cv-body, .cv-experience-list').forEach((node) => {
+        node.style.removeProperty('grid');
+        node.style.removeProperty('grid-template');
+        node.style.removeProperty('grid-template-columns');
+        node.style.removeProperty('grid-template-rows');
+        node.style.removeProperty('grid-auto-flow');
+        node.style.removeProperty('grid-auto-rows');
+        node.style.setProperty('display', 'flex', 'important');
+        node.style.setProperty('flex-direction', 'column', 'important');
+        node.style.setProperty('height', 'auto', 'important');
+        node.style.setProperty('min-height', '0', 'important');
+        node.style.setProperty('max-height', 'none', 'important');
+        node.style.setProperty('overflow', 'visible', 'important');
+    });
+
+    clone.querySelectorAll('.cv-body section').forEach((node) => {
+        node.style.removeProperty('grid');
+        node.style.removeProperty('grid-template');
+        node.style.removeProperty('grid-template-columns');
+        node.style.removeProperty('grid-template-rows');
+        node.style.removeProperty('grid-auto-flow');
+        node.style.removeProperty('grid-auto-rows');
+        node.style.setProperty('display', 'flex', 'important');
+        node.style.setProperty('flex-direction', 'column', 'important');
+        node.style.setProperty('align-items', 'stretch', 'important');
+        node.style.setProperty('height', 'auto', 'important');
+        node.style.setProperty('min-height', '0', 'important');
+        node.style.setProperty('max-height', 'none', 'important');
+        node.style.setProperty('overflow', 'visible', 'important');
+    });
+
+    clone.querySelectorAll('.cv-list-compact').forEach((node) => {
+        node.style.removeProperty('display');
+        node.style.removeProperty('grid');
+        node.style.removeProperty('grid-template');
+        node.style.removeProperty('grid-template-columns');
+        node.style.removeProperty('grid-template-rows');
+        node.style.removeProperty('grid-auto-flow');
+        node.style.removeProperty('grid-auto-rows');
+        node.style.removeProperty('columns');
+        node.style.removeProperty('column-count');
+        node.style.removeProperty('column-width');
+        node.style.removeProperty('column-gap');
+        node.style.removeProperty('column-fill');
+        node.style.setProperty('display', 'grid', 'important');
+        node.style.setProperty('columns', 'auto', 'important');
+        node.style.setProperty('column-count', 'auto', 'important');
+        node.style.setProperty('column-width', 'auto', 'important');
+        node.style.setProperty('column-gap', 'normal', 'important');
+        node.style.setProperty('grid-template-rows', 'none', 'important');
+        node.style.setProperty('grid-auto-flow', 'row', 'important');
+        node.style.setProperty('grid-auto-rows', 'auto', 'important');
+        node.style.setProperty('align-items', 'start', 'important');
+        node.style.setProperty('height', 'auto', 'important');
+        node.style.setProperty('min-height', '0', 'important');
+        node.style.setProperty('max-height', 'none', 'important');
+        node.style.setProperty('overflow', 'visible', 'important');
+        const isSidebarList = node.closest('.cv-modern-sidebar');
+        const isHolographicSkills = node.closest('.template-holographic section[data-section-key="skills"]');
+        const isDigitalSkills = node.closest('.template-digital section[data-section-key="skills"]');
+        node.style.setProperty(
+            'grid-template-columns',
+            isSidebarList || isHolographicSkills
+                ? '1fr'
+                : isDigitalSkills
+                ? 'repeat(2, minmax(0, 1fr))'
+                : 'repeat(2, minmax(0, 1fr))',
+            'important'
+        );
+        node.style.setProperty('width', '100%', 'important');
+    });
+
+    clone.querySelectorAll('.cv-modern-layout').forEach((node) => {
+        node.style.removeProperty('grid');
+        node.style.removeProperty('grid-template');
+        node.style.removeProperty('grid-template-columns');
+        node.style.removeProperty('height');
+        node.style.removeProperty('block-size');
+        node.style.setProperty('width', '100%', 'important');
+        node.style.setProperty('grid-template-columns', 'minmax(10rem, 0.68fr) minmax(0, 1.42fr)', 'important');
+    });
+
+    clone.querySelectorAll('.cv-modern-main, .cv-modern-sidebar').forEach((node) => {
+        node.style.removeProperty('grid');
+        node.style.removeProperty('grid-template');
+        node.style.removeProperty('grid-template-columns');
+        node.style.removeProperty('height');
+        node.style.removeProperty('block-size');
+        node.style.setProperty('width', 'auto', 'important');
+    });
+
+    clone.querySelectorAll('.cv-experience-head').forEach((node) => {
+        node.style.removeProperty('grid');
+        node.style.removeProperty('grid-template');
+        node.style.setProperty('display', 'grid', 'important');
+        node.style.setProperty('grid-template-columns', 'minmax(0, 1fr) max-content', 'important');
+        node.style.setProperty('width', '100%', 'important');
+    });
+
+    clone.querySelectorAll('.cv-experience-date').forEach((node) => {
+        node.style.setProperty('justify-self', 'end', 'important');
+        node.style.setProperty('text-align', 'right', 'important');
+        node.style.setProperty('white-space', 'nowrap', 'important');
+    });
+
+    clone.querySelectorAll('.cv-list-compact li').forEach((node) => {
+        node.style.setProperty('display', 'block', 'important');
+        node.style.setProperty('list-style', 'none', 'important');
+    });
+};
+
+const fitStaticExportFlow = (root) => {
+    if (!root) {
+        return;
+    }
+
+    const fitNodeToContent = (node) => {
+        if (!node) {
+            return;
+        }
+
+        node.style.setProperty('height', 'auto', 'important');
+        node.style.setProperty('min-height', '0', 'important');
+        node.style.setProperty('max-height', 'none', 'important');
+        node.style.setProperty('overflow', 'visible', 'important');
+
+        const visibleHeight = node.getBoundingClientRect().height;
+        const contentHeight = node.scrollHeight;
+        if (contentHeight > visibleHeight + 1) {
+            node.style.setProperty('height', `${contentHeight}px`, 'important');
+        }
+    };
+
+    for (let pass = 0; pass < 2; pass += 1) {
+        root.querySelectorAll('.cv-list-compact, .cv-experience-bullets').forEach(fitNodeToContent);
+        root.querySelectorAll('.cv-body section, .cv-experience-item, .cv-body').forEach(fitNodeToContent);
+    }
+};
+
 const getPreviewCloneForOfficeExport = () => {
     const sourcePreview = currentPreviewMode === 'letter' ? letterPagePreview : previewNodes.preview;
 
@@ -7432,12 +7933,13 @@ const getPreviewCloneForOfficeExport = () => {
 
     const clone = sourcePreview.cloneNode(true);
     copyComputedStylesForExport(sourcePreview, clone);
+    unlockExportCloneLayout(clone);
     clone.classList.remove('is-hidden-preview');
     clone.removeAttribute('aria-hidden');
     clone.querySelectorAll('.cv-section-actions, .cv-page-guide, .cv-label').forEach((node) => node.remove());
     clone.querySelectorAll('[contenteditable]').forEach((node) => node.removeAttribute('contenteditable'));
     clone.querySelectorAll('[spellcheck]').forEach((node) => node.removeAttribute('spellcheck'));
-    clone.querySelectorAll('section[hidden]').forEach((node) => node.remove());
+    clone.querySelectorAll('[hidden]').forEach((node) => node.remove());
     clone.style.width = '210mm';
     clone.style.minHeight = '297mm';
     clone.style.margin = '0 auto';
@@ -7527,40 +8029,128 @@ const buildStaticExportNode = (mode = currentPreviewMode) => {
         return null;
     }
 
+    const isLetterExport = mode === 'letter';
+    const isPaginatedExport = mode === 'cv' || isLetterExport;
     const wrapper = document.createElement('div');
     wrapper.className = 'pdf-export-root';
+    wrapper.classList.toggle('is-letter-export', isLetterExport);
+    wrapper.classList.toggle('is-paginated-export', isPaginatedExport);
     wrapper.style.position = 'fixed';
     wrapper.style.left = '0';
     wrapper.style.top = '0';
     wrapper.style.width = '210mm';
+    wrapper.style.height = isPaginatedExport ? 'auto' : '297mm';
+    wrapper.style.minHeight = '297mm';
     wrapper.style.background = '#ffffff';
     wrapper.style.padding = '0';
     wrapper.style.margin = '0';
     wrapper.style.zIndex = '2147483000';
     wrapper.style.pointerEvents = 'none';
+    wrapper.style.overflow = isPaginatedExport ? 'visible' : 'hidden';
 
     const clone = sourcePreview.cloneNode(true);
     copyComputedStylesForExport(sourcePreview, clone);
+    unlockExportCloneLayout(clone);
     clone.classList.remove('is-hidden-preview');
     clone.removeAttribute('aria-hidden');
-    clone.style.transform = 'none';
+    clone.style.setProperty('animation', 'none', 'important');
+    clone.style.setProperty('opacity', '1', 'important');
+    clone.style.setProperty('transform', 'none', 'important');
     clone.style.boxShadow = 'none';
     clone.style.margin = '0';
     clone.style.width = '210mm';
+    clone.style.height = isPaginatedExport ? 'auto' : '297mm';
     clone.style.minHeight = '297mm';
+    clone.style.maxHeight = isPaginatedExport ? 'none' : '297mm';
     clone.style.aspectRatio = 'auto';
     clone.style.background = normalizeExportCssValue(window.getComputedStyle(sourcePreview).background || '#ffffff');
     clone.style.borderRadius = '0';
+    clone.style.overflow = isPaginatedExport ? 'visible' : 'hidden';
 
     clone.querySelectorAll('.cv-section-actions, .cv-page-guide, .cv-label').forEach((node) => node.remove());
     clone.querySelectorAll('[contenteditable]').forEach((node) => node.removeAttribute('contenteditable'));
     clone.querySelectorAll('[spellcheck]').forEach((node) => node.removeAttribute('spellcheck'));
-    clone.querySelectorAll('section[hidden]').forEach((node) => node.remove());
+    clone.querySelectorAll('[hidden]').forEach((node) => node.remove());
 
     wrapper.appendChild(clone);
     document.body.appendChild(wrapper);
+    fitStaticExportFlow(wrapper);
 
     return wrapper;
+};
+
+const getCanvasContentBottom = (canvas) => {
+    if (!canvas?.width || !canvas?.height) {
+        return 0;
+    }
+
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) {
+        return canvas.height;
+    }
+
+    const { width, height } = canvas;
+    const sampleXStep = Math.max(4, Math.floor(width / 320));
+    const sampleYStep = Math.max(2, Math.floor(height / 900));
+    const rowInkThreshold = Math.max(2, Math.floor(width / sampleXStep * 0.006));
+    const pixels = context.getImageData(0, 0, width, height).data;
+
+    for (let y = height - 1; y >= 0; y -= sampleYStep) {
+        let inkPixels = 0;
+
+        for (let x = 0; x < width; x += sampleXStep) {
+            const index = (y * width + x) * 4;
+            const alpha = pixels[index + 3];
+            if (alpha < 16) {
+                continue;
+            }
+
+            const red = pixels[index];
+            const green = pixels[index + 1];
+            const blue = pixels[index + 2];
+            const lightness = (0.2126 * red) + (0.7152 * green) + (0.0722 * blue);
+            const saturationRange = Math.max(red, green, blue) - Math.min(red, green, blue);
+
+            if (lightness < 218 || (lightness < 242 && saturationRange > 42)) {
+                inkPixels += 1;
+                if (inkPixels >= rowInkThreshold) {
+                    return Math.min(height, y + sampleYStep);
+                }
+            }
+        }
+    }
+
+    return height;
+};
+
+const trimCanvasBottomWhitespaceForPdf = (canvas) => {
+    if (!canvas?.width || !canvas?.height) {
+        return canvas;
+    }
+
+    const a4HeightAtCanvasWidth = Math.round(canvas.width * (297 / 210));
+    const contentBottom = getCanvasContentBottom(canvas);
+    const safePadding = Math.max(24, Math.round(canvas.width * 0.012));
+    const a4Tolerance = Math.round(safePadding * 1.5);
+    const targetHeight = contentBottom <= a4HeightAtCanvasWidth + a4Tolerance
+        ? a4HeightAtCanvasWidth
+        : Math.max(
+            a4HeightAtCanvasWidth,
+            Math.min(canvas.height, contentBottom + safePadding)
+        );
+
+    if (canvas.height - targetHeight < 6) {
+        return canvas;
+    }
+
+    const trimmedCanvas = document.createElement('canvas');
+    trimmedCanvas.width = canvas.width;
+    trimmedCanvas.height = targetHeight;
+    const context = trimmedCanvas.getContext('2d');
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, trimmedCanvas.width, trimmedCanvas.height);
+    context.drawImage(canvas, 0, 0);
+    return trimmedCanvas;
 };
 
 const openPdfPreview = (doc, filename, previewWindow = null) => {
@@ -7602,6 +8192,25 @@ const finishPdfExport = (doc, filename, action, previewWindow = null) => {
     return true;
 };
 
+const normalizePdfFilenamePart = (value = '') =>
+    String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/gi, '-')
+        .replace(/^-+|-+$/g, '')
+        .replace(/-{2,}/g, '-');
+
+const getPdfExportFilename = (mode = currentPreviewMode) => {
+    const fullName = cleanExportText(cvForm?.elements.fullName?.value || '');
+    const namePart = normalizePdfFilenamePart(fullName);
+
+    if (mode === 'letter') {
+        return namePart ? `Lettre-motivation-${namePart}.pdf` : 'Lettre-motivation.pdf';
+    }
+
+    return namePart ? `CV-${namePart}.pdf` : 'CV.pdf';
+};
+
 const exportPdf = async (options = {}) => {
     if (!requireAuthenticatedCvAccess('Connectez-vous pour exporter votre CV')) {
         return false;
@@ -7629,7 +8238,7 @@ const exportPdf = async (options = {}) => {
 
     try {
         if (window.html2canvas && domExportSource) {
-            const filename = exportMode === 'letter' ? 'lettre-motivation.pdf' : 'cv-intelligent.pdf';
+            const filename = getPdfExportFilename(exportMode);
             let exportNode = null;
 
             try {
@@ -7640,13 +8249,14 @@ const exportPdf = async (options = {}) => {
                 // partiellement masqué dans l'éditeur. On exporte donc une copie
                 // statique du CV, avec ses styles calculés, au lieu de la page web.
                 exportNode = buildStaticExportNode(exportMode);
-                const canvas = await window.html2canvas(exportNode || domExportSource, {
+                const capturedCanvas = await window.html2canvas(exportNode || domExportSource, {
                     scale: Math.min(2.4, window.devicePixelRatio || 2),
                     useCORS: true,
                     backgroundColor: pdfBackground,
                     scrollX: 0,
                     scrollY: 0,
                 });
+                const canvas = trimCanvasBottomWhitespaceForPdf(capturedCanvas);
 
                 if (!canvas.width || !canvas.height) {
                     throw new Error('empty_canvas');
@@ -7657,26 +8267,20 @@ const exportPdf = async (options = {}) => {
                 const pageHeight = 297;
                 const imageHeight = (canvas.height * pageWidth) / canvas.width;
                 const imageData = canvas.toDataURL('image/jpeg', 0.98);
+                const singlePageBottomMargin = 8;
+                const singlePageFitLimit = pageHeight + 60;
+                const renderHeight = imageHeight <= singlePageFitLimit ? pageHeight - singlePageBottomMargin : imageHeight;
 
-                if (exportMode === 'cv') {
-                    const fitScale = Math.min(1, pageHeight / imageHeight);
-                    const outputWidth = pageWidth * fitScale;
-                    const outputHeight = imageHeight * fitScale;
-                    const offsetX = (pageWidth - outputWidth) / 2;
+                let positionY = 0;
+                let remainingHeight = renderHeight;
+                doc.addImage(imageData, 'JPEG', 0, positionY, pageWidth, renderHeight);
+                remainingHeight -= pageHeight;
 
-                    doc.addImage(imageData, 'JPEG', offsetX, 0, outputWidth, outputHeight);
-                } else {
-                    let positionY = 0;
-                    let remainingHeight = imageHeight;
-                    doc.addImage(imageData, 'JPEG', 0, positionY, pageWidth, imageHeight);
+                while (remainingHeight > 2) {
+                    positionY -= pageHeight;
+                    doc.addPage();
+                    doc.addImage(imageData, 'JPEG', 0, positionY, pageWidth, renderHeight);
                     remainingHeight -= pageHeight;
-
-                    while (remainingHeight > 2) {
-                        positionY -= pageHeight;
-                        doc.addPage();
-                        doc.addImage(imageData, 'JPEG', 0, positionY, pageWidth, imageHeight);
-                        remainingHeight -= pageHeight;
-                    }
                 }
 
                 return finishPdfExport(doc, filename, action, options?.previewWindow || options?.printWindow);
@@ -7714,7 +8318,7 @@ const exportPdf = async (options = {}) => {
         const isMinimal = ['minimal', 'ats', 'elegant'].includes(data?.template);
         // Le mode de secours ecrit directement dans jsPDF. Il est legerement
         // plus dense pour garantir une page sans toucher au contenu du CV.
-        const exportDensity = currentPreviewMode === 'cv' ? 0.86 : 1;
+        const exportDensity = 1;
         const dense = (value) => value * exportDensity;
 
         const setTextColor = (hex) => {
@@ -7933,6 +8537,7 @@ const exportPdf = async (options = {}) => {
             const headline = cvForm?.elements.headline?.value?.trim() || 'Titre du metier';
             const subject = letterSubject?.textContent?.trim() || 'Objet : Candidature';
             const body = letterBody?.textContent?.trim() || '';
+            const contactFooter = letterContactFooter?.textContent?.trim() || letterContactFooterPage?.textContent?.trim() || getLetterContactFooterText();
 
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(20);
@@ -7944,7 +8549,17 @@ const exportPdf = async (options = {}) => {
             writeWrappedText(subject, { size: 11.5, weight: 'bold', color: '#243b7a', lineHeight: 5.2 });
             y += 2;
             writeWrappedText(body, { size: 11, lineHeight: 5.6 });
-            return finishPdfExport(doc, 'lettre-motivation.pdf', action, options?.previewWindow || options?.printWindow);
+            if (contactFooter) {
+                addPageIfNeeded(12);
+                if (y < pageHeight - 24) {
+                    y = pageHeight - 24;
+                }
+                setDrawColor('#d7deec');
+                doc.setLineWidth(0.25);
+                doc.line(marginX, y - 4, marginX + contentWidth, y - 4);
+                writeWrappedText(contactFooter, { size: 9.5, color: '#5b6475', align: 'center', lineHeight: 4.2, after: 0 });
+            }
+            return finishPdfExport(doc, getPdfExportFilename('letter'), action, options?.previewWindow || options?.printWindow);
         }
 
         const headerHeight = dense(isModern ? 31 : isExecutive ? 29 : 27);
@@ -8022,7 +8637,7 @@ const exportPdf = async (options = {}) => {
             writeTwoColumnList(data.activities);
         }
 
-        return finishPdfExport(doc, 'cv-intelligent.pdf', action, options?.previewWindow || options?.printWindow);
+        return finishPdfExport(doc, getPdfExportFilename('cv'), action, options?.previewWindow || options?.printWindow);
     } catch (error) {
         console.error(error);
         setCvStatus('Echec de generation du PDF');
@@ -8404,6 +9019,183 @@ const isExplicitKirbyApplyInstruction = (message = '') => {
     return /\b(applique|appliquer|ajoute|ajouter|insere|inserer|integre|integrer|mets|mettre|met|bouche|boucher|comble|combler|complete|completer|remplis|remplir|range|ranger|trie|trier|corrige|corriger|optimise|optimiser|modifie|modifier|remplace|remplacer|supprime|supprimer|retire|retirer|enleve|enlever|reformule|reformuler|compacte|compacter)\b/.test(source);
 };
 
+const isContactDetailsInstruction = (message = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(message));
+    const hasContactTarget = /\b(coordonnees?|coordonees?|contact|telephone|tel|mobile|numero|email|e-mail|mail|adresse mail|courriel|ville|adresse|code postal|permis|nom|prenom)\b/.test(source);
+    const hasEditVerb = /\b(ajoute|ajouter|rajoute|rajouter|mets|mettre|met|renseigne|renseigner|complete|completer|modifie|modifier|corrige|corriger|remplace|remplacer)\b/.test(source);
+
+    return hasContactTarget && hasEditVerb;
+};
+
+const extractContactDetailsFromInstruction = (message = '') => {
+    const raw = stripDirectionalFormatting(getKirbyUserInstruction(message));
+    const normalized = normalizeForMatch(raw);
+    const email = raw.match(emailPattern)?.[0]?.trim() || '';
+    const phone = raw.match(phonePattern)?.[0]?.replace(/\s{2,}/g, ' ').trim() || '';
+    const permitMatch = raw.match(/\bpermis\s*:?\s*([A-Z](?:\s*(?:,|\/|et|&)\s*[A-Z])*)\b/i);
+    const permit = permitMatch ? `Permis ${permitMatch[1].replace(/\s*&\s*/g, ' et ').replace(/\s*\/\s*/g, ' et ').replace(/\s*,\s*/g, ' et ').replace(/\s{2,}/g, ' ').trim()}` : '';
+    const fullName = extractFullNameFromPersonalDetailsInstruction(raw);
+    let location = '';
+    const explicitLocation = raw.match(/\b(?:ville|adresse|localisation|code postal)\s*:?\s*([^|\n,;]+(?:[, ]+\d{5})?)/i);
+    const postalLocation = raw.match(/\b([A-ZÀ-Ÿ][\p{L}'’.-]+(?:[\s-][A-ZÀ-Ÿ0-9][\p{L}0-9'’.-]+){0,4})\s*\(?(\d{5})\)?/u);
+
+    if (explicitLocation) {
+        location = explicitLocation[1].trim();
+    } else if (postalLocation && !/(telephone|tel|mobile|permis|email|mail)/i.test(postalLocation[1])) {
+        location = `${postalLocation[1].trim()} (${postalLocation[2]})`;
+    }
+
+    if (location) {
+        location = location
+            .replace(emailPattern, '')
+            .replace(phonePattern, '')
+            .replace(/\bpermis\b.*$/i, '')
+            .replace(/\s{2,}/g, ' ')
+            .replace(/[|,;.\s]+$/g, '')
+            .trim();
+    }
+
+    if (/^(ville|adresse|code postal|coordonnees?|contact)$/i.test(location) || /\b(exemple|example)\b/.test(normalized)) {
+        location = '';
+    }
+
+    return { fullName, location, phone, email, permit };
+};
+
+const clearContactEditableOverride = (fieldName = '') => {
+    clearEditableOverride(['location', 'phone', 'email', 'permit'].includes(fieldName) ? 'location' : fieldName);
+};
+
+const isAllowedKirbyFieldValue = (fieldName = '', value = '') => {
+    const cleanValue = String(value || '').trim();
+    const source = normalizeForMatch(cleanValue);
+
+    if (!cleanValue || /\b(exemple|example|votre|non precise|non précisé|a renseigner|à renseigner)\b/.test(source)) {
+        return false;
+    }
+
+    if (fieldName === 'email') {
+        return emailPattern.test(cleanValue);
+    }
+
+    if (fieldName === 'phone') {
+        return phonePattern.test(cleanValue);
+    }
+
+    if (fieldName === 'fullName') {
+        return Boolean(getSafeFullNameValue(cleanValue));
+    }
+
+    if (fieldName === 'location') {
+        return !/^(ville|adresse|code postal|ville code postal)$/i.test(cleanValue);
+    }
+
+    return true;
+};
+
+const applyQuickContactDetailsCorrection = (message = '') => {
+    if (!cvForm || !isContactDetailsInstruction(message)) {
+        return '';
+    }
+
+    const details = extractContactDetailsFromInstruction(message);
+    const updates = [
+        ['fullName', details.fullName, 'nom'],
+        ['location', details.location, 'ville'],
+        ['phone', details.phone, 'téléphone'],
+        ['email', details.email, 'email'],
+        ['permit', details.permit, 'permis'],
+    ].filter(([, value]) => Boolean(value));
+
+    if (!updates.length) {
+        return 'Collez les informations exactes à ajouter : nom, ville, téléphone, email et permis. Je ne les invente pas.';
+    }
+
+    const beforeState = getCvHistoryState();
+    const changed = [];
+
+    updates.forEach(([fieldName, value, label]) => {
+        const field = cvForm.elements[fieldName];
+        const nextValue = fieldName === 'fullName'
+            ? getSafeFullNameValue(value)
+            : ['email', 'phone'].includes(fieldName)
+                ? value.trim()
+                : normalizeCvSentenceText(value);
+        if (!field || !nextValue || field.value.trim() === nextValue) {
+            return;
+        }
+
+        field.value = nextValue;
+        clearContactEditableOverride(fieldName);
+        changed.push(label);
+    });
+
+    if (!changed.length) {
+        return 'Coordonnées déjà présentes avec ces valeurs.';
+    }
+
+    updateCvPreview();
+    commitCvHistoryTransition(beforeState);
+    scheduleCvDraftSave();
+    setCvStatus('Coordonnées mises à jour');
+
+    return `Coordonnées mises à jour : ${changed.join(', ')}.`;
+};
+
+const getNoCvMutationReply = () =>
+    "Je n’ai appliqué aucune modification au CV. Votre message ressemble à une consigne ou à un signalement, pas à une correction précise du CV.";
+
+const hasConcreteKirbyCvEditIntent = (message = '') => {
+    const instruction = getKirbyUserInstruction(message);
+    const source = normalizeForMatch(instruction);
+
+    if (!source) {
+        return false;
+    }
+
+    if (looksLikePastedCv(instruction) || looksLikeCvCreationInstruction(instruction) || looksLikeJobOffer(instruction)) {
+        return true;
+    }
+
+    if (isLanguageFocusedInstruction(instruction) && hasLanguageNameInInstruction(instruction)) {
+        return true;
+    }
+
+    if (hasExplicitExperienceOrderCommand(instruction)) {
+        return true;
+    }
+
+    if (isContactDetailsInstruction(instruction) && Object.values(extractContactDetailsFromInstruction(instruction)).some(Boolean)) {
+        return true;
+    }
+
+    const hasEditVerb = /\b(applique|appliquer|ajoute|ajouter|insere|inserer|integre|integrer|mets|mettre|met|modifie|modifier|change|changer|corrige|corriger|remplace|remplacer|supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|reformule|reformuler|raccourcis|raccourcir|range|ranger|trie|trier|classe|classer)\b/.test(source);
+    const hasCvTarget = /\b(nom|prenom|prénom|titre|intitule|intitulé|poste vise|poste visé|profil|accroche|resume|résumé|competence|competences|experience|experiences|mission|missions|puce|ligne|date|dates|periode|periodes|formation|formations|certification|certifications|langue|langues|coordonnees?|coordonees?|contact|telephone|tel|email|mail|ville|permis|activites|rubrique|faute|fautes|orthographe|grammaire)\b/.test(source);
+    const hasExplicitReplacementPair = /\bremplace\b.{1,80}\bpar\b.{1,80}/.test(source);
+    const hasReplacementValue = /(?:\bpar\b|\ben\b|\bavec\b|\bvers\b|:)\s*[^\s].{1,}/.test(source)
+        || /[«"“”']([^«"“”']{2,})[»"“”']/.test(instruction);
+    const hasDateValue = /\b(?:19|20)\d{2}\b/.test(source) || /\b(?:janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre|janv|fevr|févr|avr|sept|oct|nov|dec|déc)\b/.test(source);
+    const hasKnownExperienceReference = /\b(caisse d epargne|caisse d’épargne|ceidf|camaieu|camaïeu|american express|air france|ratp|machiniste|receveur|developpement web|développement web|creatrice|créatrice|developpeuse|développeuse)\b/.test(source);
+    const hasActiveSelection = Boolean(getKirbyCvInteractionContext().selectedText);
+
+    return (hasEditVerb && hasCvTarget && (hasReplacementValue || hasDateValue || hasKnownExperienceReference || hasActiveSelection || hasLanguageNameInInstruction(instruction)))
+        || hasExplicitReplacementPair;
+};
+
+const isKirbyCvTechnicalOrExplanatoryInstruction = (message = '') => {
+    const instruction = getKirbyUserInstruction(message);
+    const source = normalizeForMatch(instruction);
+
+    if (!source || hasConcreteKirbyCvEditIntent(instruction)) {
+        return false;
+    }
+
+    const technicalSignals = /\b(bug|comportement|kirby|generateur|générateur|editeur|éditeur|fenetre|fenêtre|message utilisateur|supabase|cache|stockage|synchronisation|production|local|vercel|domaine|deploiement|déploiement|source de verite|source de vérité|diagnostic|solution technique|parcours complet|test|reproduit|reproduire)\b/.test(source);
+    const instructionSignals = /\b(ne modifie pas|ne touche pas|ne deploie pas|ne déploie pas|aucune modification|corrige ce comportement|resultat attendu|résultat attendu|objectif|important|interdiction|interdictions|en local|en production|avant toute sauvegarde|sans toucher)\b/.test(source);
+
+    return (technicalSignals || instructionSignals) && !looksLikePastedCv(instruction) && !looksLikeJobOffer(instruction);
+};
+
 const setJobOfferFromAssistantMessage = (message = '') => {
     const cleanMessage = message.trim();
     const looksLikeOffer = looksLikeJobOffer(cleanMessage);
@@ -8643,7 +9435,7 @@ const getQuickLanguageLevel = (source = '') => {
         return 'Niveau professionnel';
     }
     if (/\b(intermediaire|intermédiaire|intermediate)\b/.test(source)) {
-        return 'Niveau intermédiaire';
+        return 'intermédiaire';
     }
     if (/\b(elementary|elementary level|bases solides)\b/.test(source)) {
         return 'Bases solides';
@@ -8994,13 +9786,14 @@ const targetedDigitalCvKeywords = /\b(creatrice|createur|creation|projets? numer
 
 const shouldApplyTargetedDigitalCvCompletion = (message = '') => {
     const source = normalizeForMatch(getKirbyUserInstruction(message));
+    const explicitFullRewriteAuthorization = /\b(j autorise|j'autorise|autorise|autorisation)\b.{0,80}\b(reecriture complete|réécriture complète|reconstruction complete|reconstruction complète|correction complete du bloc web|correction complète du bloc web)\b/.test(source);
     const asksToApply = /\b(ajoute|ajouter|rajoute|rajouter|integre|integrer|mets|mettre|met|complete|completer|comble|combler|valorise|valoriser|remets|remet)\b/.test(source);
     const hasCvScope = /\b(cv|experience|experiences|formation|formations|certification|certifications|competence|competences|accroche|profil|commercial|trou|periode)\b/.test(source);
     const containsCompletePersonalExperience = /\b(creatrice\s+de\s+sites?\s+web|developpeuse\s+web|creatrice\s+de\s+projets?\s+numeriques?)\b/.test(source)
         && /\b2025\s*[-–—]\s*2026\b/.test(source)
         && /\b(projet personnel|autoformation)\b/.test(source);
 
-    return hasCvScope && targetedDigitalCvKeywords.test(source) && (asksToApply || containsCompletePersonalExperience);
+    return explicitFullRewriteAuthorization && hasCvScope && targetedDigitalCvKeywords.test(source) && (asksToApply || containsCompletePersonalExperience);
 };
 
 const getDigitalCvCompletionExperience = () => ({
@@ -9009,10 +9802,17 @@ const getDigitalCvCompletionExperience = () => ({
     date: '2025 - 2026',
     bullets: [
         'Conception et développement de sites vitrines et d’outils web',
-        'Création d’interfaces adaptées aux besoins utilisateurs',
-        'Intégration de fonctionnalités avec assistants IA',
-        'Tests, corrections et amélioration continue des projets',
-        'Gestion autonome de projets numériques',
+        'Création d’interfaces adaptées aux besoins des utilisateurs',
+    ],
+});
+
+const getDigitalCvCompletionPastExperience = () => ({
+    title: 'Développement web',
+    meta: 'Projets autodidactes - Paris',
+    date: '2023',
+    bullets: [
+        'Conception de pages web et d’interfaces en HTML, CSS et Javascript',
+        'Réalisation de projets personnels concrets pour développer mes compétences techniques',
     ],
 });
 
@@ -9046,6 +9846,23 @@ const isDigitalCvCompletionExperience = (entry = {}) =>
         && targetedDigitalCvKeywords.test(normalizeForMatch(`${entry.title || ''} ${entry.meta || ''} ${(entry.bullets || []).join(' ')}`))
     );
 
+const isDigitalCvCompletionPastExperience = (entry = {}) => {
+    const source = normalizeForMatch(`${entry.title || ''} ${entry.meta || ''} ${entry.date || ''} ${(entry.bullets || []).join(' ')}`);
+
+    return /\bdeveloppement web\b/.test(source)
+        && /\b2023\b/.test(source)
+        && /\b(projets autodidactes|autodidacte|html|css|javascript|interfaces?|pages? web)\b/.test(source);
+};
+
+const shouldRepairKnownDigitalDates = (message = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(message));
+    const asksToApplyDate = /\b(ajoute|ajouter|rajoute|rajouter|remets?|remettre|mets?|mettre|corrige|corriger|complete|completer|renseigne|renseigner|date|dates)\b/.test(source);
+    const mentionsKnownDates = /\b2023\b/.test(source) || /\b2025\s*[-–—]\s*2026\b/.test(source);
+    const mentionsDigitalHint = targetedDigitalCvKeywords.test(source) || /\b(projet|projets|experience|experiences|formation|formations|cv)\b/.test(source);
+
+    return asksToApplyDate && mentionsKnownDates && (mentionsDigitalHint || /\b2023\b/.test(source) || /\b2025\s*[-–—]\s*2026\b/.test(source)) && !hasExplicitDestructiveCvRemoval(message);
+};
+
 const mergeDigitalCvCompletionExperience = () => {
     const field = getExperienceField();
     if (!field) {
@@ -9053,11 +9870,22 @@ const mergeDigitalCvCompletionExperience = () => {
     }
 
     const digitalExperience = getDigitalCvCompletionExperience();
+    const pastDigitalExperience = getDigitalCvCompletionPastExperience();
     const digitalLine = serializeExperienceEntry(digitalExperience);
+    const pastDigitalLine = serializeExperienceEntry(pastDigitalExperience);
     const existingEntries = repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
-    const retainedEntries = existingEntries.filter((entry) => !isDigitalCvCompletionExperience(entry));
-    const nextLines = [digitalLine, ...retainedEntries.map(serializeExperienceEntry).filter(Boolean)];
-    const nextValue = normalizeCvTextareaValue('experience', nextLines.join('\n'));
+    const retainedEntries = existingEntries.filter((entry) =>
+        !isDigitalCvCompletionExperience(entry) &&
+        !isDigitalCvCompletionPastExperience(entry)
+    );
+    const nextValue = normalizeCvTextareaValue(
+        'experience',
+        [
+            digitalLine,
+            pastDigitalLine,
+            ...retainedEntries.map(serializeExperienceEntry).filter(Boolean),
+        ].join('\n')
+    );
 
     if (!nextValue || nextValue === field.value) {
         return false;
@@ -9084,7 +9912,7 @@ const mergeDigitalCvCompletionEducation = () => {
     });
     const nextValue = normalizeCvTextareaValue(
         'education',
-        sortTimelineEntriesNewestFirst([...retained, ...additions], additions).join('\n')
+        [...retained, ...additions].join('\n')
     );
 
     if (!nextValue || nextValue === field.value) {
@@ -9122,6 +9950,153 @@ const mergeDigitalCvCompletionSkills = () => {
     return true;
 };
 
+const shouldApplyFinalExperienceTableCorrection = (message = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(message));
+    const explicitFinalTableAuthorization = /\b(j autorise|j'autorise|autorise|autorisation)\b.{0,80}\b(reecriture complete des experiences|réécriture complète des expériences|correction finale complete des experiences|correction finale complète des expériences)\b/.test(source);
+
+    return explicitFinalTableAuthorization
+        && /\b(corrige directement|applique directement|ordre final obligatoire|american express|chargee de clientele|conseillere commerciale|developpement web)\b/.test(source)
+        && /\b(2025\s*[-–—]\s*2026|2023|2019\s*[-–—]\s*2021)\b/.test(source)
+        && /\b(experience|experiences|cv|tableau)\b/.test(source);
+};
+
+const findCvExperienceEntry = (entries = [], matcher) =>
+    entries.find((entry) => matcher(normalizeForMatch(`${entry.title || ''} ${entry.meta || ''} ${entry.date || ''} ${(entry.bullets || []).join(' ')}`))) || null;
+
+const getFinalExperienceTableEntries = (entries = []) => {
+    const currentDigital = findCvExperienceEntry(entries, (source) =>
+        /\b(creatrice|developpeuse web|sites? web|projets? numeriques?)\b/.test(source) &&
+        /\b2025\s*[-–—]\s*2026\b/.test(source)
+    );
+    const ratp = findCvExperienceEntry(entries, (source) =>
+        /\b(machiniste|receveur|ratp)\b/.test(source) &&
+        /\b2024\b/.test(source)
+    );
+    const currentWeb2023 = findCvExperienceEntry(entries, (source) =>
+        /\bdeveloppement web\b/.test(source) &&
+        /\b2023\b/.test(source)
+    );
+    const ceidf = findCvExperienceEntry(entries, (source) =>
+        /\b(ceidf|conseillere commerciale)\b/.test(source) &&
+        /\b2022\b/.test(source) &&
+        !/\bamerican express\b/.test(source)
+    );
+    const camaieu = findCvExperienceEntry(entries, (source) =>
+        /\b(camaieu|responsable adjointe)\b/.test(source) &&
+        /\b2021\b/.test(source) &&
+        /\b2022\b/.test(source)
+    );
+    const american = findCvExperienceEntry(entries, (source) =>
+        /\b(american express|air france|roissy|chargee de clientele|conseillere clientele)\b/.test(source) &&
+        /\b(2019|2020|2021)\b/.test(source)
+    );
+
+    return [
+        {
+            ...(currentDigital || getDigitalCvCompletionExperience()),
+            title: 'Créatrice de sites web / Développeuse web',
+            meta: 'Projet personnel / Autoformation',
+            date: '2025 - 2026',
+            bullets: [
+                'Conception et développement de sites vitrines et d’outils web',
+                'Création d’interfaces adaptées aux besoins des utilisateurs',
+            ],
+        },
+        ratp || {
+            title: 'Machiniste-Receveur',
+            meta: 'RATP, Nanterre',
+            date: 'avr. 2024 - oct. 2024',
+            bullets: ['Sécurité, autonomie, gestion d’horaires et relation clientèle'],
+        },
+        {
+            ...(currentWeb2023 || getDigitalCvCompletionPastExperience()),
+            title: 'Développement web – Projets autodidactes',
+            meta: 'Paris',
+            date: '2023',
+            bullets: [
+                'Conception de pages web et d’interfaces en HTML, CSS et JavaScript',
+                'Réalisation de projets personnels pour développer mes compétences techniques',
+            ],
+        },
+        {
+            ...(ceidf || {
+                meta: 'CEIDF, Montigny-le-Bretonneux',
+                date: 'nov. 2022',
+            }),
+            title: 'Conseillère commerciale digitale',
+            bullets: [
+                'Conseil à distance',
+                'Analyse des besoins',
+                'Proposition de solutions bancaires adaptées',
+            ],
+        },
+        {
+            ...(camaieu || {
+                meta: 'Camaïeu, Rueil-Malmaison',
+                date: 'oct. 2021 - oct. 2022',
+            }),
+            title: 'Responsable Adjointe',
+            bullets: [
+                'Management de l’équipe',
+                'Développement du chiffre d’affaires',
+                'Gestion des stocks',
+                'Fidélisation de la clientèle',
+            ],
+        },
+        {
+            ...(american || {
+                meta: 'American Express / Air France, Roissy',
+                date: '2019 – 2021',
+                bullets: [
+                    'Conseil et accompagnement des voyageurs',
+                    'Constitution et suivi des dossiers',
+                    'Vente de produits et services financiers',
+                    'Développement commercial et fidélisation',
+                ],
+            }),
+            title: 'Conseillère commerciale',
+            date: '2019 – 2021',
+            bullets: [
+                'Conseil et accompagnement des voyageurs',
+                'Constitution et suivi des dossiers',
+                'Vente de produits et services financiers',
+                'Développement commercial et fidélisation',
+            ],
+        },
+    ];
+};
+
+const applyFinalExperienceTableCorrection = async (message = '') => {
+    if (!cvForm || !shouldApplyFinalExperienceTableCorrection(message)) {
+        return '';
+    }
+
+    const field = getExperienceField();
+    if (!field) {
+        return "Le champ Expériences est indisponible.";
+    }
+
+    const beforeState = getCvHistoryState();
+    const entries = repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
+    const nextValue = getFinalExperienceTableEntries(entries).map(serializeExperienceEntry).filter(Boolean).join('\n');
+    if (!nextValue || nextValue === field.value.trim()) {
+        updateCvPreview();
+        renderExperienceEditor();
+        setCvStatus('Expériences déjà conformes');
+        return 'Les expériences sont déjà conformes à l’ordre et au contenu demandés.';
+    }
+
+    field.value = nextValue;
+    clearEditableOverride('experience');
+    updateCvPreview();
+    renderExperienceEditor();
+    commitCvHistoryTransition(beforeState);
+    const persistence = await persistCvDraftImmediately();
+    setCvStatus('Expériences corrigées et sauvegardées');
+
+    return buildKirbyPersistenceReply(['expériences corrigées', 'ordre final appliqué'], persistence);
+};
+
 const applyTargetedDigitalCvCompletion = (message = '') => {
     if (!cvForm || !shouldApplyTargetedDigitalCvCompletion(message)) {
         return '';
@@ -9157,7 +10132,7 @@ const applyTargetedDigitalCvCompletion = (message = '') => {
     }
 
     if (mergeDigitalCvCompletionExperience()) {
-        changes.push('expérience numérique 2025 - 2026');
+        changes.push('expériences numériques 2025 - 2026 et 2023');
     }
 
     if (mergeDigitalCvCompletionEducation()) {
@@ -9169,7 +10144,7 @@ const applyTargetedDigitalCvCompletion = (message = '') => {
     }
 
     if (!changes.length) {
-        return 'Le CV contient déjà l’expérience numérique, 42/Simplon et les compétences web demandées.';
+        return 'Le CV contient déjà les expériences numériques 2025 - 2026 et 2023, 42/Simplon et les compétences web demandées.';
     }
 
     updateCvPreview();
@@ -9347,20 +10322,18 @@ const isExplicitCvSaveInstruction = (message = '') => {
 const persistCvFromKirbyInstruction = async () => {
     const persistence = await persistCvDraftImmediately();
     if (!isCvPersistenceConfirmed(persistence)) {
-        setAssistantActivity(`Sauvegarde non confirmée. ${formatCvPersistenceDetail(persistence)}.`, false);
-        return `Sauvegarde non confirmée. ${formatCvPersistenceDetail(persistence)}.`;
+        const reply = formatCvPersistenceDetail(persistence);
+        setAssistantActivity(reply, false);
+        return reply;
     }
 
-    const reply = `CV sauvegardé. ${formatCvPersistenceDetail(persistence)}.`;
+    const reply = `CV sauvegardé. ${formatCvPersistenceDetail(persistence)}`;
     setAssistantActivity(reply, false);
     return reply;
 };
 
 const shouldQuickSortExperiences = (message = '') => {
-    const source = normalizeForMatch(message);
-
-    return /\b(date|dates|chronologique|ordre|range|ranger|remet|remets|trie|trier|ancienne|recent|recente|plus ancien|plus ancienne|plus recent|plus recente)\b/.test(source)
-        && /\b(experience|experiences|parcours|cv|date|dates)\b/.test(source);
+    return hasExplicitExperienceOrderCommand(message);
 };
 
 const applyQuickExperienceSortCorrection = (message = '') => {
@@ -9379,7 +10352,7 @@ const applyQuickExperienceSortCorrection = (message = '') => {
     commitCvHistoryTransition(beforeState);
     scheduleCvDraftSave();
     setCvStatus('Expériences rangées par date');
-    return 'Expériences rangées de la plus récente à la plus ancienne, avec les doublons de période nettoyés.';
+    return 'Expériences rangées de la plus récente à la plus ancienne, sans modification du contenu des lignes.';
 };
 
 const getQuickExperienceRemovalTokens = (message = '') =>
@@ -9735,7 +10708,6 @@ const applyQuickSalesRefocusCorrection = (message = '') => {
         const entries = getExperienceSourceEntries();
         if (entries.length) {
             const camaieuIndex = entries.findIndex((entry) => /\bcama[ïi]eu\b/i.test(`${entry.title} ${entry.meta}`));
-            const webIndex = entries.findIndex((entry) => /\b(developpeuse|développeuse|full stack|web)\b/i.test(`${entry.title} ${entry.meta}`));
             const reordered = [...entries];
 
             if (camaieuIndex !== -1) {
@@ -9757,18 +10729,6 @@ const applyQuickSalesRefocusCorrection = (message = '') => {
                 if (!refusesDateBasedReorder && camaieuIndex > 0 && /\b(experience principale|experience la plus importante|place la en premier|place la en tete|mets la en premier)\b/.test(source)) {
                     reordered.splice(camaieuIndex, 1);
                     reordered.unshift(nextCamaieu);
-                }
-            }
-
-            if (webIndex !== -1) {
-                const currentIndex = reordered.findIndex((entry) => /\b(developpeuse|développeuse|full stack|web)\b/i.test(`${entry.title} ${entry.meta}`));
-                if (currentIndex !== -1) {
-                    const webEntry = reordered.splice(currentIndex, 1)[0];
-                    const compactBullets = (webEntry.bullets || []).map(normalizeCvSentenceText).filter(Boolean).slice(0, 2);
-                    reordered.push({
-                        ...webEntry,
-                        bullets: compactBullets,
-                    });
                 }
             }
 
@@ -9799,6 +10759,7 @@ const applyQuickSalesRefocusCorrection = (message = '') => {
 
 const applyQuickKirbyCorrection = (message = '') => {
     const directCorrections = [
+        applyQuickContactDetailsCorrection(message),
         applyTargetedDigitalCvCompletion(message),
         applyQuickCvTypographyAdjustment(message),
         getQuickEditorBugReport(message),
@@ -9817,7 +10778,7 @@ const applyQuickKirbyCorrection = (message = '') => {
 };
 
 const isQuickKirbyMutationReply = (reply = '') =>
-    /^(CV complété|Langues mises à jour|Titre appliqué|Date mise à jour|Mois retirés|Expériences rangées|Mention supprimée|Doublons supprimés|Expérience supprimée|CV recentré)/i.test(String(reply || '').trim());
+    /^(CV complété|Coordonnées mises à jour|Langues mises à jour|Titre appliqué|Date mise à jour|Mois retirés|Expériences rangées|Mention supprimée|Doublons supprimés|Expérience supprimée|CV recentré)/i.test(String(reply || '').trim());
 
 const reorderExistingExperiences = (order = []) => {
     const field = getExperienceField();
@@ -10023,7 +10984,7 @@ const mergeKirbyGeneratedExperiences = (experiences = [], instruction = '') => {
         return 0;
     }
 
-    field.value = normalizeCvTextareaValue('experience', sortTimelineEntriesNewestFirst([...existing, ...additions], additions).join('\n'));
+    field.value = normalizeCvTextareaValue('experience', [...existing, ...additions].join('\n'));
     clearEditableOverride('experience');
     return additions.length;
 };
@@ -10144,8 +11105,10 @@ const getKirbyLayoutIntent = (instruction = '', layout = {}) => {
             return normalizedSkill.length > 2 && source.includes(normalizedSkill);
         })
         : [];
-    const reflow = Boolean(layout?.reflow) || /\b(trou|espace vide|vide sous|mise en page|equilibr|reequilibr|remonter|reorganis|aeration)\b/.test(source);
-    const compact = Boolean(layout?.compact) || /\b(compact|compacter|une page|trop long)\b/.test(source);
+    const reflowAsked = /\b(trou|espace vide|vide sous|mise en page|equilibr|reequilibr|remonter|reorganis|aeration)\b/.test(source);
+    const compactAsked = /\b(compact|compacter|une page|trop long)\b/.test(source);
+    const reflow = reflowAsked && Boolean(layout?.reflow || reflowAsked);
+    const compact = compactAsked && Boolean(layout?.compact || compactAsked);
 
     return {
         removeSections,
@@ -10176,10 +11139,10 @@ const applyKirbyLayoutIntent = (intent = {}) => {
     });
 
     if (intent.compact) {
-        const changed = cvForm.elements.fontSize?.value !== 'compact' || cvForm.elements.lineSpacing?.value !== 'tight';
-        if (cvForm.elements.fontSize) cvForm.elements.fontSize.value = 'compact';
-        if (cvForm.elements.lineSpacing) cvForm.elements.lineSpacing.value = 'tight';
-        if (changed) changes.push('mise en page compacte');
+        const changed = cvForm.elements.fontSize?.value !== 'normal' || cvForm.elements.lineSpacing?.value !== 'normal';
+        if (cvForm.elements.fontSize) cvForm.elements.fontSize.value = 'normal';
+        if (cvForm.elements.lineSpacing) cvForm.elements.lineSpacing.value = 'normal';
+        if (changed) changes.push('mise en page lisible');
     } else if (intent.reflow) {
         let changed = false;
         if (cvForm.elements.fontSize?.value === 'large') {
@@ -10204,11 +11167,13 @@ const applyKirbyExtractedCv = (extracted = {}) => {
     const changes = [];
     const setTextField = (name, value, label) => {
         const field = cvForm.elements[name];
-        const nextValue = normalizeCvSentenceText(value || '');
+        const nextValue = name === 'fullName'
+            ? getSafeFullNameValue(value || '')
+            : normalizeCvSentenceText(value || '');
         if (!field || !nextValue || field.value === nextValue) {
             return;
         }
-        if (field.value?.trim() && !isDefaultCvFieldValue(name, field.value)) {
+        if (field.value?.trim() && !isDefaultCvFieldValue(name, field.value) && !(name === 'fullName' && !getSafeFullNameValue(field.value))) {
             return;
         }
         field.value = nextValue;
@@ -10298,6 +11263,7 @@ const applyKirbyLetter = (letter = {}, fallbackRole = '') => {
     if (letterBodyPage && body) {
         letterBodyPage.textContent = body;
     }
+    syncLetterContactFooter();
     updatePreviewViewport();
     return true;
 };
@@ -10559,7 +11525,7 @@ const applyKirbyOperation = (operation = {}, context = {}) => {
             return '';
         }
 
-        field.value = normalizeCvTextareaValue('experience', sortTimelineEntriesNewestFirst([...existing, line], [line]).join('\n'));
+        field.value = normalizeCvTextareaValue('experience', [...existing, line].join('\n'));
         clearEditableOverride('experience');
         return 'expérience ajoutée';
     }
@@ -10650,15 +11616,18 @@ const applyKirbyOperation = (operation = {}, context = {}) => {
         const fieldName = operation.field;
         const field = fieldName && cvForm?.elements[fieldName];
         const value = String(operation.value || '').trim();
-        if (!field || !value || field.value.trim() === value) {
+        const nextValue = fieldName === 'fullName'
+            ? getSafeFullNameValue(value)
+            : ['skills', 'education', 'activities', 'projects', 'languages'].includes(fieldName)
+                ? normalizeCvTextareaValue(fieldName, value)
+                : ['email', 'phone'].includes(fieldName)
+                    ? value
+                    : normalizeCvSentenceText(value);
+        if (!field || !nextValue || !isAllowedKirbyFieldValue(fieldName, value) || field.value.trim() === nextValue) {
             return '';
         }
-        field.value = ['skills', 'education', 'activities', 'projects', 'languages'].includes(fieldName)
-            ? normalizeCvTextareaValue(fieldName, value)
-            : ['email', 'phone'].includes(fieldName)
-                ? value
-                : normalizeCvSentenceText(value);
-        clearEditableOverride(fieldName);
+        field.value = nextValue;
+        clearContactEditableOverride(fieldName);
         return fieldName;
     }
 
@@ -10702,9 +11671,7 @@ const applyKirbyOperation = (operation = {}, context = {}) => {
             return 'ordre des expériences';
         }
 
-        return Array.isArray(context.experienceOrder) && context.experienceOrder.length
-            ? ''
-            : sortExperienceFieldNewestFirst() ? 'ordre des expériences' : '';
+        return '';
     }
 
     return '';
@@ -10812,7 +11779,10 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
         changes.push('titre');
     }
 
-    if (proposal.summary && summaryField && (!singleFieldIntent || singleFieldIntent === 'summary')) {
+    if (proposal.summary && summaryField && (
+        singleFieldIntent === 'summary' ||
+        (allowGlobalCvRewrite && !singleFieldIntent)
+    )) {
         const summary = normalizeCvSentenceText(proposal.summary);
         if (summary && summary !== summaryField.value) {
             summaryField.value = summary;
@@ -10856,23 +11826,17 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
         changes.push('compétences suggérées');
     }
 
-    if (allowGlobalCvRewrite && !singleFieldIntent && reorderExistingExperiences(proposal.experienceOrder)) {
+    const explicitExperienceReorderAsked = isExperienceOrderCleanupIntent(instruction)
+        || getKirbyCvArray(proposal.operations).some((operation) => operation?.type === 'reorder_experiences');
+    if (allowGlobalCvRewrite && !singleFieldIntent && explicitExperienceReorderAsked && reorderExistingExperiences(proposal.experienceOrder)) {
         changes.push('ordre des expériences');
-    }
-
-    if (hasDateUpdateOperation && sortExperienceFieldNewestFirst()) {
-        changes.push('expériences triées par date');
-    }
-
-    if (allowGlobalCvRewrite && !singleFieldIntent && sortExperienceFieldNewestFirst()) {
-        changes.push('expériences triées par date');
     }
 
     if (allowGlobalCvRewrite && !singleFieldIntent && harmonizeExperienceFieldStructure({ silent: true })) {
         changes.push('expériences harmonisées');
     }
 
-    if ((!singleFieldIntent || singleFieldIntent === 'languages') && mergeKirbyLanguages(proposal.languages)) {
+    if ((singleFieldIntent === 'languages' || (allowGlobalCvRewrite && !singleFieldIntent)) && mergeKirbyLanguages(proposal.languages)) {
         changes.push('langues');
     }
 
@@ -10886,18 +11850,13 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
         changes.push('lettre de motivation');
     }
 
-    clearEditableOverrides();
+    if (allowGlobalCvRewrite && !singleFieldIntent) {
+        clearEditableOverrides();
+    }
     updateCvPreview();
     renderExperienceEditor();
     renderLanguageEditor();
 
-    if (allowGlobalCvRewrite && !singleFieldIntent && task !== 'letter' && getRenderedCvPageCount() > 1) {
-        applyCompactCvLayout(true);
-        updateCvPreview();
-        renderExperienceEditor();
-        renderLanguageEditor();
-        changes.push('mise en page compacte');
-    }
     if (task === 'letter' && didApplyLetter) {
         setPreviewMode('letter');
     }
@@ -10989,8 +11948,24 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
         return 'Le formulaire CV est indisponible.';
     }
 
+    if (isKirbyCvTechnicalOrExplanatoryInstruction(instruction)) {
+        hideKirbyCvProposal();
+        setCvStatus('Aucune modification appliquée au CV.');
+        return getNoCvMutationReply();
+    }
+
     if (isKirbyCvRequestInFlight) {
         return 'Kirby analyse déjà le CV.';
+    }
+
+    const finalExperienceReply = await applyFinalExperienceTableCorrection(instruction);
+    if (finalExperienceReply) {
+        return finalExperienceReply;
+    }
+
+    const localOrderReply = await applyExperienceOrderCleanupFromKirby(instruction);
+    if (localOrderReply) {
+        return localOrderReply;
     }
 
     const layoutIntent = getKirbyLayoutIntent(instruction);
@@ -11072,6 +12047,14 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
         queuedAssistantPrompt = '';
         if (queuedMessage) {
             window.setTimeout(async () => {
+                if (isKirbyCvTechnicalOrExplanatoryInstruction(queuedMessage)) {
+                    hideKirbyCvProposal();
+                    setCvStatus('Aucune modification appliquée au CV.');
+                    setAssistantActivity('', false);
+                    appendAssistantMessage(getNoCvMutationReply(), 'bot');
+                    return;
+                }
+
                 const languageFocused = isLanguageFocusedInstruction(queuedMessage);
                 if (languageFocused && !hasLanguageNameInInstruction(queuedMessage)) {
                     hideKirbyCvProposal();
@@ -11079,18 +12062,29 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
                     return;
                 }
 
-                const quickReply = applyQuickKirbyCorrection(queuedMessage);
-                if (quickReply) {
+                const finalExperienceReply = await applyFinalExperienceTableCorrection(queuedMessage);
+                if (finalExperienceReply) {
                     hideKirbyCvProposal();
-                    if (isQuickKirbyMutationReply(quickReply)) {
-                        const persistence = await persistCvDraftImmediately();
-                        appendAssistantMessage(isCvPersistenceConfirmed(persistence)
-                            ? `${quickReply}\n${formatCvPersistenceDetail(persistence)}.`
-                            : `Modification appliquée à l’écran, mais non sauvegardée. ${formatCvPersistenceDetail(persistence)}.`,
-                        'bot');
-                        return;
-                    }
-                    appendAssistantMessage(quickReply, 'bot');
+                    appendAssistantMessage(finalExperienceReply, 'bot');
+                    return;
+                }
+
+                const localOrderReply = await applyExperienceOrderCleanupFromKirby(queuedMessage);
+                if (localOrderReply) {
+                    hideKirbyCvProposal();
+                    appendAssistantMessage(localOrderReply, 'bot');
+                    return;
+                }
+
+                const quickReply = applyQuickKirbyCorrection(queuedMessage);
+                    if (quickReply) {
+                        hideKirbyCvProposal();
+                        if (isQuickKirbyMutationReply(quickReply)) {
+                            const persistence = await persistCvDraftImmediately();
+                            appendAssistantMessage(buildKirbyQuickPersistenceReply(quickReply, persistence), 'bot');
+                            return;
+                        }
+                        appendAssistantMessage(quickReply, 'bot');
                     return;
                 }
 
@@ -11133,7 +12127,7 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
 const formatKirbyAssistantReply = (localReplies = [], reply = '') => {
     const cleanReply = String(reply || '').trim();
 
-    if (/^(CV mis à jour|Base CV créée|CV corrigé|Langues mises à jour|Expériences rangées|Le CV est déjà aligné)/i.test(cleanReply)) {
+    if (/^(CV mis à jour|CV préservé|Base CV créée|CV corrigé|Langues mises à jour|Expériences rangées|Le CV est déjà aligné)/i.test(cleanReply)) {
         return cleanReply;
     }
 
@@ -11145,8 +12139,8 @@ const runAssistantAction = (action, message = '') => {
 
     if (action === 'ready') {
         const result = applyReadyCvBase(message);
-        return result.mode === 'optimized'
-            ? `CV corrigé : accroche, compétences et ${result.experienceCount || 0} expérience(s) harmonisées.`
+        return result.mode === 'preserved'
+            ? `CV préservé : contenu et ordre inchangés. Choisissez un modèle ou demandez une correction ciblée.`
             : `Base CV créée : titre, accroche, compétences, ${result.experienceCount || 0} expériences et formations prêts à modifier.`;
     }
 
@@ -11220,6 +12214,10 @@ const getAssistantReply = (message) => {
             : "Choisissez d'abord une action : accroche, expériences, compétences, fautes ou offre.";
     }
 
+    if (isExplicitKirbyApplyInstruction(message) && !hasConcreteKirbyCvEditIntent(message)) {
+        return getNoCvMutationReply();
+    }
+
     if (/\b(import|importe|ancien cv|pdf|docx)\b/.test(normalizedMessage)) {
         return runAssistantAction('import', message);
     }
@@ -11261,7 +12259,26 @@ const getAssistantReply = (message) => {
     return "Action disponible : accroche, expériences, compétences, langues, fautes, projets, offre ou CV prêt.";
 };
 
-const shouldUseKirbyCvAssistant = (message = '') => Boolean(message.trim());
+const shouldUseKirbyCvAssistant = (message = '', mode = activeKirbyMode) => {
+    const cleanMessage = String(message || '').trim();
+
+    if (!cleanMessage || isKirbyCvTechnicalOrExplanatoryInstruction(cleanMessage)) {
+        return false;
+    }
+
+    if (mode === 'letter') {
+        return /\b(lettre|motivation|redige|rédige|ecris|écris|candidature)\b/i.test(cleanMessage) || looksLikeJobOffer(cleanMessage);
+    }
+
+    if (mode === 'adapt') {
+        return looksLikeJobOffer(cleanMessage) || hasConcreteKirbyCvEditIntent(cleanMessage);
+    }
+
+    return hasConcreteKirbyCvEditIntent(cleanMessage)
+        || looksLikePastedCv(cleanMessage)
+        || looksLikeCvCreationInstruction(cleanMessage)
+        || looksLikeJobOffer(cleanMessage);
+};
 
 const getCvDamageDiagnosticReply = (message = '') => {
     const source = normalizeForMatch(message);
@@ -11315,6 +12332,21 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
         return;
     }
 
+    if (isKirbyCvTechnicalOrExplanatoryInstruction(cleanMessage)) {
+        hideKirbyCvProposal();
+        setCvStatus('Aucune modification appliquée au CV.');
+        setAssistantActivity('', false);
+        appendAssistantMessage(getNoCvMutationReply(), 'bot');
+        return;
+    }
+
+    const finalExperienceReply = await applyFinalExperienceTableCorrection(cleanMessage);
+    if (finalExperienceReply) {
+        hideKirbyCvProposal();
+        appendAssistantMessage(finalExperienceReply, 'bot');
+        return;
+    }
+
     const targetedDigitalReply = applyTargetedDigitalCvCompletion(cleanMessage);
     if (targetedDigitalReply) {
         hideKirbyCvProposal();
@@ -11349,15 +12381,19 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
         return;
     }
 
+    const localOrderReply = await applyExperienceOrderCleanupFromKirby(cleanMessage);
+    if (localOrderReply) {
+        hideKirbyCvProposal();
+        appendAssistantMessage(localOrderReply, 'bot');
+        return;
+    }
+
     const quickReply = applyQuickKirbyCorrection(cleanMessage);
     if (quickReply) {
         hideKirbyCvProposal();
         if (isQuickKirbyMutationReply(quickReply)) {
             const persistence = await persistCvDraftImmediately();
-            appendAssistantMessage(isCvPersistenceConfirmed(persistence)
-                ? `${quickReply}\n${formatCvPersistenceDetail(persistence)}.`
-                : `Modification appliquée à l’écran, mais non sauvegardée. ${formatCvPersistenceDetail(persistence)}.`,
-            'bot');
+            appendAssistantMessage(buildKirbyQuickPersistenceReply(quickReply, persistence), 'bot');
             return;
         }
         appendAssistantMessage(quickReply, 'bot');
@@ -11383,7 +12419,7 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
     const messageIsOffer = mode !== 'letter' && setJobOfferFromAssistantMessage(cleanMessage);
     hideKirbyCvProposal();
     const assistantInstruction = autopilotMode ? buildCvAutopilotInstruction(cleanMessage) : cleanMessage;
-    const reply = shouldUseKirbyCvAssistant(cleanMessage)
+    const reply = shouldUseKirbyCvAssistant(cleanMessage, mode)
         ? await runKirbyCvAssistant({
             task: messageIsOffer ? 'adapt' : getAssistantTask(cleanMessage, mode),
             instruction: assistantInstruction,
@@ -12124,15 +13160,11 @@ const normalizeCvTextareaValue = (fieldName, value) => {
     const items = splitLines(value || '');
 
     if (fieldName === 'education') {
-        return sortTimelineEntriesNewestFirst(normalizeEducationItems(items.filter((item) => !/^[-–—]?\s*\)?$/.test(item.trim())))).join('\n');
+        return items.join('\n');
     }
 
     if (fieldName === 'experience' || fieldName === 'projects') {
-        const timelineItems = repairPreviewExperienceItems(dedupeExactTrimmedItems(items));
-        return (fieldName === 'experience'
-            ? timelineItems
-            : timelineItems
-        ).join('\n');
+        return items.join('\n');
     }
 
     return value.trim();
@@ -12374,7 +13406,8 @@ if (previewLineSpacing && cvForm) {
 
 if (previewLayoutTheme && cvForm) {
     previewLayoutTheme.addEventListener('change', () => {
-        cvForm.elements.layoutTheme.value = previewLayoutTheme.value;
+        lastUserLayoutThemeChangeAt = Date.now();
+        cvForm.elements.layoutTheme.value = normalizeLayoutTheme(previewLayoutTheme.value);
         updateCvPreview();
         captureCvHistoryFromInteraction({ immediate: true });
         scheduleCvDraftSave();
@@ -12464,12 +13497,57 @@ const getEditableSelectionNode = () => {
     const selection = document.getSelection();
     const anchor = selection?.anchorNode;
     const element = anchor?.nodeType === Node.TEXT_NODE ? anchor.parentElement : anchor;
-    return element?.closest?.('[contenteditable="true"]') || null;
+    const target = element?.closest?.('[contenteditable="true"]') || null;
+    return isCvFormatTargetNode(target) ? target : null;
 };
+
+const isNodeInsideCvFormattingSurface = (node) => {
+    const element = node?.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+    return Boolean(element && (
+        previewNodes.preview?.contains(element) ||
+        letterPagePreview?.contains(element)
+    ));
+};
+
+const isCvFormatTargetNode = (node) =>
+    Boolean(node && document.body.contains(node) && isNodeInsideCvFormattingSurface(node));
+
+const getCvFormatTargets = () => [
+    ...(previewNodes.preview?.querySelectorAll('[contenteditable="true"], [data-section-title]') || []),
+    ...(letterPagePreview?.querySelectorAll('[contenteditable="true"], [data-section-title]') || []),
+];
 
 const getFormatTargetFromNode = (node) => {
     const element = node?.nodeType === Node.TEXT_NODE ? node.parentElement : node;
-    return element?.closest?.('[contenteditable="true"], [data-section-title]') || null;
+    const target = element?.closest?.('[contenteditable="true"], [data-section-title]') || null;
+    return isCvFormatTargetNode(target) ? target : null;
+};
+
+const createFormatRangeForNode = (node) => {
+    if (!isCvFormatTargetNode(node)) {
+        return null;
+    }
+
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    return range;
+};
+
+const getStoredFormatRange = () => {
+    if (
+        savedFormatRange &&
+        document.body.contains(savedFormatRange.commonAncestorContainer) &&
+        isNodeInsideCvFormattingSurface(savedFormatRange.commonAncestorContainer)
+    ) {
+        return savedFormatRange;
+    }
+
+    if (isCvFormatTargetNode(activeFormatNode)) {
+        savedFormatRange = createFormatRangeForNode(activeFormatNode);
+        return savedFormatRange;
+    }
+
+    return null;
 };
 
 const getCurrentFormatRange = () => {
@@ -12486,9 +13564,7 @@ const getCurrentFormatRange = () => {
         return range;
     }
 
-    return savedFormatRange && document.body.contains(savedFormatRange.commonAncestorContainer)
-        ? savedFormatRange
-        : null;
+    return getStoredFormatRange();
 };
 
 const rememberFormatTarget = (node) => {
@@ -12501,10 +13577,20 @@ const rememberFormatTarget = (node) => {
     if (target.isContentEditable) {
         activeEditableNode = target;
     }
+
+    const selection = document.getSelection();
+    const selectedRange = selection?.rangeCount ? selection.getRangeAt(0) : null;
+    const selectionIsInsideTarget = selectedRange &&
+        target.contains(selectedRange.commonAncestorContainer) &&
+        target.contains(selectedRange.startContainer) &&
+        target.contains(selectedRange.endContainer);
+    savedFormatRange = selectionIsInsideTarget
+        ? selectedRange.cloneRange()
+        : createFormatRangeForNode(target);
 };
 
 const getActiveEditableNode = () => {
-    if (activeEditableNode && document.body.contains(activeEditableNode)) {
+    if (activeEditableNode && isCvFormatTargetNode(activeEditableNode)) {
         return activeEditableNode;
     }
 
@@ -12519,7 +13605,7 @@ const getActiveFormatNode = () => {
         return rangeTarget;
     }
 
-    if (activeFormatNode && document.body.contains(activeFormatNode)) {
+    if (activeFormatNode && isCvFormatTargetNode(activeFormatNode)) {
         return activeFormatNode;
     }
 
@@ -12530,7 +13616,7 @@ const getSelectedFormatNodes = () => {
     const range = getCurrentFormatRange();
 
     if (range && !range.collapsed) {
-        const selectedNodes = [...document.querySelectorAll('[contenteditable="true"], [data-section-title]')]
+        const selectedNodes = getCvFormatTargets()
             .filter((node) => range.intersectsNode(node));
         if (selectedNodes.length) {
             return selectedNodes;
@@ -12633,7 +13719,8 @@ const syncPreviewEditableNode = (node, { refreshPreview = false, normalize = tru
     }
 
     if (target === 'fullName' || target === 'headline' || target === 'summary' || target === 'permit') {
-        field.value = node.innerText.trim();
+        const textValue = stripDirectionalFormatting(node.innerText || '').trim();
+        field.value = target === 'fullName' ? getSafeFullNameValue(textValue) : textValue;
     } else if (target === 'location') {
         const modernContactValues = [...node.querySelectorAll('[data-contact-value]')]
             .map((item) => ({
@@ -12681,6 +13768,76 @@ const persistAllEditableNodes = ({ refreshPreview = false } = {}) => {
     document.querySelectorAll('[contenteditable="true"]').forEach((node) => {
         syncPreviewEditableNode(node, { refreshPreview });
     });
+};
+
+const getPlainTextForCopiedNode = (node) => {
+    if (!node) {
+        return '';
+    }
+
+    if (node.nodeType === Node.TEXT_NODE) {
+        return stripDirectionalFormatting(node.textContent || '');
+    }
+
+    if (node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) {
+        return '';
+    }
+
+    if (node.nodeType === Node.ELEMENT_NODE) {
+        const element = node;
+        if (element.matches('.cv-section-actions, .cv-section-action, .cv-page-guide, .cv-label, [data-copy-ignore="true"]')) {
+            return '';
+        }
+
+        if (element.tagName === 'BR') {
+            return '\n';
+        }
+    }
+
+    const childText = [...node.childNodes].map(getPlainTextForCopiedNode).join('');
+
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+        return childText;
+    }
+
+    const blockTags = new Set(['H1', 'H2', 'H3', 'H4', 'P', 'DIV', 'SECTION', 'HEADER', 'ARTICLE', 'LI', 'UL', 'OL']);
+    return blockTags.has(node.tagName) ? `${childText}\n` : childText;
+};
+
+const normalizeCopiedCvText = (value = '') =>
+    stripDirectionalFormatting(value)
+        .replace(/[ \t]+\n/g, '\n')
+        .replace(/\n[ \t]+/g, '\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+
+const getCleanCvSelectionText = () => {
+    const selection = document.getSelection();
+    if (!selection?.rangeCount || !previewNodes.preview) {
+        return '';
+    }
+
+    const container = document.createElement('div');
+    for (let index = 0; index < selection.rangeCount; index += 1) {
+        const range = selection.getRangeAt(index);
+        if (!previewNodes.preview.contains(range.commonAncestorContainer)) {
+            continue;
+        }
+        container.appendChild(range.cloneContents());
+    }
+
+    container.querySelectorAll('.cv-section-actions, .cv-section-action, .cv-page-guide, .cv-label, [data-copy-ignore="true"]').forEach((node) => node.remove());
+    return normalizeCopiedCvText(getPlainTextForCopiedNode(container));
+};
+
+const handleCvPreviewCopy = (event) => {
+    const cleanText = getCleanCvSelectionText();
+    if (!cleanText) {
+        return;
+    }
+
+    event.preventDefault();
+    event.clipboardData?.setData('text/plain', cleanText);
 };
 
 const insertHtmlAtCursor = (html) => {
@@ -12827,7 +13984,15 @@ const applyInlineCommand = (command) => {
 };
 
 document.querySelectorAll('[contenteditable="true"]').forEach((node) => {
+    if (!isCvFormatTargetNode(node)) {
+        return;
+    }
+
+    enforceEditableTextDirection(node);
+    node.setAttribute('lang', 'fr');
+    node.setAttribute('translate', 'no');
     node.addEventListener('focus', () => {
+        enforceEditableTextDirection(node);
         activeEditableNode = node;
         activeFormatNode = node;
         updateWordToolbarState();
@@ -12870,7 +14035,34 @@ document.querySelectorAll('[contenteditable="true"]').forEach((node) => {
     });
 });
 
+const mirrorLetterEditablePair = (source, target) => {
+    if (!source || !target) {
+        return;
+    }
+
+    const sync = () => {
+        target.textContent = source.textContent || '';
+        updatePreviewViewport();
+    };
+
+    source.addEventListener('input', sync);
+    source.addEventListener('blur', sync);
+};
+
+mirrorLetterEditablePair(letterSubject, letterSubjectPage);
+mirrorLetterEditablePair(letterSubjectPage, letterSubject);
+mirrorLetterEditablePair(letterBody, letterBodyPage);
+mirrorLetterEditablePair(letterBodyPage, letterBody);
+mirrorLetterEditablePair(letterContactFooter, letterContactFooterPage);
+mirrorLetterEditablePair(letterContactFooterPage, letterContactFooter);
+
+previewNodes.preview?.addEventListener('copy', handleCvPreviewCopy);
+
 document.querySelectorAll('[data-section-title]').forEach((node) => {
+    if (!isCvFormatTargetNode(node)) {
+        return;
+    }
+
     node.addEventListener('mousedown', () => {
         rememberFormatTarget(node);
     });
@@ -12981,6 +14173,25 @@ templatePresetChips.forEach((chip) => {
             return;
         }
 
+        if (retiredTemplatePresets.has(chip.dataset.templatePreset || '')) {
+            const fallbackPreset = templatePresets[fallbackTemplatePreset];
+            if (!fallbackPreset) {
+                return;
+            }
+
+            Object.entries(fallbackPreset).forEach(([key, value]) => {
+                const field = cvForm.elements[key];
+                if (field) {
+                    field.value = value;
+                }
+            });
+            updateCvPreview();
+            resetCvHistory();
+            saveCvDraft(true);
+            setCvStatus('Modele remplace par Premium');
+            return;
+        }
+
         const preset = templatePresets[chip.dataset.templatePreset || ''];
         if (!preset) {
             return;
@@ -13016,7 +14227,7 @@ if (cvAutofillButton) {
         openAssistant();
         setKirbyMode('create', { focus: true });
         if (assistantInput) {
-            assistantInput.value = "Prends le CV en main : pre-remplis, structure, range les dates de la plus recente a la plus ancienne, nettoie les doublons et propose une version complete.";
+            assistantInput.value = "Indiquez la modification ciblée à appliquer au CV, sans changer l'ordre des expériences.";
         }
     });
 }
@@ -13032,15 +14243,20 @@ if (cvUndoButton) {
 if (cvImproveButton) {
     cvImproveButton.addEventListener('click', () => {
         openAssistant();
-        void handleAssistantPrompt("Prends le CV en main : corrige, optimise, range les dates de la plus récente à la plus ancienne et prépare une version prête à l'emploi.");
+        setKirbyMode('assistant', { focus: true });
+        if (assistantInput) {
+            assistantInput.value = "Décrivez une correction ciblée : remplacer une phrase, supprimer une ligne ou corriger une date.";
+        }
     });
 }
 
 if (cvOptimizeMainButton) {
     cvOptimizeMainButton.addEventListener('click', () => {
-        const prompt = "Prends le CV en main : corrige, optimise, range les dates de la plus récente à la plus ancienne, complète les rubriques utiles et prépare une version prête à l'emploi";
         openAssistant();
-        void handleAssistantPrompt(prompt);
+        setKirbyMode('assistant', { focus: true });
+        if (assistantInput) {
+            assistantInput.value = "Décrivez précisément la correction à appliquer. Kirby ne doit modifier que l'élément demandé.";
+        }
     });
 }
 
@@ -13050,49 +14266,61 @@ if (cvFitPageButton) {
 
 if (cvAiImproveButton) {
     cvAiImproveButton.addEventListener('click', () => {
-        const prompt = 'Ameliore mon CV';
         openAssistant();
-        void handleAssistantPrompt(prompt);
+        setKirbyMode('assistant', { focus: true });
+        if (assistantInput) {
+            assistantInput.value = "Décrivez une correction ciblée à appliquer au CV.";
+        }
     });
 }
 
 if (cvAiSummaryButton) {
     cvAiSummaryButton.addEventListener('click', () => {
-        const prompt = "Remplace l'accroche directement";
         openAssistant();
-        void handleAssistantPrompt(prompt);
+        setKirbyMode('assistant', { focus: true });
+        if (assistantInput) {
+            assistantInput.value = "Remplace l'accroche par : ";
+        }
     });
 }
 
 if (cvAiSkillsButton) {
     cvAiSkillsButton.addEventListener('click', () => {
-        const prompt = 'Enrichis mes competences directement';
         openAssistant();
-        void handleAssistantPrompt(prompt);
+        setKirbyMode('assistant', { focus: true });
+        if (assistantInput) {
+            assistantInput.value = "Dans Compétences, remplace/supprime uniquement : ";
+        }
     });
 }
 
 if (cvAiProofreadButton) {
     cvAiProofreadButton.addEventListener('click', () => {
-        const prompt = 'Corrige les fautes de mon CV';
         openAssistant();
-        void handleAssistantPrompt(prompt);
+        setKirbyMode('assistant', { focus: true });
+        if (assistantInput) {
+            assistantInput.value = "Corrige uniquement cette phrase : ";
+        }
     });
 }
 
 if (cvImproveExperienceButton) {
     cvImproveExperienceButton.addEventListener('click', () => {
-        const prompt = 'Reformule mes experiences directement';
         openAssistant();
-        void handleAssistantPrompt(prompt);
+        setKirbyMode('assistant', { focus: true });
+        if (assistantInput) {
+            assistantInput.value = "Dans l'expérience concernée, remplace uniquement : ";
+        }
     });
 }
 
 if (cvImproveProjectsButton) {
     cvImproveProjectsButton.addEventListener('click', () => {
-        const prompt = 'Ameliore mes projets directement';
         openAssistant();
-        void handleAssistantPrompt(prompt);
+        setKirbyMode('assistant', { focus: true });
+        if (assistantInput) {
+            assistantInput.value = "Dans Projets, remplace/supprime uniquement : ";
+        }
     });
 }
 
@@ -13105,9 +14333,11 @@ if (cvAnalyzeButton) {
 
 if (cvMatchJobButton) {
     cvMatchJobButton.addEventListener('click', () => {
-        const prompt = 'Adapte mon CV a l offre';
         openAssistant();
-        void handleAssistantPrompt(prompt);
+        setKirbyMode('assistant', { focus: true });
+        if (assistantInput) {
+            assistantInput.value = "Indiquez la modification ciblée liée à l'offre, sans réécrire tout le CV : ";
+        }
     });
 }
 
@@ -13266,7 +14496,12 @@ if (cvImportInput) {
                 return;
             }
 
-            parseImportedCv(text);
+            isImportingCvPreview = true;
+            try {
+                parseImportedCv(text);
+            } finally {
+                isImportingCvPreview = false;
+            }
             commitCvHistoryTransition(historyBeforeImport);
             if (cvPreviewViewport) {
                 cvPreviewViewport.scrollTop = 0;
