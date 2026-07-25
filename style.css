@@ -2928,6 +2928,110 @@ body.is-exporting-pdf .pdf-export-root.is-paginated-export .cv-preview {
     overflow: visible !important;
 }
 
+body.is-exporting-pdf .pdf-export-root.is-cv-export {
+    height: 297mm !important;
+    min-height: 297mm !important;
+    max-height: 297mm !important;
+    overflow: hidden !important;
+}
+
+body.is-exporting-pdf .pdf-export-root.is-cv-export .cv-preview {
+    height: 297mm !important;
+    min-height: 297mm !important;
+    max-height: 297mm !important;
+    overflow: hidden !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+}
+
+body.is-exporting-pdf .pdf-export-root.is-single-page-cv-export .cv-preview.template-premium {
+    padding: 7mm 9mm 7.5mm !important;
+    border-top-width: 5px !important;
+    border-radius: 0 !important;
+    background:
+        linear-gradient(180deg, #fffaf0 0, #ffffff 32mm),
+        #ffffff !important;
+}
+
+body.is-exporting-pdf .pdf-export-root.is-single-page-cv-export .cv-preview.template-premium .cv-header {
+    gap: 0.24rem !important;
+    padding-bottom: 0.5rem !important;
+}
+
+body.is-exporting-pdf .pdf-export-root.is-single-page-cv-export .cv-preview.template-premium .cv-body {
+    gap: 0.28rem !important;
+    padding-top: 0.28rem !important;
+}
+
+body.is-exporting-pdf .pdf-export-root.is-single-page-cv-export .cv-preview.template-premium .cv-body section {
+    gap: 0.14rem !important;
+}
+
+body.is-exporting-pdf .pdf-export-root.is-single-page-cv-export .cv-preview.template-premium .cv-section-head {
+    align-items: flex-start !important;
+    margin: 0 !important;
+}
+
+body.is-exporting-pdf .pdf-export-root.is-single-page-cv-export .cv-preview.template-premium .cv-body h4 {
+    display: inline-block !important;
+    width: auto !important;
+    max-width: 100% !important;
+    padding: 0.06rem 0.42rem !important;
+    font-size: 0.72rem !important;
+    line-height: 1.08 !important;
+    letter-spacing: 0.09em !important;
+    border-left-width: 3px !important;
+}
+
+body.is-exporting-pdf .pdf-export-root.is-single-page-cv-export .cv-preview.template-premium .cv-list-compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.03rem 0.52rem !important;
+}
+
+body.is-exporting-pdf .pdf-export-root.is-single-page-cv-export .cv-preview.template-premium .cv-list-compact li,
+body.is-exporting-pdf .pdf-export-root.is-single-page-cv-export .cv-preview.template-premium .cv-experience-bullets li {
+    margin-bottom: 0 !important;
+    line-height: 1.1 !important;
+}
+
+body.is-exporting-pdf .pdf-export-root.is-single-page-cv-export .cv-preview.template-premium section[data-section-key="languages"] .cv-list-compact,
+body.is-exporting-pdf .pdf-export-root.is-single-page-cv-export .cv-preview.template-premium section[data-section-key="activities"] .cv-list-compact {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    column-count: auto !important;
+    column-gap: 0.8rem !important;
+}
+
+body.is-exporting-pdf .pdf-export-root.is-single-page-cv-export .cv-preview.template-premium section[data-section-key="languages"] .cv-list-compact li {
+    white-space: normal !important;
+    min-width: 0 !important;
+}
+
+body.is-exporting-pdf .pdf-export-root.is-single-page-cv-export .cv-preview.template-premium .cv-experience-list > .cv-experience-item {
+    padding: 0.16rem 0.36rem 0.18rem !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+}
+
+body.is-exporting-pdf .pdf-export-root.is-single-page-cv-export .cv-preview.template-premium .cv-experience-list > .cv-experience-item + .cv-experience-item {
+    margin-top: 0.04rem !important;
+}
+
+body.is-exporting-pdf .pdf-export-root.is-single-page-cv-export .cv-preview.template-premium .cv-experience-title {
+    font-size: 0.92em !important;
+    line-height: 1.1 !important;
+}
+
+body.is-exporting-pdf .pdf-export-root.is-single-page-cv-export .cv-preview.template-premium .cv-experience-meta {
+    font-size: 0.8em !important;
+    line-height: 1.1 !important;
+}
+
+body.is-exporting-pdf .pdf-export-root.is-single-page-cv-export .cv-preview.template-premium .cv-experience-bullets {
+    margin-top: 0.04rem !important;
+    gap: 0.01rem !important;
+}
+
 body.is-exporting-pdf .pdf-export-root.is-letter-export .cv-preview.cv-letter-page:not(.template-digital):not(.template-holographic) {
     display: flex !important;
     height: auto !important;

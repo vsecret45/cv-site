@@ -4533,6 +4533,37 @@ const serializeLanguageEntry = (entry = {}) => {
     return language ? (level ? `${language} : ${level}` : language) : '';
 };
 
+const splitMergedLanguageItems = (items = []) => {
+    const languageNames = [
+        'Français',
+        'Francais',
+        'Anglais',
+        'Arabe',
+        'Espagnol',
+        'Italien',
+        'Allemand',
+        'Portugais',
+    ].join('|');
+    const languageLookaheadPattern = `(?=(?:${languageNames})\\s*[:–—-])`;
+    const levelBeforeLanguage = new RegExp(
+        `\\b(Langue maternelle|Bilingue|Courant|Courante|intermédiaire|intermediaire|Débutant|Debutant|Notions|Bases solides|Niveau professionnel)\\s*${languageLookaheadPattern}`,
+        'gi'
+    );
+
+    return items.flatMap((item) => {
+        const normalized = String(item || '').replace(/\s+/g, ' ').trim();
+        if (!normalized) {
+            return [];
+        }
+
+        const repaired = normalized.replace(levelBeforeLanguage, '$1\n');
+        return repaired
+            .split(/\n+/)
+            .map((line) => line.trim())
+            .filter(Boolean);
+    });
+};
+
 const getLanguageSourceEntries = () => {
     const field = getLanguageField();
 
@@ -5310,7 +5341,7 @@ const updateCvPreview = () => {
     const projectItems = mergeStandaloneDateItems(dedupeImportedItems(rawProjectItems));
     const rawEducationItems = splitLines(values.education || '').filter((item) => !/^[-–—]?\s*\)?$/.test(item.trim()));
     let educationItems = normalizeEducationItems(rawEducationItems);
-    const rawLanguageItems = splitLines(values.languages || '');
+    const rawLanguageItems = splitMergedLanguageItems(splitLines(values.languages || ''));
     const languageItems = dedupeImportedItems(rawLanguageItems);
     const rawActivityItems = splitLines(values.activities || '');
     const activityItems = dedupeImportedItems(rawActivityItems);
@@ -7924,6 +7955,158 @@ const fitStaticExportFlow = (root) => {
     }
 };
 
+const applySinglePageCvExportDensity = (root, level = 1) => {
+    if (!root) {
+        return;
+    }
+
+    const setImportant = (selector, styles) => {
+        root.querySelectorAll(selector).forEach((node) => {
+            Object.entries(styles).forEach(([property, value]) => {
+                node.style.setProperty(property, value, 'important');
+            });
+        });
+    };
+
+    const density = level >= 3
+        ? {
+            pagePadding: '6mm 8mm 7mm',
+            headerGap: '0.18rem',
+            headerPadding: '0.42rem',
+            bodyGap: '0.22rem',
+            sectionGap: '0.12rem',
+            titlePadding: '0.05rem 0.36rem',
+            itemPadding: '0.12rem 0.32rem 0.14rem',
+            bulletGap: '0.01rem',
+            listGap: '0.02rem 0.46rem',
+        }
+        : level >= 2
+            ? {
+                pagePadding: '6.5mm 8.5mm 7mm',
+                headerGap: '0.22rem',
+                headerPadding: '0.48rem',
+                bodyGap: '0.28rem',
+                sectionGap: '0.14rem',
+                titlePadding: '0.06rem 0.4rem',
+                itemPadding: '0.16rem 0.36rem 0.18rem',
+                bulletGap: '0.015rem',
+                listGap: '0.03rem 0.52rem',
+            }
+            : {
+                pagePadding: '7mm 9mm 7.5mm',
+                headerGap: '0.26rem',
+                headerPadding: '0.56rem',
+                bodyGap: '0.34rem',
+                sectionGap: '0.18rem',
+                titlePadding: '0.08rem 0.44rem',
+                itemPadding: '0.2rem 0.42rem 0.22rem',
+                bulletGap: '0.025rem',
+                listGap: '0.04rem 0.58rem',
+            };
+
+    setImportant('.cv-preview', {
+        padding: density.pagePadding,
+        overflow: 'hidden',
+    });
+    setImportant('.cv-header', {
+        gap: density.headerGap,
+        'padding-bottom': density.headerPadding,
+    });
+    setImportant('.cv-body', {
+        gap: density.bodyGap,
+        'padding-top': density.bodyGap,
+    });
+    setImportant('.cv-body section', {
+        gap: density.sectionGap,
+    });
+    setImportant('.cv-section-head', {
+        'margin-bottom': '0',
+    });
+    setImportant('.cv-body h4', {
+        padding: density.titlePadding,
+        'line-height': '1.08',
+    });
+    setImportant('.cv-list-compact', {
+        gap: density.listGap,
+    });
+    setImportant('.cv-list-compact li', {
+        'line-height': level >= 3 ? '1.08' : '1.12',
+        'margin-bottom': '0',
+    });
+    setImportant('.cv-experience-list > .cv-experience-item', {
+        padding: density.itemPadding,
+        'margin-top': '0',
+        'margin-bottom': '0',
+    });
+    setImportant('.cv-experience-list .cv-experience-bullets', {
+        'margin-top': '0.04rem',
+        gap: density.bulletGap,
+    });
+    setImportant('.cv-experience-list .cv-experience-bullets li', {
+        'line-height': level >= 3 ? '1.08' : '1.12',
+        'margin-bottom': '0',
+    });
+};
+
+const scaleSinglePageCvExportTypography = (root, scale = 1) => {
+    if (!root || scale >= 0.995) {
+        return;
+    }
+
+    root.querySelectorAll('.cv-preview, .cv-preview *').forEach((node) => {
+        const computed = window.getComputedStyle(node);
+        const fontSize = Number.parseFloat(computed.fontSize);
+        const lineHeight = Number.parseFloat(computed.lineHeight);
+
+        if (Number.isFinite(fontSize) && fontSize > 0) {
+            node.style.setProperty('font-size', `${Math.max(9.2, fontSize * scale).toFixed(2)}px`, 'important');
+        }
+
+        if (Number.isFinite(lineHeight) && lineHeight > 0) {
+            node.style.setProperty('line-height', `${Math.max(10.8, lineHeight * scale).toFixed(2)}px`, 'important');
+        }
+    });
+};
+
+const fitSinglePageCvExport = (root) => {
+    if (!root) {
+        return;
+    }
+
+    const page = root.querySelector('.cv-preview');
+    if (!page) {
+        return;
+    }
+
+    root.classList.add('is-single-page-cv-export');
+    page.classList.add('is-single-page-cv-export');
+
+    const getTargetHeight = () => {
+        const bounds = root.getBoundingClientRect();
+        return Math.max(0, bounds.height - 6);
+    };
+
+    const getContentHeight = () => Math.max(page.scrollHeight, page.getBoundingClientRect().height);
+
+    for (let level = 1; level <= 3; level += 1) {
+        applySinglePageCvExportDensity(root, level);
+        fitStaticExportFlow(root);
+
+        if (getContentHeight() <= getTargetHeight()) {
+            return;
+        }
+    }
+
+    const targetHeight = getTargetHeight();
+    const contentHeight = getContentHeight();
+    if (contentHeight > targetHeight && targetHeight > 0) {
+        const scale = Math.max(0.88, Math.min(0.98, targetHeight / contentHeight));
+        scaleSinglePageCvExportTypography(root, scale);
+        applySinglePageCvExportDensity(root, 3);
+        fitStaticExportFlow(root);
+    }
+};
+
 const getPreviewCloneForOfficeExport = () => {
     const sourcePreview = currentPreviewMode === 'letter' ? letterPagePreview : previewNodes.preview;
 
@@ -8030,9 +8213,10 @@ const buildStaticExportNode = (mode = currentPreviewMode) => {
     }
 
     const isLetterExport = mode === 'letter';
-    const isPaginatedExport = mode === 'cv' || isLetterExport;
+    const isPaginatedExport = isLetterExport;
     const wrapper = document.createElement('div');
     wrapper.className = 'pdf-export-root';
+    wrapper.classList.toggle('is-cv-export', !isLetterExport);
     wrapper.classList.toggle('is-letter-export', isLetterExport);
     wrapper.classList.toggle('is-paginated-export', isPaginatedExport);
     wrapper.style.position = 'fixed';
@@ -8075,6 +8259,9 @@ const buildStaticExportNode = (mode = currentPreviewMode) => {
     wrapper.appendChild(clone);
     document.body.appendChild(wrapper);
     fitStaticExportFlow(wrapper);
+    if (!isLetterExport) {
+        fitSinglePageCvExport(wrapper);
+    }
 
     return wrapper;
 };
@@ -8269,18 +8456,23 @@ const exportPdf = async (options = {}) => {
                 const imageData = canvas.toDataURL('image/jpeg', 0.98);
                 const singlePageBottomMargin = 8;
                 const singlePageFitLimit = pageHeight + 60;
-                const renderHeight = imageHeight <= singlePageFitLimit ? pageHeight - singlePageBottomMargin : imageHeight;
+                const renderHeight = exportMode === 'cv'
+                    ? pageHeight - singlePageBottomMargin
+                    : imageHeight <= singlePageFitLimit ? pageHeight - singlePageBottomMargin : imageHeight;
 
                 let positionY = 0;
                 let remainingHeight = renderHeight;
                 doc.addImage(imageData, 'JPEG', 0, positionY, pageWidth, renderHeight);
-                remainingHeight -= pageHeight;
 
-                while (remainingHeight > 2) {
-                    positionY -= pageHeight;
-                    doc.addPage();
-                    doc.addImage(imageData, 'JPEG', 0, positionY, pageWidth, renderHeight);
+                if (exportMode !== 'cv') {
                     remainingHeight -= pageHeight;
+
+                    while (remainingHeight > 2) {
+                        positionY -= pageHeight;
+                        doc.addPage();
+                        doc.addImage(imageData, 'JPEG', 0, positionY, pageWidth, renderHeight);
+                        remainingHeight -= pageHeight;
+                    }
                 }
 
                 return finishPdfExport(doc, filename, action, options?.previewWindow || options?.printWindow);
