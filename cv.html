@@ -99,7 +99,7 @@
                                             type="text"
                                             name="headline"
                                             placeholder="Ex. Conductrice de transport en commun - Permis D"
-                                            value="Conseiller commercial bancaire"
+                                            value="Conseillère de vente"
                                         >
                                     </label>
                                 </div>
@@ -164,9 +164,9 @@ Sport / activités personnelles</textarea>
                                                 name="experience"
                                                 rows="5"
                                                 placeholder="Une experience par ligne"
-                                            >Créatrice de sites web / Développeuse web - Projet personnel / Autoformation - 2025 - 2026 • Conception et développement de sites vitrines et d’outils web. • Création d’interfaces adaptées aux besoins des utilisateurs.
+                                            >Développeuse Front-End / Créatrice de sites web - Projet personnel / Autoformation - 2025 - 2026 • Conception et développement de sites vitrines et d’outils web. • Création d’interfaces adaptées aux besoins des utilisateurs.
 Machiniste-Receveur - RATP, Nanterre - avr. 2024 - oct. 2024 • Sécurité, autonomie, gestion d’horaires et relation clientèle.
-Développement web - Projets autodidactes - Paris - 2023 • Conception de pages web et d’interfaces en HTML, CSS et JavaScript. • Réalisation de projets personnels concrets pour développer mes compétences techniques.
+Développement web – Projets personnels - Paris - 2023 • Conception de pages web et d’interfaces en HTML5, CSS3 et JavaScript. • Développement et amélioration de projets web personnels.
 Conseillère commerciale digitale - Caisse d’Épargne Île-de-France, Montigny-le-Bretonneux - nov. 2022 • Conseil à distance. • Analyse des besoins. • Proposition de solutions bancaires adaptées.
 Responsable adjointe - Camaïeu, Rueil-Malmaison - oct. 2021 - oct. 2022 • Management de l’équipe. • Développement du chiffre d’affaires. • Gestion des stocks. • Fidélisation de la clientèle.
 Conseillère commerciale - American Express / Air France, Roissy - 2019 - 2021 • Conseil et accompagnement des voyageurs. • Constitution et suivi des dossiers. • Vente de produits et services financiers. • Développement commercial et fidélisation.</textarea>
@@ -185,13 +185,12 @@ Conseillère commerciale - American Express / Air France, Roissy - 2019 - 2021 �
                                         name="skills"
                                         rows="5"
                                         placeholder="Un point fort par ligne"
-                                    >Relation et accompagnement
-Analyse des besoins et orientation vers des solutions adaptées
-Gestion administrative et suivi de dossiers
-Travail en autonomie et en équipe
-Accueil et écoute active
-Accompagnement et suivi des personnes
-Organisation du travail et respect des procédures</textarea>
+                                    >Front-End : HTML5, CSS3, JavaScript, React
+Déploiement : Vercel, Supabase
+Conception d’interfaces : UI/UX, Responsive Design
+Outils : Git, GitHub, VS Code
+Intégration d’API et interfaces utilisateur
+Tests, débogage et amélioration continue</textarea>
                                 </label>
                             </div>
                         </details>
@@ -316,6 +315,12 @@ Anglais : intermédiaire</textarea>
                     </div>
 
                     <aside class="cv-preview-shell">
+                        <details class="cv-tools-drawer" id="cv-tools-drawer">
+                            <summary>
+                                <span class="cv-tools-menu-icon" aria-hidden="true">☰</span>
+                                <span>Personnaliser le CV</span>
+                            </summary>
+                            <div class="cv-tools-drawer-content">
                         <details class="cv-collapsible cv-models-panel">
                             <summary>Modeles</summary>
                             <div class="cv-ribbon-presets" aria-label="Modeles de CV prets">
@@ -539,6 +544,9 @@ Anglais : intermédiaire</textarea>
                                 </div>
                             </div>
                         </div>
+                                <button class="cv-tools-close" id="cv-tools-close" type="button">Fermer les outils</button>
+                            </div>
+                        </details>
                         <div class="cv-preview-viewport" id="cv-preview-viewport">
                             <div class="cv-preview-stage" id="cv-preview-stage">
                                 <article class="cv-preview theme-executive font-manrope template-wordpro" id="cv-preview" data-preview-doc="cv">

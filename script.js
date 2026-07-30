@@ -52,6 +52,8 @@ const previewHeadlineScale = document.querySelector('#preview-headline-scale');
 const previewLineSpacing = document.querySelector('#preview-line-spacing');
 const previewLayoutTheme = document.querySelector('#preview-layout-theme');
 const cvWordToolbarShell = document.querySelector('#cv-word-toolbar-shell');
+const cvToolsDrawer = document.querySelector('#cv-tools-drawer');
+const cvToolsCloseButton = document.querySelector('#cv-tools-close');
 const cvInlineFont = document.querySelector('#cv-inline-font');
 const cvInlineSize = document.querySelector('#cv-inline-size');
 const cvInlineBoldButton = document.querySelector('#cv-inline-bold');
@@ -2909,45 +2911,69 @@ const setPreviewMode = (mode) => {
 };
 
 const updatePreviewViewport = () => {
-    if (!previewNodes.preview || !cvPreviewStage) {
+    if (!previewNodes.preview || !cvPreviewStage || !cvPreviewViewport) {
         return;
     }
 
     const stagePages = getVisiblePreviewPages();
     if (!stagePages.length) {
         cvPreviewStage.style.height = 'auto';
+        cvPreviewStage.style.removeProperty('--cv-preview-stage-width');
         cvPreviewStage.style.removeProperty('--cv-preview-stage-height');
+        cvPreviewViewport.style.removeProperty('--cv-preview-viewport-height');
         cvPreviewStage.classList.remove('is-fit-to-width');
+        cvPreviewStage.classList.remove('is-fit-to-viewport');
         return;
     }
-    const totalHeight = stagePages.reduce((sum, page) => {
+
+    cvPreviewStage.style.height = 'auto';
+    cvPreviewStage.style.removeProperty('--cv-preview-stage-width');
+    cvPreviewStage.style.removeProperty('--cv-preview-stage-height');
+    cvPreviewViewport.style.removeProperty('--cv-preview-viewport-height');
+
+    const pageDimensions = stagePages.map((page) => {
         page.style.transform = '';
         page.style.transformOrigin = '';
-        return sum + Math.max(page.scrollHeight, page.offsetHeight, Math.ceil(page.getBoundingClientRect().height));
-    }, 0);
-    const widestPage = stagePages.reduce((max, page) => Math.max(max, page.scrollWidth, page.offsetWidth), 0);
-    const viewportStyles = cvPreviewViewport ? window.getComputedStyle(cvPreviewViewport) : null;
-    const viewportInlinePadding = viewportStyles
-        ? (parseFloat(viewportStyles.paddingLeft) || 0) + (parseFloat(viewportStyles.paddingRight) || 0)
+        page.style.removeProperty('--cv-preview-page-height');
+        return {
+            width: Math.max(page.scrollWidth, page.offsetWidth),
+            height: Math.max(page.scrollHeight, page.offsetHeight),
+        };
+    });
+    const widestPage = pageDimensions.reduce((max, page) => Math.max(max, page.width), 0);
+    const stageStyles = window.getComputedStyle(cvPreviewStage);
+    const pageGap = stagePages.length > 1
+        ? (stagePages.length - 1) * (parseFloat(stageStyles.rowGap) || 0)
         : 0;
-    const availableWidth = cvPreviewViewport
-        ? Math.max(0, cvPreviewViewport.clientWidth - viewportInlinePadding)
-        : 0;
+    const naturalHeight = pageDimensions.reduce((sum, page) => sum + page.height, 0) + pageGap;
+    const viewportStyles = window.getComputedStyle(cvPreviewViewport);
+    const viewportInlineChrome = ['paddingLeft', 'paddingRight', 'borderLeftWidth', 'borderRightWidth']
+        .reduce((sum, property) => sum + (parseFloat(viewportStyles[property]) || 0), 0);
+    const viewportBlockChrome = ['paddingTop', 'paddingBottom', 'borderTopWidth', 'borderBottomWidth']
+        .reduce((sum, property) => sum + (parseFloat(viewportStyles[property]) || 0), 0);
+    const availableWidth = Math.max(0, cvPreviewViewport.clientWidth - viewportInlineChrome);
     const previewScale = widestPage && availableWidth
         ? Math.min(1, availableWidth / widestPage)
         : 1;
-    const shouldFitToWidth = previewScale < 0.999;
-    const pageGap = stagePages.length > 1 ? (stagePages.length - 1) * 18 * 3.78 : 0;
-    const fittedHeight = Math.max((totalHeight + pageGap) * previewScale, 0);
+    const shouldScalePreview = previewScale < 0.999;
+    const fittedWidth = Math.max(widestPage * previewScale, 0);
+    const fittedHeight = Math.max(naturalHeight * previewScale, 0);
 
-    cvPreviewStage.classList.toggle('is-fit-to-width', shouldFitToWidth);
-    stagePages.forEach((page) => {
-        page.style.transform = shouldFitToWidth ? `scale(${previewScale})` : '';
-        page.style.transformOrigin = shouldFitToWidth ? 'top left' : '';
+    cvPreviewStage.classList.toggle('is-fit-to-width', shouldScalePreview);
+    cvPreviewStage.classList.toggle('is-fit-to-viewport', shouldScalePreview);
+    stagePages.forEach((page, index) => {
+        page.style.setProperty('--cv-preview-page-height', `${pageDimensions[index].height}px`);
+        page.style.transform = shouldScalePreview ? `scale(${previewScale})` : '';
+        page.style.transformOrigin = shouldScalePreview ? 'top left' : '';
     });
 
+    cvPreviewStage.style.setProperty('--cv-preview-stage-width', `${fittedWidth}px`);
     cvPreviewStage.style.setProperty('--cv-preview-stage-height', `${fittedHeight}px`);
     cvPreviewStage.style.height = `${fittedHeight}px`;
+    cvPreviewViewport.style.setProperty(
+        '--cv-preview-viewport-height',
+        `${fittedHeight + viewportBlockChrome}px`,
+    );
 };
 
 if (cvPreviewViewport && cvPreviewStage) {
@@ -2971,6 +2997,15 @@ if (cvPreviewViewport && cvPreviewStage) {
     if (document.fonts?.ready) {
         document.fonts.ready.then(schedulePreviewViewportUpdate).catch(() => {});
     }
+
+    cvToolsDrawer?.addEventListener('toggle', schedulePreviewViewportUpdate);
+    cvToolsCloseButton?.addEventListener('click', () => {
+        if (!cvToolsDrawer) {
+            return;
+        }
+        cvToolsDrawer.open = false;
+        cvToolsDrawer.querySelector('summary')?.focus();
+    });
 }
 
 const fitCvToSinglePage = () => {
@@ -3454,7 +3489,7 @@ const parseExperienceEntry = (line) => {
     const firstTwoPartsAreDigitalTitle =
         headerParts.length >= 2 &&
         /^d[ée]veloppement web$/i.test(headerParts[0]) &&
-        /^projets? autodidactes?$/i.test(headerParts[1]);
+        /^projets? (?:autodidactes?|personnels?)$/i.test(headerParts[1]);
     const secondPartIsTitleComplement =
         headerParts.length >= 3 &&
         /^(?:receveur|client[eè]le|commerciale?|vendeuse|adjoint[e]?|assistant[e]?)\b/i.test(headerParts[1]) &&
