@@ -2916,16 +2916,62 @@ const updatePreviewViewport = () => {
     const stagePages = getVisiblePreviewPages();
     if (!stagePages.length) {
         cvPreviewStage.style.height = 'auto';
+        cvPreviewStage.style.removeProperty('--cv-preview-stage-height');
+        cvPreviewStage.classList.remove('is-fit-to-width');
         return;
     }
-    const pageGap = stagePages.length > 1 ? (stagePages.length - 1) * 18 * 3.78 : 0;
     const totalHeight = stagePages.reduce((sum, page) => {
         page.style.transform = '';
-        return sum + page.scrollHeight;
+        page.style.transformOrigin = '';
+        return sum + Math.max(page.scrollHeight, page.offsetHeight, Math.ceil(page.getBoundingClientRect().height));
     }, 0);
+    const widestPage = stagePages.reduce((max, page) => Math.max(max, page.scrollWidth, page.offsetWidth), 0);
+    const viewportStyles = cvPreviewViewport ? window.getComputedStyle(cvPreviewViewport) : null;
+    const viewportInlinePadding = viewportStyles
+        ? (parseFloat(viewportStyles.paddingLeft) || 0) + (parseFloat(viewportStyles.paddingRight) || 0)
+        : 0;
+    const availableWidth = cvPreviewViewport
+        ? Math.max(0, cvPreviewViewport.clientWidth - viewportInlinePadding)
+        : 0;
+    const previewScale = widestPage && availableWidth
+        ? Math.min(1, availableWidth / widestPage)
+        : 1;
+    const shouldFitToWidth = previewScale < 0.999;
+    const pageGap = stagePages.length > 1 ? (stagePages.length - 1) * 18 * 3.78 : 0;
+    const fittedHeight = Math.max((totalHeight + pageGap) * previewScale, 0);
 
-    cvPreviewStage.style.height = `${Math.max(totalHeight + pageGap, 0)}px`;
+    cvPreviewStage.classList.toggle('is-fit-to-width', shouldFitToWidth);
+    stagePages.forEach((page) => {
+        page.style.transform = shouldFitToWidth ? `scale(${previewScale})` : '';
+        page.style.transformOrigin = shouldFitToWidth ? 'top left' : '';
+    });
+
+    cvPreviewStage.style.setProperty('--cv-preview-stage-height', `${fittedHeight}px`);
+    cvPreviewStage.style.height = `${fittedHeight}px`;
 };
+
+if (cvPreviewViewport && cvPreviewStage) {
+    let previewViewportFrame = 0;
+    const schedulePreviewViewportUpdate = () => {
+        window.cancelAnimationFrame(previewViewportFrame);
+        previewViewportFrame = window.requestAnimationFrame(updatePreviewViewport);
+    };
+
+    window.addEventListener('resize', schedulePreviewViewportUpdate);
+    window.addEventListener('orientationchange', schedulePreviewViewportUpdate);
+
+    if ('ResizeObserver' in window) {
+        const previewViewportObserver = new ResizeObserver(schedulePreviewViewportUpdate);
+        previewViewportObserver.observe(cvPreviewViewport);
+        [previewNodes.preview, letterPagePreview].filter(Boolean).forEach((page) => {
+            previewViewportObserver.observe(page);
+        });
+    }
+
+    if (document.fonts?.ready) {
+        document.fonts.ready.then(schedulePreviewViewportUpdate).catch(() => {});
+    }
+}
 
 const fitCvToSinglePage = () => {
     if (!cvForm || !previewNodes.preview) {
@@ -8126,6 +8172,7 @@ const getPreviewCloneForOfficeExport = () => {
     clone.style.width = '210mm';
     clone.style.minHeight = '297mm';
     clone.style.margin = '0 auto';
+    clone.style.transform = 'none';
     clone.style.boxShadow = 'none';
     clone.style.aspectRatio = 'auto';
 
