@@ -229,6 +229,27 @@ test('CV adapt: respects requested insertion professionnelle headline', async ()
     assert.equal(body.cv.jobTarget, expectedHeadline);
 });
 
+test('CV adapt: removes insertion professionnelle suffix from headline', async () => {
+    const oldHeadline = 'Conseillère commerciale – Candidate au poste de conseillère en insertion professionnelle';
+    const { statusCode, body } = await callKirbyCv({
+        task: 'adapt',
+        cv: {
+            headline: oldHeadline,
+            summary: 'Profil commercial orienté client.',
+            experience: 'Conseillère commerciale - American Express / Air France - 2019 - 2021 • Conseil client',
+        },
+        instruction: 'Supprime Candidate au poste de conseillère en insertion professionnelle du titre.',
+        openAiCv: {
+            headline: oldHeadline,
+            jobTarget: oldHeadline,
+        },
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.cv.headline, 'Conseillère commerciale');
+    assert.equal(body.cv.jobTarget, 'Conseillère commerciale');
+});
+
 test('CV adapt: keeps Conseillère de vente instead of generic Conseiller clientèle', async () => {
     const { statusCode, body } = await callKirbyCv({
         task: 'adapt',

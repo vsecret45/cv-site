@@ -5797,6 +5797,12 @@ const getRequestedCvRole = ({ task, jobOffer = '', instruction = '' } = {}) => {
 
     const normalizedInstruction = stripAccents(normalize(instruction).toLowerCase());
     const isRemovalRequest = /\b(supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer)\b|pas besoin de/.test(normalizedInstruction);
+    const removesInsertionHeadlineSuffix = isRemovalRequest
+        && /\bcandidate?\s+au\s+poste\b/.test(normalizedInstruction)
+        && /\binsertion\s+pro[\s\-–—]*fessionnelle\b/.test(normalizedInstruction);
+    if (removesInsertionHeadlineSuffix) {
+        return INSERTION_PROFESSIONAL_CV_HEADLINE;
+    }
     if (isRemovalRequest) {
         return '';
     }

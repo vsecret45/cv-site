@@ -2508,10 +2508,16 @@ const applyFatimaInsertionProfessionalProfileMigration = () => {
     const summaryField = cvForm.elements.summary;
     const skillsField = cvForm.elements.skills;
     const headline = normalizeForMatch(headlineField?.value || '');
+    const jobTarget = normalizeForMatch(jobTargetField?.value || '');
     const summary = normalizeForMatch(summaryField?.value || '');
     const skills = skillsField?.value || '';
+    const hasInsertionCandidateSuffix = (value = '') =>
+        /\bcandidate?\s+au\s+poste\b/.test(value)
+        && /\binsertion\s+pro[\s\-–—]*fessionnelle\b/.test(value);
     const hasLegacyHeadline = /\bconseiller\s+clientele\b/.test(headline)
         || /^conseillere\s+de\s+vente$/.test(headline);
+    const shouldCleanHeadline = hasLegacyHeadline || hasInsertionCandidateSuffix(headline);
+    const shouldCleanJobTarget = hasLegacyHeadline || hasInsertionCandidateSuffix(jobTarget);
     const hasLegacySummary = /\bcontribuer\s+au\s+developpement\s+commercial\b/.test(summary)
         || /\bexperience\s+client\s+soignee\b/.test(summary);
     const shortenedSkills = skills.replace(
@@ -2519,19 +2525,19 @@ const applyFatimaInsertionProfessionalProfileMigration = () => {
         'Analyse des besoins'
     );
 
-    if (!hasLegacyHeadline && !hasLegacySummary && shortenedSkills === skills) {
+    if (!shouldCleanHeadline && !shouldCleanJobTarget && !hasLegacySummary && shortenedSkills === skills) {
         return false;
     }
 
     let changed = false;
 
-    if (headlineField && hasLegacyHeadline) {
+    if (headlineField && shouldCleanHeadline) {
         headlineField.value = INSERTION_PROFESSIONAL_CV_HEADLINE;
         clearEditableOverride('headline');
         changed = true;
     }
 
-    if (jobTargetField && hasLegacyHeadline) {
+    if (jobTargetField && shouldCleanJobTarget) {
         jobTargetField.value = INSERTION_PROFESSIONAL_CV_HEADLINE;
         changed = true;
     }
