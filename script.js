@@ -167,7 +167,7 @@ const PASSWORD_RESET_EXPIRED_MESSAGE = 'Le lien de réinitialisation a expiré. 
 const DEFAULT_CV_SECTION_ORDER = ['summary', 'skills', 'experience', 'projects', 'education', 'activities', 'languages'];
 const CV_ROUNDTRIP_START = 'SACW_CV_DATA_V1_START';
 const CV_ROUNDTRIP_END = 'SACW_CV_DATA_V1_END';
-const INSERTION_PROFESSIONAL_CV_HEADLINE = 'Conseillère commerciale – Candidate au poste de conseillère en insertion professionnelle';
+const INSERTION_PROFESSIONAL_CV_HEADLINE = 'Conseillère commerciale';
 const INSERTION_PROFESSIONAL_CV_SUMMARY = 'Conseillère de vente avec une expérience confirmée en accueil, conseil client, vente à distance et fidélisation. À l’écoute et orientée satisfaction client, je sais analyser les besoins, proposer des solutions adaptées et accompagner les personnes avec bienveillance. Organisée, autonome et à l’aise avec les outils numériques, je souhaite mettre mon sens du service et de l’accompagnement au profit de l’insertion professionnelle.';
 const getAuthSignupUtils = () => window.AuthSignupUtils || {};
 
@@ -8416,6 +8416,13 @@ const buildStaticExportNode = (mode = currentPreviewMode) => {
     return wrapper;
 };
 
+const isCreativeCvExportNode = (node) =>
+    currentPreviewMode === 'cv'
+    && Boolean(
+        node?.matches?.('.cv-preview.template-creative')
+        || node?.querySelector?.('.cv-preview.template-creative')
+    );
+
 const getCanvasContentBottom = (canvas) => {
     if (!canvas?.width || !canvas?.height) {
         return 0;
@@ -8602,17 +8609,21 @@ const exportPdf = async (options = {}) => {
                 const doc = new JsPdf({ unit: 'mm', format: 'a4', orientation: 'portrait' });
                 const pageWidth = 210;
                 const pageHeight = 297;
-                const imageHeight = (canvas.height * pageWidth) / canvas.width;
+                const isCreativeCvExport = isCreativeCvExportNode(exportNode || domExportSource);
+                const pageInsetX = isCreativeCvExport ? 4 : 0;
+                const pageInsetY = isCreativeCvExport ? 4 : 0;
+                const renderWidth = pageWidth - pageInsetX * 2;
+                const imageHeight = (canvas.height * renderWidth) / canvas.width;
                 const imageData = canvas.toDataURL('image/jpeg', 0.98);
                 const singlePageBottomMargin = 8;
                 const singlePageFitLimit = pageHeight + 60;
                 const renderHeight = exportMode === 'cv'
-                    ? pageHeight - singlePageBottomMargin
+                    ? Math.min(pageHeight - singlePageBottomMargin - pageInsetY, imageHeight)
                     : imageHeight <= singlePageFitLimit ? pageHeight - singlePageBottomMargin : imageHeight;
 
-                let positionY = 0;
+                let positionY = pageInsetY;
                 let remainingHeight = renderHeight;
-                doc.addImage(imageData, 'JPEG', 0, positionY, pageWidth, renderHeight);
+                doc.addImage(imageData, 'JPEG', pageInsetX, positionY, renderWidth, renderHeight);
 
                 if (exportMode !== 'cv') {
                     remainingHeight -= pageHeight;
@@ -8620,7 +8631,7 @@ const exportPdf = async (options = {}) => {
                     while (remainingHeight > 2) {
                         positionY -= pageHeight;
                         doc.addPage();
-                        doc.addImage(imageData, 'JPEG', 0, positionY, pageWidth, renderHeight);
+                        doc.addImage(imageData, 'JPEG', pageInsetX, positionY, renderWidth, renderHeight);
                         remainingHeight -= pageHeight;
                     }
                 }

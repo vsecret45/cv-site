@@ -209,7 +209,7 @@ for (const fixture of cvFixtures) {
 }
 
 test('CV adapt: respects requested insertion professionnelle headline', async () => {
-    const expectedHeadline = 'Conseillère commerciale – Candidate au poste de conseillère en insertion professionnelle';
+    const expectedHeadline = 'Conseillère commerciale';
     const { statusCode, body } = await callKirbyCv({
         task: 'adapt',
         cv: {

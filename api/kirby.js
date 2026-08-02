@@ -5733,7 +5733,7 @@ const sanitizeCvAssistantResult = (result, cv = {}) => {
     };
 };
 
-const INSERTION_PROFESSIONAL_CV_HEADLINE = 'Conseillère commerciale – Candidate au poste de conseillère en insertion professionnelle';
+const INSERTION_PROFESSIONAL_CV_HEADLINE = 'Conseillère commerciale';
 
 const getCvRoleFromText = (value = '') => {
     const source = stripAccents(normalizeText(value).toLowerCase());
