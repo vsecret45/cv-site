@@ -439,7 +439,7 @@ const templatePresets = {
     },
 };
 
-const retiredTemplatePresets = new Set(['digital', 'holographic', 'creative']);
+const retiredTemplatePresets = new Set();
 const fallbackTemplatePreset = 'premium';
 
 const normalizeLayoutTheme = (layoutTheme = '') =>
@@ -2506,32 +2506,49 @@ const applyFatimaInsertionProfessionalProfileMigration = () => {
     const headlineField = cvForm.elements.headline;
     const jobTargetField = cvForm.elements.jobTarget;
     const summaryField = cvForm.elements.summary;
+    const skillsField = cvForm.elements.skills;
     const headline = normalizeForMatch(headlineField?.value || '');
     const summary = normalizeForMatch(summaryField?.value || '');
+    const skills = skillsField?.value || '';
     const hasLegacyHeadline = /\bconseiller\s+clientele\b/.test(headline)
         || /^conseillere\s+de\s+vente$/.test(headline);
     const hasLegacySummary = /\bcontribuer\s+au\s+developpement\s+commercial\b/.test(summary)
         || /\bexperience\s+client\s+soignee\b/.test(summary);
+    const shortenedSkills = skills.replace(
+        /\bAnalyse des besoins et orientation vers des solutions adaptées\b/g,
+        'Analyse des besoins'
+    );
 
-    if (!hasLegacyHeadline && !hasLegacySummary) {
+    if (!hasLegacyHeadline && !hasLegacySummary && shortenedSkills === skills) {
         return false;
     }
 
-    if (headlineField) {
+    let changed = false;
+
+    if (headlineField && hasLegacyHeadline) {
         headlineField.value = INSERTION_PROFESSIONAL_CV_HEADLINE;
         clearEditableOverride('headline');
+        changed = true;
     }
 
-    if (jobTargetField) {
+    if (jobTargetField && hasLegacyHeadline) {
         jobTargetField.value = INSERTION_PROFESSIONAL_CV_HEADLINE;
+        changed = true;
     }
 
-    if (summaryField) {
+    if (summaryField && hasLegacySummary) {
         summaryField.value = INSERTION_PROFESSIONAL_CV_SUMMARY;
         clearEditableOverride('summary');
+        changed = true;
     }
 
-    return true;
+    if (skillsField && shortenedSkills !== skills) {
+        skillsField.value = shortenedSkills;
+        clearEditableOverride('skills');
+        changed = true;
+    }
+
+    return changed;
 };
 
 const loadCvDraft = async ({ silent = false } = {}) => {
