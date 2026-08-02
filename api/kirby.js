@@ -5733,9 +5733,26 @@ const sanitizeCvAssistantResult = (result, cv = {}) => {
     };
 };
 
+const INSERTION_PROFESSIONAL_CV_HEADLINE = 'Conseillère commerciale – Candidate au poste de conseillère en insertion professionnelle';
+
 const getCvRoleFromText = (value = '') => {
     const source = stripAccents(normalizeText(value).toLowerCase());
 
+    if (/\bconseillere\s+commerciale\b/.test(source) && /\binsertion\s+professionnelle\b/.test(source)) {
+        return INSERTION_PROFESSIONAL_CV_HEADLINE;
+    }
+    if (/\bconseillere\s+de\s+vente\b/.test(source)) {
+        return 'Conseillère de vente';
+    }
+    if (/\bconseiller\s+de\s+vente\b/.test(source)) {
+        return 'Conseiller de vente';
+    }
+    if (/\bconseillere\s+commerciale\b/.test(source)) {
+        return 'Conseillère commerciale';
+    }
+    if (/\bconseiller\s+commercial\b/.test(source)) {
+        return 'Conseiller commercial';
+    }
     if (/\bvendeuse?\s+lifestyle\b/.test(source)) {
         return 'Vendeur Lifestyle';
     }
@@ -5757,7 +5774,10 @@ const getCvRoleFromText = (value = '') => {
     if (/\bemploye\b/.test(source) && /\bmagasin|boutique|rayon\b/.test(source)) {
         return 'Employé de magasin';
     }
-    if (/\bconseill(?:er|ere|ère)|relation client|service client\b/.test(source)) {
+    if (/\bconseillere\s+clientele|conseillere\s+relation\s+client\b/.test(source)) {
+        return 'Conseillère clientèle';
+    }
+    if (/\bconseiller\s+clientele|conseiller\s+relation\s+client|relation client|service client\b/.test(source)) {
         return 'Conseiller clientèle';
     }
     if (/\bassistante?|administratif|dossiers?\b/.test(source)) {

@@ -58,7 +58,7 @@ const emptyCvPayload = {
     letter: { subject: '', body: '' },
 };
 
-const callKirbyCv = async ({ cv, instruction, openAiCv }) => {
+const callKirbyCv = async ({ cv, instruction, openAiCv, task = 'assistant' }) => {
     const originalFetch = global.fetch;
     const originalKey = process.env.KIRBY_OPENAI_API_KEY;
     process.env.KIRBY_OPENAI_API_KEY = 'sk-test-key';
@@ -76,7 +76,7 @@ const callKirbyCv = async ({ cv, instruction, openAiCv }) => {
     try {
         const request = new MockRequest({
             mode: 'cv',
-            task: 'assistant',
+            task,
             cv,
             instruction,
         });
@@ -207,3 +207,44 @@ for (const fixture of cvFixtures) {
         assert.equal(body.cv.operations[3].value, `${fixture.first} confirmé`);
     });
 }
+
+test('CV adapt: respects requested insertion professionnelle headline', async () => {
+    const expectedHeadline = 'Conseillère commerciale – Candidate au poste de conseillère en insertion professionnelle';
+    const { statusCode, body } = await callKirbyCv({
+        task: 'adapt',
+        cv: {
+            headline: 'Conseiller clientèle',
+            summary: 'Profil commercial orienté client.',
+            experience: 'Conseillère commerciale - American Express / Air France - 2019 - 2021 • Conseil client',
+        },
+        instruction: `Change le titre en ${expectedHeadline}.`,
+        openAiCv: {
+            headline: 'Conseiller clientèle',
+            jobTarget: 'Conseiller clientèle',
+        },
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.cv.headline, expectedHeadline);
+    assert.equal(body.cv.jobTarget, expectedHeadline);
+});
+
+test('CV adapt: keeps Conseillère de vente instead of generic Conseiller clientèle', async () => {
+    const { statusCode, body } = await callKirbyCv({
+        task: 'adapt',
+        cv: {
+            headline: 'Conseiller clientèle',
+            summary: 'Profil commercial orienté client.',
+            experience: 'Responsable adjointe - Camaïeu - 2021 - 2022 • Vente et fidélisation',
+        },
+        instruction: 'Mets le titre Conseillère de vente, pas Conseiller clientèle.',
+        openAiCv: {
+            headline: 'Conseiller clientèle',
+            jobTarget: 'Conseiller clientèle',
+        },
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.cv.headline, 'Conseillère de vente');
+    assert.equal(body.cv.jobTarget, 'Conseillère de vente');
+});

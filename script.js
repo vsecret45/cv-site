@@ -167,6 +167,8 @@ const PASSWORD_RESET_EXPIRED_MESSAGE = 'Le lien de réinitialisation a expiré. 
 const DEFAULT_CV_SECTION_ORDER = ['summary', 'skills', 'experience', 'projects', 'education', 'activities', 'languages'];
 const CV_ROUNDTRIP_START = 'SACW_CV_DATA_V1_START';
 const CV_ROUNDTRIP_END = 'SACW_CV_DATA_V1_END';
+const INSERTION_PROFESSIONAL_CV_HEADLINE = 'Conseillère commerciale – Candidate au poste de conseillère en insertion professionnelle';
+const INSERTION_PROFESSIONAL_CV_SUMMARY = 'Conseillère de vente avec une expérience confirmée en accueil, conseil client, vente à distance et fidélisation. À l’écoute et orientée satisfaction client, je sais analyser les besoins, proposer des solutions adaptées et accompagner les personnes avec bienveillance. Organisée, autonome et à l’aise avec les outils numériques, je souhaite mettre mon sens du service et de l’accompagnement au profit de l’insertion professionnelle.';
 const getAuthSignupUtils = () => window.AuthSignupUtils || {};
 
 let pdfjsLoader;
@@ -2071,7 +2073,7 @@ const saveCvDraft = async (silent = false) => {
         const localSaved = writeGuestLocalDraft(payload);
         if (!silent) {
             setCvStatus(localSaved
-                ? 'Aperçu conservé dans ce navigateur. Connectez-vous pour enregistrer votre CV.'
+                ? 'CV conservé dans ce navigateur. Connectez-vous pour enregistrer votre brouillon.'
                 : 'Connectez-vous pour enregistrer votre brouillon.');
         }
         return localSaved
@@ -2087,8 +2089,8 @@ const saveCvDraft = async (silent = false) => {
         const localSaved = writeScopedLocalDraft(currentUser.id, payload);
         if (!silent) {
             setCvStatus(localSaved
-                ? 'Aperçu conservé dans ce navigateur. Le CV publié n’est pas modifié.'
-                : 'Aperçu non enregistré. Le CV publié n’est pas modifié.');
+                ? 'Brouillon CV conservé dans ce navigateur.'
+                : 'Brouillon CV non enregistré.');
         }
         return localSaved
             ? { status: 'local_fallback', detail: 'remote_persistence_disabled_on_local_host', payload, localSaved }
@@ -2146,7 +2148,7 @@ const saveCvDraft = async (silent = false) => {
         const localSaved = writeScopedLocalDraft(currentUser.id, payload);
         if (!silent) {
             setCvStatus(localSaved
-                ? 'Enregistrement non confirmé. Le CV affiché reste disponible dans cet aperçu.'
+                ? 'Enregistrement non confirmé. Le CV affiché reste disponible dans ce navigateur.'
                 : 'Enregistrement non confirmé.');
         }
         return localSaved
@@ -2169,11 +2171,11 @@ const formatCvPersistenceDetail = (result = {}) => {
     }
 
     if (isCvLocalPreviewPersistence(result)) {
-        return 'Modification appliquée pour cet aperçu. Elle ne sera pas enregistrée sur le CV publié.';
+        return 'Modification appliquée au CV affiché. Sur cette URL de test, le brouillon est conservé dans ce navigateur.';
     }
 
     if (result.status === 'local_fallback' && !currentUser?.id) {
-        return 'Modification appliquée pour cet aperçu. Connectez-vous pour l’enregistrer.';
+        return 'Modification appliquée au CV affiché. Connectez-vous pour enregistrer le brouillon.';
     }
 
     if (result.status === 'unauthenticated') {
@@ -2192,7 +2194,7 @@ const buildKirbyPersistenceReply = (changes = [], persistence = {}) => {
     const detail = formatCvPersistenceDetail(persistence);
 
     if (isCvLocalPreviewPersistence(persistence)) {
-        setCvStatus('Modification appliquée pour cet aperçu. Le CV publié n’est pas modifié.');
+        setCvStatus('Modification appliquée au CV affiché.');
         return detail;
     }
 
@@ -2211,7 +2213,7 @@ const buildKirbyQuickPersistenceReply = (quickReply = '', persistence = {}) => {
     const detail = formatCvPersistenceDetail(persistence);
 
     if (isCvLocalPreviewPersistence(persistence)) {
-        setCvStatus('Modification appliquée pour cet aperçu. Le CV publié n’est pas modifié.');
+        setCvStatus('Modification appliquée au CV affiché.');
         return detail;
     }
 
@@ -2487,6 +2489,51 @@ const restoreCvHistorySnapshot = (stateJson = '', status = '') => {
     }
 };
 
+const applyFatimaInsertionProfessionalProfileMigration = () => {
+    if (!cvForm) {
+        return false;
+    }
+
+    const fullName = cvForm.elements.fullName?.value || '';
+    const email = cvForm.elements.email?.value || '';
+    const identity = normalizeForMatch(`${fullName} ${email}`);
+    const isFatimaCv = /\bfatima\s+sidi\s+amar\b/.test(identity) || /\bsharian\s+live\s+fr\b/.test(identity);
+
+    if (!isFatimaCv) {
+        return false;
+    }
+
+    const headlineField = cvForm.elements.headline;
+    const jobTargetField = cvForm.elements.jobTarget;
+    const summaryField = cvForm.elements.summary;
+    const headline = normalizeForMatch(headlineField?.value || '');
+    const summary = normalizeForMatch(summaryField?.value || '');
+    const hasLegacyHeadline = /\bconseiller\s+clientele\b/.test(headline)
+        || /^conseillere\s+de\s+vente$/.test(headline);
+    const hasLegacySummary = /\bcontribuer\s+au\s+developpement\s+commercial\b/.test(summary)
+        || /\bexperience\s+client\s+soignee\b/.test(summary);
+
+    if (!hasLegacyHeadline && !hasLegacySummary) {
+        return false;
+    }
+
+    if (headlineField) {
+        headlineField.value = INSERTION_PROFESSIONAL_CV_HEADLINE;
+        clearEditableOverride('headline');
+    }
+
+    if (jobTargetField) {
+        jobTargetField.value = INSERTION_PROFESSIONAL_CV_HEADLINE;
+    }
+
+    if (summaryField) {
+        summaryField.value = INSERTION_PROFESSIONAL_CV_SUMMARY;
+        clearEditableOverride('summary');
+    }
+
+    return true;
+};
+
 const loadCvDraft = async ({ silent = false } = {}) => {
     if (!cvForm) {
         return;
@@ -2510,6 +2557,8 @@ const loadCvDraft = async ({ silent = false } = {}) => {
         let shouldMigrateLegacyDraft = false;
 
         resetCvFormToDefaults();
+        let didMigrateInsertionProfile = false;
+
         if (!forceFilledDefaults) {
             applyCurrentUserDefaults();
         }
@@ -2606,6 +2655,8 @@ const loadCvDraft = async ({ silent = false } = {}) => {
             applyCurrentUserDefaults();
         }
 
+        didMigrateInsertionProfile = !forceFilledDefaults && applyFatimaInsertionProfessionalProfileMigration();
+
         if (!forceFilledDefaults) {
             applyCurrentUserDefaults();
         }
@@ -2614,7 +2665,7 @@ const loadCvDraft = async ({ silent = false } = {}) => {
         renderExperienceEditor();
         renderLanguageEditor();
         resetCvHistory(savedHistory);
-        if (shouldMigrateLegacyDraft || didAddDefaultLanguages) {
+        if (shouldMigrateLegacyDraft || didAddDefaultLanguages || didMigrateInsertionProfile) {
             await saveCvDraft(true);
         }
         if (!silent) {
@@ -10379,25 +10430,31 @@ const applyTargetedDigitalCvCompletion = (message = '') => {
     const beforeState = getCvHistoryState();
     const changes = [];
     const source = normalizeForMatch(message);
-    const wantsSalesTarget = /\b(cible\s+du\s+cv|conseillere\s+de\s+vente|conseiller\s+de\s+vente|vente)\b/.test(source);
+    const wantsInsertionProfessionalTarget = /\b(insertion\s+professionnelle|candidate?\s+au\s+poste|conseillere\s+commerciale)\b/.test(source);
+    const wantsSalesTarget = wantsInsertionProfessionalTarget || /\b(cible\s+du\s+cv|conseillere\s+de\s+vente|conseiller\s+de\s+vente|vente)\b/.test(source);
     const summaryField = cvForm.elements.summary;
     const headlineField = cvForm.elements.headline;
     const jobTargetField = cvForm.elements.jobTarget;
     const wantsSummary = wantsSalesTarget || /\b(accroche|profil|commercial|commerciale|valeur|valorise|valoriser)\b/.test(source);
 
     if (wantsSalesTarget) {
-        if (headlineField && headlineField.value !== 'Conseillère de vente') {
-            headlineField.value = 'Conseillère de vente';
+        const nextHeadline = wantsInsertionProfessionalTarget
+            ? INSERTION_PROFESSIONAL_CV_HEADLINE
+            : 'Conseillère de vente';
+        if (headlineField && headlineField.value !== nextHeadline) {
+            headlineField.value = nextHeadline;
             clearEditableOverride('headline');
-            changes.push('titre Conseillère de vente');
+            changes.push(`titre ${nextHeadline}`);
         }
-        if (jobTargetField && jobTargetField.value !== 'Conseillère de vente') {
-            jobTargetField.value = 'Conseillère de vente';
+        if (jobTargetField && jobTargetField.value !== nextHeadline) {
+            jobTargetField.value = nextHeadline;
         }
     }
 
     if (summaryField && wantsSummary) {
-        const nextSummary = normalizeCvSentenceText(getDigitalCvCompletionSummary());
+        const nextSummary = normalizeCvSentenceText(wantsInsertionProfessionalTarget
+            ? INSERTION_PROFESSIONAL_CV_SUMMARY
+            : getDigitalCvCompletionSummary());
         if (nextSummary && nextSummary !== summaryField.value) {
             summaryField.value = nextSummary;
             clearEditableOverride('summary');
@@ -10429,6 +10486,55 @@ const applyTargetedDigitalCvCompletion = (message = '') => {
     setCvStatus(`Kirby a complété le CV : ${changes.join(', ')}`);
 
     return `CV complété proprement : ${changes.join(', ')}. Aucune autre expérience n’a été modifiée.`;
+};
+
+const applyQuickInsertionProfessionalProfileCorrection = (message = '') => {
+    if (!cvForm) {
+        return '';
+    }
+
+    const source = normalizeForMatch(getKirbyUserInstruction(message));
+    const wantsInsertionProfile = /\binsertion\s+professionnelle\b/.test(source)
+        && /\b(titre|intitule|poste|candidate?|profil|accroche|conseillere\s+commerciale|conseillere\s+de\s+vente)\b/.test(source);
+
+    if (!wantsInsertionProfile) {
+        return '';
+    }
+
+    const beforeState = getCvHistoryState();
+    const changes = [];
+    const headlineField = cvForm.elements.headline;
+    const jobTargetField = cvForm.elements.jobTarget;
+    const summaryField = cvForm.elements.summary;
+
+    if (headlineField && headlineField.value !== INSERTION_PROFESSIONAL_CV_HEADLINE) {
+        headlineField.value = INSERTION_PROFESSIONAL_CV_HEADLINE;
+        clearEditableOverride('headline');
+        changes.push('titre');
+    }
+
+    if (jobTargetField && jobTargetField.value !== INSERTION_PROFESSIONAL_CV_HEADLINE) {
+        jobTargetField.value = INSERTION_PROFESSIONAL_CV_HEADLINE;
+    }
+
+    if (summaryField && summaryField.value !== INSERTION_PROFESSIONAL_CV_SUMMARY) {
+        summaryField.value = INSERTION_PROFESSIONAL_CV_SUMMARY;
+        clearEditableOverride('summary');
+        changes.push('profil');
+    }
+
+    if (!changes.length) {
+        return 'Le titre et le profil sont déjà conformes à la demande.';
+    }
+
+    updateCvPreview();
+    renderExperienceEditor();
+    renderLanguageEditor();
+    commitCvHistoryTransition(beforeState);
+    scheduleCvDraftSave();
+    setCvStatus('Titre et profil corrigés');
+
+    return `Titre appliqué et profil corrigé : ${changes.join(', ')}.`;
 };
 
 const getQuickExperienceDateCorrection = (message = '') => {
@@ -11034,6 +11140,7 @@ const applyQuickSalesRefocusCorrection = (message = '') => {
 const applyQuickKirbyCorrection = (message = '') => {
     const directCorrections = [
         applyQuickContactDetailsCorrection(message),
+        applyQuickInsertionProfessionalProfileCorrection(message),
         applyTargetedDigitalCvCompletion(message),
         applyQuickCvTypographyAdjustment(message),
         getQuickEditorBugReport(message),
