@@ -20949,6 +20949,22 @@ body.studio-home .section .identity-opening-copy h3 {
     background: var(--identity-surface);
 }
 
+.artifact-catalog .identity-artifact-item {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "label" "value" "detail";
+    align-content: center;
+}
+
+.artifact-catalog .identity-artifact-item > span,
+.artifact-catalog .identity-artifact-item > strong,
+.artifact-catalog .identity-artifact-item > small {
+    overflow-wrap: anywhere;
+}
+
+.artifact-catalog .identity-artifact-item > strong {
+    text-align: left;
+}
+
 .artifact-workflow .identity-artifact-item > i,
 .artifact-timeline .identity-artifact-item > i {
     width: 0.55rem;
