@@ -12609,13 +12609,14 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
     const userInstruction = getKirbyUserInstruction(instruction);
     const languageOnlyIntent = isLanguageFocusedInstruction(userInstruction) && !looksLikePastedCv(userInstruction);
     const singleFieldIntent = getSingleFieldEditIntent(userInstruction);
+    const implicitTopicIntent = getImplicitKirbyCvActionTopic(userInstruction);
     const hasOperationIntent = getKirbyCvArray(proposal.operations).length > 0;
     const hasDateUpdateOperation = getKirbyCvArray(proposal.operations).some((operation) => operation?.type === 'update_experience_date');
     const changes = ['autofill', 'create'].includes(task) ? applyKirbyExtractedCv(proposal.extracted) : [];
     const operationChanges = applyKirbyOperations(proposal.operations, { experienceOrder: proposal.experienceOrder });
     changes.push(...operationChanges);
     const applyMode = options?.applyMode === 'proposal' ? 'proposal' : 'direct';
-    const targetedUpdate = hasOperationIntent || operationChanges.length || singleFieldIntent || languageOnlyIntent;
+    const targetedUpdate = hasOperationIntent || operationChanges.length || singleFieldIntent || languageOnlyIntent || implicitTopicIntent;
     const directTargetedUpdate = applyMode === 'direct' && targetedUpdate;
     const allowGlobalCvRewrite = !targetedUpdate;
 
@@ -12648,6 +12649,7 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
 
     if (proposal.headline && headlineField && (
         singleFieldIntent === 'headline' ||
+        implicitTopicIntent === 'headline' ||
         (allowGlobalCvRewrite && !singleFieldIntent && (task === 'adapt' || headlineCorrectionAsked || !headlineField.value || /intitule du poste vise/i.test(headlineField.value)))
     )) {
         headlineField.value = formatCvHeadline(proposal.headline);
@@ -12656,6 +12658,7 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
 
     if (proposal.summary && summaryField && (
         singleFieldIntent === 'summary' ||
+        implicitTopicIntent === 'summary' ||
         (allowGlobalCvRewrite && !singleFieldIntent)
     )) {
         const summary = normalizeCvSentenceText(proposal.summary);
@@ -12665,7 +12668,7 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
         }
     }
 
-    if (allowGlobalCvRewrite && !singleFieldIntent && skillsField && ((Array.isArray(proposal.skills) && proposal.skills.length) || layoutIntent.namedSkillRemovals.length)) {
+    if ((allowGlobalCvRewrite || implicitTopicIntent === 'skills') && !singleFieldIntent && skillsField && ((Array.isArray(proposal.skills) && proposal.skills.length) || layoutIntent.namedSkillRemovals.length)) {
         const existing = splitLines(skillsField.value).map(normalizeCvSentenceText);
         const proposed = Array.isArray(proposal.skills) ? proposal.skills.map(normalizeCvSentenceText) : [];
         const allowSkillRemoval = hasExplicitDestructiveCvRemoval(instruction);
@@ -12673,9 +12676,11 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
         const retainedExisting = allowSkillRemoval
             ? existing.filter((skill) => !removedSkills.has(normalizeForMatch(skill)))
             : existing;
-        const candidates = layoutIntent.replaceSkills && allowSkillRemoval
-            ? [...proposed, ...retainedExisting]
-            : [...proposed, ...existing];
+        const candidates = implicitTopicIntent === 'skills'
+            ? proposed
+            : layoutIntent.replaceSkills && allowSkillRemoval
+                ? [...proposed, ...retainedExisting]
+                : [...proposed, ...existing];
         const value = dedupeCvSkillItems(candidates.filter((skill) => !removedSkills.has(normalizeForMatch(skill)))).join('\n');
         if (value && value !== skillsField.value) {
             skillsField.value = value;
@@ -12760,6 +12765,10 @@ const shouldApplyKirbyResultDirectly = ({ task = '', instruction = '' } = {}) =>
         return true;
     }
 
+    if (getImplicitKirbyCvActionTopic(userInstruction)) {
+        return true;
+    }
+
     if (shouldApplyTargetedDigitalCvCompletion(userInstruction)) {
         return true;
     }
@@ -12818,6 +12827,38 @@ const getSingleFieldEditIntent = (instruction = '') => {
 
 const isSingleFieldEditIntent = (instruction = '') => Boolean(getSingleFieldEditIntent(instruction));
 
+const getImplicitKirbyCvActionTopic = (instruction = '') => {
+    const userInstruction = getKirbyUserInstruction(instruction).trim();
+    const source = normalizeForMatch(userInstruction);
+
+    if (!source) {
+        return '';
+    }
+
+    const asksForInformation = /^(?:comment|pourquoi|quel|quelle|quels|quelles|ou|où|est ce que|peux tu|peut tu)\b/.test(source);
+    if (asksForInformation && !isExplicitKirbyApplyInstruction(userInstruction)) {
+        return '';
+    }
+
+    if (/\b(american express|air france|ratp|camaieu|caisse d epargne|ceidf)\b/.test(source)) {
+        return 'experience';
+    }
+
+    const topics = [
+        ['headline', /\b(titre|intitule|poste vise|metier)\b/],
+        ['summary', /\b(profil|accroche|resume|presentation)\b/],
+        ['skills', /\b(competence|competences|atout|atouts|savoir faire|qualite|qualites)\b/],
+        ['experience', /\b(experience|experiences|mission|missions|parcours)\b/],
+        ['education', /\b(formation|formations|certification|certifications|diplome|diplomes)\b/],
+        ['languages', /\b(langue|langues)\b/],
+        ['projects', /\b(projet|projets)\b/],
+        ['proofread', /\b(faute|fautes|orthographe|grammaire|accent|accents)\b/],
+    ];
+    const matches = topics.filter(([, pattern]) => pattern.test(source));
+
+    return matches.length === 1 ? matches[0][0] : '';
+};
+
 const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}) => {
     if (!cvForm) {
         return 'Le formulaire CV est indisponible.';
@@ -12871,6 +12912,7 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
         const runtimeLabel = getKirbyRuntimeLabel(result);
         const operationDriven = hasKirbyOperations(result);
         const singleFieldDriven = isSingleFieldEditIntent(instruction);
+        const implicitTopicDriven = Boolean(getImplicitKirbyCvActionTopic(instruction));
         const currentSnapshot = getKirbyCvSnapshot();
         const sourceChangedDuringRequest = snapshot !== currentSnapshot;
         const canApplyDirectly = (operationDriven || shouldApplyKirbyResultDirectly({ task, instruction }))
@@ -12894,7 +12936,7 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
             } finally {
                 isApplyingKirbyCvChange = false;
             }
-            const operationFailed = (operationDriven || singleFieldDriven)
+            const operationFailed = (operationDriven || singleFieldDriven || implicitTopicDriven)
                 && beforeApplySnapshot === afterApplySnapshot
                 && !isKirbyNoopSuccessReply(reply);
             if (operationFailed) {
@@ -13087,48 +13129,9 @@ const runAssistantAction = (action, message = '') => {
 
 const getAssistantReply = (message) => {
     const normalizedMessage = normalizeLooseCvText(message);
-    const hasExplicitAssistantTopic = /\b(titre|intitule|poste|metier|accroche|profil|resume|presentation|experience|experiences|mission|missions|competence|competences|faute|fautes|orthographe|grammaire|projet|projets|offre|annonce|import|pdf|docx|cv)\b/.test(normalizedMessage);
-
-    if (!hasExplicitAssistantTopic && /\b(oui|ok|d accord|vas y|fait|fais|remplace|directement|applique|continue)\b/i.test(normalizedMessage)) {
-        return lastAssistantAction
-            ? runAssistantAction(lastAssistantAction.action, lastAssistantAction.message)
-            : getNoCvMutationReply();
-    }
-
-    if (isExplicitKirbyApplyInstruction(message) && !hasConcreteKirbyCvEditIntent(message)) {
-        return getNoCvMutationReply();
-    }
 
     if (/\b(import|importe|ancien cv|pdf|docx)\b/.test(normalizedMessage)) {
         return runAssistantAction('import', message);
-    }
-
-    if (/\b(offre|annonce|adapter|adapte|mots cles|mot cle)\b/.test(normalizedMessage)) {
-        return runAssistantAction('offer', message);
-    }
-
-    if (/\b(accroche|profil|resume|presentation)\b/.test(normalizedMessage)) {
-        return runAssistantAction('summary', message);
-    }
-
-    if (/\b(experience|experiences|mission|missions)\b/.test(normalizedMessage)) {
-        return runAssistantAction('experience', message);
-    }
-
-    if (/\b(competence|competences|atout|atouts|savoir|qualite|qualites)\b/.test(normalizedMessage)) {
-        return runAssistantAction('skills', message);
-    }
-
-    if (/\b(faute|fautes|corrige|corriger|orthographe|grammaire|accent|accents)\b/.test(normalizedMessage)) {
-        return runAssistantAction('proofread', message);
-    }
-
-    if (/\b(projet|projets)\b/.test(normalizedMessage)) {
-        return runAssistantAction('projects', message);
-    }
-
-    if (/\b(cv|pret|preparer|prepare|remplir|formulaire|base|generer|creer|optimise|ameliorer|ameliore)\b/.test(normalizedMessage)) {
-        return runAssistantAction('ready', message);
     }
 
     const found = assistantAnswers.find((entry) => entry.test.test(message));
@@ -13152,10 +13155,13 @@ const shouldUseKirbyCvAssistant = (message = '', mode = activeKirbyMode) => {
     }
 
     if (mode === 'adapt') {
-        return looksLikeJobOffer(cleanMessage) || hasConcreteKirbyCvEditIntent(cleanMessage);
+        return looksLikeJobOffer(cleanMessage)
+            || hasConcreteKirbyCvEditIntent(cleanMessage)
+            || Boolean(getImplicitKirbyCvActionTopic(cleanMessage));
     }
 
     return hasConcreteKirbyCvEditIntent(cleanMessage)
+        || Boolean(getImplicitKirbyCvActionTopic(cleanMessage))
         || looksLikePastedCv(cleanMessage)
         || looksLikeCvCreationInstruction(cleanMessage)
         || looksLikeJobOffer(cleanMessage);
