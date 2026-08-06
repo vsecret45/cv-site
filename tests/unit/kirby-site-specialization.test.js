@@ -262,7 +262,7 @@ test('Kirby transforme un restaurant avec menu QR en expérience visuelle dédi�
 
 test('Kirby conserve deux identités réellement différentes pour deux restaurants proches', async () => {
     const italian = await callKirbyWithOpenAiProposal(
-        'Restaurant italien familial à Lyon, cuisine de quartier, menu QR et réservation simple.',
+        'Trattoria italienne familiale à Lyon, cuisine de quartier, menu QR et réservation simple.',
         makeProposal({
             siteName: 'Casa Lina',
             projectType: 'Trattoria familiale',

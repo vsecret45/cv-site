@@ -706,7 +706,24 @@ const UNREQUESTED_UNIVERSE_PATTERNS = [
 
 const getUnrequestedUniversePatterns = (brief = '') => {
     const positiveSource = normalizeIntentText(getPositiveBriefText(brief));
-    return UNREQUESTED_UNIVERSE_PATTERNS.filter((pattern) => !pattern.test(positiveSource));
+    const semanticallyAllowedTerms = [];
+
+    if (hasFoodServiceIntent(positiveSource)) {
+        semanticallyAllowedTerms.push('restaurant');
+    }
+    if (/\b(hotel|hotellerie|hebergement|gite|chambre|suite)\b/.test(positiveSource)) {
+        semanticallyAllowedTerms.push('hotel', 'hotellerie');
+    }
+    if (/\b(musee|galerie culturelle|exposition|archeologie|patrimoine)\b/.test(positiveSource)) {
+        semanticallyAllowedTerms.push('musee', 'exposition', 'archeologie', 'artefact');
+    }
+    if (/\b(tourisme spatial|sejour spatial|station spatiale|voyage orbital|orbite)\b/.test(positiveSource)) {
+        semanticallyAllowedTerms.push('sejour orbital', 'tourisme spatial', 'reservation orbitale', 'vue sur la terre');
+    }
+
+    return UNREQUESTED_UNIVERSE_PATTERNS.filter((pattern) =>
+        !pattern.test(positiveSource)
+        && !semanticallyAllowedTerms.some((term) => pattern.test(term)));
 };
 
 const getNarrativePlanVisibleText = (plan = {}) => {
