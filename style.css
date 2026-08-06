@@ -15803,6 +15803,929 @@ body.studio-home .section .kirby-finance-copy h3 {
     }
 }
 
+.kirby-live-browser.is-conta-direct {
+    gap: 0.65rem;
+    min-height: clamp(720px, 64vw, 920px);
+    padding: 0.7rem;
+    border-color: rgba(20, 37, 41, 0.12);
+    background: #e9efed !important;
+    color: #142529;
+    box-shadow: 0 30px 90px rgba(24, 48, 50, 0.18);
+}
+
+.kirby-live-browser.is-conta-direct::before,
+.kirby-live-browser.is-restaurant-menu::before {
+    display: none;
+}
+
+.kirby-live-browser.is-conta-direct .kirby-preview-chrome span {
+    background: #9caaa7;
+}
+
+.kirby-conta-direct {
+    display: grid;
+    gap: 0;
+    overflow: hidden;
+    border: 1px solid rgba(20, 37, 41, 0.1);
+    border-radius: 8px;
+    background: #f8faf9;
+    color: #142529;
+    font-family: "Inter", "Manrope", sans-serif;
+}
+
+.conta-site-nav {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 1rem;
+    min-width: 0;
+    padding: 0.8rem 1rem;
+    border-bottom: 1px solid rgba(20, 37, 41, 0.09);
+    background: rgba(255, 255, 255, 0.96);
+}
+
+.conta-site-brand,
+.conta-site-nav > div,
+.conta-trust-line {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-width: 0;
+}
+
+.conta-site-brand > span {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 6px;
+    background: #142529;
+    color: #ffffff;
+    font-size: 0.62rem;
+    font-weight: 950;
+}
+
+.conta-site-brand strong {
+    color: #142529;
+    font-size: 0.9rem;
+    font-weight: 950;
+    white-space: nowrap;
+}
+
+.conta-site-nav > div:nth-child(2) {
+    justify-content: center;
+    overflow: hidden;
+}
+
+.conta-site-nav > div:nth-child(2) span {
+    color: #536764;
+    font-size: 0.67rem;
+    font-weight: 780;
+    white-space: nowrap;
+}
+
+.conta-site-nav em {
+    padding: 0.5rem 0.7rem;
+    border-radius: 6px;
+    background: #142529;
+    color: #ffffff;
+    font-size: 0.66rem;
+    font-style: normal;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+.conta-site-intro {
+    display: grid;
+    grid-template-columns: minmax(190px, 0.72fr) minmax(0, 1.48fr);
+    gap: clamp(1rem, 3vw, 2rem);
+    align-items: center;
+    min-height: clamp(470px, 45vw, 620px);
+    padding: clamp(1rem, 3vw, 2.2rem);
+    background: #f8faf9;
+}
+
+.conta-site-copy {
+    display: grid;
+    align-content: center;
+    gap: 0.85rem;
+    min-width: 0;
+}
+
+.conta-site-copy .signal-label {
+    color: #087f5b;
+}
+
+.conta-site-copy h3 {
+    max-width: 8ch;
+    color: #142529;
+    font-family: "Inter", "Manrope", sans-serif;
+    font-size: clamp(2.8rem, 6.4vw, 5.8rem);
+    line-height: 0.92;
+    letter-spacing: 0;
+}
+
+body.studio-home .section .conta-site-copy h3 {
+    color: #142529;
+}
+
+.conta-site-copy > p:not(.signal-label) {
+    max-width: 31rem;
+    margin: 0;
+    color: #536764;
+    font-size: clamp(0.84rem, 1.2vw, 1rem);
+    font-weight: 650;
+    line-height: 1.52;
+}
+
+.kirby-live-browser.is-conta-direct .kirby-preview-actions span:first-child {
+    background: #142529;
+    color: #ffffff;
+}
+
+.kirby-live-browser.is-conta-direct .kirby-preview-actions span:nth-child(2) {
+    border-color: rgba(20, 37, 41, 0.14);
+    background: #ffffff;
+    color: #142529;
+}
+
+.conta-trust-line {
+    flex-wrap: wrap;
+    gap: 0.4rem 0.7rem;
+}
+
+.conta-trust-line span {
+    color: #536764;
+    font-size: 0.62rem;
+    font-weight: 800;
+}
+
+.conta-trust-line span::before {
+    content: "";
+    display: inline-block;
+    width: 0.42rem;
+    height: 0.42rem;
+    margin-right: 0.3rem;
+    border-radius: 50%;
+    background: #12b886;
+}
+
+.conta-product-shell {
+    display: grid;
+    grid-template-columns: minmax(86px, 0.23fr) minmax(0, 1fr);
+    min-width: 0;
+    min-height: clamp(380px, 39vw, 520px);
+    overflow: hidden;
+    border: 1px solid rgba(20, 37, 41, 0.12);
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 26px 65px rgba(24, 48, 50, 0.14);
+}
+
+.conta-product-nav {
+    display: grid;
+    align-content: start;
+    gap: 0.32rem;
+    padding: 0.7rem 0.55rem;
+    background: #142529;
+    color: #ffffff;
+}
+
+.conta-product-nav strong {
+    display: grid;
+    place-items: center;
+    width: 1.8rem;
+    height: 1.8rem;
+    margin-bottom: 0.65rem;
+    border-radius: 5px;
+    background: #ff7357;
+    font-size: 0.58rem;
+}
+
+.conta-product-nav span {
+    min-width: 0;
+    padding: 0.42rem 0.45rem;
+    overflow: hidden;
+    border-radius: 5px;
+    color: rgba(255, 255, 255, 0.67);
+    font-size: 0.56rem;
+    font-weight: 760;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.conta-product-nav span.is-active {
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+}
+
+.conta-product-main {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    min-width: 0;
+    padding: 0.7rem;
+    background: #f1f5f3;
+}
+
+.conta-product-main > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.2rem 0.1rem 0.7rem;
+}
+
+.conta-product-main > header div {
+    display: grid;
+    gap: 0.08rem;
+}
+
+.conta-product-main > header small {
+    color: #73827f;
+    font-size: 0.54rem;
+    font-weight: 750;
+}
+
+.conta-product-main > header strong {
+    color: #142529;
+    font-size: 0.78rem;
+}
+
+.conta-product-main > header > span {
+    padding: 0.38rem 0.55rem;
+    border-radius: 5px;
+    background: #142529;
+    color: #ffffff;
+    font-size: 0.56rem;
+    font-weight: 850;
+}
+
+.conta-intake-grid {
+    display: grid;
+    grid-template-columns: minmax(100px, 0.82fr) minmax(112px, 0.9fr) minmax(120px, 1fr);
+    gap: 0.55rem;
+    min-width: 0;
+}
+
+.conta-drop-zone,
+.conta-invoice-sheet,
+.conta-ai-checks {
+    min-width: 0;
+    border: 1px solid rgba(20, 37, 41, 0.1);
+    border-radius: 7px;
+    background: #ffffff;
+}
+
+.conta-drop-zone {
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 0.5rem;
+    padding: 0.7rem;
+    border-style: dashed;
+    text-align: center;
+}
+
+.conta-drop-zone > span {
+    color: #087f5b;
+    font-size: 0.5rem;
+    font-weight: 900;
+}
+
+.conta-drop-zone strong {
+    color: #142529;
+    font-size: 0.72rem;
+}
+
+.conta-drop-zone small {
+    color: #73827f;
+    font-size: 0.56rem;
+    line-height: 1.4;
+}
+
+.conta-drop-zone i {
+    padding: 0.35rem 0.5rem;
+    border-radius: 5px;
+    background: #dff7ed;
+    color: #087f5b;
+    font-size: 0.54rem;
+    font-style: normal;
+    font-weight: 850;
+}
+
+.conta-invoice-sheet,
+.conta-ai-checks {
+    display: grid;
+    align-content: start;
+    gap: 0.42rem;
+    padding: 0.65rem;
+}
+
+.conta-invoice-sheet > div,
+.conta-ai-checks > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid rgba(20, 37, 41, 0.09);
+}
+
+.conta-invoice-sheet > div strong,
+.conta-ai-checks > div strong {
+    color: #142529;
+    font-size: 0.62rem;
+}
+
+.conta-invoice-sheet > div small,
+.conta-ai-checks > div span {
+    color: #087f5b;
+    font-size: 0.5rem;
+    font-weight: 900;
+}
+
+.conta-invoice-sheet p,
+.conta-ai-checks p,
+.conta-invoice-sheet footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.35rem;
+    margin: 0;
+    padding: 0.34rem 0;
+    border-bottom: 1px solid rgba(20, 37, 41, 0.06);
+}
+
+.conta-invoice-sheet p span,
+.conta-ai-checks p span,
+.conta-invoice-sheet footer span {
+    color: #73827f;
+    font-size: 0.5rem;
+    font-weight: 740;
+}
+
+.conta-invoice-sheet p b,
+.conta-ai-checks p b,
+.conta-invoice-sheet footer strong {
+    color: #142529;
+    font-size: 0.51rem;
+    font-weight: 850;
+}
+
+.conta-invoice-sheet footer strong {
+    color: #d9482f;
+}
+
+.conta-ai-checks button {
+    min-height: 2rem;
+    margin-top: auto;
+    border: 0;
+    border-radius: 5px;
+    background: #12b886;
+    color: #ffffff;
+    font: inherit;
+    font-size: 0.56rem;
+    font-weight: 900;
+}
+
+.conta-workflow {
+    display: grid;
+    grid-template-columns: minmax(170px, 0.62fr) minmax(0, 1.38fr);
+    gap: 1rem;
+    align-items: center;
+    padding: 1.15rem clamp(1rem, 3vw, 2.2rem);
+    border-top: 1px solid rgba(20, 37, 41, 0.08);
+    background: #ffffff;
+}
+
+.conta-workflow > div {
+    display: grid;
+    gap: 0.22rem;
+}
+
+.conta-workflow .signal-label {
+    color: #087f5b;
+}
+
+.conta-workflow > div > strong {
+    color: #142529;
+    font-size: 0.84rem;
+}
+
+.conta-workflow ol {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.conta-workflow li {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    gap: 0.34rem;
+    min-width: 0;
+    text-align: center;
+}
+
+.conta-workflow li::after {
+    content: "";
+    position: absolute;
+    top: 0.67rem;
+    left: 50%;
+    width: 100%;
+    height: 1px;
+    background: #cfd9d6;
+}
+
+.conta-workflow li:last-child::after {
+    display: none;
+}
+
+.conta-workflow li span {
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    border: 1px solid #b8c7c3;
+    border-radius: 50%;
+    background: #ffffff;
+    color: #73827f;
+    font-size: 0.5rem;
+    font-weight: 900;
+}
+
+.conta-workflow li.is-complete span {
+    border-color: #12b886;
+    background: #12b886;
+    color: #ffffff;
+}
+
+.conta-workflow li.is-current span {
+    border-color: #ff7357;
+    color: #d9482f;
+}
+
+.conta-workflow li strong {
+    min-width: 0;
+    color: #536764;
+    font-size: 0.5rem;
+    line-height: 1.2;
+}
+
+.conta-capabilities {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    border-top: 1px solid rgba(20, 37, 41, 0.08);
+    border-bottom: 1px solid rgba(20, 37, 41, 0.08);
+    background: #dff7ed;
+}
+
+.conta-capabilities span {
+    padding: 0.75rem;
+    border-right: 1px solid rgba(20, 37, 41, 0.09);
+    color: #255148;
+    font-size: 0.58rem;
+    font-weight: 850;
+    text-align: center;
+}
+
+.conta-capabilities span:last-child {
+    border-right: 0;
+}
+
+.kirby-live-browser.is-restaurant-menu {
+    gap: 0.65rem;
+    min-height: clamp(720px, 64vw, 900px);
+    padding: 0.7rem;
+    border-color: rgba(17, 18, 17, 0.18);
+    background: #101210 !important;
+    color: #ffffff;
+    box-shadow: 0 34px 100px rgba(16, 18, 16, 0.28);
+}
+
+.kirby-live-browser.is-restaurant-menu .kirby-preview-chrome span {
+    background: rgba(255, 255, 255, 0.48);
+}
+
+.kirby-restaurant-menu {
+    display: grid;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    background: #f5f7f3;
+    color: #151815;
+    font-family: "Inter", "Manrope", sans-serif;
+}
+
+.restaurant-site-nav {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 1rem;
+    min-width: 0;
+    padding: 0.78rem 1rem;
+    background: #121512;
+    color: #ffffff;
+}
+
+.restaurant-site-nav strong {
+    overflow: hidden;
+    font-size: 0.9rem;
+    font-weight: 950;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.restaurant-site-nav div {
+    display: flex;
+    justify-content: center;
+    gap: 0.9rem;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.restaurant-site-nav span,
+.restaurant-site-nav em {
+    font-size: 0.64rem;
+    font-style: normal;
+    font-weight: 780;
+    white-space: nowrap;
+}
+
+.restaurant-site-nav span {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.restaurant-site-nav em {
+    padding: 0.48rem 0.65rem;
+    border-radius: 5px;
+    background: #e8ff5b;
+    color: #151815;
+}
+
+.restaurant-menu-hero {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(160px, 0.35fr);
+    gap: clamp(0.8rem, 2vw, 1.3rem);
+    align-items: center;
+    min-height: clamp(500px, 48vw, 650px);
+    overflow: hidden;
+    padding: clamp(1rem, 3vw, 2.2rem);
+    background-position: center;
+    background-size: cover;
+}
+
+.restaurant-menu-shade {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, rgba(10, 12, 10, 0.9) 0%, rgba(10, 12, 10, 0.5) 51%, rgba(10, 12, 10, 0.2) 100%);
+}
+
+.restaurant-menu-copy,
+.restaurant-menu-phone,
+.restaurant-qr-panel {
+    position: relative;
+    z-index: 1;
+}
+
+.restaurant-menu-copy {
+    display: grid;
+    align-content: center;
+    gap: 0.85rem;
+    max-width: 34rem;
+}
+
+.restaurant-menu-copy .signal-label {
+    color: #e8ff5b;
+}
+
+.restaurant-menu-copy h3 {
+    max-width: 9ch;
+    color: #ffffff;
+    font-family: "Inter", "Manrope", sans-serif;
+    font-size: clamp(3.2rem, 7.4vw, 6.6rem);
+    line-height: 0.9;
+    letter-spacing: 0;
+}
+
+body.studio-home .section .restaurant-menu-copy h3 {
+    color: #ffffff;
+}
+
+.restaurant-menu-copy > p:not(.signal-label) {
+    max-width: 29rem;
+    margin: 0;
+    color: rgba(255, 255, 255, 0.82);
+    font-size: clamp(0.86rem, 1.2vw, 1.02rem);
+    font-weight: 650;
+    line-height: 1.5;
+}
+
+.kirby-live-browser.is-restaurant-menu .kirby-preview-actions span:first-child {
+    display: inline-flex !important;
+    background: #e8ff5b;
+    color: #151815;
+}
+
+.kirby-live-browser.is-restaurant-menu .kirby-preview-actions span:nth-child(2) {
+    display: inline-flex !important;
+    border-color: rgba(255, 255, 255, 0.35);
+    background: rgba(16, 18, 16, 0.45);
+    color: #ffffff;
+}
+
+.restaurant-menu-phone {
+    align-self: center;
+    display: grid;
+    gap: 0.5rem;
+    min-width: 0;
+    padding: 0.68rem;
+    border: 5px solid #171a17;
+    border-radius: 22px;
+    background: #f7f8f5;
+    box-shadow: 0 24px 65px rgba(0, 0, 0, 0.36);
+    transform: rotate(2deg);
+}
+
+.restaurant-menu-phone header,
+.restaurant-menu-phone p {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem;
+}
+
+.restaurant-menu-phone header strong {
+    color: #151815;
+    font-size: 0.68rem;
+}
+
+.restaurant-menu-phone header span,
+.restaurant-menu-phone > small {
+    color: #6b756b;
+    font-size: 0.5rem;
+    font-weight: 800;
+}
+
+.restaurant-phone-photo {
+    aspect-ratio: 16 / 9;
+    border-radius: 7px;
+    background-position: center;
+    background-size: cover;
+}
+
+.restaurant-menu-phone p {
+    margin: 0;
+    padding: 0.32rem 0;
+    border-bottom: 1px solid #dfe4dc;
+}
+
+.restaurant-menu-phone p span,
+.restaurant-menu-phone p b {
+    color: #151815;
+    font-size: 0.52rem;
+    font-weight: 850;
+}
+
+.restaurant-menu-phone p b {
+    color: #d84d34;
+}
+
+.restaurant-menu-phone > em {
+    padding: 0.48rem;
+    border-radius: 5px;
+    background: #151815;
+    color: #ffffff;
+    font-size: 0.54rem;
+    font-style: normal;
+    font-weight: 900;
+    text-align: center;
+}
+
+.restaurant-qr-panel {
+    position: absolute;
+    right: clamp(10.5rem, 22vw, 15rem);
+    bottom: 1.1rem;
+    display: grid;
+    grid-template-columns: 3.5rem minmax(0, 1fr);
+    align-items: center;
+    gap: 0.65rem;
+    width: min(15.5rem, 32%);
+    padding: 0.58rem;
+    border: 1px solid rgba(255, 255, 255, 0.34);
+    border-radius: 7px;
+    background: rgba(247, 248, 245, 0.96);
+    color: #151815;
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
+}
+
+.restaurant-qr-panel img {
+    display: block;
+    width: 3.5rem;
+    aspect-ratio: 1;
+    border-radius: 4px;
+    background: #ffffff;
+}
+
+.restaurant-qr-panel div {
+    display: grid;
+    gap: 0.12rem;
+    min-width: 0;
+}
+
+.restaurant-qr-panel strong {
+    color: #151815;
+    font-size: 0.62rem;
+}
+
+.restaurant-qr-panel span {
+    color: #697269;
+    font-size: 0.5rem;
+    font-weight: 720;
+}
+
+.restaurant-menu-benefits {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    background: #f5f7f3;
+}
+
+.restaurant-menu-benefits article {
+    display: grid;
+    gap: 0.3rem;
+    min-width: 0;
+    padding: 1rem;
+    border-right: 1px solid #dfe4dc;
+}
+
+.restaurant-menu-benefits article:last-child {
+    border-right: 0;
+}
+
+.restaurant-menu-benefits em {
+    color: #d84d34;
+    font-size: 0.54rem;
+    font-style: normal;
+    font-weight: 900;
+}
+
+.restaurant-menu-benefits strong {
+    color: #151815;
+    font-size: 0.78rem;
+}
+
+.restaurant-menu-benefits span {
+    color: #697269;
+    font-size: 0.6rem;
+    font-weight: 680;
+    line-height: 1.4;
+}
+
+.restaurant-photo-strip {
+    display: grid;
+    grid-template-columns: 1.2fr 0.8fr 1fr;
+    gap: 0.28rem;
+    min-height: 8rem;
+    padding: 0.28rem;
+    background: #121512;
+}
+
+.restaurant-photo-strip span {
+    min-width: 0;
+    border-radius: 4px;
+    background-position: center;
+    background-size: cover;
+}
+
+.kirby-restaurant-menu .kirby-live-footer,
+.kirby-conta-direct .kirby-live-footer {
+    border-top: 0;
+}
+
+@media (max-width: 900px) {
+    .conta-site-intro {
+        grid-template-columns: minmax(0, 0.66fr) minmax(0, 1.34fr);
+    }
+
+    .conta-site-copy h3 {
+        font-size: clamp(2.4rem, 6vw, 4.6rem);
+    }
+
+    .conta-intake-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .conta-ai-checks {
+        grid-column: 1 / -1;
+    }
+
+    .restaurant-qr-panel {
+        right: clamp(9.5rem, 24vw, 12rem);
+        width: min(14rem, 36%);
+    }
+}
+
+@media (max-width: 680px) {
+    .conta-site-nav,
+    .restaurant-site-nav {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .conta-site-nav > div:nth-child(2),
+    .restaurant-site-nav div {
+        display: none;
+    }
+
+    .conta-site-intro {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .conta-site-copy h3,
+    .restaurant-menu-copy h3 {
+        font-size: clamp(2.65rem, 14vw, 4.3rem);
+    }
+
+    .conta-product-shell {
+        grid-template-columns: 4.4rem minmax(0, 1fr);
+    }
+
+    .conta-intake-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .conta-ai-checks {
+        grid-column: auto;
+    }
+
+    .conta-workflow {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .conta-workflow ol {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.75rem 0;
+    }
+
+    .conta-workflow li:nth-child(3)::after,
+    .conta-workflow li:nth-child(6)::after {
+        display: none;
+    }
+
+    .conta-capabilities {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .conta-capabilities span:nth-child(2) {
+        border-right: 0;
+    }
+
+    .restaurant-menu-hero {
+        grid-template-columns: minmax(0, 1fr);
+        align-items: end;
+        min-height: 720px;
+        padding-bottom: 1rem;
+    }
+
+    .restaurant-menu-copy {
+        align-self: start;
+    }
+
+    .restaurant-menu-phone {
+        justify-self: end;
+        width: min(11rem, 52%);
+        transform: none;
+    }
+
+    .restaurant-qr-panel {
+        right: auto;
+        bottom: 1rem;
+        left: 1rem;
+        width: min(14rem, 48%);
+    }
+
+    .restaurant-menu-benefits {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .restaurant-menu-benefits article {
+        border-right: 0;
+        border-bottom: 1px solid #dfe4dc;
+    }
+
+    .restaurant-photo-strip {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .restaurant-photo-strip span:last-child {
+        grid-column: 1 / -1;
+    }
+}
+
 .kirby-live-browser.is-dashboard {
     gap: 0.6rem;
     min-height: clamp(600px, 58vw, 780px);

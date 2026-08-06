@@ -1269,6 +1269,7 @@ Regles strictes :
 Schema JSON attendu :
 {
   "projectType": "type de projet court",
+  "sectorKey": "secteur normalise",
   "siteName": "nom propose",
   "slogan": "slogan court",
   "summary": "resume en 1 phrase",
@@ -1381,6 +1382,7 @@ const KIRBY_SITE_JSON_SCHEMA_PROMPT = `
 Retourne uniquement un JSON valide, sans markdown, avec au minimum :
 {
   "projectType": "type de projet court",
+  "sectorKey": "accounting | restaurant | restaurant-management-saas | saas | hotel | travel | legal | sport | veterinary | bridal | portfolio | service",
   "siteName": "nom propose",
   "slogan": "slogan court",
   "summary": "resume en 1 phrase",
@@ -1526,9 +1528,13 @@ Regle de verite :
 
 Production obligatoire :
 - Identifie activite exacte, public, promesse, ton, inclusions, exclusions, conversion attendue.
+- Renseigne sectorKey avec un secteur normalise du schema et layoutVariant avec exactement une variante autorisee par le schema.
 - Construis narrativePlan : discovery, understanding, proof, conversion.
 - Construis visualPlan : chaque image a un role narratif, un sujet concret issu du brief, une composition et des mots-cles visuels.
 - Cree une direction visuelle moderne, transparente, premium, adaptee au brief, sans changer le contenu metier.
+- Pour un restaurant avec menu ou QR code : sectorKey "restaurant", layoutVariant "gallery-focus", photos plein cadre du lieu et des plats, carte mobile et QR code visibles. Evite toute composition de magazine ou de theme WordPress.
+- Pour une plateforme de comptabilite fournisseurs ou Conta Direct : sectorKey "accounting", layoutVariant "finance-os", import/scanner, controle documentaire, validation humaine et statut du document visibles. Evite le labyrinthe ERP et le tableau de bord financier generique.
+- Les images doivent montrer un sujet concret et inspectable, avec un cadrage actuel. N'utilise pas de visuel fade, decoratif, floute ou interchangeable.
 - Ecris court, concret, commercial, directement visible par un client.
 - Retourne une proposition complete, mais concise.
 
@@ -5162,6 +5168,113 @@ const detectFallbackSector = (text = '') => {
     return 'service';
 };
 
+const KIRBY_SITE_LAYOUT_VARIANTS = new Set([
+    'finance-os',
+    'story-world',
+    'lumina-showcase',
+    'cinematic-video',
+    'gallery-focus',
+    'minimal-editorial',
+    'luxury-asymmetric',
+    'product-dashboard',
+    'warm-editorial',
+    'classic-conversion',
+]);
+
+const normalizeSiteSectorKey = (value = '') => stripAccents(normalizeText(value).toLowerCase())
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+const normalizeSiteLayoutVariant = (value = '') => stripAccents(normalizeText(value).toLowerCase())
+    .replace(/[_\s]+/g, '-')
+    .replace(/[^a-z0-9-]+/g, '')
+    .replace(/^-+|-+$/g, '');
+
+const hasAccountsPayableAutomationIntent = (value = '') => {
+    const source = normalizeIntentText(value);
+    const accountingContext = hasAccountingIntent(source);
+    const supplierWorkflow = /\b(conta direct|contadirect|comptabilite fournisseurs?|factures? fournisseurs?|fiche fournisseur|bon de commande|rapprochement facture|circuit de validation|echeancier fournisseur|balance agee|preparation des paiements|detection des doublons|archivage documentaire)\b/.test(source);
+
+    return accountingContext && supplierWorkflow;
+};
+
+const hasRestaurantDigitalMenuIntent = (value = '') => {
+    const source = normalizeIntentText(value);
+
+    return hasFoodServiceIntent(source)
+        && /\b(qr|qr code|code qr|menu numerique|menu digital|carte numerique|carte digitale|carte en ligne|scanner le menu)\b/.test(source);
+};
+
+const getDefaultLayoutForSector = (sectorKey = '') => {
+    const layouts = {
+        accounting: 'finance-os',
+        restaurant: 'gallery-focus',
+        'restaurant-management-saas': 'product-dashboard',
+        saas: 'product-dashboard',
+        'kids-app': 'story-world',
+        bridal: 'gallery-focus',
+        architecture: 'gallery-focus',
+        travel: 'gallery-focus',
+        hotel: 'gallery-focus',
+        portfolio: 'gallery-focus',
+        gaming: 'cinematic-video',
+        music: 'cinematic-video',
+        legal: 'minimal-editorial',
+    };
+
+    return layouts[sectorKey] || 'lumina-showcase';
+};
+
+const finalizeOpenAiSiteProposal = ({ proposal = {}, brief = '' } = {}) => {
+    const sanitized = sanitizeOpenAiProposalStrict(proposal);
+    const detectedSector = detectFallbackSector(brief);
+    const declaredSector = normalizeSiteSectorKey(sanitized.sectorKey);
+    const highConfidenceSector = ['accounting', 'restaurant', 'restaurant-management-saas'].includes(detectedSector);
+    const genericSector = !declaredSector || ['generic', 'general', 'site', 'website', 'service'].includes(declaredSector);
+    const sectorKey = highConfidenceSector || genericSector ? detectedSector : declaredSector;
+    const requestedLayout = normalizeSiteLayoutVariant(proposal && proposal.layoutVariant);
+    const accountsPayableProject = hasAccountsPayableAutomationIntent(brief);
+    const restaurantDigitalMenu = hasRestaurantDigitalMenuIntent(brief);
+
+    sanitized.sectorKey = sectorKey || 'service';
+    sanitized.layoutVariant = KIRBY_SITE_LAYOUT_VARIANTS.has(requestedLayout)
+        ? requestedLayout
+        : getDefaultLayoutForSector(sanitized.sectorKey);
+
+    if (sanitized.sectorKey === 'accounting') {
+        sanitized.layoutVariant = 'finance-os';
+    }
+
+    if (accountsPayableProject) {
+        sanitized.sectorKey = 'accounting';
+        sanitized.layoutVariant = 'finance-os';
+        sanitized.visualMood = 'accounts-payable-automation';
+        sanitized.projectType = 'Plateforme de comptabilité fournisseurs et automatisation';
+
+        if (/\bconta\s*direct\b/i.test(brief)) {
+            sanitized.siteName = 'Conta Direct';
+        }
+    }
+
+    if (restaurantDigitalMenu) {
+        sanitized.sectorKey = 'restaurant';
+        sanitized.layoutVariant = 'gallery-focus';
+        sanitized.visualMood = 'restaurant-digital-menu';
+        sanitized.showGallery = true;
+        addProposalPage(sanitized, {
+            name: 'Menu digital',
+            goal: 'Présenter la carte sur mobile après lecture du QR code.',
+        });
+        addProposalSection(sanitized, {
+            title: 'La carte sur mobile',
+            text: 'Un QR code ouvre un menu lisible, à jour et sans téléchargement.',
+        });
+        addProposalCta(sanitized, 'Voir le menu');
+    }
+
+    return sanitized;
+};
+
 const isFallbackHardRebuildRequest = (revision = '') => {
     const source = stripAccents(normalizeText(revision).toLowerCase());
     return /change de metier|changer de metier|changement de metier|nouvelle activite|nouveau projet|nouveau type|passe en|transforme en|reconstruire|refaire de zero|repartir de zero|nouvelle maquette/.test(source);
@@ -7409,7 +7522,10 @@ module.exports = async (request, response) => {
         const openAiProposal = await callOpenAi({ brief: effectiveBrief, revision: effectiveRevision, currentProposal, trace: debugTrace });
 
         if (openAiProposal) {
-            const sanitizedProposal = sanitizeOpenAiProposalStrict(openAiProposal.proposal);
+            const sanitizedProposal = finalizeOpenAiSiteProposal({
+                proposal: openAiProposal.proposal,
+                brief: effectiveBrief,
+            });
             const pipelineIssues = getKirbyPipelineQualityIssues(sanitizedProposal, effectiveBrief, { source: 'openai' });
             if (pipelineIssues.length) {
                 if (debugTrace) {

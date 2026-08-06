@@ -22489,6 +22489,17 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
     ].filter(Boolean).join(' '));
     const briefSignals = getKirbyBriefSignals(brief);
     const layoutVariant = getKirbyLayoutVariant(safeProposal, brief, false);
+    const specializedPreviewSource = normalizeKirbyText([
+        brief,
+        safeProposal.siteName,
+        safeProposal.projectType,
+        safeProposal.sectorKey,
+        safeProposal.visualMood,
+    ].filter(Boolean).join(' '));
+    const isContaDirectPreview = briefSignals.isAccountingApp
+        && /conta direct|contadirect|comptabilite fournisseur|facture fournisseur|fiche fournisseur|bon de commande|circuit de validation|echeancier fournisseur|balance agee|detection des doublons/.test(specializedPreviewSource);
+    const isRestaurantMenuPreview = briefSignals.isRestaurant
+        && /qr|qr code|code qr|menu numerique|menu digital|carte numerique|carte digitale|carte en ligne|scanner le menu/.test(specializedPreviewSource);
     const isDashboardPreview = layoutVariant === 'product-dashboard';
     const isFinancePreview = layoutVariant === 'finance-os';
     const isDreamPreview = briefSignals.isDreamPortal;
@@ -22496,7 +22507,21 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
     const isKidsFuturePreview = !isFinancePreview && !isDreamPreview && ((layoutVariant === 'story-world' && briefSignals.isEducationKids) || briefSignals.isEducationKids || /kids-future|comptine|mini-jeu|mini jeu|luna|leo|léo/.test(toneSource));
     const sectorExperience = getKirbySectorExperienceModel(safeProposal, brief);
     const isSectorExperiencePreview = Boolean(sectorExperience);
-    const previewTone = 'is-lumina';
+    const previewTone = isContaDirectPreview
+        ? 'is-conta-direct'
+        : isRestaurantMenuPreview
+            ? 'is-restaurant-menu'
+            : isFinancePreview
+                ? 'is-finance-os'
+                : isDashboardPreview
+                    ? 'is-dashboard'
+                    : isDreamPreview
+                        ? 'is-dream'
+                        : isKidsFuturePreview
+                            ? 'is-kids-future'
+                            : isLuminaPreview
+                                ? 'is-lumina'
+                                : 'is-tailored';
     const sectorClass = `sector-${normalizeKirbyText(safeProposal.sectorKey || 'generic').replace(/[^a-z0-9-]/g, '-') || 'generic'}`;
     const dashboardInitials = cleanHtml(siteName
         .split(/\s+/)
@@ -22605,6 +22630,41 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
             ['Compte pro', '12 430 €'],
             ['Rapprochement', '96%'],
         ];
+    const contaWorkflow = ['Reçu', 'Contrôlé', 'Validé', 'Payé', 'Comptabilisé', 'Archivé'];
+    const contaDocumentChecks = [
+        ['Fournisseur', 'Identifié'],
+        ['Doublon', 'Aucun détecté'],
+        ['Bon de commande', 'Rapproché'],
+        ['Échéance', 'Vérifiée'],
+    ];
+    const restaurantMenuUrl = `https://${domain}/menu`;
+    const restaurantQrParams = new URLSearchParams({
+        size: '420x420',
+        format: 'png',
+        ecc: 'H',
+        margin: '14',
+        qzone: '3',
+        data: restaurantMenuUrl,
+    });
+    const restaurantQrUrl = `https://api.qrserver.com/v1/create-qr-code/?${restaurantQrParams.toString()}`;
+    const restaurantImageUrls = [
+        'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1600&q=88',
+        'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1400&q=88',
+        'https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=1400&q=88',
+        'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1400&q=88',
+        'https://images.unsplash.com/photo-1544148103-0773bf10d330?auto=format&fit=crop&w=1400&q=88',
+        'https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=1400&q=88',
+    ];
+    const restaurantImageOffset = getKirbyHash(`${brief} ${siteName} restaurant-menu`) % restaurantImageUrls.length;
+    const restaurantImageStyles = [0, 1, 2, 3].map((index) => {
+        const url = restaurantImageUrls[(restaurantImageOffset + index) % restaurantImageUrls.length];
+        return `background-image: url('${url}');`;
+    });
+    const restaurantMenuSections = [
+        { title: 'Carte du moment', text: 'Plats, prix et allergènes restent lisibles sur mobile.' },
+        { title: 'Suggestions', text: 'La carte évolue sans réimpression ni téléchargement.' },
+        { title: 'Réserver', text: 'Le passage du menu à la réservation reste immédiat.' },
+    ];
     const financePreview = `
         <div class="kirby-finance-os" aria-label="Apercu interface finance ${cleanHtml(siteName)}">
             <nav class="kirby-finance-nav">
@@ -22685,6 +22745,118 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
                 <ol>
                     ${financeWorkflow.map((item) => `<li>${cleanHtml(item)}</li>`).join('')}
                 </ol>
+            </section>
+            ${footerMarkup}
+        </div>
+    `;
+    const contaDirectPreview = `
+        <div class="kirby-conta-direct" aria-label="Aperçu Conta Direct, comptabilité fournisseurs et automatisation">
+            <nav class="conta-site-nav">
+                <div class="conta-site-brand"><span>CD</span><strong>${cleanHtml(siteName)}</strong></div>
+                <div>
+                    <span>Produit</span><span>Fonctionnalités</span><span>Sécurité</span><span>Ressources</span>
+                </div>
+                <em>${cleanHtml(primaryCta || 'Demander une démo')}</em>
+            </nav>
+            <section class="conta-site-intro">
+                <div class="conta-site-copy">
+                    <p class="signal-label">Comptabilité fournisseurs + IA</p>
+                    <h3>${cleanHtml(siteName)}</h3>
+                    <p>${cleanHtml(getKirbyShortText(safeProposal.valueProposition || safeProposal.slogan || 'Chaque facture avance dans un circuit clair, contrôlé et traçable.', 154))}</p>
+                    ${actionsMarkup}
+                    <div class="conta-trust-line">
+                        <span>Validation humaine</span><span>Historique complet</span><span>Export comptable</span>
+                    </div>
+                </div>
+                <div class="conta-product-shell" aria-label="Interface de traitement d'une facture fournisseur">
+                    <aside class="conta-product-nav">
+                        <strong>CD</strong>
+                        <span class="is-active">Documents</span>
+                        <span>Fournisseurs</span>
+                        <span>Paiements</span>
+                        <span>Clôture</span>
+                        <span>Archives</span>
+                    </aside>
+                    <main class="conta-product-main">
+                        <header>
+                            <div><small>Factures fournisseurs</small><strong>Boîte de réception</strong></div>
+                            <span>Importer</span>
+                        </header>
+                        <section class="conta-intake-grid">
+                            <article class="conta-drop-zone">
+                                <span>PDF · PHOTO · SCANNER</span>
+                                <strong>Déposer un document</strong>
+                                <small>Extraction automatique, puis contrôle.</small>
+                                <i>Analyser</i>
+                            </article>
+                            <article class="conta-invoice-sheet">
+                                <div><strong>FACTURE</strong><small>Fournisseur</small></div>
+                                <p><span>Date</span><b>Détectée</b></p>
+                                <p><span>Référence</span><b>Détectée</b></p>
+                                <p><span>HT · TVA · TTC</span><b>Vérifiés</b></p>
+                                <footer><span>Échéance</span><strong>À valider</strong></footer>
+                            </article>
+                            <aside class="conta-ai-checks">
+                                <div><span>IA</span><strong>Contrôles proposés</strong></div>
+                                ${contaDocumentChecks.map(([label, value]) => `<p><span>${cleanHtml(label)}</span><b>${cleanHtml(value)}</b></p>`).join('')}
+                                <button type="button" tabindex="-1">Valider le document</button>
+                            </aside>
+                        </section>
+                    </main>
+                </div>
+            </section>
+            <section class="conta-workflow" aria-label="Cycle de traitement d'un document">
+                <div>
+                    <p class="signal-label">Un statut visible à chaque étape</p>
+                    <strong>Du document reçu à l’archive comptable.</strong>
+                </div>
+                <ol>
+                    ${contaWorkflow.map((item, index) => `<li class="${index < 2 ? 'is-complete' : index === 2 ? 'is-current' : ''}"><span>${index + 1}</span><strong>${cleanHtml(item)}</strong></li>`).join('')}
+                </ol>
+            </section>
+            <section class="conta-capabilities">
+                <span>Rapprochement facture–commande</span>
+                <span>Échéancier fournisseur</span>
+                <span>Préparation TVA</span>
+                <span>Recherche documentaire</span>
+            </section>
+            ${footerMarkup}
+        </div>
+    `;
+    const restaurantMenuPreview = `
+        <div class="kirby-restaurant-menu" aria-label="Aperçu restaurant avec carte numérique et QR code">
+            <nav class="restaurant-site-nav">
+                <strong>${cleanHtml(siteName)}</strong>
+                <div><span>La carte</span><span>Le lieu</span><span>Réserver</span></div>
+                <em>${cleanHtml(primaryCta || 'Voir le menu')}</em>
+            </nav>
+            <section class="restaurant-menu-hero kirby-hero-image" style="${restaurantImageStyles[0]}">
+                <div class="restaurant-menu-shade"></div>
+                <div class="restaurant-menu-copy">
+                    <p class="signal-label">Restaurant · carte en direct</p>
+                    <h3>${cleanHtml(siteName)}</h3>
+                    <p>${cleanHtml(getKirbyShortText(safeProposal.valueProposition || safeProposal.slogan || 'Une table à découvrir, une carte à consulter en un geste.', 150))}</p>
+                    ${actionsMarkup}
+                </div>
+                <aside class="restaurant-menu-phone">
+                    <header><strong>${cleanHtml(getKirbyShortText(siteName, 20))}</strong><span>Menu</span></header>
+                    <div class="restaurant-phone-photo" style="${restaurantImageStyles[1]}"></div>
+                    <small>La carte aujourd’hui</small>
+                    ${restaurantMenuSections.slice(0, 3).map((item, index) => `<p><span>${cleanHtml(item.title)}</span><b>${String(index + 1).padStart(2, '0')}</b></p>`).join('')}
+                    <em>Réserver une table</em>
+                </aside>
+                <aside class="restaurant-qr-panel">
+                    <img src="${cleanHtml(restaurantQrUrl)}" alt="QR code ouvrant le menu numérique de ${cleanHtml(siteName)}" loading="eager">
+                    <div><strong>Scannez la carte</strong><span>Menu à jour, sans application.</span></div>
+                </aside>
+            </section>
+            <section class="restaurant-menu-benefits">
+                ${restaurantMenuSections.map((item, index) => `
+                    <article><em>${String(index + 1).padStart(2, '0')}</em><strong>${cleanHtml(item.title)}</strong><span>${cleanHtml(item.text)}</span></article>
+                `).join('')}
+            </section>
+            <section class="restaurant-photo-strip" aria-hidden="true">
+                ${restaurantImageStyles.slice(1, 4).map((style) => `<span style="${style}"></span>`).join('')}
             </section>
             ${footerMarkup}
         </div>
@@ -23192,7 +23364,31 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
         ${sectionsMarkup}
         ${footerMarkup}
     `;
-    const websitePreview = luminaPreview;
+    const layoutPreviews = {
+        'lumina-showcase': luminaPreview,
+        'cinematic-video': cinematicPreview,
+        'gallery-focus': galleryPreview,
+        'minimal-editorial': minimalPreview,
+        'luxury-asymmetric': asymmetricPreview,
+        'product-dashboard': dashboardPreview,
+        'warm-editorial': warmPreview,
+        'classic-conversion': classicPreview,
+    };
+    const websitePreview = isContaDirectPreview
+        ? contaDirectPreview
+        : isRestaurantMenuPreview
+            ? restaurantMenuPreview
+            : isFinancePreview
+                ? financePreview
+                : isDashboardPreview
+                    ? dashboardPreview
+                    : isDreamPreview
+                        ? dreamPreview
+                        : isKidsFuturePreview
+                            ? kidsFuturePreview
+                            : isSectorExperiencePreview
+                                ? sectorExperiencePreview
+                                : layoutPreviews[layoutVariant] || classicPreview;
 
     if (quoteItems.length) {
         quoteParams.set('items', quoteItems.join('|'));
