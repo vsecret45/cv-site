@@ -263,6 +263,31 @@ test('Kirby transforme un restaurant avec menu QR en expérience visuelle dédi�
     assert.ok(payload.proposal.ctas.includes('Voir le menu'));
 });
 
+test('Kirby transforme un brief de plongée en réservation de sortie exploitable', async () => {
+    const brief = 'Plongée sous-marine. Je propose des formations et des sorties de plongée. Je souhaite un site immersif avec réservations, météo, cartes des spots et galerie.';
+    const response = await callKirbyWithOpenAiProposal(brief, makeProposal({
+        siteName: 'Abyss Booking',
+        projectType: 'Site de plongée',
+        serviceName: 'Sorties de plongée',
+        layoutVariant: 'gallery-focus',
+        artifactType: 'story',
+    }));
+    const payload = JSON.parse(response.body);
+    const artifact = payload.proposal.experienceBlueprint.primaryArtifact;
+    const artifactText = JSON.stringify(artifact).toLowerCase();
+    const flowText = JSON.stringify(payload.proposal.experienceBlueprint.flow).toLowerCase();
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(payload.proposal.sectorKey, 'diving');
+    assert.equal(payload.proposal.layoutVariant, 'lumina-showcase');
+    assert.equal(payload.proposal.brandIdentity.surfaceMode, 'glass');
+    assert.equal(artifact.type, 'dive');
+    assert.match(artifactText, /spot|météo|meteo/);
+    assert.match(artifactText, /réservation|reservation/);
+    assert.match(flowText, /choisir|spot/);
+    assert.match(flowText, /vérifier|verifier|météo|meteo/);
+});
+
 test('Kirby conserve deux identités réellement différentes pour deux restaurants proches', async () => {
     const italian = await callKirbyWithOpenAiProposal(
         'Trattoria italienne familiale à Lyon, cuisine de quartier, menu QR et réservation simple.',

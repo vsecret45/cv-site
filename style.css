@@ -20041,14 +20041,51 @@ body.prestations-page #ia-cv .small-service-card {
 .kirby-identity-site {
     --identity-space: 1.35rem;
     --identity-radius: 4px;
+    position: relative;
+    isolation: isolate;
     display: grid;
     min-width: 0;
     overflow: hidden;
     border: 1px solid color-mix(in srgb, var(--identity-ink) 14%, transparent);
     border-radius: 6px;
-    background: var(--identity-canvas);
+    background: linear-gradient(135deg, var(--identity-canvas), color-mix(in srgb, var(--identity-surface) 42%, var(--identity-canvas)));
     color: var(--identity-ink);
     font-family: Inter, Manrope, Arial, sans-serif;
+}
+
+.kirby-identity-site::before {
+    position: absolute;
+    inset: -20% -10% auto;
+    z-index: 0;
+    height: 58%;
+    content: "";
+    pointer-events: none;
+    background: linear-gradient(115deg, transparent 18%, color-mix(in srgb, var(--identity-accent) 10%, transparent) 48%, transparent 74%);
+    transform: translateX(-18%);
+    animation: kirby-identity-sheen 14s ease-in-out infinite alternate;
+}
+
+.kirby-identity-site > * {
+    position: relative;
+    z-index: 1;
+}
+
+.kirby-identity-site.identity-surface-glass,
+.kirby-identity-site.identity-surface-luminous {
+    border-color: color-mix(in srgb, var(--identity-ink) 24%, transparent);
+    background: color-mix(in srgb, var(--identity-canvas) 76%, transparent);
+    box-shadow: 0 30px 90px color-mix(in srgb, var(--identity-ink) 20%, transparent), inset 0 1px 0 color-mix(in srgb, var(--identity-ink) 18%, transparent);
+    backdrop-filter: blur(24px) saturate(1.16);
+    -webkit-backdrop-filter: blur(24px) saturate(1.16);
+}
+
+.kirby-identity-site.identity-surface-luminous::before {
+    background: linear-gradient(115deg, transparent 12%, color-mix(in srgb, var(--identity-accent) 18%, transparent) 48%, color-mix(in srgb, var(--identity-accent-alt) 9%, transparent) 62%, transparent 78%);
+    animation-duration: 10s;
+}
+
+.kirby-identity-site.identity-surface-matte::before {
+    display: none;
 }
 
 .kirby-identity-site.identity-density-compact {
@@ -20083,7 +20120,7 @@ body.prestations-page #ia-cv .small-service-card {
 }
 
 .kirby-identity-site.identity-type-humanist {
-    font-family: "Trebuchet MS", Inter, sans-serif;
+    font-family: "Avenir Next", Inter, "Helvetica Neue", sans-serif;
 }
 
 .kirby-identity-site.identity-type-technical-mono .signal-label,
@@ -20094,8 +20131,9 @@ body.prestations-page #ia-cv .small-service-card {
 }
 
 .kirby-identity-site.identity-type-expressive-display h3 {
-    font-family: Impact, "Arial Black", sans-serif;
-    font-weight: 800;
+    font-family: "Space Grotesk", Inter, sans-serif;
+    font-weight: 760;
+    letter-spacing: 0;
 }
 
 .identity-nav {
@@ -20106,7 +20144,9 @@ body.prestations-page #ia-cv .small-service-card {
     min-width: 0;
     padding: 0.78rem var(--identity-space);
     border-bottom: 1px solid color-mix(in srgb, var(--identity-ink) 14%, transparent);
-    background: var(--identity-surface);
+    background: color-mix(in srgb, var(--identity-surface) 68%, transparent);
+    backdrop-filter: blur(18px) saturate(1.1);
+    -webkit-backdrop-filter: blur(18px) saturate(1.1);
 }
 
 .identity-nav strong {
@@ -20152,7 +20192,7 @@ body.prestations-page #ia-cv .small-service-card {
     gap: calc(var(--identity-space) * 1.25);
     align-items: center;
     min-width: 0;
-    min-height: 35rem;
+    min-height: 30rem;
     padding: calc(var(--identity-space) * 1.7) var(--identity-space);
     border-bottom: 1px solid color-mix(in srgb, var(--identity-ink) 13%, transparent);
 }
@@ -20182,9 +20222,9 @@ body.prestations-page #ia-cv .small-service-card {
     max-width: 11ch;
     margin: 0;
     color: var(--identity-ink);
-    font-size: clamp(2.25rem, 18cqi, 4.35rem);
-    font-weight: 920;
-    line-height: 0.94;
+    font-size: clamp(2rem, 12cqi, 3.15rem);
+    font-weight: 780;
+    line-height: 0.98;
     letter-spacing: 0;
     overflow-wrap: anywhere;
 }
@@ -20251,8 +20291,23 @@ body.studio-home .section .identity-opening-copy h3 {
     overflow: hidden;
     border: 1px solid color-mix(in srgb, var(--identity-ink) 18%, transparent);
     border-radius: var(--identity-radius);
-    background: var(--identity-surface);
+    background: color-mix(in srgb, var(--identity-surface) 70%, transparent);
     box-shadow: 0 24px 60px color-mix(in srgb, var(--identity-ink) 14%, transparent);
+    backdrop-filter: blur(18px) saturate(1.08);
+    -webkit-backdrop-filter: blur(18px) saturate(1.08);
+    transition: border-color 220ms ease, box-shadow 220ms ease, transform 220ms ease;
+}
+
+.kirby-identity-site.identity-surface-glass .identity-artifact,
+.kirby-identity-site.identity-surface-luminous .identity-artifact {
+    border-color: color-mix(in srgb, var(--identity-ink) 22%, transparent);
+    background: color-mix(in srgb, var(--identity-surface) 54%, transparent);
+}
+
+.identity-artifact:hover {
+    border-color: color-mix(in srgb, var(--identity-accent) 58%, transparent);
+    box-shadow: 0 28px 70px color-mix(in srgb, var(--identity-ink) 20%, transparent);
+    transform: translateY(-2px);
 }
 
 .identity-shape-borderless .identity-artifact {
@@ -20415,6 +20470,130 @@ body.studio-home .section .identity-opening-copy h3 {
 
 .artifact-booking .identity-artifact-item {
     grid-template-columns: minmax(0, 1fr) minmax(4rem, auto);
+}
+
+.artifact-dive .identity-artifact-body {
+    align-content: start;
+    gap: 0.6rem;
+    padding: 0.58rem;
+    background: color-mix(in srgb, var(--identity-canvas) 58%, transparent);
+}
+
+.identity-dive-visual {
+    display: grid;
+    grid-template-columns: minmax(0, 1.08fr) minmax(8rem, 0.92fr);
+    gap: 0.58rem;
+    min-width: 0;
+}
+
+.identity-dive-map,
+.identity-dive-photo {
+    position: relative;
+    min-width: 0;
+    min-height: 9.4rem;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--identity-ink) 20%, transparent);
+    border-radius: var(--identity-radius);
+    background: #091A20;
+}
+
+.identity-dive-map {
+    display: grid;
+    align-content: end;
+    padding: 0.72rem;
+    background-image: linear-gradient(135deg, transparent 0 48%, rgba(113, 226, 208, 0.1) 49% 50%, transparent 51%), repeating-linear-gradient(90deg, rgba(113, 226, 208, 0.07) 0 1px, transparent 1px 22px), repeating-linear-gradient(0deg, rgba(113, 226, 208, 0.06) 0 1px, transparent 1px 22px);
+}
+
+.identity-dive-map::after {
+    position: absolute;
+    inset: 17% 12% 26% 22%;
+    border: 1px solid color-mix(in srgb, var(--identity-accent) 46%, transparent);
+    border-radius: 42% 58% 48% 52%;
+    content: "";
+    opacity: 0.72;
+    transform: rotate(-14deg);
+}
+
+.identity-dive-map > div:last-child {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    gap: 0.14rem;
+}
+
+.identity-dive-map small,
+.identity-dive-map em {
+    color: var(--identity-muted);
+    font-size: 0.44rem;
+    font-style: normal;
+    font-weight: 780;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.identity-dive-map strong {
+    color: var(--identity-ink);
+    font-size: 0.84rem;
+}
+
+.identity-dive-marker {
+    position: absolute;
+    z-index: 2;
+    width: 0.62rem;
+    height: 0.62rem;
+    border: 2px solid #091A20;
+    border-radius: 50%;
+    background: var(--identity-accent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--identity-accent) 20%, transparent);
+}
+
+.identity-dive-marker.marker-one { top: 26%; left: 32%; }
+.identity-dive-marker.marker-two { top: 42%; right: 22%; background: var(--identity-accent-alt); box-shadow: 0 0 0 4px color-mix(in srgb, var(--identity-accent-alt) 18%, transparent); }
+.identity-dive-marker.marker-three { bottom: 28%; left: 58%; }
+
+.identity-dive-photo {
+    margin: 0;
+    background: var(--identity-surface);
+}
+
+.identity-dive-photo::after {
+    position: absolute;
+    inset: 0;
+    content: "";
+    background: linear-gradient(180deg, transparent 30%, rgba(7, 16, 20, 0.8));
+}
+
+.identity-dive-photo img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 9.4rem;
+    object-fit: cover;
+    filter: saturate(0.84) contrast(1.04);
+}
+
+.identity-dive-photo figcaption {
+    position: absolute;
+    right: 0.58rem;
+    bottom: 0.55rem;
+    left: 0.58rem;
+    z-index: 1;
+    color: #F5F7F4;
+    font-size: 0.48rem;
+    font-weight: 780;
+}
+
+.identity-dive-data {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    min-width: 0;
+    border: 1px solid color-mix(in srgb, var(--identity-ink) 12%, transparent);
+    border-radius: var(--identity-radius);
+    background: color-mix(in srgb, var(--identity-surface) 46%, transparent);
+}
+
+.identity-dive-data .identity-artifact-item {
+    min-height: 4.2rem;
 }
 
 .identity-menu-list {
@@ -20659,7 +20838,43 @@ body.studio-home .section .identity-opening-copy h3 {
 .identity-product-canvas .identity-opening-copy h3,
 body.studio-home .section .identity-product-canvas .identity-opening-copy h3 {
     color: var(--identity-on-ink);
-    font-size: clamp(2.25rem, 18cqi, 3.55rem);
+    font-size: clamp(2rem, 13cqi, 3.1rem);
+}
+
+.kirby-identity-site.identity-surface-glass .identity-opening-copy,
+.kirby-identity-site.identity-surface-luminous .identity-opening-copy {
+    border: 1px solid color-mix(in srgb, var(--identity-ink) 18%, transparent);
+    background: color-mix(in srgb, var(--identity-surface) 68%, transparent);
+    backdrop-filter: blur(20px) saturate(1.14);
+    -webkit-backdrop-filter: blur(20px) saturate(1.14);
+}
+
+.kirby-identity-site.identity-surface-glass .identity-opening-copy h3,
+.kirby-identity-site.identity-surface-luminous .identity-opening-copy h3 {
+    color: var(--identity-ink) !important;
+}
+
+.kirby-identity-site.identity-surface-glass .identity-opening-copy > p:not(.signal-label),
+.kirby-identity-site.identity-surface-luminous .identity-opening-copy > p:not(.signal-label) {
+    color: var(--identity-muted);
+}
+
+body.studio-home .kirby-identity-site.identity-surface-glass .identity-opening-copy .signal-label,
+body.studio-home .kirby-identity-site.identity-surface-luminous .identity-opening-copy .signal-label {
+    color: var(--identity-accent) !important;
+}
+
+.kirby-identity-site.identity-surface-glass .identity-product-canvas .identity-personality span,
+.kirby-identity-site.identity-surface-luminous .identity-product-canvas .identity-personality span,
+.kirby-identity-site.identity-surface-glass .identity-personality span,
+.kirby-identity-site.identity-surface-luminous .identity-personality span {
+    color: var(--identity-muted) !important;
+}
+
+.kirby-identity-site.identity-surface-glass .kirby-preview-actions span:nth-child(2),
+.kirby-identity-site.identity-surface-luminous .kirby-preview-actions span:nth-child(2) {
+    border-color: color-mix(in srgb, var(--identity-ink) 28%, transparent);
+    color: var(--identity-ink);
 }
 
 .identity-product-canvas .identity-opening-copy > p:not(.signal-label),
@@ -20693,7 +20908,8 @@ body.studio-home .section .identity-product-canvas .identity-opening-copy h3 {
 body.studio-home .section .identity-immersive-sequence .identity-opening-copy h3 {
     max-width: 15ch;
     color: var(--identity-on-ink);
-    font-size: 5rem;
+    font-size: clamp(2.4rem, 8cqi, 3.8rem);
+    font-weight: 780;
 }
 
 .identity-immersive-sequence .identity-opening-copy > p:not(.signal-label),
@@ -20725,6 +20941,11 @@ body.studio-home .section .identity-immersive-sequence .identity-opening-copy h3
     }
 }
 
+@keyframes kirby-identity-sheen {
+    from { transform: translateX(-18%) rotate(-2deg); opacity: 0.55; }
+    to { transform: translateX(18%) rotate(2deg); opacity: 1; }
+}
+
 @keyframes kirby-identity-status {
     0%, 100% {
         opacity: 0.45;
@@ -20746,7 +20967,7 @@ body.studio-home .section .identity-immersive-sequence .identity-opening-copy h3
     .identity-opening-copy h3,
     .identity-product-canvas .identity-opening-copy h3,
     .identity-immersive-sequence .identity-opening-copy h3 {
-        font-size: 3.3rem;
+        font-size: clamp(1.95rem, 12cqi, 2.7rem);
     }
 
     .identity-proof-grid {
@@ -20807,7 +21028,7 @@ body.studio-home .section .identity-immersive-sequence .identity-opening-copy h3
     .identity-product-canvas .identity-opening-copy h3,
     .identity-immersive-sequence .identity-opening-copy h3 {
         max-width: 100%;
-        font-size: 2.7rem;
+        font-size: clamp(1.85rem, 11cqi, 2.35rem);
         line-height: 0.98;
     }
 
@@ -20828,6 +21049,20 @@ body.studio-home .section .identity-immersive-sequence .identity-opening-copy h3
         grid-template-columns: minmax(0, 1fr) 5.4rem;
         gap: 0.42rem;
         padding: 0.5rem;
+    }
+
+    .identity-dive-visual {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .identity-dive-map,
+    .identity-dive-photo,
+    .identity-dive-photo img {
+        min-height: 8.4rem;
+    }
+
+    .identity-dive-data {
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .identity-menu-qr {

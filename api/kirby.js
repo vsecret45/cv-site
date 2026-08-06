@@ -32,6 +32,13 @@ const hasFoodServiceIntent = (value = '') => {
 
     return explicitFoodPlace || foodOffer;
 };
+const hasDivingIntent = (value = '') => {
+    const source = normalizeIntentText(value);
+    const diveContext = /\b(plongee|sous marin|sous-marin|scuba|diving|dive|epave|recif|recifs|moniteur|bapteme)\b/.test(source);
+    const experienceNeed = /\b(formation|formations|sortie|sorties|reservation|reservations|meteo|spots?|carte|cartes|profondeur|galerie|niveau|disponibilite|disponibilites)\b/.test(source);
+
+    return diveContext && experienceNeed;
+};
 const hasSpaceSimulationIntent = (value = '') => {
     const source = normalizeIntentText(value);
     const simulation = /\b(simulation spatiale|simulateur spatial|simulateur de mission|missions? spatiales?|mission spatiale|centre de simulation|cabine de simulation|entrainement spatial|entraînement spatial)\b/.test(source);
@@ -1455,7 +1462,7 @@ const KIRBY_SITE_JSON_SCHEMA_PROMPT = `
 Retourne uniquement un JSON valide, sans markdown, avec au minimum :
 {
   "projectType": "type de projet court",
-  "sectorKey": "accounting | restaurant | restaurant-management-saas | saas | hotel | travel | legal | sport | veterinary | bridal | portfolio | service",
+  "sectorKey": "accounting | restaurant | restaurant-management-saas | diving | saas | hotel | travel | legal | sport | veterinary | bridal | portfolio | service",
   "siteName": "nom propose",
   "slogan": "slogan court",
   "summary": "resume en 1 phrase",
@@ -1501,12 +1508,13 @@ Retourne uniquement un JSON valide, sans markdown, avec au minimum :
     "imageStrategy": "product-proof | result-proof | service-proof | graphic-system",
     "signatureElement": "element visuel utile et reconnaissable",
     "motion": ["animation discrete liee au contenu"],
-    "avoid": ["cliche visuel a eviter pour ce projet"]
+    "avoid": ["cliche visuel a eviter pour ce projet"],
+    "surfaceMode": "glass | luminous | matte"
   },
   "experienceBlueprint": {
     "openingMove": "ce que le premier ecran fait comprendre ou permet de faire",
     "primaryArtifact": {
-      "type": "menu | workflow | dashboard | booking | catalog | timeline | comparison | story",
+      "type": "menu | workflow | dashboard | booking | dive | catalog | timeline | comparison | story",
       "label": "sur-titre de l'objet",
       "title": "titre de l'objet produit",
       "status": "etat utile affiche",
@@ -1660,12 +1668,15 @@ Production obligatoire :
 - L'identite doit evoquer un produit numerique premium et interactif de 2026. Le contenu et l'usage sont prioritaires ; la decoration les soutient.
 - Une image n'est autorisee que comme preuve du produit, du resultat ou du service. Si aucun visuel precis et pertinent n'est justifie, choisis imageStrategy "graphic-system" et fais porter l'identite par les donnees, la typographie et la composition.
 - Le mouvement doit expliquer un etat, un flux ou une action : progression, changement de statut, apparition ordonnee, reponse au survol. Aucun mouvement purement decoratif.
+- Les titres restent courts et maitrises : une identite premium n'utilise jamais un nom de site ou une phrase en taille geante ; reserve le display a une courte accroche et garde une hierarchie fine, lisible et elegante.
+- Utilise une surface glass ou luminous quand le brief demande une experience premium, transparente, Luma/Lumina ou interactive : transparence, flou d'arriere-plan, bord lumineux et profondeur doivent servir les donnees, jamais devenir une decoration vide.
 - Renseigne sectorKey avec un secteur normalise du schema et layoutVariant avec exactement une variante autorisee par le schema.
 - Construis narrativePlan : discovery, understanding, proof, conversion.
 - Construis visualPlan : chaque image a un role narratif, un sujet concret issu du brief, une composition et des mots-cles visuels.
 - Cree une direction visuelle moderne, transparente, premium, adaptee au brief, sans changer le contenu metier.
 - Pour un restaurant avec menu ou QR code : sectorKey "restaurant" et primaryArtifact.type "menu". La carte mobile et le QR code sont le produit principal ; les photos restent secondaires et seulement si elles prouvent le lieu, un plat signature ou le service.
 - Pour une plateforme de comptabilite fournisseurs ou Conta Direct : sectorKey "accounting" et primaryArtifact.type "workflow". Import/scanner, controle documentaire, validation humaine et statut du document doivent etre visibles. La precision, les flux, les documents et la tracabilite fondent l'identite.
+- Pour la plongee sous-marine, les formations ou les sorties : sectorKey "diving" et primaryArtifact.type "dive". Le premier ecran doit montrer un carnet de sortie avec choix du spot, meteo marine, profondeur ou niveau, disponibilite et action de reservation. Ne reduis jamais ce brief a un mot "plongee" et une couleur bleue : l'objet principal doit rendre le service reservable et lisible.
 - Les images doivent montrer un sujet concret et inspectable. N'utilise pas de visuel fade, decoratif, floute, interchangeable ou genere par une URL de recherche aleatoire.
 - Ecris court, concret, commercial, directement visible par un client.
 - Retourne une proposition complete, mais concise.
@@ -5254,6 +5265,7 @@ const sanitizeOpenAiProposalStrict = (proposal = {}) => {
             signatureElement: normalizeText(brandIdentity.signatureElement),
             motion: cleanTextList(brandIdentity.motion, 5),
             avoid: cleanTextList(brandIdentity.avoid, 8),
+            surfaceMode: normalizeText(brandIdentity.surfaceMode),
         },
         experienceBlueprint: {
             openingMove: normalizeText(experienceBlueprint.openingMove),
@@ -5363,6 +5375,7 @@ const detectFallbackSector = (text = '') => {
     if (hasRestaurantManagementSaasIntent(positiveText)) return 'restaurant-management-saas';
     if (hasFutureBankIntent(source)) return 'future-bank';
     if (hasAccountingIntent(source)) return 'accounting';
+    if (hasDivingIntent(positiveText)) return 'diving';
     if (/\b(dashboard|saas|logiciel)\b/.test(source)) return 'saas';
     if (/\b(station spatiale|tourisme spatial|sejour orbital|orbital|orbite|apesanteur|vue sur la terre)\b/.test(source)) return 'space-station-tourism';
     if (/\b(ville flottante|cite flottante|cité flottante|ville autonome|quartiers flottants|energie renouvelable)\b/.test(source)) return 'floating-city';
@@ -5423,7 +5436,7 @@ const KIRBY_IDENTITY_TYPE_MODES = new Set([
 const KIRBY_IDENTITY_DENSITIES = new Set(['compact', 'balanced', 'airy']);
 const KIRBY_IDENTITY_SHAPES = new Set(['precise', 'soft', 'framed', 'borderless']);
 const KIRBY_IDENTITY_IMAGE_STRATEGIES = new Set(['product-proof', 'result-proof', 'service-proof', 'graphic-system']);
-const KIRBY_IDENTITY_ARTIFACTS = new Set(['menu', 'workflow', 'dashboard', 'booking', 'catalog', 'timeline', 'comparison', 'story']);
+const KIRBY_IDENTITY_ARTIFACTS = new Set(['menu', 'workflow', 'dashboard', 'booking', 'dive', 'catalog', 'timeline', 'comparison', 'story']);
 
 const normalizeSiteSectorKey = (value = '') => stripAccents(normalizeText(value).toLowerCase())
     .replace(/[^a-z0-9]+/g, '-')
@@ -5442,6 +5455,8 @@ const hasAccountsPayableAutomationIntent = (value = '') => {
     return accountingContext && supplierWorkflow;
 };
 
+const hasDivingProjectIntent = (value = '') => hasDivingIntent(value);
+
 const hasRestaurantDigitalMenuIntent = (value = '') => {
     const source = normalizeIntentText(value);
 
@@ -5454,6 +5469,7 @@ const getDefaultLayoutForSector = (sectorKey = '') => {
         accounting: 'finance-os',
         restaurant: 'gallery-focus',
         'restaurant-management-saas': 'product-dashboard',
+        diving: 'lumina-showcase',
         saas: 'product-dashboard',
         'kids-app': 'story-world',
         bridal: 'gallery-focus',
@@ -5473,12 +5489,13 @@ const finalizeOpenAiSiteProposal = ({ proposal = {}, brief = '' } = {}) => {
     const sanitized = sanitizeOpenAiProposalStrict(proposal);
     const detectedSector = detectFallbackSector(brief);
     const declaredSector = normalizeSiteSectorKey(sanitized.sectorKey);
-    const highConfidenceSector = ['accounting', 'restaurant', 'restaurant-management-saas'].includes(detectedSector);
+    const highConfidenceSector = ['accounting', 'restaurant', 'restaurant-management-saas', 'diving'].includes(detectedSector);
     const genericSector = !declaredSector || ['generic', 'general', 'site', 'website', 'service'].includes(declaredSector);
     const sectorKey = highConfidenceSector || genericSector ? detectedSector : declaredSector;
     const requestedLayout = normalizeSiteLayoutVariant(proposal && proposal.layoutVariant);
     const accountsPayableProject = hasAccountsPayableAutomationIntent(brief);
     const restaurantDigitalMenu = hasRestaurantDigitalMenuIntent(brief);
+    const divingProject = hasDivingProjectIntent(brief);
 
     sanitized.sectorKey = sectorKey || 'service';
     sanitized.layoutVariant = KIRBY_SITE_LAYOUT_VARIANTS.has(requestedLayout)
@@ -5500,6 +5517,7 @@ const finalizeOpenAiSiteProposal = ({ proposal = {}, brief = '' } = {}) => {
         accounting: 'workflow',
         restaurant: 'menu',
         'restaurant-management-saas': 'dashboard',
+        diving: 'dive',
         saas: 'dashboard',
         hotel: 'booking',
         travel: 'booking',
@@ -5548,6 +5566,37 @@ const finalizeOpenAiSiteProposal = ({ proposal = {}, brief = '' } = {}) => {
 
     if (sanitized.sectorKey === 'accounting') {
         sanitized.layoutVariant = 'finance-os';
+    }
+
+    if (divingProject) {
+        sanitized.sectorKey = 'diving';
+        sanitized.layoutVariant = 'lumina-showcase';
+        sanitized.visualMood = 'dive-booking';
+        sanitized.projectType = sanitized.projectType || 'Centre de plongee, formations et sorties en mer';
+        identity.surfaceMode = 'glass';
+        identity.composition = 'product-canvas';
+        identity.imageStrategy = 'service-proof';
+        artifact.type = 'dive';
+        artifact.label = 'Carnet de plongee';
+        artifact.title = artifact.title || 'Prochaine sortie';
+        artifact.status = artifact.status || 'Conditions a verifier';
+        const artifactText = JSON.stringify(artifact.items || []).toLowerCase();
+        if (!artifact.items.length || !/spot|meteo|mer|profondeur|reservation|creneau/.test(stripAccents(artifactText))) {
+            artifact.items = [
+                { label: 'Spot', value: 'A choisir', detail: 'Carte des sites de plongee.' },
+                { label: 'Mer', value: 'Meteo marine', detail: 'Visibilite et conditions du creneau.' },
+                { label: 'Niveau', value: 'Formation ou sortie', detail: 'Parcours selon experience.' },
+                { label: 'Creneau', value: 'Reservation', detail: 'Choisir une date et une place.' },
+            ];
+        }
+        const flowText = JSON.stringify(blueprint.flow || []).toLowerCase();
+        if (!blueprint.flow.length || !/spot|meteo|reservation|choisir/.test(stripAccents(flowText))) {
+            blueprint.flow = [
+                { label: 'Choisir', detail: 'Selectionner un spot et un niveau.' },
+                { label: 'Verifier', detail: 'Consulter la meteo et la profondeur.' },
+                { label: 'Reserver', detail: 'Confirmer la sortie ou la formation.' },
+            ];
+        }
     }
 
     if (accountsPayableProject) {

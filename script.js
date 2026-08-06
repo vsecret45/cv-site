@@ -15574,6 +15574,14 @@ const hasKirbyFoodServiceIntent = (value = '') => {
     return explicitFoodPlace || foodOffer;
 };
 
+const hasKirbyDivingIntent = (value = '') => {
+    const source = normalizeKirbyFallbackText(value);
+    const diveContext = /\b(plongee|sous marin|sous-marin|scuba|diving|dive|epave|recif|recifs|moniteur|bapteme)\b/.test(source);
+    const experienceNeed = /\b(formation|formations|sortie|sorties|reservation|reservations|meteo|spots?|carte|cartes|profondeur|galerie|niveau|disponibilite|disponibilites)\b/.test(source);
+
+    return diveContext && experienceNeed;
+};
+
 const hasKirbySpaceSimulationIntent = (value = '') => {
     const source = normalizeKirbyFallbackText(value);
     const simulation = /\b(simulation spatiale|simulateur spatial|simulateur de mission|missions? spatiales?|mission spatiale|centre de simulation|cabine de simulation|entrainement spatial)\b/.test(source);
@@ -19104,6 +19112,7 @@ const getKirbyBusinessSector = (brief = '') => {
     const signals = getKirbyBriefSignals(brief);
 
     if (signals.isVeterinary) return 'veterinary';
+    if (signals.isDiving) return 'diving';
     if (signals.isCrisisManagement) return 'crisis-management';
     if (signals.isFuneralHome) return 'funeral-home';
     if (signals.isEnergyRenovation) return 'energy-renovation';
@@ -19495,6 +19504,7 @@ const getKirbyBriefSignals = (brief = '') => {
     const isLibrary = hasKirbyLibraryIntent(source);
     const isUrbanFarm = hasKirbyUrbanFarmIntent(source);
     const isUnderwaterHotel = hasKirbyUnderwaterHotelIntent(source);
+    const isDiving = hasKirbyDivingIntent(source);
     const isSpaceTourism = hasKirbySpaceTourismIntent(source);
     const isFloatingCity = hasKirbyFloatingCityIntent(source);
     const isImmersiveMuseum = hasKirbyImmersiveMuseumIntent(source);
@@ -19506,7 +19516,7 @@ const getKirbyBriefSignals = (brief = '') => {
     const isAccountingApp = !isFutureBank && !isRestaurantManagementSaas && hasKirbyAccountingIntent(source);
     const isEducationKids = !isAccountingApp && !isPrivateSchool && !isKidsFashion && isKirbyKidsEducationBrief(source);
     const isFutureExperience = hasKirbyLuminaIntent(source);
-    const isSectorSpecific = isCrisisManagement || isFuneralHome || isEnergyRenovation || isRestaurantManagementSaas || isTravel || isHotel || isRestaurant || isArchitecture || isLegal || isSeniorMobility || isPrivateSchool || isAutomotiveConcierge || isSportsRehab || isMedicalCenter || isKidsFashion || isBoxing || isSport || isVeterinary || isBridal || isLibrary || isUrbanFarm || isUnderwaterHotel || isSpaceTourism || isFloatingCity || isImmersiveMuseum || isFutureBank || isExplorerAcademy || isDreamPortal || isClimateLab || isBeauty || isCraft;
+    const isSectorSpecific = isCrisisManagement || isFuneralHome || isEnergyRenovation || isRestaurantManagementSaas || isTravel || isHotel || isRestaurant || isArchitecture || isLegal || isSeniorMobility || isPrivateSchool || isAutomotiveConcierge || isSportsRehab || isMedicalCenter || isKidsFashion || isBoxing || isSport || isVeterinary || isBridal || isLibrary || isUrbanFarm || isUnderwaterHotel || isDiving || isSpaceTourism || isFloatingCity || isImmersiveMuseum || isFutureBank || isExplorerAcademy || isDreamPortal || isClimateLab || isBeauty || isCraft;
     const isDigitalService = /sa creation|creation web|site web|sites web|generateur|developpement|référencement|referencement|qr code|maintenance|support technique|logiciel|application|saas|plateforme|agence web|agence digitale|agence marketing/.test(source);
 
     return {
@@ -19532,6 +19542,7 @@ const getKirbyBriefSignals = (brief = '') => {
         isLibrary,
         isUrbanFarm,
         isUnderwaterHotel,
+        isDiving,
         isSpaceTourism,
         isFloatingCity,
         isImmersiveMuseum,
@@ -19552,6 +19563,7 @@ const getKirbyBriefSignals = (brief = '') => {
 
 const getKirbyLockedBriefSector = (signals = {}) => {
     if (signals.isCrisisManagement) return 'crisis-management';
+    if (signals.isDiving) return 'diving';
     if (signals.isFuneralHome) return 'funeral-home';
     if (signals.isEnergyRenovation) return 'energy-renovation';
     if (signals.isRestaurantManagementSaas) return 'restaurant-management-saas';
@@ -22433,7 +22445,7 @@ const KIRBY_IDENTITY_COMPOSITIONS = ['artifact-led', 'split-flow', 'editorial-st
 const KIRBY_IDENTITY_TYPE_MODES = ['modern-grotesk', 'editorial-serif', 'humanist', 'technical-mono', 'expressive-display'];
 const KIRBY_IDENTITY_DENSITIES = ['compact', 'balanced', 'airy'];
 const KIRBY_IDENTITY_SHAPES = ['precise', 'soft', 'framed', 'borderless'];
-const KIRBY_IDENTITY_ARTIFACTS = ['menu', 'workflow', 'dashboard', 'booking', 'catalog', 'timeline', 'comparison', 'story'];
+const KIRBY_IDENTITY_ARTIFACTS = ['menu', 'workflow', 'dashboard', 'booking', 'dive', 'catalog', 'timeline', 'comparison', 'story'];
 
 const normalizeKirbyIdentityToken = (value = '') => normalizeKirbyText(value)
     .replace(/[^a-z0-9]+/g, '-')
@@ -22473,24 +22485,38 @@ const getKirbyIdentitySystem = (proposal = {}, brief = '') => {
         { canvas: '#F6F4F0', surface: '#FFFFFF', ink: '#1D1A24', muted: '#746E7E', accent: '#7856A8', accentAlt: '#D75E78' },
     ];
     const fallback = fallbackPalettes[getKirbyHash(`${brief}::${proposal.siteName || ''}::identity`) % fallbackPalettes.length];
+    const isDiving = hasKirbyDivingIntent(brief);
     const compositionToken = normalizeKirbyIdentityToken(source.composition);
     const typeToken = normalizeKirbyIdentityToken(typography.mode);
     const densityToken = normalizeKirbyIdentityToken(source.density);
     const shapeToken = normalizeKirbyIdentityToken(source.shapeLanguage);
+    const surfaceToken = normalizeKirbyIdentityToken(source.surfaceMode);
     const composition = KIRBY_IDENTITY_COMPOSITIONS.includes(compositionToken)
         ? compositionToken
         : KIRBY_IDENTITY_COMPOSITIONS[getKirbyHash(`${brief}::composition`) % KIRBY_IDENTITY_COMPOSITIONS.length];
     const typeMode = KIRBY_IDENTITY_TYPE_MODES.includes(typeToken) ? typeToken : 'modern-grotesk';
     const density = KIRBY_IDENTITY_DENSITIES.includes(densityToken) ? densityToken : 'balanced';
     const shape = KIRBY_IDENTITY_SHAPES.includes(shapeToken) ? shapeToken : 'precise';
-    const resolvedPalette = {
-        canvas: getKirbyIdentityColor(palette.canvas, fallback.canvas),
-        surface: getKirbyIdentityColor(palette.surface, fallback.surface),
-        ink: getKirbyIdentityColor(palette.ink, fallback.ink),
-        muted: getKirbyIdentityColor(palette.muted, fallback.muted),
-        accent: getKirbyIdentityColor(palette.accent, fallback.accent),
-        accentAlt: getKirbyIdentityColor(palette.accentAlt, fallback.accentAlt),
+    const surfaceMode = ['glass', 'luminous', 'matte'].includes(surfaceToken) ? surfaceToken : 'glass';
+    const divingPalette = {
+        canvas: '#071014',
+        surface: '#122A30',
+        ink: '#F5F7F4',
+        muted: '#9BB8B5',
+        accent: '#71E2D0',
+        accentAlt: '#C7B8FF',
     };
+    const resolvedPalette = {
+        canvas: getKirbyIdentityColor(palette.canvas, isDiving ? divingPalette.canvas : fallback.canvas),
+        surface: getKirbyIdentityColor(palette.surface, isDiving ? divingPalette.surface : fallback.surface),
+        ink: getKirbyIdentityColor(palette.ink, isDiving ? divingPalette.ink : fallback.ink),
+        muted: getKirbyIdentityColor(palette.muted, isDiving ? divingPalette.muted : fallback.muted),
+        accent: getKirbyIdentityColor(palette.accent, isDiving ? divingPalette.accent : fallback.accent),
+        accentAlt: getKirbyIdentityColor(palette.accentAlt, isDiving ? divingPalette.accentAlt : fallback.accentAlt),
+    };
+    if (isDiving) {
+        Object.assign(resolvedPalette, divingPalette);
+    }
     if (getKirbyIdentityContrast(resolvedPalette.ink, resolvedPalette.canvas) < 4.5) {
         resolvedPalette.ink = getKirbyIdentityContrast('#111418', resolvedPalette.canvas) >= 4.5 ? '#111418' : '#FFFFFF';
     }
@@ -22517,7 +22543,8 @@ const getKirbyIdentitySystem = (proposal = {}, brief = '') => {
         typeMode,
         density,
         shape,
-        className: `identity-${composition} identity-type-${typeMode} identity-density-${density} identity-shape-${shape}`,
+        surfaceMode,
+        className: `identity-${composition} identity-type-${typeMode} identity-density-${density} identity-shape-${shape} identity-surface-${surfaceMode}`,
         style,
     };
 };
@@ -22545,6 +22572,7 @@ const buildKirbyIdentityPreview = ({
         : {};
     const artifactTypeToken = normalizeKirbyIdentityToken(primaryArtifact.type);
     const artifactType = KIRBY_IDENTITY_ARTIFACTS.includes(artifactTypeToken) ? artifactTypeToken : 'story';
+    const isDiving = artifactType === 'dive' || hasKirbyDivingIntent(brief);
     const artifactFallbackItems = services.slice(0, 4).map((service, index) => ({
         label: getKirbyItemTitle(service),
         value: String(index + 1).padStart(2, '0'),
@@ -22600,7 +22628,26 @@ const buildKirbyIdentityPreview = ({
             <i aria-hidden="true"></i>
         </article>
     `).join('');
-    const artifactBody = artifactType === 'menu'
+    const divePhotoUrl = 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=900&q=82';
+    const diveArtifactBody = `
+        <div class="identity-dive-visual">
+            <div class="identity-dive-map" role="img" aria-label="Carte des spots de plongee">
+                <span class="identity-dive-grid" aria-hidden="true"></span>
+                <i class="identity-dive-marker marker-one" aria-hidden="true"></i>
+                <i class="identity-dive-marker marker-two" aria-hidden="true"></i>
+                <i class="identity-dive-marker marker-three" aria-hidden="true"></i>
+                <div><small>CARTE DES SPOTS</small><strong>Mer ouverte</strong><em>3 sites a verifier</em></div>
+            </div>
+            <figure class="identity-dive-photo">
+                <img src="${divePhotoUrl}" alt="Plongeur sous-marin en sortie encadree" loading="eager">
+                <figcaption>Sorties · formations · conditions</figcaption>
+            </figure>
+        </div>
+        <div class="identity-dive-data">${artifactRows}</div>
+    `;
+    const artifactBody = isDiving
+        ? diveArtifactBody
+        : artifactType === 'menu'
         ? `
             <div class="identity-menu-list">${artifactRows}</div>
             <aside class="identity-menu-qr">
