@@ -233,6 +233,26 @@ test('CV adapt: respects requested insertion professionnelle headline', async ()
     assert.equal(body.cv.jobTarget, expectedHeadline);
 });
 
+test('CV adapt: applies an explicit headline without a connector', async () => {
+    const expectedHeadline = 'Conseillère de Ventes';
+    const { statusCode, body } = await callKirbyCv({
+        task: 'adapt',
+        cv: {
+            headline: 'Chauffeur de bus',
+            summary: 'Professionnelle de la relation client.',
+        },
+        instruction: `Change le titre ${expectedHeadline}.`,
+        openAiCv: {
+            headline: 'Conseillère clientèle',
+            jobTarget: 'Conseillère clientèle',
+        },
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.cv.headline, expectedHeadline);
+    assert.equal(body.cv.jobTarget, expectedHeadline);
+});
+
 test('CV adapt: removes insertion professionnelle suffix from headline', async () => {
     const oldHeadline = 'Conseillère commerciale – Candidate au poste de conseillère en insertion professionnelle';
     const { statusCode, body } = await callKirbyCv({

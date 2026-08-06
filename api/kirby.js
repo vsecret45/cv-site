@@ -5889,6 +5889,9 @@ const getCvRoleFromText = (value = '') => {
     if (/\bconseillere\s+commerciale\b/.test(source) && /\binsertion\s+professionnelle\b/.test(source)) {
         return INSERTION_PROFESSIONAL_CV_HEADLINE;
     }
+    if (/\bconseillere\s+de\s+ventes\b/.test(source)) {
+        return 'Conseillère de Ventes';
+    }
     if (/\bconseillere\s+de\s+vente\b/.test(source)) {
         return 'Conseillère de vente';
     }
@@ -6684,6 +6687,7 @@ const buildOpenAiCvPrompt = ({ task, cv, jobOffer, instruction, letter, interact
     'Pour une modification locale, laisse vides les champs non demandes : ne renomme pas un poste, une entreprise, une date, une mission, le titre global, l accroche ou les competences si la consigne ne le demande pas explicitement.',
     'Pour un deplacement avant/apres une autre experience explicitement demande, retourne une seule operation reorder_experiences avec position.before ou position.after.',
     'Pour une correction ciblee de phrase, ligne, date ou intitule, retourne uniquement l operation correspondante. Ne remplis pas headline, summary, skills, generatedExperiences, educationSuggestions, layout ou experienceOrder si ces champs ne sont pas demandes.',
+    'Quand la consigne donne explicitement le nouveau titre global du CV, applique exactement ce titre dans headline et jobTarget, sans le corriger ni le remplacer par un synonyme.',
     'Execute la demande dans operations. Utilise replace_text ou remove_text pour une expression exacte dans une ou plusieurs rubriques, set_experience_bullets pour reecrire les missions finales d une experience, et sort_experiences avec value newest_first pour un tri chronologique. Ne reponds pas comme un chatbot lorsque le document contient assez d informations pour agir.',
 ].filter(Boolean).join('\n\n');
 

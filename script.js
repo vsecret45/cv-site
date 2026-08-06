@@ -167,8 +167,10 @@ const PASSWORD_RESET_EXPIRED_MESSAGE = 'Le lien de réinitialisation a expiré. 
 const DEFAULT_CV_SECTION_ORDER = ['summary', 'skills', 'experience', 'projects', 'education', 'activities', 'languages'];
 const CV_ROUNDTRIP_START = 'SACW_CV_DATA_V1_START';
 const CV_ROUNDTRIP_END = 'SACW_CV_DATA_V1_END';
+const FATIMA_SALES_HEADLINE_MIGRATION = 'fatima-sales-headline-v1';
 const INSERTION_PROFESSIONAL_CV_HEADLINE = 'Conseillère commerciale';
 const INSERTION_PROFESSIONAL_CV_SUMMARY = 'Conseillère de vente avec une expérience confirmée en accueil, conseil client, vente à distance et fidélisation. À l’écoute et orientée satisfaction client, je sais analyser les besoins, proposer des solutions adaptées et accompagner les personnes avec bienveillance. Organisée, autonome et à l’aise avec les outils numériques, je souhaite mettre mon sens du service et de l’accompagnement au profit de l’insertion professionnelle.';
+const FATIMA_CURRENT_CV_HEADLINE = 'Conseillère de Ventes';
 const FATIMA_TRANSPORT_CV_HEADLINE = 'Chauffeur de bus';
 const FATIMA_TRANSPORT_CV_SUMMARY = 'Professionnelle de la relation client, titulaire du permis D, souhaitant mettre à profit son sens du service, sa rigueur et son autonomie dans le transport de voyageurs.';
 const FATIMA_TRANSPORT_CV_SKILLS = [
@@ -1941,6 +1943,7 @@ const buildCvDraftPayload = () => {
 
     return {
         values,
+        contentMigrations: [FATIMA_SALES_HEADLINE_MIGRATION],
         editableContent: cvEditableContent,
         sectionTitleStyles: cvSectionTitleStyles,
         sectionOrder: cvSectionOrder,
@@ -2522,10 +2525,8 @@ const applyFatimaInsertionProfessionalProfileMigration = () => {
     const hasInsertionCandidateSuffix = (value = '') =>
         /\bcandidate?\s+au\s+poste\b/.test(value)
         && /\binsertion\s+pro[\s\-–—]*fessionnelle\b/.test(value);
-    const hasLegacyHeadline = /\bconseiller\s+clientele\b/.test(headline)
-        || /^conseillere\s+de\s+vente$/.test(headline);
-    const shouldCleanHeadline = hasLegacyHeadline || hasInsertionCandidateSuffix(headline);
-    const shouldCleanJobTarget = hasLegacyHeadline || hasInsertionCandidateSuffix(jobTarget);
+    const shouldCleanHeadline = hasInsertionCandidateSuffix(headline);
+    const shouldCleanJobTarget = hasInsertionCandidateSuffix(jobTarget);
     const hasLegacySummary = /\bcontribuer\s+au\s+developpement\s+commercial\b/.test(summary)
         || /\bexperience\s+client\s+soignee\b/.test(summary);
     const shortenedSkills = skills.replace(
@@ -2587,7 +2588,7 @@ const replaceFatimaAmericanExpressExperience = (value = '') => {
     };
 };
 
-const applyFatimaTransportCvMigration = () => {
+const applyFatimaTransportCvMigration = (payload = null) => {
     if (!cvForm) {
         return false;
     }
@@ -2612,10 +2613,9 @@ const applyFatimaTransportCvMigration = () => {
     const headline = normalizeForMatch(headlineField?.value || '');
     const summary = normalizeForMatch(summaryField?.value || '');
     const skills = normalizeForMatch(skillsField?.value || '');
-    const hasTransportHeadline = /\b(chauffeur|conductrice|conducteur|bus|transport\s+de\s+voyageurs)\b/.test(headline);
-    const hasLegacyHeadline = !headline
-        || /\binsertion\s+professionnelle\b/.test(headline)
-        || /\bconseillere\s+(commerciale|de\s+vente|clientele)\b/.test(headline);
+    const hasPreviousHeadline = !headline || headline === normalizeForMatch(FATIMA_TRANSPORT_CV_HEADLINE);
+    const appliedMigrations = Array.isArray(payload?.contentMigrations) ? payload.contentMigrations : [];
+    const shouldMigrateHeadline = !appliedMigrations.includes(FATIMA_SALES_HEADLINE_MIGRATION);
     const hasLegacySummary = !summary
         || /\bservice\s+pre(?:m|n)ium\b/.test(summary)
         || /\binsertion\s+professionnelle\b/.test(summary)
@@ -2624,14 +2624,15 @@ const applyFatimaTransportCvMigration = () => {
         || /\bbanque\b.*\btransport\b/.test(summary);
     const hasDefaultWebSkills = /\b(front\s*end|html5|css3|javascript|react|vercel|supabase|github|api)\b/.test(skills);
 
-    if (headlineField && !hasTransportHeadline && hasLegacyHeadline) {
-        headlineField.value = FATIMA_TRANSPORT_CV_HEADLINE;
+    if (headlineField && shouldMigrateHeadline && hasPreviousHeadline) {
+        headlineField.value = FATIMA_CURRENT_CV_HEADLINE;
         clearEditableOverride('headline');
         changes.push('titre');
     }
 
-    if (jobTargetField && (!jobTargetField.value || normalizeForMatch(jobTargetField.value).includes('insertion professionnelle'))) {
-        jobTargetField.value = FATIMA_TRANSPORT_CV_HEADLINE;
+    const jobTarget = normalizeForMatch(jobTargetField?.value || '');
+    if (jobTargetField && shouldMigrateHeadline && (!jobTarget || jobTarget === normalizeForMatch(FATIMA_TRANSPORT_CV_HEADLINE) || jobTarget.includes('insertion professionnelle'))) {
+        jobTargetField.value = FATIMA_CURRENT_CV_HEADLINE;
     }
 
     if (summaryField && normalizeForMatch(summaryField.value) !== normalizeForMatch(FATIMA_TRANSPORT_CV_SUMMARY) && hasLegacySummary) {
@@ -2791,7 +2792,7 @@ const loadCvDraft = async ({ silent = false } = {}) => {
         }
 
         didMigrateInsertionProfile = !forceFilledDefaults && applyFatimaInsertionProfessionalProfileMigration();
-        const didMigrateFatimaTransportCv = !forceFilledDefaults && applyFatimaTransportCvMigration();
+        const didMigrateFatimaTransportCv = !forceFilledDefaults && applyFatimaTransportCvMigration(payload);
 
         if (!forceFilledDefaults) {
             applyCurrentUserDefaults();
@@ -9673,6 +9674,51 @@ const applyQuickContactDetailsCorrection = (message = '') => {
 const getNoCvMutationReply = () =>
     "Je n’ai appliqué aucune modification au CV. Votre message ressemble à une consigne ou à un signalement, pas à une correction précise du CV.";
 
+const cleanExplicitHeadlineCandidate = (value = '') => String(value || '')
+    .trim()
+    .replace(/^[\s:;,\-–—«»"“”']+|[\s.!?;,«»"“”']+$/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+const isProfessionalHeadlineCandidate = (value = '', { allowAnyExplicitValue = false } = {}) => {
+    const candidate = cleanExplicitHeadlineCandidate(value);
+    const source = normalizeForMatch(candidate);
+    if (!candidate || candidate.length > 90 || candidate.split(/\s+/).length > 12) {
+        return false;
+    }
+    if (/^(?:le|la|les|mon|ma|mes|un|une|de|du|des|dans|sur)\b/.test(source)) {
+        return false;
+    }
+    if (/^(?:titre|intitule|poste|metier|change|modifie|remplace|mets|applique)\b/.test(source)) {
+        return false;
+    }
+
+    return allowAnyExplicitValue || /\b(conseiller|conseillere|vendeur|vendeuse|chauffeur|conducteur|conductrice|assistant|assistante|commercial|commerciale|responsable|charge|chargee|agent|employe|employee|manager|developpeur|developpeuse|creatrice|technicien|technicienne|machiniste|receveur|secretaire|administratif|administrative)\b/.test(source);
+};
+
+const getExplicitHeadlineFromInstruction = (message = '') => {
+    const instruction = getKirbyUserInstruction(message).trim();
+    if (!instruction) {
+        return '';
+    }
+
+    const explicitPatterns = [
+        /^(?:change|changer|modifie|modifier|remplace|remplacer|corrige|corriger)\s+(?:(?:le|mon)\s+)?(?:titre|intitul[ée]|poste\s+vis[ée])(?:\s+(?:en|par|pour))?\s*(?::|[-–—])?\s+(.+)$/i,
+        /^(?:mets|mettre|met|applique|appliquer)\s+(?:comme\s+)?(?:titre|intitul[ée]|poste\s+vis[ée])\s*(?::|[-–—])?\s+(.+)$/i,
+        /^(?:titre|intitul[ée]|poste\s+vis[ée])\s*:\s*(.+)$/i,
+    ];
+
+    for (const pattern of explicitPatterns) {
+        const candidate = cleanExplicitHeadlineCandidate(instruction.match(pattern)?.[1] || '');
+        if (isProfessionalHeadlineCandidate(candidate, { allowAnyExplicitValue: true })) {
+            return candidate;
+        }
+    }
+
+    const standaloneCandidate = cleanExplicitHeadlineCandidate(instruction);
+    return isProfessionalHeadlineCandidate(standaloneCandidate) ? standaloneCandidate : '';
+};
+
 const hasConcreteKirbyCvEditIntent = (message = '') => {
     const instruction = getKirbyUserInstruction(message);
     const source = normalizeForMatch(instruction);
@@ -9708,8 +9754,10 @@ const hasConcreteKirbyCvEditIntent = (message = '') => {
     const hasDateValue = /\b(?:19|20)\d{2}\b/.test(source) || /\b(?:janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre|janv|fevr|févr|avr|sept|oct|nov|dec|déc)\b/.test(source);
     const hasKnownExperienceReference = /\b(caisse d epargne|caisse d’épargne|ceidf|camaieu|camaïeu|american express|air france|ratp|machiniste|receveur|developpement web|développement web|creatrice|créatrice|developpeuse|développeuse)\b/.test(source);
     const hasActiveSelection = Boolean(getKirbyCvInteractionContext().selectedText);
+    const hasExplicitHeadlineValue = Boolean(getExplicitHeadlineFromInstruction(instruction));
 
-    return (hasEditVerb && hasCvTarget && (hasReplacementValue || hasDateValue || hasKnownExperienceReference || hasActiveSelection || hasLanguageNameInInstruction(instruction) || looksLikeCvCreationInstruction(instruction)))
+    return hasExplicitHeadlineValue
+        || (hasEditVerb && hasCvTarget && (hasReplacementValue || hasDateValue || hasKnownExperienceReference || hasActiveSelection || hasLanguageNameInInstruction(instruction) || looksLikeCvCreationInstruction(instruction)))
         || hasExplicitReplacementPair
         || hasExplicitRemovalTarget
         || hasOpenEndedRewriteIntent;
@@ -10158,6 +10206,32 @@ const applyQuickTitleGenderCorrection = (message = '') => {
     scheduleCvDraftSave();
     setCvStatus('Kirby a mis à jour le titre');
     return `Titre appliqué : « ${nextHeadline} ». Vous pouvez revenir en arrière avec Retour.`;
+};
+
+const applyQuickExplicitHeadlineCorrection = (message = '') => {
+    const nextHeadline = getExplicitHeadlineFromInstruction(message);
+    const headlineField = cvForm?.elements.headline;
+    if (!nextHeadline || !headlineField) {
+        return '';
+    }
+
+    const jobTargetField = cvForm.elements.jobTarget;
+    if (headlineField.value.trim() === nextHeadline && (!jobTargetField || jobTargetField.value.trim() === nextHeadline)) {
+        return `Titre déjà affiché : « ${nextHeadline} ».`;
+    }
+
+    const beforeState = getCvHistoryState();
+    headlineField.value = nextHeadline;
+    if (jobTargetField) {
+        jobTargetField.value = nextHeadline;
+    }
+
+    clearEditableOverride('headline');
+    updateCvPreview();
+    commitCvHistoryTransition(beforeState);
+    scheduleCvDraftSave();
+    setCvStatus('Kirby a mis à jour le titre');
+    return `Titre mis à jour : « ${nextHeadline} ».`;
 };
 
 const normalizeExperienceDateToken = (value = '') => {
@@ -11464,6 +11538,11 @@ const applyQuickSalesRefocusCorrection = (message = '') => {
 };
 
 const applyQuickKirbyCorrection = (message = '') => {
+    const explicitHeadlineReply = applyQuickExplicitHeadlineCorrection(message);
+    if (explicitHeadlineReply) {
+        return explicitHeadlineReply;
+    }
+
     const directCorrections = [
         applyQuickFatimaTransportCvCorrection(message),
         applyQuickContactDetailsCorrection(message),
@@ -11486,7 +11565,7 @@ const applyQuickKirbyCorrection = (message = '') => {
 };
 
 const isQuickKirbyMutationReply = (reply = '') =>
-    /^(CV corrigé|CV complété|Coordonnées mises à jour|Langues mises à jour|Titre appliqué|Date mise à jour|Mois retirés|Expériences rangées|Mention supprimée|Doublons supprimés|Expérience supprimée|CV recentré)/i.test(String(reply || '').trim());
+    /^(CV corrigé|CV complété|Coordonnées mises à jour|Langues mises à jour|Titre appliqué|Titre mis à jour|Date mise à jour|Mois retirés|Expériences rangées|Mention supprimée|Doublons supprimés|Expérience supprimée|CV recentré)/i.test(String(reply || '').trim());
 
 const reorderExistingExperiences = (order = []) => {
     const field = getExperienceField();
