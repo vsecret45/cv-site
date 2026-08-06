@@ -9702,17 +9702,22 @@ const getExplicitHeadlineFromInstruction = (message = '') => {
         return '';
     }
 
-    const explicitPatterns = [
-        /^(?:change|changer|modifie|modifier|remplace|remplacer|corrige|corriger)\s+(?:(?:le|mon)\s+)?(?:titre|intitul[ée]|poste\s+vis[ée])(?:\s+(?:en|par|pour))?\s*(?::|[-–—])?\s+(.+)$/i,
-        /^(?:mets|mettre|met|applique|appliquer)\s+(?:comme\s+)?(?:titre|intitul[ée]|poste\s+vis[ée])\s*(?::|[-–—])?\s+(.+)$/i,
-        /^(?:titre|intitul[ée]|poste\s+vis[ée])\s*:\s*(.+)$/i,
-    ];
+    const actionPrefix = '(?:(?:je\\s+)?(?:veux|souhaite|voudrais)\\s+)?(?:me\\s+)?';
+    const editVerb = '(?:change|changer|modifie|modifier|remplace|remplacer|corrige|corriger|mets|mettre|met|applique|appliquer)';
+    const headlineTarget = '(?:(?:le|mon)\\s+)?(?:titre|intitul[ée]|poste\\s+vis[ée])(?:\\s+(?:du|de\\s+mon|de\\s+ce)\\s+(?:m[ée]tier|poste|cv))?';
+    const valueFirstMatch = instruction.match(new RegExp(`^${actionPrefix}${editVerb}\\s+(.+?)\\s+(?:comme|en)\\s+${headlineTarget}\\s*[.!?]*\\s*$`, 'i'));
+    const targetFirstMatch = instruction.match(new RegExp(`^${actionPrefix}${editVerb}\\s+${headlineTarget}\\s*(.*)$`, 'i'));
+    const labelMatch = instruction.match(/^(?:titre|intitul[ée]|poste\s+vis[ée])(?:\s+du\s+m[ée]tier)?\s*:\s*(.+)$/i);
+    const rawCandidate = valueFirstMatch?.[1] || targetFirstMatch?.[1] || labelMatch?.[1] || '';
+    const connectorCandidate = rawCandidate.match(/^(?:par|en|vers|pour)\s+(.+)$/i)?.[1]
+        || rawCandidate.match(/^de\s+.+\s+(?:par|en|vers)\s+(.+)$/i)?.[1]
+        || rawCandidate;
+    const candidate = cleanExplicitHeadlineCandidate(
+        connectorCandidate.replace(/^(?:(?:du|de\s+mon|de\s+ce)\s+(?:m[ée]tier|poste|cv))\s*/i, '')
+    );
 
-    for (const pattern of explicitPatterns) {
-        const candidate = cleanExplicitHeadlineCandidate(instruction.match(pattern)?.[1] || '');
-        if (isProfessionalHeadlineCandidate(candidate, { allowAnyExplicitValue: true })) {
-            return candidate;
-        }
+    if (isProfessionalHeadlineCandidate(candidate, { allowAnyExplicitValue: true })) {
+        return candidate;
     }
 
     const standaloneCandidate = cleanExplicitHeadlineCandidate(instruction);
@@ -13082,12 +13087,12 @@ const runAssistantAction = (action, message = '') => {
 
 const getAssistantReply = (message) => {
     const normalizedMessage = normalizeLooseCvText(message);
-    const hasExplicitAssistantTopic = /\b(accroche|profil|resume|presentation|experience|experiences|mission|missions|competence|competences|faute|fautes|orthographe|grammaire|projet|projets|offre|annonce|import|pdf|docx|cv)\b/.test(normalizedMessage);
+    const hasExplicitAssistantTopic = /\b(titre|intitule|poste|metier|accroche|profil|resume|presentation|experience|experiences|mission|missions|competence|competences|faute|fautes|orthographe|grammaire|projet|projets|offre|annonce|import|pdf|docx|cv)\b/.test(normalizedMessage);
 
     if (!hasExplicitAssistantTopic && /\b(oui|ok|d accord|vas y|fait|fais|remplace|directement|applique|continue)\b/i.test(normalizedMessage)) {
         return lastAssistantAction
             ? runAssistantAction(lastAssistantAction.action, lastAssistantAction.message)
-            : "Choisissez d'abord une action : accroche, expériences, compétences, fautes ou offre.";
+            : getNoCvMutationReply();
     }
 
     if (isExplicitKirbyApplyInstruction(message) && !hasConcreteKirbyCvEditIntent(message)) {
@@ -13132,7 +13137,7 @@ const getAssistantReply = (message) => {
         return found.reply;
     }
 
-    return "Action disponible : accroche, expériences, compétences, langues, fautes, projets, offre ou CV prêt.";
+    return getNoCvMutationReply();
 };
 
 const shouldUseKirbyCvAssistant = (message = '', mode = activeKirbyMode) => {
