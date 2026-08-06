@@ -16650,8 +16650,10 @@ body.studio-home .section .restaurant-menu-copy h3 {
     }
 
     .restaurant-menu-copy h3 {
-        font-size: clamp(2rem, 9vw, 3.1rem);
-        overflow-wrap: anywhere;
+        font-size: 1.5rem;
+        line-height: 0.96;
+        overflow-wrap: normal;
+        word-break: normal;
     }
 
     .conta-product-shell {
