@@ -15935,7 +15935,6 @@ const KIRBY_UNREQUESTED_UNIVERSE_PATTERNS = [
     /\bhotel\b/,
     /\bhôtellerie\b/,
     /\bhotellerie\b/,
-    /\bsuites?\b/,
     /\bspa\b/,
     /\brestaurant\b/,
     /\bsejour orbital\b/,
@@ -15951,7 +15950,24 @@ const KIRBY_UNREQUESTED_UNIVERSE_PATTERNS = [
 
 const getKirbyUnrequestedUniversePatterns = (brief = '') => {
     const positiveSource = normalizeKirbyFallbackText(getKirbyPositiveBriefText(brief));
-    return KIRBY_UNREQUESTED_UNIVERSE_PATTERNS.filter((pattern) => !pattern.test(positiveSource));
+    const semanticallyAllowedTerms = [];
+
+    if (hasKirbyFoodServiceIntent(positiveSource)) {
+        semanticallyAllowedTerms.push('restaurant');
+    }
+    if (/\b(hotel|hotellerie|hebergement|gite|chambre|suite)\b/.test(positiveSource)) {
+        semanticallyAllowedTerms.push('hotel', 'hotellerie', 'suite');
+    }
+    if (/\b(musee|galerie culturelle|exposition|archeologie|patrimoine)\b/.test(positiveSource)) {
+        semanticallyAllowedTerms.push('musee', 'exposition', 'archeologie', 'artefact');
+    }
+    if (/\b(tourisme spatial|sejour spatial|station spatiale|voyage orbital|orbite)\b/.test(positiveSource)) {
+        semanticallyAllowedTerms.push('sejour orbital', 'tourisme spatial', 'reservation orbitale', 'vue sur la terre');
+    }
+
+    return KIRBY_UNREQUESTED_UNIVERSE_PATTERNS.filter((pattern) =>
+        !pattern.test(positiveSource)
+        && !semanticallyAllowedTerms.some((term) => pattern.test(term)));
 };
 
 const removeKirbyUnrequestedUniverseText = (proposal = {}, brief = '') => {

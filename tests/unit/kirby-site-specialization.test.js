@@ -1,8 +1,11 @@
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
+const { readFileSync } = require('node:fs');
+const { resolve } = require('node:path');
 const test = require('node:test');
 
 const handler = require('../../api/kirby.js');
+const clientScript = readFileSync(resolve(__dirname, '../../script.js'), 'utf8');
 
 class MockRequest extends EventEmitter {
     constructor(body) {
@@ -310,4 +313,13 @@ test('Kirby conserve deux identités réellement différentes pour deux restaura
     assert.notEqual(italianProposal.brandIdentity.typography.mode, japaneseProposal.brandIdentity.typography.mode);
     assert.notDeepEqual(italianProposal.brandIdentity.palette, japaneseProposal.brandIdentity.palette);
     assert.notEqual(italianProposal.experienceBlueprint.primaryArtifact.type, japaneseProposal.experienceBlueprint.primaryArtifact.type);
+});
+
+test('Kirby ne confond pas une suite de sections avec une suite hôtelière', () => {
+    const guardStart = clientScript.indexOf('const KIRBY_UNREQUESTED_UNIVERSE_PATTERNS');
+    const guardEnd = clientScript.indexOf('const getKirbyUnrequestedUniversePatterns', guardStart);
+    const guardSource = clientScript.slice(guardStart, guardEnd);
+
+    assert.ok(guardStart >= 0 && guardEnd > guardStart);
+    assert.equal(guardSource.includes('/\\bsuites?\\b/'), false);
 });

@@ -20162,16 +20162,19 @@ body.prestations-page #ia-cv .small-service-card {
     align-content: center;
     gap: 0.82rem;
     min-width: 0;
+    overflow: hidden;
+    container-type: inline-size;
 }
 
 .identity-opening-copy .signal-label {
-    width: max-content;
+    width: auto;
     max-width: 100%;
     margin: 0;
     color: var(--identity-accent);
     font-size: 0.58rem;
     font-weight: 900;
     line-height: 1.3;
+    overflow-wrap: anywhere;
     text-transform: uppercase;
 }
 
@@ -20179,7 +20182,7 @@ body.prestations-page #ia-cv .small-service-card {
     max-width: 11ch;
     margin: 0;
     color: var(--identity-ink);
-    font-size: 4.35rem;
+    font-size: clamp(2.25rem, 18cqi, 4.35rem);
     font-weight: 920;
     line-height: 0.94;
     letter-spacing: 0;
@@ -20656,7 +20659,7 @@ body.studio-home .section .identity-opening-copy h3 {
 .identity-product-canvas .identity-opening-copy h3,
 body.studio-home .section .identity-product-canvas .identity-opening-copy h3 {
     color: var(--identity-on-ink);
-    font-size: 3.55rem;
+    font-size: clamp(2.25rem, 18cqi, 3.55rem);
 }
 
 .identity-product-canvas .identity-opening-copy > p:not(.signal-label),
