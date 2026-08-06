@@ -42,7 +42,23 @@ const makeVisualSlot = (narrativeStage, subject) => ({
     keywords: [subject],
 });
 
-const makeProposal = ({ siteName, projectType, serviceName, layoutVariant }) => ({
+const makeProposal = ({
+    siteName,
+    projectType,
+    serviceName,
+    layoutVariant,
+    composition = 'artifact-led',
+    typeMode = 'modern-grotesk',
+    artifactType = 'story',
+    palette = {
+        canvas: '#F4F5F0',
+        surface: '#FFFFFF',
+        ink: '#111A18',
+        muted: '#66736F',
+        accent: '#13866B',
+        accentAlt: '#D95B3C',
+    },
+}) => ({
     projectType,
     sectorKey: '',
     siteName,
@@ -56,6 +72,60 @@ const makeProposal = ({ siteName, projectType, serviceName, layoutVariant }) => 
         promise: 'Un parcours simple et utile',
         tone: 'Direct et moderne',
         differentiator: 'Les actions importantes sont visibles',
+    },
+    projectAnalysis: {
+        activity: projectType,
+        sector: projectType,
+        target: 'Professionnels concernés',
+        goals: ['Présenter le service'],
+        features: [serviceName],
+        tone: ['Direct', 'Moderne'],
+        constraints: [],
+        existingElements: [siteName],
+    },
+    brandIdentity: {
+        concept: `Système visuel ${siteName}`,
+        promise: `Rendre ${serviceName} immédiatement compréhensible`,
+        personality: ['Précis', 'Distinctif', 'Utile'],
+        visualMetaphor: 'Un parcours qui se révèle par étapes',
+        artDirection: `Identité propre à ${siteName}, centrée sur son produit`,
+        palette,
+        typography: {
+            display: 'Titres expressifs et courts',
+            body: 'Texte très lisible',
+            mode: typeMode,
+        },
+        composition,
+        density: 'balanced',
+        shapeLanguage: 'precise',
+        imageStrategy: 'graphic-system',
+        signatureElement: `Le parcours ${serviceName}`,
+        motion: ['Progression des états'],
+        avoid: ['Template générique'],
+    },
+    experienceBlueprint: {
+        openingMove: `Montrer directement ${serviceName}`,
+        primaryArtifact: {
+            type: artifactType,
+            label: projectType,
+            title: serviceName,
+            status: 'Actif',
+            items: [
+                { label: 'Entrée', value: 'Prête', detail: 'Le besoin est visible.' },
+                { label: 'Action', value: 'Directe', detail: 'Le parcours principal est utilisable.' },
+                { label: 'Résultat', value: 'Clair', detail: 'La prochaine étape est comprise.' },
+            ],
+        },
+        proofModules: [
+            { title: 'Usage concret', metric: '', detail: 'Le produit est montré plutôt que décrit.' },
+            { title: 'Parcours lisible', metric: '', detail: 'Chaque état conduit au suivant.' },
+        ],
+        flow: [
+            { label: 'Découvrir', detail: 'Comprendre la promesse.' },
+            { label: 'Utiliser', detail: 'Agir dans l’interface.' },
+            { label: 'Continuer', detail: 'Passer à l’étape suivante.' },
+        ],
+        contentPriority: [serviceName],
     },
     styleGuide: {
         direction: 'Interface claire et contemporaine',
@@ -177,6 +247,7 @@ test('Kirby transforme un restaurant avec menu QR en expérience visuelle dédi�
         projectType: 'Restaurant contemporain',
         serviceName: 'Menu numérique par QR code',
         layoutVariant: 'showcase-contemporain',
+        artifactType: 'menu',
     }));
     const payload = JSON.parse(response.body);
 
@@ -187,4 +258,56 @@ test('Kirby transforme un restaurant avec menu QR en expérience visuelle dédi�
     assert.equal(payload.proposal.showGallery, true);
     assert.ok(payload.proposal.pages.some((page) => page.name === 'Menu digital'));
     assert.ok(payload.proposal.ctas.includes('Voir le menu'));
+});
+
+test('Kirby conserve deux identités réellement différentes pour deux restaurants proches', async () => {
+    const italian = await callKirbyWithOpenAiProposal(
+        'Restaurant italien familial à Lyon, cuisine de quartier, menu QR et réservation simple.',
+        makeProposal({
+            siteName: 'Casa Lina',
+            projectType: 'Trattoria familiale',
+            serviceName: 'Carte italienne numérique',
+            layoutVariant: 'gallery-focus',
+            composition: 'split-flow',
+            typeMode: 'humanist',
+            artifactType: 'menu',
+            palette: {
+                canvas: '#F5F0E8',
+                surface: '#FFFDF8',
+                ink: '#1F2720',
+                muted: '#6D756A',
+                accent: '#B83A2D',
+                accentAlt: '#227A59',
+            },
+        }),
+    );
+    const japanese = await callKirbyWithOpenAiProposal(
+        'Restaurant gastronomique japonais omakase à Paris, réservation limitée et expérience silencieuse.',
+        makeProposal({
+            siteName: 'Kanso',
+            projectType: 'Omakase gastronomique',
+            serviceName: 'Parcours de réservation omakase',
+            layoutVariant: 'minimal-editorial',
+            composition: 'editorial-stack',
+            typeMode: 'editorial-serif',
+            artifactType: 'booking',
+            palette: {
+                canvas: '#ECEDE8',
+                surface: '#FAFAF7',
+                ink: '#171916',
+                muted: '#6B6E68',
+                accent: '#2D4A43',
+                accentAlt: '#A44738',
+            },
+        }),
+    );
+    const italianProposal = JSON.parse(italian.body).proposal;
+    const japaneseProposal = JSON.parse(japanese.body).proposal;
+
+    assert.equal(italian.statusCode, 200);
+    assert.equal(japanese.statusCode, 200);
+    assert.notEqual(italianProposal.brandIdentity.composition, japaneseProposal.brandIdentity.composition);
+    assert.notEqual(italianProposal.brandIdentity.typography.mode, japaneseProposal.brandIdentity.typography.mode);
+    assert.notDeepEqual(italianProposal.brandIdentity.palette, japaneseProposal.brandIdentity.palette);
+    assert.notEqual(italianProposal.experienceBlueprint.primaryArtifact.type, japaneseProposal.experienceBlueprint.primaryArtifact.type);
 });

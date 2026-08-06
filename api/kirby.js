@@ -898,6 +898,38 @@ const getKirbyPipelineQualityIssues = (proposal = {}, brief = '', context = {}) 
         issues.push('ctas vide.');
     }
 
+    if (context.source === 'openai') {
+        const analysis = proposal.projectAnalysis;
+        const identity = proposal.brandIdentity;
+        const palette = identity && identity.palette;
+        const blueprint = proposal.experienceBlueprint;
+        const artifact = blueprint && blueprint.primaryArtifact;
+
+        if (!analysis || !normalizeText(analysis.activity) || !normalizeText(analysis.target)) {
+            issues.push('projectAnalysis incomplet.');
+        }
+
+        if (!identity || !normalizeText(identity.concept) || !normalizeText(identity.artDirection)) {
+            issues.push('brandIdentity incomplet.');
+        } else {
+            const paletteValues = ['canvas', 'surface', 'ink', 'muted', 'accent', 'accentAlt']
+                .map((key) => palette && normalizeText(palette[key]))
+                .filter((value) => /^#[0-9A-F]{6}$/i.test(value));
+            if (paletteValues.length < 6 || new Set(paletteValues.map((value) => value.toUpperCase())).size < 4) {
+                issues.push('brandIdentity.palette doit contenir six couleurs valides et contrastees.');
+            }
+            if (!KIRBY_IDENTITY_COMPOSITIONS.has(normalizeSiteLayoutVariant(identity.composition))) {
+                issues.push('brandIdentity.composition invalide.');
+            }
+        }
+
+        if (!blueprint || !normalizeText(blueprint.openingMove) || !artifact || !KIRBY_IDENTITY_ARTIFACTS.has(normalizeSiteLayoutVariant(artifact.type))) {
+            issues.push('experienceBlueprint incomplet.');
+        } else if (!Array.isArray(artifact.items) || artifact.items.length < 2) {
+            issues.push('experienceBlueprint.primaryArtifact doit montrer au moins deux elements utiles.');
+        }
+    }
+
     if (!narrativePlan || typeof narrativePlan !== 'object') {
         issues.push('narrativePlan absent.');
     } else {
@@ -1393,6 +1425,56 @@ Retourne uniquement un JSON valide, sans markdown, avec au minimum :
     "tone": "ton conseille",
     "differentiator": "difference credible"
   },
+  "projectAnalysis": {
+    "activity": "activite exacte comprise dans le brief",
+    "sector": "secteur et sous-secteur",
+    "target": "public prioritaire",
+    "goals": ["objectif concret"],
+    "features": ["fonctionnalite demandee"],
+    "tone": ["qualificatif de ton"],
+    "constraints": ["contrainte ou interdiction explicite"],
+    "existingElements": ["element deja fourni par le client"]
+  },
+  "brandIdentity": {
+    "concept": "idee directrice unique liee au projet",
+    "promise": "promesse que l'identite doit rendre evidente",
+    "personality": ["3 adjectifs distinctifs"],
+    "visualMetaphor": "metaphore visuelle non litterale et specifique",
+    "artDirection": "direction artistique precise, sans reference a un template",
+    "palette": {
+      "canvas": "#F7F7F2",
+      "surface": "#FFFFFF",
+      "ink": "#111418",
+      "muted": "#66707A",
+      "accent": "#16A085",
+      "accentAlt": "#E0563F"
+    },
+    "typography": {
+      "display": "style de titrage",
+      "body": "style de texte",
+      "mode": "modern-grotesk | editorial-serif | humanist | technical-mono | expressive-display"
+    },
+    "composition": "artifact-led | split-flow | editorial-stack | product-canvas | immersive-sequence",
+    "density": "compact | balanced | airy",
+    "shapeLanguage": "precise | soft | framed | borderless",
+    "imageStrategy": "product-proof | result-proof | service-proof | graphic-system",
+    "signatureElement": "element visuel utile et reconnaissable",
+    "motion": ["animation discrete liee au contenu"],
+    "avoid": ["cliche visuel a eviter pour ce projet"]
+  },
+  "experienceBlueprint": {
+    "openingMove": "ce que le premier ecran fait comprendre ou permet de faire",
+    "primaryArtifact": {
+      "type": "menu | workflow | dashboard | booking | catalog | timeline | comparison | story",
+      "label": "sur-titre de l'objet",
+      "title": "titre de l'objet produit",
+      "status": "etat utile affiche",
+      "items": [{"label": "donnee ou action", "value": "valeur courte", "detail": "precision courte"}]
+    },
+    "proofModules": [{"title": "preuve", "metric": "valeur si connue sinon vide", "detail": "explication factuelle"}],
+    "flow": [{"label": "etape", "detail": "ce qui se passe"}],
+    "contentPriority": ["contenu a montrer en premier"]
+  },
   "styleGuide": {
     "direction": "direction visuelle",
     "colors": "palette",
@@ -1513,11 +1595,12 @@ Retourne uniquement un JSON valide, sans markdown, avec au minimum :
 `.trim();
 
 const KIRBY_COMPACT_SYSTEM_PROMPT = `
-Tu es Kirby SA Creation Web, directeur digital senior. Tu produis une proposition de site en JSON pour alimenter un rendu existant.
+Tu es Kirby SA Creation Web, directeur de creation numerique et architecte produit senior. Tu produis une proposition de site en JSON pour alimenter un moteur de rendu adaptatif.
 
 Regle de verite :
 - Le brief utilisateur est la source de verite.
-- OpenAI produit l'analyse, narrativePlan, visualPlan, contenus, services, sections et CTA.
+- OpenAI produit projectAnalysis, brandIdentity, experienceBlueprint, narrativePlan, visualPlan, contenus, services, sections et CTA.
+- Ne genere plus des templates. Concois une identite visuelle unique adaptee au metier, au positionnement et aux usages du client.
 - N'utilise jamais un ancien metier, un template metier, des textes generiques ou une association par mot-cle isole.
 - Les exclusions explicites ("pas", "ni", "sans", "eviter", "interdiction") sont des interdictions, jamais des indices.
 - Les services, publics, resultats, pages, images et CTA doivent venir du brief ou d'une deduction strictement necessaire.
@@ -1528,13 +1611,21 @@ Regle de verite :
 
 Production obligatoire :
 - Identifie activite exacte, public, promesse, ton, inclusions, exclusions, conversion attendue.
+- Remplis projectAnalysis avant de concevoir. Les fonctionnalites, contraintes et elements existants doivent correspondre au brief.
+- Construis brandIdentity comme un systeme coherent : concept, palette a six couleurs hexadecimales contrastees, typographie, composition, densite, formes, strategie d'image, signature et mouvement.
+- Construis experienceBlueprint autour d'un objet principal utile et visible : menu, workflow, dashboard, reservation, catalogue, chronologie, comparaison ou recit. Cet objet remplace les grands blocs decoratifs.
+- Deux projets proches doivent rester distincts. Un restaurant italien familial et un omakase japonais ne peuvent partager ni concept, ni palette, ni composition, ni typographie, ni objet principal identiques.
+- Interdits absolus : maquette WordPress, Bootstrap classique, sections Hero/Services/Galerie/Contact repetitives, blocs vides decoratifs, photo de banque d'images dominante, calculatrice ou personne en costume pour illustrer la comptabilite, accumulation de photos de plats pour illustrer un restaurant.
+- L'identite doit evoquer un produit numerique premium et interactif de 2026. Le contenu et l'usage sont prioritaires ; la decoration les soutient.
+- Une image n'est autorisee que comme preuve du produit, du resultat ou du service. Si aucun visuel precis et pertinent n'est justifie, choisis imageStrategy "graphic-system" et fais porter l'identite par les donnees, la typographie et la composition.
+- Le mouvement doit expliquer un etat, un flux ou une action : progression, changement de statut, apparition ordonnee, reponse au survol. Aucun mouvement purement decoratif.
 - Renseigne sectorKey avec un secteur normalise du schema et layoutVariant avec exactement une variante autorisee par le schema.
 - Construis narrativePlan : discovery, understanding, proof, conversion.
 - Construis visualPlan : chaque image a un role narratif, un sujet concret issu du brief, une composition et des mots-cles visuels.
 - Cree une direction visuelle moderne, transparente, premium, adaptee au brief, sans changer le contenu metier.
-- Pour un restaurant avec menu ou QR code : sectorKey "restaurant", layoutVariant "gallery-focus", photos plein cadre du lieu et des plats, carte mobile et QR code visibles. Evite toute composition de magazine ou de theme WordPress.
-- Pour une plateforme de comptabilite fournisseurs ou Conta Direct : sectorKey "accounting", layoutVariant "finance-os", import/scanner, controle documentaire, validation humaine et statut du document visibles. Evite le labyrinthe ERP et le tableau de bord financier generique.
-- Les images doivent montrer un sujet concret et inspectable, avec un cadrage actuel. N'utilise pas de visuel fade, decoratif, floute ou interchangeable.
+- Pour un restaurant avec menu ou QR code : sectorKey "restaurant" et primaryArtifact.type "menu". La carte mobile et le QR code sont le produit principal ; les photos restent secondaires et seulement si elles prouvent le lieu, un plat signature ou le service.
+- Pour une plateforme de comptabilite fournisseurs ou Conta Direct : sectorKey "accounting" et primaryArtifact.type "workflow". Import/scanner, controle documentaire, validation humaine et statut du document doivent etre visibles. La precision, les flux, les documents et la tracabilite fondent l'identite.
+- Les images doivent montrer un sujet concret et inspectable. N'utilise pas de visuel fade, decoratif, floute, interchangeable ou genere par une URL de recherche aleatoire.
 - Ecris court, concret, commercial, directement visible par un client.
 - Retourne une proposition complete, mais concise.
 
@@ -1543,6 +1634,8 @@ Controle avant reponse :
 - Aucun service principal absent du brief n'est ajoute.
 - Aucune exclusion n'est contredite.
 - Aucune section, image ou CTA ne vient d'un ancien modele.
+- projectAnalysis, brandIdentity et experienceBlueprint sont complets et se repondent.
+- La composition choisie sert l'objet principal et ne reproduit pas automatiquement l'ordre Hero / Services / Galerie / Contact.
 - Si un champ ne peut pas etre rempli fidelement, prefere une formulation prudente plutot qu'une invention.
 
 ${KIRBY_SITE_JSON_SCHEMA_PROMPT}
@@ -5032,7 +5125,37 @@ const sanitizeOpenAiProposalStrict = (proposal = {}) => {
     const cleanItems = (items, max = 8) => limitArray(items, max)
         .map(normalizeItem)
         .filter((item) => item.name || item.title || item.label || item.goal || item.text || item.description || item.reason);
+    const cleanTextList = (items, max = 8) => limitArray(items, max).map(normalizeText).filter(Boolean);
+    const cleanHex = (value = '') => {
+        const color = normalizeText(value).toUpperCase();
+        return /^#[0-9A-F]{6}$/.test(color) ? color : '';
+    };
+    const cleanArtifactItems = (items, max = 8) => limitArray(items, max)
+        .map((item = {}) => ({
+            label: normalizeDisplayText(item.label || item.name || item.title),
+            value: normalizeDisplayText(item.value),
+            detail: normalizeText(item.detail || item.description || item.text),
+        }))
+        .filter((item) => item.label || item.value || item.detail);
     const source = proposal && typeof proposal === 'object' ? proposal : {};
+    const projectAnalysis = source.projectAnalysis && typeof source.projectAnalysis === 'object'
+        ? source.projectAnalysis
+        : {};
+    const brandIdentity = source.brandIdentity && typeof source.brandIdentity === 'object'
+        ? source.brandIdentity
+        : {};
+    const brandPalette = brandIdentity.palette && typeof brandIdentity.palette === 'object'
+        ? brandIdentity.palette
+        : {};
+    const brandTypography = brandIdentity.typography && typeof brandIdentity.typography === 'object'
+        ? brandIdentity.typography
+        : {};
+    const experienceBlueprint = source.experienceBlueprint && typeof source.experienceBlueprint === 'object'
+        ? source.experienceBlueprint
+        : {};
+    const primaryArtifact = experienceBlueprint.primaryArtifact && typeof experienceBlueprint.primaryArtifact === 'object'
+        ? experienceBlueprint.primaryArtifact
+        : {};
 
     return {
         mode: 'openai',
@@ -5054,6 +5177,67 @@ const sanitizeOpenAiProposalStrict = (proposal = {}) => {
             tone: normalizeText(source.positioning.tone),
             differentiator: normalizeText(source.positioning.differentiator),
         } : {},
+        projectAnalysis: {
+            activity: normalizeText(projectAnalysis.activity),
+            sector: normalizeText(projectAnalysis.sector),
+            target: normalizeText(projectAnalysis.target),
+            goals: cleanTextList(projectAnalysis.goals, 6),
+            features: cleanTextList(projectAnalysis.features, 8),
+            tone: cleanTextList(projectAnalysis.tone, 5),
+            constraints: cleanTextList(projectAnalysis.constraints, 8),
+            existingElements: cleanTextList(projectAnalysis.existingElements, 8),
+        },
+        brandIdentity: {
+            concept: normalizeText(brandIdentity.concept),
+            promise: normalizeText(brandIdentity.promise),
+            personality: cleanTextList(brandIdentity.personality, 5),
+            visualMetaphor: normalizeText(brandIdentity.visualMetaphor),
+            artDirection: normalizeText(brandIdentity.artDirection),
+            palette: {
+                canvas: cleanHex(brandPalette.canvas),
+                surface: cleanHex(brandPalette.surface),
+                ink: cleanHex(brandPalette.ink),
+                muted: cleanHex(brandPalette.muted),
+                accent: cleanHex(brandPalette.accent),
+                accentAlt: cleanHex(brandPalette.accentAlt),
+            },
+            typography: {
+                display: normalizeText(brandTypography.display),
+                body: normalizeText(brandTypography.body),
+                mode: normalizeText(brandTypography.mode),
+            },
+            composition: normalizeText(brandIdentity.composition),
+            density: normalizeText(brandIdentity.density),
+            shapeLanguage: normalizeText(brandIdentity.shapeLanguage),
+            imageStrategy: normalizeText(brandIdentity.imageStrategy),
+            signatureElement: normalizeText(brandIdentity.signatureElement),
+            motion: cleanTextList(brandIdentity.motion, 5),
+            avoid: cleanTextList(brandIdentity.avoid, 8),
+        },
+        experienceBlueprint: {
+            openingMove: normalizeText(experienceBlueprint.openingMove),
+            primaryArtifact: {
+                type: normalizeText(primaryArtifact.type),
+                label: normalizeDisplayText(primaryArtifact.label),
+                title: normalizeDisplayText(primaryArtifact.title),
+                status: normalizeDisplayText(primaryArtifact.status),
+                items: cleanArtifactItems(primaryArtifact.items, 8),
+            },
+            proofModules: limitArray(experienceBlueprint.proofModules, 5)
+                .map((item = {}) => ({
+                    title: normalizeDisplayText(item.title || item.label),
+                    metric: normalizeDisplayText(item.metric || item.value),
+                    detail: normalizeText(item.detail || item.description || item.text),
+                }))
+                .filter((item) => item.title || item.metric || item.detail),
+            flow: limitArray(experienceBlueprint.flow, 8)
+                .map((item = {}) => ({
+                    label: normalizeDisplayText(item.label || item.title || item.name),
+                    detail: normalizeText(item.detail || item.description || item.text),
+                }))
+                .filter((item) => item.label || item.detail),
+            contentPriority: cleanTextList(experienceBlueprint.contentPriority, 6),
+        },
         styleGuide: source.styleGuide && typeof source.styleGuide === 'object' ? {
             direction: normalizeText(source.styleGuide.direction),
             colors: normalizeText(source.styleGuide.colors),
@@ -5181,6 +5365,25 @@ const KIRBY_SITE_LAYOUT_VARIANTS = new Set([
     'classic-conversion',
 ]);
 
+const KIRBY_IDENTITY_COMPOSITIONS = new Set([
+    'artifact-led',
+    'split-flow',
+    'editorial-stack',
+    'product-canvas',
+    'immersive-sequence',
+]);
+const KIRBY_IDENTITY_TYPE_MODES = new Set([
+    'modern-grotesk',
+    'editorial-serif',
+    'humanist',
+    'technical-mono',
+    'expressive-display',
+]);
+const KIRBY_IDENTITY_DENSITIES = new Set(['compact', 'balanced', 'airy']);
+const KIRBY_IDENTITY_SHAPES = new Set(['precise', 'soft', 'framed', 'borderless']);
+const KIRBY_IDENTITY_IMAGE_STRATEGIES = new Set(['product-proof', 'result-proof', 'service-proof', 'graphic-system']);
+const KIRBY_IDENTITY_ARTIFACTS = new Set(['menu', 'workflow', 'dashboard', 'booking', 'catalog', 'timeline', 'comparison', 'story']);
+
 const normalizeSiteSectorKey = (value = '') => stripAccents(normalizeText(value).toLowerCase())
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
@@ -5241,6 +5444,67 @@ const finalizeOpenAiSiteProposal = ({ proposal = {}, brief = '' } = {}) => {
         ? requestedLayout
         : getDefaultLayoutForSector(sanitized.sectorKey);
 
+    const identity = sanitized.brandIdentity;
+    const blueprint = sanitized.experienceBlueprint;
+    const artifact = blueprint.primaryArtifact;
+    const compositionFallbacks = {
+        'finance-os': 'product-canvas',
+        'product-dashboard': 'product-canvas',
+        'gallery-focus': 'split-flow',
+        'minimal-editorial': 'editorial-stack',
+        'luxury-asymmetric': 'artifact-led',
+        'cinematic-video': 'immersive-sequence',
+    };
+    const artifactFallbacks = {
+        accounting: 'workflow',
+        restaurant: 'menu',
+        'restaurant-management-saas': 'dashboard',
+        saas: 'dashboard',
+        hotel: 'booking',
+        travel: 'booking',
+        portfolio: 'story',
+    };
+
+    identity.composition = KIRBY_IDENTITY_COMPOSITIONS.has(normalizeSiteLayoutVariant(identity.composition))
+        ? normalizeSiteLayoutVariant(identity.composition)
+        : compositionFallbacks[sanitized.layoutVariant] || 'artifact-led';
+    identity.typography.mode = KIRBY_IDENTITY_TYPE_MODES.has(normalizeSiteLayoutVariant(identity.typography.mode))
+        ? normalizeSiteLayoutVariant(identity.typography.mode)
+        : 'modern-grotesk';
+    identity.density = KIRBY_IDENTITY_DENSITIES.has(normalizeSiteLayoutVariant(identity.density))
+        ? normalizeSiteLayoutVariant(identity.density)
+        : 'balanced';
+    identity.shapeLanguage = KIRBY_IDENTITY_SHAPES.has(normalizeSiteLayoutVariant(identity.shapeLanguage))
+        ? normalizeSiteLayoutVariant(identity.shapeLanguage)
+        : 'precise';
+    identity.imageStrategy = KIRBY_IDENTITY_IMAGE_STRATEGIES.has(normalizeSiteLayoutVariant(identity.imageStrategy))
+        ? normalizeSiteLayoutVariant(identity.imageStrategy)
+        : 'graphic-system';
+    artifact.type = KIRBY_IDENTITY_ARTIFACTS.has(normalizeSiteLayoutVariant(artifact.type))
+        ? normalizeSiteLayoutVariant(artifact.type)
+        : artifactFallbacks[sanitized.sectorKey] || 'story';
+
+    if (!artifact.label) artifact.label = sanitized.projectType || sanitized.projectAnalysis.activity || 'Expérience principale';
+    if (!artifact.title) artifact.title = identity.promise || sanitized.valueProposition || sanitized.slogan;
+    if (!artifact.status) artifact.status = 'Actif';
+
+    if (!blueprint.proofModules.length) {
+        blueprint.proofModules = sanitized.homeSections.slice(0, 3).map((section) => ({
+            title: section.title,
+            metric: '',
+            detail: section.text,
+        }));
+    }
+
+    if (!blueprint.flow.length) {
+        blueprint.flow = sanitized.narrativePlan && Array.isArray(sanitized.narrativePlan.journey)
+            ? sanitized.narrativePlan.journey.slice(0, 6).map((step = {}) => ({
+                label: normalizeDisplayText(step.goal || step.stage),
+                detail: normalizeText(step.message || step.expectedAction),
+            })).filter((step) => step.label || step.detail)
+            : [];
+    }
+
     if (sanitized.sectorKey === 'accounting') {
         sanitized.layoutVariant = 'finance-os';
     }
@@ -5253,6 +5517,22 @@ const finalizeOpenAiSiteProposal = ({ proposal = {}, brief = '' } = {}) => {
 
         if (/\bconta\s*direct\b/i.test(brief)) {
             sanitized.siteName = 'Conta Direct';
+        }
+
+        artifact.type = 'workflow';
+        artifact.label = artifact.label || 'Comptabilité fournisseurs';
+        artifact.title = artifact.title || 'Traitement d’une facture';
+        artifact.status = artifact.status || 'Contrôle en cours';
+        if (!artifact.items.length) {
+            artifact.items = [
+                { label: 'Import', value: 'PDF · Photo · Scanner', detail: 'Document reçu' },
+                { label: 'Extraction', value: 'Données reconnues', detail: 'Contrôle humain' },
+                { label: 'Rapprochement', value: 'Commande vérifiée', detail: 'Doublons détectés' },
+            ];
+        }
+        if (!blueprint.flow.length) {
+            blueprint.flow = ['Reçu', 'Contrôlé', 'Validé', 'Payé', 'Comptabilisé', 'Archivé']
+                .map((label) => ({ label, detail: '' }));
         }
     }
 
@@ -5270,6 +5550,17 @@ const finalizeOpenAiSiteProposal = ({ proposal = {}, brief = '' } = {}) => {
             text: 'Un QR code ouvre un menu lisible, à jour et sans téléchargement.',
         });
         addProposalCta(sanitized, 'Voir le menu');
+        artifact.type = 'menu';
+        artifact.label = artifact.label || 'Carte numérique';
+        artifact.title = artifact.title || 'Le menu du moment';
+        artifact.status = artifact.status || 'Menu à jour';
+        if (!artifact.items.length) {
+            artifact.items = [
+                { label: 'La carte', value: 'Sur mobile', detail: 'Lisible sans application' },
+                { label: 'Allergènes', value: 'Détaillés', detail: 'Information accessible' },
+                { label: 'Réservation', value: 'Directe', detail: 'Depuis le menu' },
+            ];
+        }
     }
 
     return sanitized;
@@ -7161,6 +7452,12 @@ const buildCompactOpenAiUserPrompt = ({ brief, revision, currentProposal }) => {
             'Ne repete jamais les mots des exclusions dans les titres, slogans, sections, services, CTA, promesses ou textes visibles ; place-les uniquement dans mustAvoid.',
             'N ajoute aucun service principal, public, resultat, section, CTA, lieu ou image qui ne soit pas demande ou strictement necessaire a la comprehension.',
             'Distingue clairement : activite exacte, public, promesse, ton, inclusions, exclusions, conversion attendue.',
+            'projectAnalysis, brandIdentity et experienceBlueprint sont obligatoires et complets.',
+            'Ne genere plus un template. Cree un systeme de marque propre au projet : concept, palette hexadecimale contrastee, typographie, composition, densite, formes, strategie d image, signature et mouvement utile.',
+            'Le premier ecran doit montrer un objet principal utilisable issu du brief : menu, workflow, dashboard, reservation, catalogue, chronologie, comparaison ou recit. Aucun grand bloc vide ni photo de remplissage.',
+            'Interdits : WordPress, Bootstrap classique, enchainement automatique Hero Services Galerie Contact, blocs decoratifs vides, photo de banque d images dominante, cliches litteraux du metier.',
+            'Une image sert uniquement de preuve du produit, du resultat ou du service. Sinon utilise imageStrategy graphic-system.',
+            'Deux briefs du meme secteur doivent produire des identites differentes si leur positionnement, leur culture, leur cible ou leur usage different.',
             'narrativePlan obligatoire : discovery, understanding, proof, conversion.',
             'visualPlan obligatoire : hero, sections, gallery, conversion ; chaque visuel doit servir une etape narrative et provenir du brief.',
             'Aucun vocabulaire interne visible : Canvas, Lumina, brief-driven, diagnostic IA, simulation, suivi intelligent, modele metier.',
@@ -7174,11 +7471,12 @@ const buildCompactOpenAiUserPrompt = ({ brief, revision, currentProposal }) => {
     if (revision) {
         parts.push('Modification utilisateur a appliquer :');
         parts.push(revision);
+        parts.push('Applique directement la modification. Conserve l identite et la structure coherentes avec le brief, sauf si la demande exige de les changer. Retourne toujours la proposition complete.');
     }
 
     if (currentProposal) {
         parts.push('Contexte precedent, a ne pas recopier comme template :');
-        parts.push(JSON.stringify(currentProposal).slice(0, 2200));
+        parts.push(JSON.stringify(currentProposal).slice(0, 5200));
     }
 
     return parts.join('\n\n');

@@ -22413,6 +22413,244 @@ const getKirbySectorExperienceModel = (proposal = {}, brief = '') => {
     };
 };
 
+const KIRBY_IDENTITY_COMPOSITIONS = ['artifact-led', 'split-flow', 'editorial-stack', 'product-canvas', 'immersive-sequence'];
+const KIRBY_IDENTITY_TYPE_MODES = ['modern-grotesk', 'editorial-serif', 'humanist', 'technical-mono', 'expressive-display'];
+const KIRBY_IDENTITY_DENSITIES = ['compact', 'balanced', 'airy'];
+const KIRBY_IDENTITY_SHAPES = ['precise', 'soft', 'framed', 'borderless'];
+const KIRBY_IDENTITY_ARTIFACTS = ['menu', 'workflow', 'dashboard', 'booking', 'catalog', 'timeline', 'comparison', 'story'];
+
+const normalizeKirbyIdentityToken = (value = '') => normalizeKirbyText(value)
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+const getKirbyIdentityColor = (value = '', fallback = '#111418') => {
+    const color = String(value || '').trim();
+    return /^#[0-9a-f]{6}$/i.test(color) ? color.toUpperCase() : fallback;
+};
+
+const getKirbyIdentityLuminance = (color = '#111418') => {
+    const channels = [1, 3, 5].map((offset) => parseInt(color.slice(offset, offset + 2), 16) / 255)
+        .map((value) => value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+    return (channels[0] * 0.2126) + (channels[1] * 0.7152) + (channels[2] * 0.0722);
+};
+
+const getKirbyIdentityContrast = (first = '#111418', second = '#FFFFFF') => {
+    const high = Math.max(getKirbyIdentityLuminance(first), getKirbyIdentityLuminance(second));
+    const low = Math.min(getKirbyIdentityLuminance(first), getKirbyIdentityLuminance(second));
+    return (high + 0.05) / (low + 0.05);
+};
+
+const getKirbyIdentityOnColor = (color = '#111418') =>
+    getKirbyIdentityContrast(color, '#FFFFFF') >= getKirbyIdentityContrast(color, '#111418') ? '#FFFFFF' : '#111418';
+
+const getKirbyIdentitySystem = (proposal = {}, brief = '') => {
+    const source = proposal.brandIdentity && typeof proposal.brandIdentity === 'object'
+        ? proposal.brandIdentity
+        : {};
+    const palette = source.palette && typeof source.palette === 'object' ? source.palette : {};
+    const typography = source.typography && typeof source.typography === 'object' ? source.typography : {};
+    const fallbackPalettes = [
+        { canvas: '#F2F5F1', surface: '#FFFFFF', ink: '#14201D', muted: '#60706B', accent: '#0F8B6D', accentAlt: '#D95D39' },
+        { canvas: '#F5F2EE', surface: '#FFFDFC', ink: '#1A1816', muted: '#746E68', accent: '#B33424', accentAlt: '#1D6F78' },
+        { canvas: '#F0F2F5', surface: '#FFFFFF', ink: '#111820', muted: '#64707C', accent: '#246BCE', accentAlt: '#E0A11A' },
+        { canvas: '#111310', surface: '#1A1D18', ink: '#F4F2E9', muted: '#B8BAAF', accent: '#C8F04A', accentAlt: '#F0794A' },
+        { canvas: '#F6F4F0', surface: '#FFFFFF', ink: '#1D1A24', muted: '#746E7E', accent: '#7856A8', accentAlt: '#D75E78' },
+    ];
+    const fallback = fallbackPalettes[getKirbyHash(`${brief}::${proposal.siteName || ''}::identity`) % fallbackPalettes.length];
+    const compositionToken = normalizeKirbyIdentityToken(source.composition);
+    const typeToken = normalizeKirbyIdentityToken(typography.mode);
+    const densityToken = normalizeKirbyIdentityToken(source.density);
+    const shapeToken = normalizeKirbyIdentityToken(source.shapeLanguage);
+    const composition = KIRBY_IDENTITY_COMPOSITIONS.includes(compositionToken)
+        ? compositionToken
+        : KIRBY_IDENTITY_COMPOSITIONS[getKirbyHash(`${brief}::composition`) % KIRBY_IDENTITY_COMPOSITIONS.length];
+    const typeMode = KIRBY_IDENTITY_TYPE_MODES.includes(typeToken) ? typeToken : 'modern-grotesk';
+    const density = KIRBY_IDENTITY_DENSITIES.includes(densityToken) ? densityToken : 'balanced';
+    const shape = KIRBY_IDENTITY_SHAPES.includes(shapeToken) ? shapeToken : 'precise';
+    const resolvedPalette = {
+        canvas: getKirbyIdentityColor(palette.canvas, fallback.canvas),
+        surface: getKirbyIdentityColor(palette.surface, fallback.surface),
+        ink: getKirbyIdentityColor(palette.ink, fallback.ink),
+        muted: getKirbyIdentityColor(palette.muted, fallback.muted),
+        accent: getKirbyIdentityColor(palette.accent, fallback.accent),
+        accentAlt: getKirbyIdentityColor(palette.accentAlt, fallback.accentAlt),
+    };
+    if (getKirbyIdentityContrast(resolvedPalette.ink, resolvedPalette.canvas) < 4.5) {
+        resolvedPalette.ink = getKirbyIdentityContrast('#111418', resolvedPalette.canvas) >= 4.5 ? '#111418' : '#FFFFFF';
+    }
+    if (getKirbyIdentityContrast(resolvedPalette.muted, resolvedPalette.canvas) < 3) {
+        resolvedPalette.muted = resolvedPalette.ink;
+    }
+    const onAccent = getKirbyIdentityOnColor(resolvedPalette.accent);
+    const onInk = getKirbyIdentityOnColor(resolvedPalette.ink);
+    const style = [
+        `--identity-canvas: ${resolvedPalette.canvas}`,
+        `--identity-surface: ${resolvedPalette.surface}`,
+        `--identity-ink: ${resolvedPalette.ink}`,
+        `--identity-muted: ${resolvedPalette.muted}`,
+        `--identity-accent: ${resolvedPalette.accent}`,
+        `--identity-accent-alt: ${resolvedPalette.accentAlt}`,
+        `--identity-on-accent: ${onAccent}`,
+        `--identity-on-ink: ${onInk}`,
+    ].join('; ');
+
+    return {
+        ...source,
+        palette: resolvedPalette,
+        composition,
+        typeMode,
+        density,
+        shape,
+        className: `identity-${composition} identity-type-${typeMode} identity-density-${density} identity-shape-${shape}`,
+        style,
+    };
+};
+
+const buildKirbyIdentityPreview = ({
+    proposal = {},
+    brief = '',
+    siteName = '',
+    domain = '',
+    pages = [],
+    sections = [],
+    services = [],
+    actionsMarkup = '',
+    footerMarkup = '',
+} = {}) => {
+    const identity = getKirbyIdentitySystem(proposal, brief);
+    const analysis = proposal.projectAnalysis && typeof proposal.projectAnalysis === 'object'
+        ? proposal.projectAnalysis
+        : {};
+    const blueprint = proposal.experienceBlueprint && typeof proposal.experienceBlueprint === 'object'
+        ? proposal.experienceBlueprint
+        : {};
+    const primaryArtifact = blueprint.primaryArtifact && typeof blueprint.primaryArtifact === 'object'
+        ? blueprint.primaryArtifact
+        : {};
+    const artifactTypeToken = normalizeKirbyIdentityToken(primaryArtifact.type);
+    const artifactType = KIRBY_IDENTITY_ARTIFACTS.includes(artifactTypeToken) ? artifactTypeToken : 'story';
+    const artifactFallbackItems = services.slice(0, 4).map((service, index) => ({
+        label: getKirbyItemTitle(service),
+        value: String(index + 1).padStart(2, '0'),
+        detail: getKirbyItemText(service),
+    }));
+    const artifactItems = getKirbyArray(primaryArtifact.items, 8)
+        .map((item = {}) => ({
+            label: item.label || item.name || item.title || '',
+            value: item.value || '',
+            detail: item.detail || item.description || item.text || '',
+        }))
+        .filter((item) => item.label || item.value || item.detail);
+    const visibleArtifactItems = (artifactItems.length ? artifactItems : artifactFallbackItems).slice(0, 6);
+    const proofFallback = sections.slice(0, 3).map((section) => ({
+        title: getKirbyItemTitle(section),
+        metric: '',
+        detail: getKirbyItemText(section),
+    }));
+    const proofModules = getKirbyArray(blueprint.proofModules, 5)
+        .map((item = {}) => ({
+            title: item.title || item.label || '',
+            metric: item.metric || item.value || '',
+            detail: item.detail || item.description || item.text || '',
+        }))
+        .filter((item) => item.title || item.metric || item.detail);
+    const flowFallback = getKirbyArray(proposal.narrativePlan?.journey, 6).map((item = {}) => ({
+        label: item.goal || item.stage || '',
+        detail: item.message || item.expectedAction || '',
+    }));
+    const flowItems = getKirbyArray(blueprint.flow, 8)
+        .map((item = {}) => ({
+            label: item.label || item.title || item.name || '',
+            detail: item.detail || item.description || item.text || '',
+        }))
+        .filter((item) => item.label || item.detail);
+    const visibleFlowItems = (flowItems.length ? flowItems : flowFallback).slice(0, 6);
+    const visibleProofs = (proofModules.length ? proofModules : proofFallback).slice(0, 4);
+    const activityLabel = analysis.activity || proposal.projectType || proposal.siteModel?.name || 'Expérience digitale';
+    const artifactLabel = primaryArtifact.label || activityLabel;
+    const artifactTitle = primaryArtifact.title || identity.promise || proposal.valueProposition || proposal.slogan;
+    const artifactStatus = primaryArtifact.status || 'Actif';
+    const openingText = blueprint.openingMove || proposal.valueProposition || proposal.slogan;
+    const signature = identity.signatureElement || proposal.visualConcept?.signatureMoment || artifactStatus;
+    const navItems = pages.map((page) => getKirbyItemTitle(page)).filter(Boolean).slice(0, 3);
+    const menuQrUrl = artifactType === 'menu'
+        ? `https://api.qrserver.com/v1/create-qr-code/?size=320x320&format=png&ecc=H&margin=12&qzone=2&data=${encodeURIComponent(`https://${domain}/menu`)}`
+        : '';
+    const artifactRows = visibleArtifactItems.map((item, index) => `
+        <article class="identity-artifact-item" style="--identity-order:${index}">
+            <span>${cleanHtml(item.label || `Étape ${index + 1}`)}</span>
+            ${item.value ? `<strong>${cleanHtml(item.value)}</strong>` : ''}
+            ${item.detail ? `<small>${cleanHtml(getKirbyShortText(item.detail, 72))}</small>` : ''}
+            <i aria-hidden="true"></i>
+        </article>
+    `).join('');
+    const artifactBody = artifactType === 'menu'
+        ? `
+            <div class="identity-menu-list">${artifactRows}</div>
+            <aside class="identity-menu-qr">
+                <img src="${cleanHtml(menuQrUrl)}" alt="QR code du menu numérique de ${cleanHtml(siteName)}" loading="eager">
+                <div><strong>Carte mobile</strong><span>Scanner pour ouvrir</span></div>
+            </aside>
+        `
+        : `<div class="identity-artifact-list">${artifactRows}</div>`;
+
+    return {
+        className: identity.className,
+        style: identity.style,
+        markup: `
+            <div class="kirby-identity-site ${identity.className}" style="${identity.style}" aria-label="Aperçu de l’identité ${cleanHtml(siteName)}">
+                <nav class="identity-nav">
+                    <strong>${cleanHtml(siteName)}</strong>
+                    <div>${navItems.map((item) => `<span>${cleanHtml(getKirbyShortText(item, 22))}</span>`).join('')}</div>
+                    <em>${cleanHtml(proposal.ctas?.[0] || 'Découvrir')}</em>
+                </nav>
+                <main>
+                    <section class="identity-opening">
+                        <div class="identity-opening-copy">
+                            <p class="signal-label">${cleanHtml(activityLabel)}</p>
+                            <h3>${cleanHtml(siteName)}</h3>
+                            <p>${cleanHtml(getKirbyShortText(openingText, 168))}</p>
+                            ${actionsMarkup}
+                            <div class="identity-personality">
+                                ${getKirbyArray(identity.personality, 3).map((item) => `<span>${cleanHtml(item)}</span>`).join('')}
+                            </div>
+                        </div>
+                        <section class="identity-artifact artifact-${artifactType}">
+                            <header>
+                                <div><small>${cleanHtml(artifactLabel)}</small><strong>${cleanHtml(artifactTitle)}</strong></div>
+                                <span><i aria-hidden="true"></i>${cleanHtml(artifactStatus)}</span>
+                            </header>
+                            <div class="identity-artifact-body">${artifactBody}</div>
+                            <footer><span>${cleanHtml(getKirbyShortText(signature, 74))}</span><b>${cleanHtml(String(visibleArtifactItems.length).padStart(2, '0'))}</b></footer>
+                        </section>
+                    </section>
+                    ${visibleProofs.length ? `
+                        <section class="identity-proof-grid">
+                            ${visibleProofs.map((item, index) => `
+                                <article style="--identity-order:${index}">
+                                    <em>${String(index + 1).padStart(2, '0')}</em>
+                                    ${item.metric ? `<b>${cleanHtml(item.metric)}</b>` : ''}
+                                    <strong>${cleanHtml(item.title)}</strong>
+                                    <span>${cleanHtml(getKirbyShortText(item.detail, 98))}</span>
+                                </article>
+                            `).join('')}
+                        </section>
+                    ` : ''}
+                    ${visibleFlowItems.length ? `
+                        <section class="identity-flow">
+                            <div><small>${cleanHtml(identity.concept || activityLabel)}</small><strong>${cleanHtml(blueprint.openingMove || proposal.positioning?.promise || proposal.slogan)}</strong></div>
+                            <ol>
+                                ${visibleFlowItems.map((item, index) => `<li style="--identity-order:${index}"><span>${index + 1}</span><div><strong>${cleanHtml(item.label)}</strong><small>${cleanHtml(getKirbyShortText(item.detail, 76))}</small></div></li>`).join('')}
+                            </ol>
+                        </section>
+                    ` : ''}
+                </main>
+                ${footerMarkup}
+            </div>
+        `,
+    };
+};
+
 const renderKirbyProposal = (proposal, brief, runtime = {}) => {
     if (!aiBriefOutput) {
         return;
@@ -22507,7 +22745,12 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
     const isKidsFuturePreview = !isFinancePreview && !isDreamPreview && ((layoutVariant === 'story-world' && briefSignals.isEducationKids) || briefSignals.isEducationKids || /kids-future|comptine|mini-jeu|mini jeu|luna|leo|léo/.test(toneSource));
     const sectorExperience = getKirbySectorExperienceModel(safeProposal, brief);
     const isSectorExperiencePreview = Boolean(sectorExperience);
-    const previewTone = isContaDirectPreview
+    const hasAdaptiveIdentity = runtime?.source === 'openai'
+        && Boolean(safeProposal.brandIdentity?.concept)
+        && Boolean(safeProposal.experienceBlueprint?.primaryArtifact?.type);
+    const previewTone = hasAdaptiveIdentity
+        ? 'is-identity-system'
+        : isContaDirectPreview
         ? 'is-conta-direct'
         : isRestaurantMenuPreview
             ? 'is-restaurant-menu'
@@ -23374,7 +23617,20 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
         'warm-editorial': warmPreview,
         'classic-conversion': classicPreview,
     };
-    const websitePreview = isContaDirectPreview
+    const identityPreview = hasAdaptiveIdentity ? buildKirbyIdentityPreview({
+        proposal: safeProposal,
+        brief,
+        siteName,
+        domain,
+        pages: visiblePages,
+        sections: visibleSections,
+        services: getKirbyArray(safeProposal.recommendedServices, 8),
+        actionsMarkup,
+        footerMarkup,
+    }) : null;
+    const websitePreview = identityPreview
+        ? identityPreview.markup
+        : isContaDirectPreview
         ? contaDirectPreview
         : isRestaurantMenuPreview
             ? restaurantMenuPreview
@@ -23400,7 +23656,7 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
     aiBriefOutput.innerHTML = `
         <div class="kirby-generated-clean">
             <div class="kirby-generated-website kirby-editor-workspace">
-                <div class="kirby-preview-browser kirby-live-browser kirby-site-canvas ${previewTone} ${sectorClass} layout-${layoutVariant}" style="${previewStyle.canvas}" aria-label="Prévisualisation du site">
+                <div class="kirby-preview-browser kirby-live-browser kirby-site-canvas ${previewTone} ${sectorClass} layout-${layoutVariant} ${identityPreview?.className || ''}" style="${previewStyle.canvas}; ${identityPreview?.style || ''}" aria-label="Prévisualisation du site">
                     <div class="kirby-preview-chrome"><span></span><span></span><span></span></div>
                     ${websitePreview}
                 </div>
