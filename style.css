@@ -16645,9 +16645,13 @@ body.studio-home .section .restaurant-menu-copy h3 {
         grid-template-columns: minmax(0, 1fr);
     }
 
-    .conta-site-copy h3,
-    .restaurant-menu-copy h3 {
+    .conta-site-copy h3 {
         font-size: clamp(2.65rem, 14vw, 4.3rem);
+    }
+
+    .restaurant-menu-copy h3 {
+        font-size: clamp(2rem, 9vw, 3.1rem);
+        overflow-wrap: anywhere;
     }
 
     .conta-product-shell {
