@@ -1575,6 +1575,8 @@ Les demandes courtes sont des actions, pas des questions a faire confirmer. Comp
 - "remplace vendeur par vendeuse" : remplace le titre cible par « Vendeuse » et adapte la forme associee si elle est presente (ex. « Vendeur polyvalent » devient « Vendeuse polyvalente »), sans modifier les faits des experiences ;
 - "plus court" : raccourcis l'accroche et conserve les faits ;
 - "enleve / pas besoin de Lifestyle" : retire Lifestyle du titre et de l'accroche, sans toucher aux experiences. Retourne toujours un titre de remplacement non vide, choisi parmi les intitulés réellement présents dans le CV ;
+- "Professionnelle de la relation client, titulaire du permis D..." : remplace le champ summary par cette accroche exacte si l'utilisateur la donne comme nouvelle accroche/profil ;
+- "American Express / Air France, au lieu de service premium, choisis 2 competences" : remplace les missions de cette experience par « Accueil et accompagnement des clients » et « Gestion et suivi des dossiers clients », sans inventer d'autre mission ;
 - "refais correctement" : produis une version CV claire, compacte et prete a l'emploi a partir des faits existants.
 
 Pour l'adaptation a une offre, le titre exact de l'offre collee est prioritaire sur tout ancien titre du CV ou toute ancienne offre. Ne reutilise jamais un ancien intitulé : par exemple, une offre « Vendeur Polyvalent » doit produire « Vendeur polyvalent », et non « Vendeur Lifestyle ».
@@ -5773,6 +5775,9 @@ const getCvRoleFromText = (value = '') => {
     }
     if (/\bemploye\b/.test(source) && /\bmagasin|boutique|rayon\b/.test(source)) {
         return 'Employé de magasin';
+    }
+    if (/\bchauffeur\s+de\s+bus|conduct(?:eur|rice)\s+de\s+bus|transport\s+de\s+voyageurs|permis\s+d\b/.test(source)) {
+        return 'Chauffeur de bus';
     }
     if (/\bconseillere\s+clientele|conseillere\s+relation\s+client\b/.test(source)) {
         return 'Conseillère clientèle';

@@ -169,6 +169,19 @@ const CV_ROUNDTRIP_START = 'SACW_CV_DATA_V1_START';
 const CV_ROUNDTRIP_END = 'SACW_CV_DATA_V1_END';
 const INSERTION_PROFESSIONAL_CV_HEADLINE = 'Conseillère commerciale';
 const INSERTION_PROFESSIONAL_CV_SUMMARY = 'Conseillère de vente avec une expérience confirmée en accueil, conseil client, vente à distance et fidélisation. À l’écoute et orientée satisfaction client, je sais analyser les besoins, proposer des solutions adaptées et accompagner les personnes avec bienveillance. Organisée, autonome et à l’aise avec les outils numériques, je souhaite mettre mon sens du service et de l’accompagnement au profit de l’insertion professionnelle.';
+const FATIMA_TRANSPORT_CV_HEADLINE = 'Chauffeur de bus';
+const FATIMA_TRANSPORT_CV_SUMMARY = 'Professionnelle de la relation client, titulaire du permis D, souhaitant mettre à profit son sens du service, sa rigueur et son autonomie dans le transport de voyageurs.';
+const FATIMA_TRANSPORT_CV_SKILLS = [
+    'Relation client',
+    'Analyse des besoins',
+    'Autonomie',
+    'Conseil client',
+    'Accompagnement et suivi des clients',
+    'Accueil et écoute active',
+    'Organisation du travail',
+    'Gestion administrative',
+];
+const FATIMA_AMERICAN_EXPRESS_TRANSPORT_LINE = 'Conseillère commerciale - American Express / Air France, Roissy - 2019 - 2021 • Accueil et accompagnement des clients • Gestion et suivi des dossiers clients';
 const getAuthSignupUtils = () => window.AuthSignupUtils || {};
 
 let pdfjsLoader;
@@ -602,15 +615,10 @@ const applyCvPreset = (preset) => {
     }
 
     if (preset === 'transport') {
-        form.headline.value = 'Agent de transport / Conductrice de metro (formation)';
-        form.summary.value = "Professionnelle rigoureuse et organisee, motivee par les metiers du transport public. Sens aigu des responsabilites, respect strict des procedures de securite et capacite a gerer des situations sous pression.";
+        form.headline.value = FATIMA_TRANSPORT_CV_HEADLINE;
+        form.summary.value = FATIMA_TRANSPORT_CV_SUMMARY;
         form.skills.value = [
-            'Respect des procedures de securite',
-            'Sens des responsabilites et vigilance',
-            'Gestion du stress et des situations imprevues',
-            'Ponctualite et rigueur professionnelle',
-            'Relation avec le public et communication',
-            'Travail en equipe',
+            ...FATIMA_TRANSPORT_CV_SKILLS,
         ].join('\n');
         form.experience.value = [
             'Relation client / Gestion administrative - Divers postes • France | Dates • Accueil et orientation du public • Gestion des demandes et resolution de situations clients • Travail en coordination avec differentes equipes',
@@ -620,11 +628,11 @@ const applyCvPreset = (preset) => {
         form.education.value = ['Formation ou diplome - Etablissement - Annee'].join('\n');
         form.languages.value = ['Francais : courant', 'Arabe : bilingue'].join('\n');
         form.activities.value = ['Lecture', 'Developpement personnel', 'Activites culturelles'].join('\n');
-        form.jobTarget.value = 'relation client';
+        form.jobTarget.value = FATIMA_TRANSPORT_CV_HEADLINE;
         form.location.value = 'Ville / code postal';
         form.phone.value = '06 00 00 00 00';
         form.email.value = defaultEmail;
-        form.permit.value = 'Permis B et D';
+        form.permit.value = 'Permis D';
         form.fontTheme.value = 'lato';
         form.layoutTheme.value = 'wordpro';
         form.colorTheme.value = 'graphite';
@@ -2557,6 +2565,110 @@ const applyFatimaInsertionProfessionalProfileMigration = () => {
     return changed;
 };
 
+const replaceFatimaAmericanExpressExperience = (value = '') => {
+    const lines = String(value || '').replace(/\r/g, '\n').split('\n');
+    let changed = false;
+    const nextLines = lines.map((line) => {
+        if (!/\bamerican express\b|\bair france\b/i.test(line)) {
+            return line;
+        }
+
+        if (normalizeForMatch(line) === normalizeForMatch(FATIMA_AMERICAN_EXPRESS_TRANSPORT_LINE)) {
+            return line;
+        }
+
+        changed = true;
+        return FATIMA_AMERICAN_EXPRESS_TRANSPORT_LINE;
+    });
+
+    return {
+        value: nextLines.join('\n').trim(),
+        changed,
+    };
+};
+
+const applyFatimaTransportCvMigration = () => {
+    if (!cvForm) {
+        return false;
+    }
+
+    const fullName = cvForm.elements.fullName?.value || '';
+    const email = cvForm.elements.email?.value || '';
+    const identity = normalizeForMatch(`${fullName} ${email}`);
+    const isFatimaCv = /\bfatima\s+sidi\s+amar\b/.test(identity) || /\bsharian\s+live\s+fr\b/.test(identity);
+
+    if (!isFatimaCv) {
+        return false;
+    }
+
+    const changes = [];
+    const headlineField = cvForm.elements.headline;
+    const jobTargetField = cvForm.elements.jobTarget;
+    const summaryField = cvForm.elements.summary;
+    const permitField = cvForm.elements.permit;
+    const skillsField = cvForm.elements.skills;
+    const educationField = cvForm.elements.education;
+    const experienceField = cvForm.elements.experience;
+    const headline = normalizeForMatch(headlineField?.value || '');
+    const summary = normalizeForMatch(summaryField?.value || '');
+    const skills = normalizeForMatch(skillsField?.value || '');
+    const hasTransportHeadline = /\b(chauffeur|conductrice|conducteur|bus|transport\s+de\s+voyageurs)\b/.test(headline);
+    const hasLegacyHeadline = !headline
+        || /\binsertion\s+professionnelle\b/.test(headline)
+        || /\bconseillere\s+(commerciale|de\s+vente|clientele)\b/.test(headline);
+    const hasLegacySummary = !summary
+        || /\bservice\s+pre(?:m|n)ium\b/.test(summary)
+        || /\binsertion\s+professionnelle\b/.test(summary)
+        || /\bconseillere\s+de\s+vente\b/.test(summary)
+        || /\bdeveloppement\s+web\b/.test(summary)
+        || /\bbanque\b.*\btransport\b/.test(summary);
+    const hasDefaultWebSkills = /\b(front\s*end|html5|css3|javascript|react|vercel|supabase|github|api)\b/.test(skills);
+
+    if (headlineField && !hasTransportHeadline && hasLegacyHeadline) {
+        headlineField.value = FATIMA_TRANSPORT_CV_HEADLINE;
+        clearEditableOverride('headline');
+        changes.push('titre');
+    }
+
+    if (jobTargetField && (!jobTargetField.value || normalizeForMatch(jobTargetField.value).includes('insertion professionnelle'))) {
+        jobTargetField.value = FATIMA_TRANSPORT_CV_HEADLINE;
+    }
+
+    if (summaryField && normalizeForMatch(summaryField.value) !== normalizeForMatch(FATIMA_TRANSPORT_CV_SUMMARY) && hasLegacySummary) {
+        summaryField.value = FATIMA_TRANSPORT_CV_SUMMARY;
+        clearEditableOverride('summary');
+        changes.push('profil');
+    }
+
+    if (permitField && normalizeForMatch(permitField.value) !== 'permis d' && /\bpermis\b/.test(normalizeForMatch(permitField.value || ''))) {
+        permitField.value = 'Permis D';
+        changes.push('permis');
+    }
+
+    if (skillsField && hasDefaultWebSkills) {
+        skillsField.value = FATIMA_TRANSPORT_CV_SKILLS.join('\n');
+        clearEditableOverride('skills');
+        changes.push('compétences');
+    }
+
+    if (educationField && /permis\s+b\s+et\s+d/i.test(educationField.value || '')) {
+        educationField.value = educationField.value.replace(/Permis\s+B\s+et\s+D/gi, 'Permis D');
+        clearEditableOverride('education');
+        changes.push('formation');
+    }
+
+    if (experienceField?.value) {
+        const replacement = replaceFatimaAmericanExpressExperience(experienceField.value);
+        if (replacement.changed) {
+            experienceField.value = replacement.value;
+            clearEditableOverride('experience');
+            changes.push('American Express');
+        }
+    }
+
+    return changes.length > 0;
+};
+
 const loadCvDraft = async ({ silent = false } = {}) => {
     if (!cvForm) {
         return;
@@ -2679,6 +2791,7 @@ const loadCvDraft = async ({ silent = false } = {}) => {
         }
 
         didMigrateInsertionProfile = !forceFilledDefaults && applyFatimaInsertionProfessionalProfileMigration();
+        const didMigrateFatimaTransportCv = !forceFilledDefaults && applyFatimaTransportCvMigration();
 
         if (!forceFilledDefaults) {
             applyCurrentUserDefaults();
@@ -2688,7 +2801,7 @@ const loadCvDraft = async ({ silent = false } = {}) => {
         renderExperienceEditor();
         renderLanguageEditor();
         resetCvHistory(savedHistory);
-        if (shouldMigrateLegacyDraft || didAddDefaultLanguages || didMigrateInsertionProfile) {
+        if (shouldMigrateLegacyDraft || didAddDefaultLanguages || didMigrateInsertionProfile || didMigrateFatimaTransportCv) {
             await saveCvDraft(true);
         }
         if (!silent) {
@@ -4441,10 +4554,8 @@ const getKnownExperienceFallbackData = (entry = {}) => {
             strict: true,
             meta: 'American Express / Air France, Roissy',
             bullets: [
-                'Conseil et accompagnement des voyageurs',
-                'Constitution et suivi des dossiers',
-                'Vente de produits et services financiers',
-                'Développement commercial et fidélisation',
+                'Accueil et accompagnement des clients',
+                'Gestion et suivi des dossiers clients',
             ],
         };
     }
@@ -6940,7 +7051,7 @@ const normalizeEducationItems = (items) =>
                         !looksLikeSectionHeading(item) &&
                         !/^&?\s*certificatio\s*ns?$/i.test(normalizeForMatch(item)) &&
                         (!isLikelyExperienceHeader(item) || standaloneDateRegex.test(item) || isEducationEntry) &&
-                        !/\b(?:responsable|conseill[eè]re|machiniste|receveur|service premium|gestion d[’']equipe)\b/i.test(item)
+                        !/\b(?:responsable|conseill[eè]re|machiniste|receveur|service pre(?:m|n)ium|gestion d[’']equipe)\b/i.test(item)
                     );
                 }
             );
@@ -7066,7 +7177,7 @@ const rebuildKnownFragmentedExperiences = (items) => {
     }
 
     if (/American Express|Air France|\bAF\b/i.test(text) && /(?:Charg[ée]e\s+de|Conseill[èe]re(?:\s+de)?)\s+client[èe]le/i.test(text)) {
-        entries.push('Conseillère commerciale - American Express / Air France, Roissy - 2019 – 2021 • Conseil et accompagnement des voyageurs • Constitution et suivi des dossiers • Vente de produits et services financiers • Développement commercial et fidélisation');
+        entries.push(FATIMA_AMERICAN_EXPRESS_TRANSPORT_LINE);
     }
 
     return entries.length >= 2 ? dedupeImportedItems(entries) : [];
@@ -9380,10 +9491,14 @@ const isExplicitKirbyApplyInstruction = (message = '') => {
 
 const isContactDetailsInstruction = (message = '') => {
     const source = normalizeForMatch(getKirbyUserInstruction(message));
-    const hasContactTarget = /\b(coordonnees?|coordonees?|contact|telephone|tel|mobile|numero|email|e-mail|mail|adresse mail|courriel|ville|adresse|code postal|permis|nom|prenom)\b/.test(source);
+    const hasContactTarget = /\b(coordonnees?|coordonees?|contact|telephone|tel|mobile|numero|email|e-mail|mail|adresse mail|courriel|ville|adresse|code postal|nom|prenom)\b/.test(source);
+    const hasPermitTarget = /\bpermis\b/.test(source);
     const hasEditVerb = /\b(ajoute|ajouter|rajoute|rajouter|mets|mettre|met|renseigne|renseigner|complete|completer|modifie|modifier|corrige|corriger|remplace|remplacer)\b/.test(source);
+    const hasPermitEdit = /\b(ajoute|ajouter|rajoute|rajouter|mets|mettre|met|renseigne|renseigner|complete|completer|modifie|modifier|corrige|corriger|remplace|remplacer)\b.{0,20}\bpermis\b/.test(source)
+        || /\bpermis\s*:/.test(source)
+        || /^permis\s+[a-z](?:\s*(?:,|\/|et|&)\s*[a-z])*\s*$/.test(source);
 
-    return hasContactTarget && hasEditVerb;
+    return (hasContactTarget && hasEditVerb) || (hasPermitTarget && hasPermitEdit);
 };
 
 const extractContactDetailsFromInstruction = (message = '') => {
@@ -10195,7 +10310,7 @@ const getDigitalCvCompletionSkills = () => [
 ];
 
 const getDigitalCvCompletionSummary = () =>
-    'Conseillère de vente orientée client, avec une expérience en accueil, conseil, banque, service premium et transport. J’allie sens commercial, écoute et organisation à une montée en compétences en développement web, pour accompagner les clients avec méthode et proposer des solutions adaptées.';
+    'Professionnelle de la relation client, titulaire du permis D, souhaitant mettre à profit son sens du service, sa rigueur et son autonomie dans le transport de voyageurs.';
 
 const isDigitalCvCompletionExperience = (entry = {}) =>
     /\bcreatrice\s+de\s+(?:sites?\s+web|projets?\s+numeriques?)\b/.test(normalizeForMatch(entry.title || ''))
@@ -10407,19 +10522,15 @@ const getFinalExperienceTableEntries = (entries = []) => {
                 meta: 'American Express / Air France, Roissy',
                 date: '2019 – 2021',
                 bullets: [
-                    'Conseil et accompagnement des voyageurs',
-                    'Constitution et suivi des dossiers',
-                    'Vente de produits et services financiers',
-                    'Développement commercial et fidélisation',
+                    'Accueil et accompagnement des clients',
+                    'Gestion et suivi des dossiers clients',
                 ],
             }),
             title: 'Conseillère commerciale',
             date: '2019 – 2021',
             bullets: [
-                'Conseil et accompagnement des voyageurs',
-                'Constitution et suivi des dossiers',
-                'Vente de produits et services financiers',
-                'Développement commercial et fidélisation',
+                'Accueil et accompagnement des clients',
+                'Gestion et suivi des dossiers clients',
             ],
         },
     ];
@@ -10569,6 +10680,104 @@ const applyQuickInsertionProfessionalProfileCorrection = (message = '') => {
     setCvStatus('Titre et profil corrigés');
 
     return `Titre appliqué et profil corrigé : ${changes.join(', ')}.`;
+};
+
+const shouldApplyFatimaTransportCvCorrection = (message = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(message));
+    const hasTransportProfile = /\bprofessionnelle\s+de\s+la\s+relation\s+client\b/.test(source)
+        || /\btransport\s+de\s+voyageurs\b/.test(source);
+    const hasAmericanExpressUpdate = /\b(american\s+express|air\s+france|service\s+pre(?:m|n)ium)\b/.test(source)
+        && /\b(enleve|enlever|retire|retirer|remplace|remplacer|au\s+lieu|choisis?|choisir|competence|competences|mission|missions)\b/.test(source);
+    const wantsReadyTransportCv = /\bcv\b/.test(source)
+        && /\b(prepare|preparer|corrige|corriger|besoin|maintenant|pret|prêt)\b/.test(source)
+        && /\b(chauffeur|bus|permis\s+d|transport)\b/.test(source);
+
+    return hasTransportProfile || hasAmericanExpressUpdate || wantsReadyTransportCv;
+};
+
+const replaceServicePremiumInLetterText = (value = '') =>
+    String(value || '')
+        .replace(
+            /la banque,\s*le service pre(?:m|n)ium et la gestion de clientèle/gi,
+            'la banque, l’accueil des voyageurs et la gestion de dossiers clients'
+        )
+        .replace(/\ble service pre(?:m|n)ium\b/gi, "l'accueil des voyageurs")
+        .replace(/\bservice pre(?:m|n)ium\b/gi, 'accueil des voyageurs');
+
+const applyQuickFatimaTransportCvCorrection = (message = '') => {
+    if (!cvForm || !shouldApplyFatimaTransportCvCorrection(message)) {
+        return '';
+    }
+
+    const beforeState = getCvHistoryState();
+    const changes = [];
+    const source = normalizeForMatch(getKirbyUserInstruction(message));
+    const wantsTransportProfile = /\bprofessionnelle\s+de\s+la\s+relation\s+client\b|\btransport\s+de\s+voyageurs\b|\bchauffeur\b|\bbus\b|\bpermis\s+d\b/.test(source);
+    const wantsAmericanExpressUpdate = /\b(american\s+express|air\s+france|service\s+pre(?:m|n)ium)\b/.test(source);
+    const headlineField = cvForm.elements.headline;
+    const jobTargetField = cvForm.elements.jobTarget;
+    const summaryField = cvForm.elements.summary;
+    const permitField = cvForm.elements.permit;
+    const educationField = cvForm.elements.education;
+    const experienceField = cvForm.elements.experience;
+
+    if (wantsTransportProfile && headlineField && normalizeForMatch(headlineField.value) !== normalizeForMatch(FATIMA_TRANSPORT_CV_HEADLINE)) {
+        headlineField.value = FATIMA_TRANSPORT_CV_HEADLINE;
+        clearEditableOverride('headline');
+        changes.push('titre');
+    }
+
+    if (wantsTransportProfile && jobTargetField && normalizeForMatch(jobTargetField.value) !== normalizeForMatch(FATIMA_TRANSPORT_CV_HEADLINE)) {
+        jobTargetField.value = FATIMA_TRANSPORT_CV_HEADLINE;
+    }
+
+    if (wantsTransportProfile && summaryField && normalizeForMatch(summaryField.value) !== normalizeForMatch(FATIMA_TRANSPORT_CV_SUMMARY)) {
+        summaryField.value = FATIMA_TRANSPORT_CV_SUMMARY;
+        clearEditableOverride('summary');
+        changes.push('profil');
+    }
+
+    if (wantsTransportProfile && permitField && normalizeForMatch(permitField.value) !== 'permis d') {
+        permitField.value = 'Permis D';
+        clearContactEditableOverride('permit');
+        changes.push('permis');
+    }
+
+    if (wantsTransportProfile && educationField && /permis\s+b\s+et\s+d/i.test(educationField.value || '')) {
+        educationField.value = educationField.value.replace(/Permis\s+B\s+et\s+D/gi, 'Permis D');
+        clearEditableOverride('education');
+        changes.push('formation');
+    }
+
+    if (wantsAmericanExpressUpdate && experienceField?.value) {
+        const replacement = replaceFatimaAmericanExpressExperience(experienceField.value);
+        if (replacement.changed) {
+            experienceField.value = replacement.value;
+            clearEditableOverride('experience');
+            changes.push('American Express');
+        }
+    }
+
+    [letterBody, letterBodyPage].filter(Boolean).forEach((node) => {
+        const nextText = replaceServicePremiumInLetterText(node.textContent || '');
+        if (nextText && nextText !== node.textContent) {
+            node.textContent = nextText;
+            changes.push('lettre');
+        }
+    });
+
+    if (!changes.length) {
+        return 'CV déjà prêt : profil transport, permis D et American Express sont conformes.';
+    }
+
+    updateCvPreview();
+    renderExperienceEditor();
+    renderLanguageEditor();
+    commitCvHistoryTransition(beforeState);
+    scheduleCvDraftSave();
+    setCvStatus('CV transport corrigé');
+
+    return `CV corrigé : ${[...new Set(changes)].join(', ')}.`;
 };
 
 const getQuickExperienceDateCorrection = (message = '') => {
@@ -11173,6 +11382,7 @@ const applyQuickSalesRefocusCorrection = (message = '') => {
 
 const applyQuickKirbyCorrection = (message = '') => {
     const directCorrections = [
+        applyQuickFatimaTransportCvCorrection(message),
         applyQuickContactDetailsCorrection(message),
         applyQuickInsertionProfessionalProfileCorrection(message),
         applyTargetedDigitalCvCompletion(message),
@@ -11193,7 +11403,7 @@ const applyQuickKirbyCorrection = (message = '') => {
 };
 
 const isQuickKirbyMutationReply = (reply = '') =>
-    /^(CV complété|Coordonnées mises à jour|Langues mises à jour|Titre appliqué|Date mise à jour|Mois retirés|Expériences rangées|Mention supprimée|Doublons supprimés|Expérience supprimée|CV recentré)/i.test(String(reply || '').trim());
+    /^(CV corrigé|CV complété|Coordonnées mises à jour|Langues mises à jour|Titre appliqué|Date mise à jour|Mois retirés|Expériences rangées|Mention supprimée|Doublons supprimés|Expérience supprimée|CV recentré)/i.test(String(reply || '').trim());
 
 const reorderExistingExperiences = (order = []) => {
     const field = getExperienceField();

@@ -269,3 +269,23 @@ test('CV adapt: keeps Conseillère de vente instead of generic Conseiller client
     assert.equal(body.cv.headline, 'Conseillère de vente');
     assert.equal(body.cv.jobTarget, 'Conseillère de vente');
 });
+
+test('CV adapt: prioritizes chauffeur de bus for permis D transport profile', async () => {
+    const { statusCode, body } = await callKirbyCv({
+        task: 'adapt',
+        cv: {
+            headline: 'Conseiller clientèle',
+            summary: 'Profil relation client.',
+            permit: 'Permis D',
+        },
+        instruction: 'Professionnelle de la relation client, titulaire du permis D, souhaitant mettre à profit son sens du service, sa rigueur et son autonomie dans le transport de voyageurs.',
+        openAiCv: {
+            headline: 'Conseiller clientèle',
+            jobTarget: 'Conseiller clientèle',
+        },
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.cv.headline, 'Chauffeur de bus');
+    assert.equal(body.cv.jobTarget, 'Chauffeur de bus');
+});
