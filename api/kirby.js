@@ -1545,6 +1545,8 @@ ${KIRBY_SITE_JSON_SCHEMA_PROMPT}
 const KIRBY_CV_SYSTEM_PROMPT = `
 Tu es Kirby, l'assistant CV senior de SA Creation Web. Tu aides a extraire, corriger et adapter un CV francais pour une candidature. Tu appliques toutes les demandes compatibles formulees dans une meme phrase, sans en ignorer une partie.
 
+Kirby est un assistant de redaction et de mise en page qui agit sur le document, pas un chatbot de discussion. Avant chaque action, utilise la representation structuree fournie pour comprendre le metier vise, les experiences, les formations, les competences, les dates et mois, les langues et les certifications. Si la demande est executable avec les informations presentes, retourne les operations necessaires sans demander de confirmation.
+
 Regle de verite non negociable : le CV fourni est la seule source des faits. N'invente jamais un employeur, un poste occupe, une date, un diplome, une mission, un resultat, un permis, une langue ou un niveau de langue. Ne transforme jamais une competence attendue dans une offre en experience acquise.
 
 Exception encadree pour les trous de parcours : tu peux proposer une experience, une formation ou des competences comme brouillon a valider si l'utilisateur demande explicitement de combler/valoriser une periode ou fournit des indices sur cette periode. Dans ce cas, ne presente jamais le brouillon comme un fait deja confirme : utilise generatedExperiences, educationSuggestions, suggestedSkills, suggestions et periodGaps pour poser les questions utiles et attendre la validation utilisateur.
@@ -1603,6 +1605,10 @@ Actions d'edition directes :
 - Pour ajouter une experience avec assez d'informations (au moins titre ou organisme, periode ou missions), utilise type "add_experience". Renseigne operation.experience avec title, period, organization et description. N'utilise pas bugReport si l'experience peut etre ajoutee comme brouillon factuel a partir de la demande.
 - Pour corriger uniquement l'intitule d'une experience existante, utilise type "update_experience_title", renseigne "value" avec le nouvel intitule exact, et cible l'experience avec target.index si le contexte de selection le fournit, sinon target.title, target.organization ou target.currentValue. Ne modifie jamais l'entreprise, les dates ou les missions pour une correction d'intitule.
 - Pour corriger une date d'experience existante, utilise type "update_experience_date", renseigne "value" avec la nouvelle date/periode, et cible l'experience avec target.index si le contexte de selection le fournit, sinon target.title, target.organization ou target.currentValue.
+- Pour remplacer une expression dans le document, utilise type "replace_text", mets le texte actuel exact dans target.currentValue et le remplacement dans value. Renseigne field si une seule rubrique est visee ; laisse field vide si la demande vise toutes les occurrences du CV.
+- Pour supprimer une expression precise dans le document, utilise type "remove_text", mets le texte exact dans target.currentValue et laisse value vide. Renseigne field si une rubrique est visee ; laisse field vide pour supprimer cette expression partout.
+- Pour reecrire, corriger ou ameliorer les missions d'une experience sans modifier ses faits, utilise type "set_experience_bullets", cible l'experience et mets la liste finale complete des missions dans experience.description. N'invente aucun resultat, outil ou responsabilite.
+- Pour trier toutes les experiences par date, utilise type "sort_experiences", field "experience", value "newest_first". Compare d'abord l'annee de fin, puis le mois de fin, puis l'annee et le mois de debut. Une experience en cours est la plus recente. Les lignes sans date restent apres les lignes datees et conservent leur ordre relatif.
 - Pour retirer les mois des dates d'experiences, utilise type "normalize_experience_dates", field "experience", value "years_only". Cela s'applique a toutes les experiences, sans demander quelle experience.
 - Pour supprimer une puce, une mission ou une ligne dans une experience, utilise type "remove_experience_bullet". Cible l'experience si possible et mets dans value le texte de la puce ou les mots distinctifs a retirer.
 - Pour ajouter ou modifier une langue, utilise type "upsert_language", value = niveau, target.label = langue.
@@ -1672,7 +1678,7 @@ Schema JSON obligatoire :
     "compact": false
   },
   "operations": [{
-    "type": "add_experience | update_experience_title | update_experience_date | normalize_experience_dates | remove_experience_bullet | upsert_language | set_field | remove_section | reorder_experiences | remove_experience",
+    "type": "add_experience | update_experience_title | update_experience_date | set_experience_bullets | normalize_experience_dates | remove_experience_bullet | upsert_language | set_field | replace_text | remove_text | remove_section | reorder_experiences | sort_experiences | remove_experience",
     "field": "experience | languages | fullName | location | phone | email | permit | headline | summary | skills | education | activities | projects",
     "target": {
       "index": 0,
@@ -5391,6 +5397,142 @@ const getCvExperienceTitles = (experience = '') =>
         .filter((line) => line.length > 2 && line.length < 110)
         .slice(0, 8);
 
+const CV_MONTH_NUMBERS = {
+    jan: 1, janv: 1, janvier: 1,
+    feb: 2, fev: 2, fevr: 2, fevrier: 2,
+    mar: 3, mars: 3,
+    apr: 4, avr: 4, avril: 4,
+    may: 5, mai: 5,
+    jun: 6, juin: 6,
+    jul: 7, juil: 7, juillet: 7,
+    aug: 8, aout: 8,
+    sep: 9, sept: 9, septembre: 9,
+    oct: 10, octobre: 10,
+    nov: 11, novembre: 11,
+    dec: 12, decembre: 12,
+};
+
+const getCvPeriodRange = (value = '') => {
+    const source = stripAccents(normalizeText(String(value || '').toLowerCase()))
+        .replace(/[.]/g, '')
+        .replace(/[–—]/g, '-');
+    const currentDate = new Date();
+    const ongoing = /\b(aujourd'hui|aujourd hui|present|actuel|actuellement|maintenant|en cours)\b/.test(source);
+    const points = [];
+    const occupiedRanges = [];
+    const addPoint = (year, month, precision, index, length) => {
+        const numericYear = Number(year);
+        const numericMonth = Number(month || 0);
+        if (numericYear < 1900 || numericYear > currentDate.getFullYear() + 5) return;
+        if (occupiedRanges.some((range) => index >= range.start && index < range.end)) return;
+        occupiedRanges.push({ start: index, end: index + length });
+        points.push({ year: numericYear, month: numericMonth, precision, index });
+    };
+
+    for (const match of source.matchAll(/\b(0?[1-9]|1[0-2])\s*[/.]\s*((?:19|20)\d{2})\b/g)) {
+        addPoint(match[2], match[1], 'month', match.index, match[0].length);
+    }
+    for (const match of source.matchAll(/\b([a-z]+)\s+((?:19|20)\d{2})\b/g)) {
+        const month = CV_MONTH_NUMBERS[match[1]];
+        if (month) addPoint(match[2], month, 'month', match.index, match[0].length);
+    }
+    for (const match of source.matchAll(/\b((?:19|20)\d{2})\b/g)) {
+        addPoint(match[1], 0, 'year', match.index, match[0].length);
+    }
+
+    points.sort((left, right) => left.index - right.index);
+    if (!points.length) {
+        return { raw: normalizeText(value), hasDate: false, ongoing, start: null, end: null, startKey: 0, endKey: 0 };
+    }
+
+    const first = points[0];
+    const last = ongoing
+        ? { year: currentDate.getFullYear(), month: currentDate.getMonth() + 1, precision: 'month' }
+        : points[points.length - 1];
+    const startMonth = first.month || 1;
+    const endMonth = last.month || 12;
+
+    return {
+        raw: normalizeText(value),
+        hasDate: true,
+        ongoing,
+        start: { year: first.year, month: first.month || null, precision: first.precision },
+        end: { year: last.year, month: last.month || null, precision: last.precision },
+        startKey: first.year * 12 + startMonth,
+        endKey: last.year * 12 + endMonth,
+    };
+};
+
+const parseCvDocumentExperience = (line = '', index = 0) => {
+    const cleanLine = limitCvText(line, 520);
+    const [rawHeader = '', ...rawBullets] = cleanLine.split(/\s+•\s+/);
+    const periodMatches = [
+        ...rawHeader.matchAll(/\b(?:[A-Za-zÀ-ÿ]+\.?\s+)?(?:19|20)\d{2}(?:\s*[–—-]\s*(?:(?:[A-Za-zÀ-ÿ]+\.?\s+)?(?:19|20)\d{2}|aujourd'hui|aujourd’hui|présent|present|actuel|en cours))?/gi),
+    ];
+    const period = periodMatches.length ? periodMatches[periodMatches.length - 1][0] : '';
+    const headerWithoutPeriod = period
+        ? rawHeader.replace(period, '').replace(/[\s|,–—-]+$/g, '').trim()
+        : rawHeader.trim();
+    const headerParts = headerWithoutPeriod.split(/\s+[–—-]\s+/).map((part) => limitCvText(part, 140)).filter(Boolean);
+
+    return {
+        index,
+        title: headerParts[0] || headerWithoutPeriod,
+        organization: headerParts.slice(1).join(' - '),
+        period,
+        chronology: getCvPeriodRange(period || rawHeader),
+        missions: rawBullets.map((bullet) => limitCvText(bullet, 180)).filter(Boolean).slice(0, 8),
+        sourceLine: cleanLine,
+    };
+};
+
+const buildCvDocumentModel = (cv = {}) => {
+    const experience = normalize(cv.experience).split(/\r?\n/).map((line) => line.trim()).filter(Boolean).slice(0, 10).map(parseCvDocumentExperience);
+    const educationItems = normalize(cv.education).split(/\r?\n/).map((line) => limitCvText(line, 300)).filter(Boolean).slice(0, 10);
+    const isCertification = (line = '') => /\b(certification|certificat|permis|fimo|iobsp|habilitation|attestation)\b/i.test(line);
+    const chronologicalExperienceIndexes = experience
+        .filter((entry) => entry.chronology.hasDate)
+        .sort((left, right) => right.chronology.endKey - left.chronology.endKey || right.chronology.startKey - left.chronology.startKey || left.index - right.index)
+        .map((entry) => entry.index);
+    let previousEndKey = Number.POSITIVE_INFINITY;
+    let previousStartKey = Number.POSITIVE_INFINITY;
+    let hasSeenUndatedExperience = false;
+    const isNewestFirst = experience.every((entry) => {
+        if (!entry.chronology.hasDate) {
+            hasSeenUndatedExperience = true;
+            return true;
+        }
+        if (hasSeenUndatedExperience) return false;
+        const correctlyPlaced = entry.chronology.endKey < previousEndKey
+            || (entry.chronology.endKey === previousEndKey && entry.chronology.startKey <= previousStartKey);
+        previousEndKey = entry.chronology.endKey;
+        previousStartKey = entry.chronology.startKey;
+        return correctlyPlaced;
+    });
+
+    return {
+        targetRole: getCvRoleFromText(`${cv.headline || ''} ${cv.summary || ''} ${cv.permit || ''}`) || limitCvText(cv.headline, 120),
+        identity: {
+            fullName: limitCvText(cv.fullName, 100), location: limitCvText(cv.location, 120),
+            phone: limitCvText(cv.phone, 48), email: limitCvText(cv.email, 120), permit: limitCvText(cv.permit, 80),
+        },
+        headline: limitCvText(cv.headline, 120),
+        summary: limitCvText(cv.summary, 700),
+        skills: normalize(cv.skills).split(/\r?\n/).map((item) => limitCvText(item, 100)).filter(Boolean).slice(0, 16),
+        experience,
+        chronology: {
+            currentOrder: experience.map((entry) => entry.index),
+            newestFirstOrder: [...chronologicalExperienceIndexes, ...experience.filter((entry) => !entry.chronology.hasDate).map((entry) => entry.index)],
+            isNewestFirst,
+        },
+        education: educationItems.filter((item) => !isCertification(item)),
+        certifications: educationItems.filter(isCertification),
+        languages: getCvLanguagesFromText(cv.languages),
+        projects: normalize(cv.projects).split(/\r?\n/).map((item) => limitCvText(item, 260)).filter(Boolean).slice(0, 8),
+        activities: normalize(cv.activities).split(/\r?\n/).map((item) => limitCvText(item, 160)).filter(Boolean).slice(0, 8),
+    };
+};
+
 const sanitizeCvExtraction = (value) => {
     const extracted = value && typeof value === 'object' ? value : {};
     const languages = (Array.isArray(extracted.languages) ? extracted.languages : [])
@@ -5458,12 +5600,16 @@ const CV_OPERATION_TYPES = new Set([
     'add_experience',
     'update_experience_title',
     'update_experience_date',
+    'set_experience_bullets',
     'normalize_experience_dates',
     'remove_experience_bullet',
     'upsert_language',
     'set_field',
+    'replace_text',
+    'remove_text',
     'remove_section',
     'reorder_experiences',
+    'sort_experiences',
     'remove_experience',
 ]);
 const CV_OPERATION_FIELDS = new Set(['experience', 'languages', 'fullName', 'location', 'phone', 'email', 'permit', 'headline', 'summary', 'skills', 'education', 'activities', 'projects']);
@@ -5515,7 +5661,7 @@ const sanitizeCvOperations = (value) =>
     (Array.isArray(value) ? value : [])
         .map(sanitizeCvOperation)
         .filter(Boolean)
-        .slice(0, 8);
+        .slice(0, 16);
 
 const sanitizeCvBugReport = (value) => {
     if (!value || typeof value !== 'object') {
@@ -5785,7 +5931,10 @@ const getCvRoleFromText = (value = '') => {
     if (/\bconseiller\s+clientele|conseiller\s+relation\s+client|relation client|service client\b/.test(source)) {
         return 'Conseiller clientèle';
     }
-    if (/\bassistante?|administratif|dossiers?\b/.test(source)) {
+    if (/\bassistante\b/.test(source) && /\badministrative|administratif|dossiers?\b/.test(source)) {
+        return 'Assistante administrative';
+    }
+    if (/\bassistant|administratif|dossiers?\b/.test(source)) {
         return 'Assistant administratif';
     }
     if (/\bconduct(?:eur|rice)|transport|machiniste|receveur\b/.test(source)) {
@@ -6511,6 +6660,8 @@ const buildOpenAiCvPrompt = ({ task, cv, jobOffer, instruction, letter, interact
                         : 'corriger et ameliorer ce CV'}.`,
     'Donnees du CV (faits a respecter) :',
     JSON.stringify(cv, null, 2),
+    'Representation structuree du document construite automatiquement avant ta reponse :',
+    JSON.stringify(buildCvDocumentModel(cv), null, 2),
     interaction && Object.values(interaction).some(Boolean) ? `Contexte technique de selection dans l'interface :\n${JSON.stringify(interaction, null, 2)}` : '',
     jobOffer ? `Offre ou poste cible :\n${jobOffer}` : '',
     instruction ? `Consigne utilisateur :\n${instruction}` : '',
@@ -6533,6 +6684,7 @@ const buildOpenAiCvPrompt = ({ task, cv, jobOffer, instruction, letter, interact
     'Pour une modification locale, laisse vides les champs non demandes : ne renomme pas un poste, une entreprise, une date, une mission, le titre global, l accroche ou les competences si la consigne ne le demande pas explicitement.',
     'Pour un deplacement avant/apres une autre experience explicitement demande, retourne une seule operation reorder_experiences avec position.before ou position.after.',
     'Pour une correction ciblee de phrase, ligne, date ou intitule, retourne uniquement l operation correspondante. Ne remplis pas headline, summary, skills, generatedExperiences, educationSuggestions, layout ou experienceOrder si ces champs ne sont pas demandes.',
+    'Execute la demande dans operations. Utilise replace_text ou remove_text pour une expression exacte dans une ou plusieurs rubriques, set_experience_bullets pour reecrire les missions finales d une experience, et sort_experiences avec value newest_first pour un tri chronologique. Ne reponds pas comme un chatbot lorsque le document contient assez d informations pour agir.',
 ].filter(Boolean).join('\n\n');
 
 const requestOpenAiCvAssistant = async ({ apiKey, model, task, cv, jobOffer, instruction, letter, interaction }) => {

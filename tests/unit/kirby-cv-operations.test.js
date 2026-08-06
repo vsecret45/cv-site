@@ -61,17 +61,21 @@ const emptyCvPayload = {
 const callKirbyCv = async ({ cv, instruction, openAiCv, task = 'assistant' }) => {
     const originalFetch = global.fetch;
     const originalKey = process.env.KIRBY_OPENAI_API_KEY;
+    let openAiRequest = null;
     process.env.KIRBY_OPENAI_API_KEY = 'sk-test-key';
-    global.fetch = async () => ({
-        ok: true,
-        json: async () => ({
-            choices: [{
-                message: {
-                    content: JSON.stringify({ ...emptyCvPayload, ...openAiCv }),
-                },
-            }],
-        }),
-    });
+    global.fetch = async (_url, options = {}) => {
+        openAiRequest = JSON.parse(options.body || '{}');
+        return {
+            ok: true,
+            json: async () => ({
+                choices: [{
+                    message: {
+                        content: JSON.stringify({ ...emptyCvPayload, ...openAiCv }),
+                    },
+                }],
+            }),
+        };
+    };
 
     try {
         const request = new MockRequest({
@@ -84,7 +88,7 @@ const callKirbyCv = async ({ cv, instruction, openAiCv, task = 'assistant' }) =>
         const finished = new Promise((resolve) => response.once('finish', resolve));
         await handler(request, response);
         await finished;
-        return { statusCode: response.statusCode, body: JSON.parse(response.body) };
+        return { statusCode: response.statusCode, body: JSON.parse(response.body), openAiRequest };
     } finally {
         global.fetch = originalFetch;
         if (originalKey === undefined) {
@@ -288,4 +292,76 @@ test('CV adapt: prioritizes chauffeur de bus for permis D transport profile', as
     assert.equal(statusCode, 200);
     assert.equal(body.cv.headline, 'Chauffeur de bus');
     assert.equal(body.cv.jobTarget, 'Chauffeur de bus');
+});
+
+test('CV analysis: builds a structured document model with month-aware chronology', async () => {
+    const { statusCode, openAiRequest } = await callKirbyCv({
+        cv: {
+            headline: 'Responsable relation client',
+            skills: 'Relation client\nRigueur',
+            experience: [
+                'Mission récente - Entreprise A - févr. 2025 • Suivi client',
+                'Mission automne - Entreprise B - oct. 2024 • Gestion de dossiers',
+                'Mission printemps - Entreprise C - avr. 2024 • Accueil',
+                'Mission ancienne - Entreprise D - 2023 • Conseil',
+            ].join('\n'),
+            education: 'BTS Gestion - 2022\nFIMO Voyageurs - 2024',
+            languages: 'Français : Langue maternelle\nAnglais : Notions',
+        },
+        instruction: 'Mets mes expériences dans le bon ordre.',
+        openAiCv: { operations: [{ type: 'sort_experiences', field: 'experience', value: 'newest_first' }] },
+    });
+
+    assert.equal(statusCode, 200);
+    const prompt = openAiRequest.messages.find((message) => message.role === 'user').content;
+    const modelText = prompt.split('Representation structuree du document construite automatiquement avant ta reponse :')[1];
+    assert.match(modelText, /"newestFirstOrder": \[\s*0,\s*1,\s*2,\s*3/s);
+    assert.match(modelText, /"month": 10/);
+    assert.match(modelText, /"month": 4/);
+    assert.match(modelText, /"certifications": \[\s*"FIMO Voyageurs - 2024"/s);
+    assert.match(modelText, /"language": "Anglais"[\s\S]*"level": "Notions"/);
+});
+
+test('CV operations: keeps generic edit, rewrite and chronological actions', async () => {
+    const { statusCode, body } = await callKirbyCv({
+        cv: {
+            summary: 'Accueil client et service premium.',
+            experience: 'Conseillère clientèle - American Express - 2019 - 2021 • Service premium',
+        },
+        instruction: 'Supprime service premium, améliore les missions puis trie les expériences.',
+        openAiCv: {
+            operations: [
+                { type: 'remove_text', target: { currentValue: 'service premium' } },
+                { type: 'replace_text', field: 'summary', target: { currentValue: 'Accueil client' }, value: 'Accueil et accompagnement des clients' },
+                {
+                    type: 'set_experience_bullets',
+                    field: 'experience',
+                    target: { title: 'Conseillère clientèle' },
+                    experience: { description: ['Accueil et accompagnement des clients', 'Gestion et suivi des dossiers clients'] },
+                },
+                { type: 'sort_experiences', field: 'experience', value: 'newest_first' },
+            ],
+        },
+    });
+
+    assert.equal(statusCode, 200);
+    assert.deepEqual(body.cv.operations.map((operation) => operation.type), [
+        'remove_text', 'replace_text', 'set_experience_bullets', 'sort_experiences',
+    ]);
+    assert.deepEqual(body.cv.operations[2].experience.description, [
+        'Accueil et accompagnement des clients', 'Gestion et suivi des dossiers clients',
+    ]);
+});
+
+test('CV adapt: preserves feminine assistante administrative target', async () => {
+    const { statusCode, body } = await callKirbyCv({
+        task: 'adapt',
+        cv: { headline: 'Conseillère clientèle', summary: 'Expérience en accueil et gestion de dossiers.' },
+        instruction: "Fais un CV d'assistante administrative.",
+        openAiCv: { headline: 'Assistant administratif', jobTarget: 'Assistant administratif' },
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.cv.headline, 'Assistante administrative');
+    assert.equal(body.cv.jobTarget, 'Assistante administrative');
 });

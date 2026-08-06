@@ -270,7 +270,7 @@ const setKirbyCvRequestInFlight = (inFlight) => {
     if (assistantSubmitButton) {
         assistantSubmitButton.disabled = isKirbyCvRequestInFlight;
         assistantSubmitButton.setAttribute('aria-busy', String(isKirbyCvRequestInFlight));
-        assistantSubmitButton.textContent = isKirbyCvRequestInFlight ? 'Analyse...' : 'Analyser';
+        assistantSubmitButton.textContent = isKirbyCvRequestInFlight ? 'Exécution...' : 'Exécuter';
     }
 };
 
@@ -5279,19 +5279,73 @@ const normalizeTimelineMatch = (value = '') =>
         .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase();
 
+const timelineMonthNumbers = {
+    jan: 1, janv: 1, janvier: 1,
+    feb: 2, fev: 2, fevr: 2, fevrier: 2,
+    mar: 3, mars: 3,
+    apr: 4, avr: 4, avril: 4,
+    may: 5, mai: 5,
+    jun: 6, juin: 6,
+    jul: 7, juil: 7, juillet: 7,
+    aug: 8, aout: 8,
+    sep: 9, sept: 9, septembre: 9,
+    oct: 10, octobre: 10,
+    nov: 11, novembre: 11,
+    dec: 12, decembre: 12,
+};
+
+const getTimelineDatePoints = (value = '') => {
+    const source = normalizeTimelineMatch(value).replace(/[.]/g, '').replace(/[–—]/g, '-');
+    const points = [];
+    const occupiedRanges = [];
+    const addPoint = (year, month, index, length) => {
+        const numericYear = Number(year);
+        const numericMonth = Number(month || 0);
+        if (numericYear < 1900 || numericYear > new Date().getFullYear() + 5) return;
+        if (occupiedRanges.some((range) => index >= range.start && index < range.end)) return;
+        occupiedRanges.push({ start: index, end: index + length });
+        points.push({ year: numericYear, month: numericMonth, index });
+    };
+
+    for (const match of source.matchAll(/\b(0?[1-9]|1[0-2])\s*[/.]\s*((?:19|20)\d{2})\b/g)) {
+        addPoint(match[2], match[1], match.index, match[0].length);
+    }
+    for (const match of source.matchAll(/\b([a-z]+)\s+((?:19|20)\d{2})\b/g)) {
+        const month = timelineMonthNumbers[match[1]];
+        if (month) addPoint(match[2], month, match.index, match[0].length);
+    }
+    for (const match of source.matchAll(/\b((?:19|20)\d{2})\b/g)) {
+        addPoint(match[1], 0, match.index, match[0].length);
+    }
+
+    return points.sort((left, right) => left.index - right.index);
+};
+
 const getTimelineEntrySortValue = (line = '') => {
     const entry = parseExperienceEntry(line);
     const source = `${entry.date || ''} ${line || ''}`;
-    const years = [...source.matchAll(/\b(?:19|20)\d{2}\b/g)].map((match) => Number(match[0]));
+    const points = getTimelineDatePoints(entry.date || source);
     const hasOngoingMarker = /\b(aujourd'hui|aujourd’hui|present|présent|actuel|maintenant)\b/i.test(source);
 
-    if (!years.length) {
-        return { end: 0, start: 0, hasDate: false };
+    if (!points.length) {
+        return { end: 0, start: 0, endMonth: 0, startMonth: 0, endKey: 0, startKey: 0, hasDate: false };
     }
 
+    const currentDate = new Date();
+    const first = points[0];
+    const last = hasOngoingMarker
+        ? { year: currentDate.getFullYear(), month: currentDate.getMonth() + 1 }
+        : points[points.length - 1];
+    const startMonth = first.month || 1;
+    const endMonth = last.month || 12;
+
     return {
-        end: hasOngoingMarker ? new Date().getFullYear() : Math.max(...years),
-        start: Math.min(...years),
+        end: last.year,
+        start: first.year,
+        endMonth,
+        startMonth,
+        endKey: last.year * 12 + endMonth,
+        startKey: first.year * 12 + startMonth,
         hasDate: true,
     };
 };
@@ -5365,8 +5419,8 @@ const sortTimelineEntriesNewestFirst = (entries = [], addedEntries = []) => {
         }))
         .sort((left, right) =>
             Number(right.sort.hasDate) - Number(left.sort.hasDate) ||
-            right.sort.end - left.sort.end ||
-            right.sort.start - left.sort.start ||
+            right.sort.endKey - left.sort.endKey ||
+            right.sort.startKey - left.sort.startKey ||
             Number(right.added) - Number(left.added) ||
             left.index - right.index
         )
@@ -9208,7 +9262,7 @@ const setAssistantActivity = (text = '', working = false) => {
     assistantChat?.classList.toggle('is-working', working);
     if (assistantSubmitButton) {
         assistantSubmitButton.disabled = working;
-        assistantSubmitButton.textContent = working ? 'Analyse…' : 'Analyser';
+        assistantSubmitButton.textContent = working ? 'Exécution…' : 'Exécuter';
     }
 };
 
@@ -9348,10 +9402,10 @@ const getKirbyCvInteractionContext = () => {
         activeExperience: getActiveExperienceLine(),
         pendingQuestion: pendingExperienceDateCorrectionIndex !== null ? 'date_experience' : '',
         precisionPolicy: [
-            'Kirby agit comme un assistant de precision pour la mise en page du CV.',
-            'Il ne modifie pas les sections deja correctes.',
-            'Il propose une correction ciblee a la fois.',
-            'Il demande confirmation avant toute grosse modification de structure ou de repartition.',
+            'Kirby analyse le document entier avant d agir.',
+            'Il execute directement toutes les modifications compatibles demandees.',
+            'Il ne modifie pas les faits ni les sections non visees.',
+            'Il demande une precision uniquement si la cible ou une information factuelle manque.',
             'Il verifie le resultat avant d annoncer que le travail est termine.',
         ].join(' '),
     };
@@ -9486,7 +9540,7 @@ const isExplicitKirbyApplyInstruction = (message = '') => {
         return false;
     }
 
-    return /\b(applique|appliquer|ajoute|ajouter|insere|inserer|integre|integrer|mets|mettre|met|bouche|boucher|comble|combler|complete|completer|remplis|remplir|range|ranger|trie|trier|corrige|corriger|optimise|optimiser|modifie|modifier|remplace|remplacer|supprime|supprimer|retire|retirer|enleve|enlever|reformule|reformuler|compacte|compacter)\b/.test(source);
+    return /\b(applique|appliquer|fais|faire|prepare|preparer|adapte|adapter|redige|rediger|ecris|ecrire|reecris|reecrire|ameliore|ameliorer|ajoute|ajouter|insere|inserer|integre|integrer|mets|mettre|met|bouche|boucher|comble|combler|complete|completer|remplis|remplir|range|ranger|trie|trier|corrige|corriger|optimise|optimiser|modifie|modifier|remplace|remplacer|supprime|supprimer|retire|retirer|enleve|enlever|reformule|reformuler|compacte|compacter)\b/.test(source);
 };
 
 const isContactDetailsInstruction = (message = '') => {
@@ -9643,17 +9697,22 @@ const hasConcreteKirbyCvEditIntent = (message = '') => {
         return true;
     }
 
-    const hasEditVerb = /\b(applique|appliquer|ajoute|ajouter|insere|inserer|integre|integrer|mets|mettre|met|modifie|modifier|change|changer|corrige|corriger|remplace|remplacer|supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|reformule|reformuler|raccourcis|raccourcir|range|ranger|trie|trier|classe|classer)\b/.test(source);
-    const hasCvTarget = /\b(nom|prenom|prénom|titre|intitule|intitulé|poste vise|poste visé|profil|accroche|resume|résumé|competence|competences|experience|experiences|mission|missions|puce|ligne|date|dates|periode|periodes|formation|formations|certification|certifications|langue|langues|coordonnees?|coordonees?|contact|telephone|tel|email|mail|ville|permis|activites|rubrique|faute|fautes|orthographe|grammaire)\b/.test(source);
+    const hasEditVerb = /\b(applique|appliquer|ajoute|ajouter|insere|inserer|integre|integrer|mets|mettre|met|fais|faire|prepare|preparer|adapte|adapter|modifie|modifier|change|changer|corrige|corriger|remplace|remplacer|supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|redige|rediger|ecris|ecrire|reecris|reecrire|ameliore|ameliorer|optimise|optimiser|reformule|reformuler|raccourcis|raccourcir|range|ranger|trie|trier|classe|classer)\b/.test(source);
+    const hasCvTarget = /\b(cv|document|texte|nom|prenom|prénom|titre|intitule|intitulé|poste vise|poste visé|profil|accroche|resume|résumé|competence|competences|experience|experiences|mission|missions|puce|ligne|date|dates|periode|periodes|formation|formations|certification|certifications|langue|langues|coordonnees?|coordonees?|contact|telephone|tel|email|mail|ville|permis|activites|rubrique|faute|fautes|orthographe|grammaire)\b/.test(source);
     const hasExplicitReplacementPair = /\bremplace\b.{1,80}\bpar\b.{1,80}/.test(source);
+    const hasExplicitRemovalTarget = /\b(supprime|retire|enleve|efface)\s+(?!(?:tout|ca|ça|ceci|cela)\b).{3,}/.test(source);
+    const hasOpenEndedRewriteIntent = hasCvTarget
+        && /\b(corrige|corriger|redige|rediger|ecris|ecrire|reecris|reecrire|ameliore|ameliorer|optimise|optimiser|reformule|reformuler|raccourcis|raccourcir|adapte|adapter)\b/.test(source);
     const hasReplacementValue = /(?:\bpar\b|\ben\b|\bavec\b|\bvers\b|:)\s*[^\s].{1,}/.test(source)
         || /[«"“”']([^«"“”']{2,})[»"“”']/.test(instruction);
     const hasDateValue = /\b(?:19|20)\d{2}\b/.test(source) || /\b(?:janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre|janv|fevr|févr|avr|sept|oct|nov|dec|déc)\b/.test(source);
     const hasKnownExperienceReference = /\b(caisse d epargne|caisse d’épargne|ceidf|camaieu|camaïeu|american express|air france|ratp|machiniste|receveur|developpement web|développement web|creatrice|créatrice|developpeuse|développeuse)\b/.test(source);
     const hasActiveSelection = Boolean(getKirbyCvInteractionContext().selectedText);
 
-    return (hasEditVerb && hasCvTarget && (hasReplacementValue || hasDateValue || hasKnownExperienceReference || hasActiveSelection || hasLanguageNameInInstruction(instruction)))
-        || hasExplicitReplacementPair;
+    return (hasEditVerb && hasCvTarget && (hasReplacementValue || hasDateValue || hasKnownExperienceReference || hasActiveSelection || hasLanguageNameInInstruction(instruction) || looksLikeCvCreationInstruction(instruction)))
+        || hasExplicitReplacementPair
+        || hasExplicitRemovalTarget
+        || hasOpenEndedRewriteIntent;
 };
 
 const isKirbyCvTechnicalOrExplanatoryInstruction = (message = '') => {
@@ -9877,6 +9936,13 @@ const showKirbyCvProposal = (result, task, snapshot, instruction = '') => {
 const getAssistantTask = (message = '', mode = activeKirbyMode) => {
     if (mode === 'letter') {
         return 'letter';
+    }
+    const source = normalizeForMatch(getKirbyUserInstruction(message));
+    const asksExistingCvForRole = hasMeaningfulCvContent()
+        && looksLikeCvCreationInstruction(message)
+        && /\bcv\s+(?:de|d[’']?|pour|au poste de|adapte a|adapte au)\s*[a-z]/.test(source);
+    if (asksExistingCvForRole) {
+        return 'adapt';
     }
     if (mode !== 'adapt' && (looksLikePastedCv(message) || looksLikeCvCreationInstruction(message))) {
         return looksLikePastedCv(message) ? 'autofill' : 'create';
@@ -12132,6 +12198,54 @@ const removeExperienceBulletForOperation = (entries = [], operation = {}) => {
     return changed ? nextEntries : null;
 };
 
+const KIRBY_TEXT_MUTATION_FIELDS = [
+    'headline', 'summary', 'skills', 'experience', 'projects', 'education', 'activities',
+    'languages', 'permit', 'location', 'phone', 'email', 'fullName',
+];
+
+const escapeKirbyTextPattern = (value = '') => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const cleanupKirbyMutatedFieldValue = (fieldName = '', value = '') => {
+    const source = String(value || '')
+        .replace(/\s+•\s+•\s+/g, ' • ')
+        .replace(/\s+•\s*(?=\n|$)/g, '')
+        .replace(/[ \t]{2,}/g, ' ')
+        .trim();
+    if (['skills', 'experience', 'projects', 'education', 'activities', 'languages'].includes(fieldName)) {
+        return source.split(/\r?\n/)
+            .map((line) => line.replace(/^[\s•|,;–—-]+|[\s•|,;–—-]+$/g, '').trim())
+            .filter(Boolean)
+            .join('\n');
+    }
+    return source.replace(/\s+([,.;:!?])/g, '$1');
+};
+
+const applyKirbyTextMutationOperation = (operation = {}) => {
+    const currentValue = String(operation.target?.currentValue || operation.target?.label || operation.target?.title || '').trim();
+    if (!currentValue || !cvForm) return false;
+    const requestedField = KIRBY_TEXT_MUTATION_FIELDS.includes(operation.field) ? operation.field : '';
+    const fieldNames = requestedField ? [requestedField] : KIRBY_TEXT_MUTATION_FIELDS;
+    const replacement = operation.type === 'remove_text' ? '' : String(operation.value || '');
+    const pattern = new RegExp(escapeKirbyTextPattern(currentValue), 'gi');
+    let changed = false;
+
+    fieldNames.forEach((fieldName) => {
+        const field = cvForm.elements[fieldName];
+        if (!field || !pattern.test(field.value || '')) {
+            pattern.lastIndex = 0;
+            return;
+        }
+        pattern.lastIndex = 0;
+        const nextValue = cleanupKirbyMutatedFieldValue(fieldName, String(field.value || '').replace(pattern, replacement));
+        pattern.lastIndex = 0;
+        if (nextValue === field.value) return;
+        field.value = nextValue;
+        clearContactEditableOverride(fieldName);
+        changed = true;
+    });
+    return changed;
+};
+
 const applyKirbyOperation = (operation = {}, context = {}) => {
     if (!operation?.type) {
         return '';
@@ -12203,6 +12317,24 @@ const applyKirbyOperation = (operation = {}, context = {}) => {
         return `date ${entries[index].title || 'expérience'}`;
     }
 
+    if (operation.type === 'set_experience_bullets') {
+        const field = getExperienceField();
+        if (!field) return '';
+        const entries = repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
+        const index = findExperienceIndexForOperation(entries, operation);
+        const description = getKirbyCvArray(operation.experience?.description).map(normalizeCvSentenceText).filter(Boolean);
+        const valueBullets = String(operation.value || '').split(/\r?\n|\s+•\s+/).map(normalizeCvSentenceText).filter(Boolean);
+        const bullets = dedupeImportedItems(description.length ? description : valueBullets).slice(0, 6);
+        if (index < 0 || !entries[index] || !bullets.length) return '';
+        const previous = (entries[index].bullets || []).map(normalizeForMatch).join('|');
+        const next = bullets.map(normalizeForMatch).join('|');
+        if (previous === next) return 'missions déjà correctes';
+        entries[index] = { ...entries[index], bullets };
+        field.value = entries.map(serializeExperienceEntry).filter(Boolean).join('\n');
+        clearEditableOverride('experience');
+        return `missions ${entries[index].title || 'expérience'}`;
+    }
+
     if (operation.type === 'normalize_experience_dates') {
         const wantsYearsOnly = /\b(years?_only|annees?_seules?|sans_mois|remove_months|mois)\b/i.test(operation.value || '')
             || shouldRemoveExperienceDateMonths(operation.reason || '');
@@ -12256,6 +12388,12 @@ const applyKirbyOperation = (operation = {}, context = {}) => {
         return fieldName;
     }
 
+    if (operation.type === 'replace_text' || operation.type === 'remove_text') {
+        const changed = applyKirbyTextMutationOperation(operation);
+        if (!changed) return '';
+        return operation.type === 'remove_text' ? 'texte supprimé' : 'texte remplacé';
+    }
+
     if (operation.type === 'remove_section') {
         const key = operation.field || normalizeForMatch(operation.target?.label || '');
         return applyKirbyLayoutIntent({ removeSections: [key], reflow: true, compact: false }).length ? 'section retirée' : '';
@@ -12299,11 +12437,15 @@ const applyKirbyOperation = (operation = {}, context = {}) => {
         return '';
     }
 
+    if (operation.type === 'sort_experiences') {
+        return sortExperienceFieldNewestFirst() ? 'ordre chronologique des expériences' : 'ordre déjà correct';
+    }
+
     return '';
 };
 
 const applyKirbyOperations = (operations = [], context = {}) => {
-    const applied = getKirbyCvArray(operations).slice(0, 8)
+    const applied = getKirbyCvArray(operations).slice(0, 16)
         .map((operation) => applyKirbyOperation(operation, context))
         .filter(Boolean);
 
@@ -12327,11 +12469,18 @@ const getKirbyApplyFailureReply = (result = {}, instruction = '') => {
             : 'Où souhaitez-vous placer cette expérience : avant ou après quelle autre expérience ?';
     }
 
-    if (['update_experience_title', 'update_experience_date', 'remove_experience', 'remove_experience_bullet'].includes(operationType)) {
+    if (['update_experience_title', 'update_experience_date', 'set_experience_bullets', 'remove_experience', 'remove_experience_bullet'].includes(operationType)) {
         setCvStatus('Précision nécessaire pour modifier le CV');
         return target
             ? `Je n’ai pas pu identifier une seule expérience correspondant à « ${target} ». Précisez le poste, l’entreprise ou la date.`
             : 'Quelle expérience souhaitez-vous modifier ? Précisez le poste, l’entreprise ou la date.';
+    }
+
+    if (operationType === 'replace_text' || operationType === 'remove_text') {
+        setCvStatus('Texte introuvable dans le CV');
+        return target
+            ? `Je n’ai pas trouvé exactement « ${target} » dans le CV affiché. Indiquez la phrase telle qu’elle apparaît dans le document.`
+            : 'Indiquez le texte exact à remplacer ou à supprimer.';
     }
 
     const report = saveKirbyBugReport({
@@ -12499,8 +12648,8 @@ const shouldApplyKirbyResultDirectly = ({ task = '', instruction = '' } = {}) =>
     const userInstruction = getKirbyUserInstruction(instruction);
     const source = normalizeForMatch(userInstruction);
     const precisionSensitive = /\b(mise en page|aeration|aération|align|alignement|hierarchie|hiérarchie|lisibilite|lisibilité|espace|espacement|marge|padding|colonne|colonnes|section|titre|titres|pdf|a4|export|equilibr|equilibre|equilibree|equilibree|repart|repartition|descend|monte|remonte|decale|decalage|largeur|hauteur|respiration|glass|crystal)\b/.test(source);
-    const actionableCvEdit = /\b(cv|experience|experiences|mission|missions|puce|puces|ligne|lignes|date|dates|periode|periodes|mois|profil|accroche|competence|competences|formation|formations|rubrique|rubriques)\b/.test(source)
-        && /\b(ajoute|ajouter|rajoute|rajouter|insere|inserer|integre|integrer|supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|modifie|modifier|change|changer|corrige|corriger|remplace|remplacer|deplace|deplacer|monte|descend|range|ranger|reorganise|reorganiser|reformule|reformuler|raccourcis|raccourcir|harmonise|harmoniser|sauvegarde|sauvegarder|applique|appliquer)\b/.test(source);
+    const actionableCvEdit = /\b(cv|document|texte|experience|experiences|mission|missions|puce|puces|ligne|lignes|date|dates|periode|periodes|mois|profil|accroche|competence|competences|formation|formations|rubrique|rubriques)\b/.test(source)
+        && /\b(fais|faire|prepare|preparer|adapte|adapter|redige|rediger|ecris|ecrire|reecris|reecrire|ameliore|ameliorer|optimise|optimiser|ajoute|ajouter|rajoute|rajouter|insere|inserer|integre|integrer|supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|modifie|modifier|change|changer|corrige|corriger|remplace|remplacer|deplace|deplacer|monte|descend|range|ranger|reorganise|reorganiser|reformule|reformuler|raccourcis|raccourcir|harmonise|harmoniser|sauvegarde|sauvegarder|applique|appliquer)\b/.test(source);
 
     if (isLanguageFocusedInstruction(userInstruction)) {
         return true;
