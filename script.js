@@ -22441,11 +22441,32 @@ const getKirbySectorExperienceModel = (proposal = {}, brief = '') => {
     };
 };
 
-const KIRBY_IDENTITY_COMPOSITIONS = ['artifact-led', 'split-flow', 'editorial-stack', 'product-canvas', 'immersive-sequence'];
+const KIRBY_IDENTITY_COMPOSITIONS = [
+    'immersive-hero',
+    'editorial-cover',
+    'asymmetric-grid',
+    'product-stage',
+    'vertical-narrative',
+    'map-led',
+    'cinematic-gallery',
+    'split-stage',
+    'artifact-led',
+    'split-flow',
+    'editorial-stack',
+    'product-canvas',
+    'immersive-sequence',
+];
 const KIRBY_IDENTITY_TYPE_MODES = ['modern-grotesk', 'editorial-serif', 'humanist', 'technical-mono', 'expressive-display'];
 const KIRBY_IDENTITY_DENSITIES = ['compact', 'balanced', 'airy'];
 const KIRBY_IDENTITY_SHAPES = ['precise', 'soft', 'framed', 'borderless'];
 const KIRBY_IDENTITY_ARTIFACTS = ['menu', 'workflow', 'dashboard', 'booking', 'dive', 'catalog', 'timeline', 'comparison', 'story'];
+const KIRBY_IDENTITY_TITLE_SCALES = ['restrained', 'balanced', 'expressive'];
+const KIRBY_IDENTITY_DEPTHS = ['flat', 'layered', 'deep'];
+const KIRBY_IDENTITY_MATERIALS = ['glass', 'paper', 'ink', 'metal', 'organic', 'canvas', 'technical'];
+const KIRBY_IDENTITY_TRANSPARENCIES = ['solid', 'soft', 'clear'];
+const KIRBY_IDENTITY_RHYTHMS = ['compact', 'measured', 'cinematic', 'staccato'];
+const KIRBY_IDENTITY_IMAGE_TREATMENTS = ['full-bleed', 'collage', 'framed', 'filmstrip', 'masked', 'none'];
+const KIRBY_IDENTITY_MOTION_STYLES = ['still', 'reveal', 'drift', 'parallax', 'kinetic'];
 
 const normalizeKirbyIdentityToken = (value = '') => normalizeKirbyText(value)
     .replace(/[^a-z0-9]+/g, '-')
@@ -22471,6 +22492,116 @@ const getKirbyIdentityContrast = (first = '#111418', second = '#FFFFFF') => {
 const getKirbyIdentityOnColor = (color = '#111418') =>
     getKirbyIdentityContrast(color, '#FFFFFF') >= getKirbyIdentityContrast(color, '#111418') ? '#FFFFFF' : '#111418';
 
+const KIRBY_IDENTITY_MEDIA_LIBRARY = [
+    {
+        tags: ['couture', 'tailleur', 'tailleuse', 'textile', 'tissu', 'mode', 'vetement', 'sur mesure', 'atelier'],
+        assets: [
+            ['https://images.unsplash.com/photo-1773511237767-0e324389922a?auto=format&fit=crop&w=1800&q=84', 'Mains guidant un tissu sous une machine à coudre'],
+            ['https://images.unsplash.com/photo-1525507119028-ed4c629a60a3?auto=format&fit=crop&w=1500&q=84', 'Portants et matières dans un atelier de création'],
+            ['https://images.unsplash.com/photo-1772291320136-7bfb40006088?auto=format&fit=crop&w=1500&q=84', 'Couture manuelle et précision du geste'],
+        ],
+    },
+    {
+        tags: ['cryo', 'cryotherapie', 'froid', 'glace', 'recuperation', 'bien etre', 'sportif', 'cold plunge'],
+        assets: [
+            ['https://images.unsplash.com/photo-1713270232602-bf8dc038d91c?auto=format&fit=crop&w=1800&q=84', 'Séance de récupération par le froid'],
+            ['https://images.unsplash.com/photo-1517299321609-52687d1bc55a?auto=format&fit=crop&w=1500&q=84', 'Matière glacée et lumière froide'],
+            ['https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=1500&q=84', 'Récupération et performance physique'],
+        ],
+    },
+    {
+        tags: ['drone', 'aerien', 'aerienne', 'pilotage', 'cartographie', 'inspection', 'vue du ciel'],
+        assets: [
+            ['https://images.unsplash.com/photo-1508614589041-895b88991e3e?auto=format&fit=crop&w=1800&q=84', 'Drone professionnel en vol'],
+            ['https://images.unsplash.com/photo-1524143986875-3b098d78b363?auto=format&fit=crop&w=1500&q=84', 'Pilotage et contrôle aérien'],
+            ['https://images.unsplash.com/photo-1473968512647-3e447244af8f?auto=format&fit=crop&w=1500&q=84', 'Drone au-dessus d’un paysage'],
+        ],
+    },
+    {
+        tags: ['adn', 'dna', 'genetique', 'genome', 'laboratoire', 'microscope', 'biologie', 'analyse'],
+        assets: [
+            ['https://images.unsplash.com/photo-1578496479914-7ef3b0193be3?auto=format&fit=crop&w=1800&q=84', 'Chercheur observant un échantillon au microscope'],
+            ['https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?auto=format&fit=crop&w=1500&q=84', 'Échantillons et instruments de laboratoire'],
+            ['https://images.unsplash.com/photo-1579154204601-01588f351e67?auto=format&fit=crop&w=1500&q=84', 'Analyse scientifique en laboratoire'],
+        ],
+    },
+    {
+        tags: ['hotel', 'chambre', 'sejour', 'hospitalite', 'lobby', 'suite', 'reservation'],
+        assets: [
+            ['https://images.unsplash.com/photo-1775866914943-ba1415a35afc?auto=format&fit=crop&w=1800&q=84', 'Lobby d’hôtel contemporain baigné de lumière'],
+            ['https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1500&q=84', 'Architecture et piscine d’un hôtel'],
+            ['https://images.unsplash.com/photo-1564501049412-61c2a3083791?auto=format&fit=crop&w=1500&q=84', 'Suite d’hôtel élégante'],
+        ],
+    },
+    {
+        tags: ['fleur', 'fleurs', 'fleuriste', 'floral', 'bouquet', 'botanique', 'vegetal'],
+        assets: [
+            ['https://images.unsplash.com/photo-1490750967868-88aa4486c946?auto=format&fit=crop&w=1800&q=84', 'Composition florale colorée'],
+            ['https://images.unsplash.com/photo-1758402638146-a1a94f400073?auto=format&fit=crop&w=1500&q=84', 'Bouquet délicat tenu dans les mains'],
+            ['https://images.unsplash.com/photo-1759419312960-cccfb9e85111?auto=format&fit=crop&w=1500&q=84', 'Mains composant un bouquet de fleurs blanches'],
+        ],
+    },
+    {
+        tags: ['edition', 'editeur', 'livre', 'lecture', 'auteur', 'manuscrit', 'librairie', 'bibliotheque'],
+        assets: [
+            ['https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=1800&q=84', 'Rayonnages d’une bibliothèque contemporaine'],
+            ['https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&w=1500&q=84', 'Livre ouvert et expérience de lecture'],
+            ['https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=1500&q=84', 'Sélection de livres édités'],
+        ],
+    },
+    {
+        tags: ['technologie', 'donnee', 'data', 'intelligence artificielle', 'signal', 'reseau', 'numerique'],
+        assets: [
+            ['https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1800&q=84', 'Architecture électronique et flux de données'],
+            ['https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1500&q=84', 'Système numérique en activité'],
+            ['https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1500&q=84', 'Réseau de données à l’échelle mondiale'],
+        ],
+    },
+];
+
+const getKirbySafeIdentityImageUrl = (value = '') => {
+    const url = String(value || '').trim();
+    return /^https:\/\/images\.unsplash\.com\/photo-[a-z0-9-]+(?:\?[^"'<>\s]*)?$/i.test(url) ? url : '';
+};
+
+const getKirbyIdentityMedia = (proposal = {}, brief = '', identity = {}) => {
+    const visualPlan = proposal.visualPlan && typeof proposal.visualPlan === 'object' ? proposal.visualPlan : {};
+    const entries = [visualPlan.hero, ...getKirbyArray(visualPlan.sections, 5), ...getKirbyArray(visualPlan.gallery, 5)]
+        .filter((item) => item && typeof item === 'object');
+    const explicit = entries
+        .map((item) => ({
+            url: getKirbySafeIdentityImageUrl(item.imageUrl || item.url),
+            alt: item.alt || item.subject || item.purpose || proposal.projectAnalysis?.activity || proposal.siteName,
+        }))
+        .filter((item, index, items) => item.url && items.findIndex((candidate) => candidate.url === item.url) === index);
+
+    if (!explicit.length && normalizeKirbyIdentityToken(identity.imageStrategy) === 'graphic-system') {
+        return [];
+    }
+
+    const source = normalizeKirbyText([
+        brief,
+        proposal.siteName,
+        proposal.projectType,
+        proposal.projectAnalysis?.activity,
+        proposal.projectAnalysis?.sector,
+        identity.visualMetaphor,
+        identity.artDirection,
+        entries.map((item) => [item.subject, item.imageQuery, ...getKirbyArray(item.keywords, 8)].join(' ')).join(' '),
+    ].filter(Boolean).join(' '));
+    const ranked = KIRBY_IDENTITY_MEDIA_LIBRARY
+        .map((group) => ({
+            ...group,
+            score: group.tags.reduce((score, tag) => score + (source.includes(normalizeKirbyText(tag)) ? 1 : 0), 0),
+        }))
+        .sort((first, second) => second.score - first.score);
+
+    const group = ranked[0]?.score ? ranked[0] : KIRBY_IDENTITY_MEDIA_LIBRARY[KIRBY_IDENTITY_MEDIA_LIBRARY.length - 1];
+    return [...explicit, ...group.assets.map(([url, alt]) => ({ url, alt }))]
+        .filter((item, index, items) => items.findIndex((candidate) => candidate.url === item.url) === index)
+        .slice(0, 3);
+};
+
 const getKirbyIdentitySystem = (proposal = {}, brief = '') => {
     const source = proposal.brandIdentity && typeof proposal.brandIdentity === 'object'
         ? proposal.brandIdentity
@@ -22485,38 +22616,40 @@ const getKirbyIdentitySystem = (proposal = {}, brief = '') => {
         { canvas: '#F6F4F0', surface: '#FFFFFF', ink: '#1D1A24', muted: '#746E7E', accent: '#7856A8', accentAlt: '#D75E78' },
     ];
     const fallback = fallbackPalettes[getKirbyHash(`${brief}::${proposal.siteName || ''}::identity`) % fallbackPalettes.length];
-    const isDiving = hasKirbyDivingIntent(brief);
     const compositionToken = normalizeKirbyIdentityToken(source.composition);
     const typeToken = normalizeKirbyIdentityToken(typography.mode);
     const densityToken = normalizeKirbyIdentityToken(source.density);
     const shapeToken = normalizeKirbyIdentityToken(source.shapeLanguage);
     const surfaceToken = normalizeKirbyIdentityToken(source.surfaceMode);
+    const titleScaleToken = normalizeKirbyIdentityToken(source.titleScale);
+    const depthToken = normalizeKirbyIdentityToken(source.depth);
+    const materialToken = normalizeKirbyIdentityToken(source.material);
+    const transparencyToken = normalizeKirbyIdentityToken(source.transparency);
+    const rhythmToken = normalizeKirbyIdentityToken(source.sectionRhythm);
+    const imageTreatmentToken = normalizeKirbyIdentityToken(source.imageTreatment);
+    const motionStyleToken = normalizeKirbyIdentityToken(source.motionStyle);
     const composition = KIRBY_IDENTITY_COMPOSITIONS.includes(compositionToken)
         ? compositionToken
-        : KIRBY_IDENTITY_COMPOSITIONS[getKirbyHash(`${brief}::composition`) % KIRBY_IDENTITY_COMPOSITIONS.length];
+        : KIRBY_IDENTITY_COMPOSITIONS[getKirbyHash(`${brief}::composition`) % 8];
     const typeMode = KIRBY_IDENTITY_TYPE_MODES.includes(typeToken) ? typeToken : 'modern-grotesk';
     const density = KIRBY_IDENTITY_DENSITIES.includes(densityToken) ? densityToken : 'balanced';
     const shape = KIRBY_IDENTITY_SHAPES.includes(shapeToken) ? shapeToken : 'precise';
-    const surfaceMode = ['glass', 'luminous', 'matte'].includes(surfaceToken) ? surfaceToken : 'glass';
-    const divingPalette = {
-        canvas: '#071014',
-        surface: '#122A30',
-        ink: '#F5F7F4',
-        muted: '#9BB8B5',
-        accent: '#71E2D0',
-        accentAlt: '#C7B8FF',
-    };
+    const surfaceMode = ['glass', 'luminous', 'matte'].includes(surfaceToken) ? surfaceToken : 'matte';
+    const titleScale = KIRBY_IDENTITY_TITLE_SCALES.includes(titleScaleToken) ? titleScaleToken : 'balanced';
+    const depth = KIRBY_IDENTITY_DEPTHS.includes(depthToken) ? depthToken : 'layered';
+    const material = KIRBY_IDENTITY_MATERIALS.includes(materialToken) ? materialToken : surfaceMode === 'glass' ? 'glass' : 'technical';
+    const transparency = KIRBY_IDENTITY_TRANSPARENCIES.includes(transparencyToken) ? transparencyToken : surfaceMode === 'glass' ? 'clear' : 'soft';
+    const sectionRhythm = KIRBY_IDENTITY_RHYTHMS.includes(rhythmToken) ? rhythmToken : 'measured';
+    const imageTreatment = KIRBY_IDENTITY_IMAGE_TREATMENTS.includes(imageTreatmentToken) ? imageTreatmentToken : 'framed';
+    const motionStyle = KIRBY_IDENTITY_MOTION_STYLES.includes(motionStyleToken) ? motionStyleToken : 'reveal';
     const resolvedPalette = {
-        canvas: getKirbyIdentityColor(palette.canvas, isDiving ? divingPalette.canvas : fallback.canvas),
-        surface: getKirbyIdentityColor(palette.surface, isDiving ? divingPalette.surface : fallback.surface),
-        ink: getKirbyIdentityColor(palette.ink, isDiving ? divingPalette.ink : fallback.ink),
-        muted: getKirbyIdentityColor(palette.muted, isDiving ? divingPalette.muted : fallback.muted),
-        accent: getKirbyIdentityColor(palette.accent, isDiving ? divingPalette.accent : fallback.accent),
-        accentAlt: getKirbyIdentityColor(palette.accentAlt, isDiving ? divingPalette.accentAlt : fallback.accentAlt),
+        canvas: getKirbyIdentityColor(palette.canvas, fallback.canvas),
+        surface: getKirbyIdentityColor(palette.surface, fallback.surface),
+        ink: getKirbyIdentityColor(palette.ink, fallback.ink),
+        muted: getKirbyIdentityColor(palette.muted, fallback.muted),
+        accent: getKirbyIdentityColor(palette.accent, fallback.accent),
+        accentAlt: getKirbyIdentityColor(palette.accentAlt, fallback.accentAlt),
     };
-    if (isDiving) {
-        Object.assign(resolvedPalette, divingPalette);
-    }
     if (getKirbyIdentityContrast(resolvedPalette.ink, resolvedPalette.canvas) < 4.5) {
         resolvedPalette.ink = getKirbyIdentityContrast('#111418', resolvedPalette.canvas) >= 4.5 ? '#111418' : '#FFFFFF';
     }
@@ -22525,6 +22658,18 @@ const getKirbyIdentitySystem = (proposal = {}, brief = '') => {
     }
     const onAccent = getKirbyIdentityOnColor(resolvedPalette.accent);
     const onInk = getKirbyIdentityOnColor(resolvedPalette.ink);
+    const compositionPlan = globalThis.KirbyCompositionEngine?.resolvePlan({
+        identity: { ...source, composition },
+        blueprint: proposal.experienceBlueprint || {},
+        brief,
+        seed: proposal.visualSeed || proposal.siteName || '',
+    }) || {
+        heroPrimitive: composition,
+        contentPrimitive: 'proof-mosaic',
+        artifactPlacement: 'hero',
+        imagePlacement: 'dominant',
+        sectionOrder: ['hero', 'artifact', 'proof', 'gallery', 'flow'],
+    };
     const style = [
         `--identity-canvas: ${resolvedPalette.canvas}`,
         `--identity-surface: ${resolvedPalette.surface}`,
@@ -22543,8 +22688,30 @@ const getKirbyIdentitySystem = (proposal = {}, brief = '') => {
         typeMode,
         density,
         shape,
+        titleScale,
+        depth,
+        material,
+        transparency,
+        sectionRhythm,
+        imageTreatment,
+        motionStyle,
+        compositionPlan,
         surfaceMode,
-        className: `identity-${composition} identity-type-${typeMode} identity-density-${density} identity-shape-${shape} identity-surface-${surfaceMode}`,
+        className: [
+            `identity-layout-${compositionPlan.heroPrimitive}`,
+            `identity-content-${compositionPlan.contentPrimitive}`,
+            `identity-type-${typeMode}`,
+            `identity-density-${density}`,
+            `identity-shape-${shape}`,
+            `identity-surface-${surfaceMode}`,
+            `identity-title-${titleScale}`,
+            `identity-depth-${depth}`,
+            `identity-material-${material}`,
+            `identity-transparency-${transparency}`,
+            `identity-rhythm-${sectionRhythm}`,
+            `identity-image-${imageTreatment}`,
+            `identity-motion-${motionStyle}`,
+        ].join(' '),
         style,
     };
 };
@@ -22657,56 +22824,119 @@ const buildKirbyIdentityPreview = ({
         `
         : `<div class="identity-artifact-list">${artifactRows}</div>`;
 
+    const compositionPlan = identity.compositionPlan;
+    const media = getKirbyIdentityMedia(proposal, brief, identity);
+    const mediaMarkup = (index, role) => {
+        const item = media[index];
+
+        if (!item) {
+            return `
+                <figure class="identity-graphic-composition identity-graphic-${role}" role="img" aria-label="${cleanHtml(identity.visualMetaphor || identity.signatureElement || activityLabel)}">
+                    <span></span><span></span><span></span><i></i><b>${cleanHtml(getKirbyShortText(identity.signatureElement || identity.concept || activityLabel, 38))}</b>
+                </figure>
+            `;
+        }
+
+        return `
+            <figure class="identity-media identity-media-${role}">
+                <img src="${cleanHtml(item.url)}" alt="${cleanHtml(item.alt || activityLabel)}" loading="${index === 0 ? 'eager' : 'lazy'}">
+                <figcaption>${cleanHtml(getKirbyShortText(item.alt || activityLabel, 58))}</figcaption>
+            </figure>
+        `;
+    };
+    const copyMarkup = `
+        <div class="identity-opening-copy">
+            <p class="signal-label">${cleanHtml(activityLabel)}</p>
+            <h3>${cleanHtml(siteName)}</h3>
+            <p>${cleanHtml(getKirbyShortText(openingText, 168))}</p>
+            ${actionsMarkup}
+            <div class="identity-personality">
+                ${getKirbyArray(identity.personality, 3).map((item) => `<span>${cleanHtml(item)}</span>`).join('')}
+            </div>
+        </div>
+    `;
+    const artifactMarkup = `
+        <section class="identity-artifact artifact-${artifactType}" data-artifact="${artifactType}">
+            <header>
+                <div><small>${cleanHtml(artifactLabel)}</small><strong>${cleanHtml(artifactTitle)}</strong></div>
+                <span><i aria-hidden="true"></i>${cleanHtml(artifactStatus)}</span>
+            </header>
+            <div class="identity-artifact-body">${artifactBody}</div>
+            <footer><span>${cleanHtml(getKirbyShortText(signature, 74))}</span><b>${cleanHtml(String(visibleArtifactItems.length).padStart(2, '0'))}</b></footer>
+        </section>
+    `;
+    const proofMarkup = visibleProofs.length ? `
+        <div class="identity-proof-collection">
+            ${visibleProofs.map((item, index) => `
+                <article style="--identity-order:${index}">
+                    <em>${String(index + 1).padStart(2, '0')}</em>
+                    ${item.metric ? `<b>${cleanHtml(item.metric)}</b>` : ''}
+                    <strong>${cleanHtml(item.title)}</strong>
+                    <span>${cleanHtml(getKirbyShortText(item.detail, 98))}</span>
+                </article>
+            `).join('')}
+        </div>
+    ` : '';
+    const flowMarkup = visibleFlowItems.length ? `
+        <div class="identity-flow-collection">
+            <header><small>${cleanHtml(identity.concept || activityLabel)}</small><strong>${cleanHtml(blueprint.openingMove || proposal.positioning?.promise || proposal.slogan)}</strong></header>
+            <ol>
+                ${visibleFlowItems.map((item, index) => `<li style="--identity-order:${index}"><span>${index + 1}</span><div><strong>${cleanHtml(item.label)}</strong><small>${cleanHtml(getKirbyShortText(item.detail, 76))}</small></div></li>`).join('')}
+            </ol>
+        </div>
+    ` : '';
+    const galleryMarkup = `
+        <div class="identity-gallery-collection">
+            ${[0, 1, 2].map((index) => mediaMarkup(index, `gallery-${index + 1}`)).join('')}
+        </div>
+    `;
+    const mapMarkup = `
+        <div class="identity-map-overlay" aria-hidden="true">
+            <i style="--map-x:24%;--map-y:34%"></i>
+            <i style="--map-x:61%;--map-y:22%"></i>
+            <i style="--map-x:72%;--map-y:68%"></i>
+            <svg viewBox="0 0 100 54" preserveAspectRatio="none"><path d="M8 42 C 24 10, 42 48, 58 19 S 86 8, 94 31"></path></svg>
+        </div>
+    `;
+    const artifactEmbedded = ['hero', 'overlap', 'inline', 'rail'].includes(compositionPlan.artifactPlacement);
+    const heroMarkup = globalThis.KirbyCompositionEngine.renderHero(compositionPlan, {
+        copy: copyMarkup,
+        artifact: artifactEmbedded ? artifactMarkup : '',
+        primaryMedia: mediaMarkup(0, 'primary'),
+        secondaryMedia: mediaMarkup(1, 'secondary'),
+        tertiaryMedia: mediaMarkup(2, 'tertiary'),
+        map: mapMarkup,
+    });
+    const contentMarkup = globalThis.KirbyCompositionEngine.renderContent(compositionPlan, {
+        proof: proofMarkup,
+        flow: flowMarkup,
+        gallery: galleryMarkup,
+    });
+    const standaloneArtifact = artifactEmbedded ? '' : `<section class="identity-artifact-stage">${artifactMarkup}</section>`;
+    const contentAnchor = compositionPlan.sectionOrder.find((item) => ['proof', 'gallery', 'flow'].includes(item)) || 'proof';
+    const assembled = [];
+    compositionPlan.sectionOrder.forEach((item) => {
+        if (item === 'hero' && !assembled.includes(heroMarkup)) assembled.push(heroMarkup);
+        if (item === 'artifact' && standaloneArtifact && !assembled.includes(standaloneArtifact)) assembled.push(standaloneArtifact);
+        if (item === contentAnchor && !assembled.includes(contentMarkup)) assembled.push(contentMarkup);
+    });
+    if (!assembled.includes(heroMarkup)) assembled.unshift(heroMarkup);
+    if (standaloneArtifact && !assembled.includes(standaloneArtifact)) assembled.push(standaloneArtifact);
+    if (!assembled.includes(contentMarkup)) assembled.push(contentMarkup);
+    const structureSignature = globalThis.KirbyCompositionEngine.getStructureSignature(compositionPlan);
+
     return {
         className: identity.className,
         style: identity.style,
         markup: `
-            <div class="kirby-identity-site ${identity.className}" style="${identity.style}" aria-label="Aperçu de l’identité ${cleanHtml(siteName)}">
+            <div class="kirby-identity-site ${identity.className}" style="${identity.style}" data-structure="${cleanHtml(structureSignature)}" data-image-placement="${cleanHtml(compositionPlan.imagePlacement)}" data-artifact-placement="${cleanHtml(compositionPlan.artifactPlacement)}" aria-label="Aperçu de l’identité ${cleanHtml(siteName)}">
                 <nav class="identity-nav">
                     <strong>${cleanHtml(siteName)}</strong>
                     <div>${navItems.map((item) => `<span>${cleanHtml(getKirbyShortText(item, 22))}</span>`).join('')}</div>
                     <em>${cleanHtml(proposal.ctas?.[0] || 'Découvrir')}</em>
                 </nav>
                 <main>
-                    <section class="identity-opening">
-                        <div class="identity-opening-copy">
-                            <p class="signal-label">${cleanHtml(activityLabel)}</p>
-                            <h3>${cleanHtml(siteName)}</h3>
-                            <p>${cleanHtml(getKirbyShortText(openingText, 168))}</p>
-                            ${actionsMarkup}
-                            <div class="identity-personality">
-                                ${getKirbyArray(identity.personality, 3).map((item) => `<span>${cleanHtml(item)}</span>`).join('')}
-                            </div>
-                        </div>
-                        <section class="identity-artifact artifact-${artifactType}">
-                            <header>
-                                <div><small>${cleanHtml(artifactLabel)}</small><strong>${cleanHtml(artifactTitle)}</strong></div>
-                                <span><i aria-hidden="true"></i>${cleanHtml(artifactStatus)}</span>
-                            </header>
-                            <div class="identity-artifact-body">${artifactBody}</div>
-                            <footer><span>${cleanHtml(getKirbyShortText(signature, 74))}</span><b>${cleanHtml(String(visibleArtifactItems.length).padStart(2, '0'))}</b></footer>
-                        </section>
-                    </section>
-                    ${visibleProofs.length ? `
-                        <section class="identity-proof-grid">
-                            ${visibleProofs.map((item, index) => `
-                                <article style="--identity-order:${index}">
-                                    <em>${String(index + 1).padStart(2, '0')}</em>
-                                    ${item.metric ? `<b>${cleanHtml(item.metric)}</b>` : ''}
-                                    <strong>${cleanHtml(item.title)}</strong>
-                                    <span>${cleanHtml(getKirbyShortText(item.detail, 98))}</span>
-                                </article>
-                            `).join('')}
-                        </section>
-                    ` : ''}
-                    ${visibleFlowItems.length ? `
-                        <section class="identity-flow">
-                            <div><small>${cleanHtml(identity.concept || activityLabel)}</small><strong>${cleanHtml(blueprint.openingMove || proposal.positioning?.promise || proposal.slogan)}</strong></div>
-                            <ol>
-                                ${visibleFlowItems.map((item, index) => `<li style="--identity-order:${index}"><span>${index + 1}</span><div><strong>${cleanHtml(item.label)}</strong><small>${cleanHtml(getKirbyShortText(item.detail, 76))}</small></div></li>`).join('')}
-                            </ol>
-                        </section>
-                    ` : ''}
+                    ${assembled.join('')}
                 </main>
                 ${footerMarkup}
             </div>

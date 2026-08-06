@@ -280,7 +280,7 @@ test('Kirby transforme un brief de plongée en réservation de sortie exploitabl
     assert.equal(response.statusCode, 200);
     assert.equal(payload.proposal.sectorKey, 'diving');
     assert.equal(payload.proposal.layoutVariant, 'lumina-showcase');
-    assert.equal(payload.proposal.brandIdentity.surfaceMode, 'glass');
+    assert.equal(payload.proposal.brandIdentity.surfaceMode, 'matte');
     assert.equal(artifact.type, 'dive');
     assert.match(artifactText, /spot|météo|meteo/);
     assert.match(artifactText, /réservation|reservation/);
@@ -338,6 +338,46 @@ test('Kirby conserve deux identités réellement différentes pour deux restaura
     assert.notEqual(italianProposal.brandIdentity.typography.mode, japaneseProposal.brandIdentity.typography.mode);
     assert.notDeepEqual(italianProposal.brandIdentity.palette, japaneseProposal.brandIdentity.palette);
     assert.notEqual(italianProposal.experienceBlueprint.primaryArtifact.type, japaneseProposal.experienceBlueprint.primaryArtifact.type);
+});
+
+test('Kirby conserve le plan de composition et les propriétés visuelles choisis par GPT', async () => {
+    const brief = 'Atelier floral contemporain avec bouquets de saison, abonnements et livraison. Je veux une composition asymétrique très visuelle.';
+    const proposal = makeProposal({
+        siteName: 'Branche Libre',
+        projectType: 'Atelier floral contemporain',
+        serviceName: 'Bouquets de saison',
+        layoutVariant: 'gallery-focus',
+        composition: 'asymmetric-grid',
+        typeMode: 'humanist',
+        artifactType: 'catalog',
+    });
+    Object.assign(proposal.brandIdentity, {
+        titleScale: 'restrained',
+        depth: 'deep',
+        material: 'organic',
+        transparency: 'soft',
+        sectionRhythm: 'staccato',
+        imageTreatment: 'collage',
+        motionStyle: 'parallax',
+        surfaceMode: 'luminous',
+        imageStrategy: 'result-proof',
+    });
+    proposal.experienceBlueprint.compositionPlan = {
+        heroPrimitive: 'asymmetric-grid',
+        contentPrimitive: 'catalog-shelf',
+        artifactPlacement: 'hero',
+        imagePlacement: 'collage',
+        sectionOrder: ['hero', 'gallery', 'proof', 'flow', 'artifact'],
+    };
+    const response = await callKirbyWithOpenAiProposal(brief, proposal);
+    const payload = JSON.parse(response.body);
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(payload.proposal.brandIdentity.composition, 'asymmetric-grid');
+    assert.equal(payload.proposal.brandIdentity.material, 'organic');
+    assert.equal(payload.proposal.brandIdentity.imageTreatment, 'collage');
+    assert.equal(payload.proposal.brandIdentity.motionStyle, 'parallax');
+    assert.deepEqual(payload.proposal.experienceBlueprint.compositionPlan, proposal.experienceBlueprint.compositionPlan);
 });
 
 test('Kirby ne confond pas une suite de sections avec une suite hôtelière', () => {

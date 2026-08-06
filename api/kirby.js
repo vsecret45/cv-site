@@ -1406,6 +1406,7 @@ Schema JSON attendu :
       "subject": "sujet précis issu du brief structuré",
       "composition": "format et cadrage conseillés",
       "priority": "essential | important | supporting | optional",
+      "imageQuery": "requête visuelle précise, sans URL inventée",
       "keywords": ["mots-clés visuels concrets"]
     },
     "sections": [{
@@ -1414,6 +1415,7 @@ Schema JSON attendu :
       "subject": "sujet visuel issu du brief",
       "composition": "format et cadrage",
       "priority": "important",
+      "imageQuery": "requête visuelle précise, sans URL inventée",
       "keywords": ["mots-clés visuels concrets"]
     }],
     "gallery": [{
@@ -1422,6 +1424,7 @@ Schema JSON attendu :
       "subject": "sujet visuel issu du brief",
       "composition": "tuile galerie, avant/après, détail, lieu, geste",
       "priority": "important",
+      "imageQuery": "requête visuelle précise, sans URL inventée",
       "keywords": ["mots-clés visuels concrets"]
     }],
     "conversion": {
@@ -1502,10 +1505,17 @@ Retourne uniquement un JSON valide, sans markdown, avec au minimum :
       "body": "style de texte",
       "mode": "modern-grotesk | editorial-serif | humanist | technical-mono | expressive-display"
     },
-    "composition": "artifact-led | split-flow | editorial-stack | product-canvas | immersive-sequence",
+    "composition": "immersive-hero | editorial-cover | asymmetric-grid | product-stage | vertical-narrative | map-led | cinematic-gallery | split-stage",
     "density": "compact | balanced | airy",
     "shapeLanguage": "precise | soft | framed | borderless",
     "imageStrategy": "product-proof | result-proof | service-proof | graphic-system",
+    "titleScale": "restrained | balanced | expressive",
+    "depth": "flat | layered | deep",
+    "material": "glass | paper | ink | metal | organic | canvas | technical",
+    "transparency": "solid | soft | clear",
+    "sectionRhythm": "compact | measured | cinematic | staccato",
+    "imageTreatment": "full-bleed | collage | framed | filmstrip | masked | none",
+    "motionStyle": "still | reveal | drift | parallax | kinetic",
     "signatureElement": "element visuel utile et reconnaissable",
     "motion": ["animation discrete liee au contenu"],
     "avoid": ["cliche visuel a eviter pour ce projet"],
@@ -1513,6 +1523,13 @@ Retourne uniquement un JSON valide, sans markdown, avec au minimum :
   },
   "experienceBlueprint": {
     "openingMove": "ce que le premier ecran fait comprendre ou permet de faire",
+    "compositionPlan": {
+      "heroPrimitive": "immersive-hero | editorial-cover | asymmetric-grid | product-stage | vertical-narrative | map-led | cinematic-gallery | split-stage",
+      "contentPrimitive": "proof-mosaic | catalog-shelf | process-rail | story-chapters | gallery-reel | data-canvas",
+      "artifactPlacement": "hero | overlap | inline | rail | below",
+      "imagePlacement": "background | dominant | collage | strip | supporting | none",
+      "sectionOrder": ["hero", "artifact", "proof", "gallery", "flow"]
+    },
     "primaryArtifact": {
       "type": "menu | workflow | dashboard | booking | dive | catalog | timeline | comparison | story",
       "label": "sur-titre de l'objet",
@@ -5205,6 +5222,9 @@ const sanitizeOpenAiProposalStrict = (proposal = {}) => {
     const experienceBlueprint = source.experienceBlueprint && typeof source.experienceBlueprint === 'object'
         ? source.experienceBlueprint
         : {};
+    const compositionPlan = experienceBlueprint.compositionPlan && typeof experienceBlueprint.compositionPlan === 'object'
+        ? experienceBlueprint.compositionPlan
+        : {};
     const primaryArtifact = experienceBlueprint.primaryArtifact && typeof experienceBlueprint.primaryArtifact === 'object'
         ? experienceBlueprint.primaryArtifact
         : {};
@@ -5262,6 +5282,13 @@ const sanitizeOpenAiProposalStrict = (proposal = {}) => {
             density: normalizeText(brandIdentity.density),
             shapeLanguage: normalizeText(brandIdentity.shapeLanguage),
             imageStrategy: normalizeText(brandIdentity.imageStrategy),
+            titleScale: normalizeText(brandIdentity.titleScale),
+            depth: normalizeText(brandIdentity.depth),
+            material: normalizeText(brandIdentity.material),
+            transparency: normalizeText(brandIdentity.transparency),
+            sectionRhythm: normalizeText(brandIdentity.sectionRhythm),
+            imageTreatment: normalizeText(brandIdentity.imageTreatment),
+            motionStyle: normalizeText(brandIdentity.motionStyle),
             signatureElement: normalizeText(brandIdentity.signatureElement),
             motion: cleanTextList(brandIdentity.motion, 5),
             avoid: cleanTextList(brandIdentity.avoid, 8),
@@ -5269,6 +5296,13 @@ const sanitizeOpenAiProposalStrict = (proposal = {}) => {
         },
         experienceBlueprint: {
             openingMove: normalizeText(experienceBlueprint.openingMove),
+            compositionPlan: {
+                heroPrimitive: normalizeText(compositionPlan.heroPrimitive),
+                contentPrimitive: normalizeText(compositionPlan.contentPrimitive),
+                artifactPlacement: normalizeText(compositionPlan.artifactPlacement),
+                imagePlacement: normalizeText(compositionPlan.imagePlacement),
+                sectionOrder: cleanTextList(compositionPlan.sectionOrder, 5),
+            },
             primaryArtifact: {
                 type: normalizeText(primaryArtifact.type),
                 label: normalizeDisplayText(primaryArtifact.label),
@@ -5420,6 +5454,14 @@ const KIRBY_SITE_LAYOUT_VARIANTS = new Set([
 ]);
 
 const KIRBY_IDENTITY_COMPOSITIONS = new Set([
+    'immersive-hero',
+    'editorial-cover',
+    'asymmetric-grid',
+    'product-stage',
+    'vertical-narrative',
+    'map-led',
+    'cinematic-gallery',
+    'split-stage',
     'artifact-led',
     'split-flow',
     'editorial-stack',
@@ -5437,6 +5479,18 @@ const KIRBY_IDENTITY_DENSITIES = new Set(['compact', 'balanced', 'airy']);
 const KIRBY_IDENTITY_SHAPES = new Set(['precise', 'soft', 'framed', 'borderless']);
 const KIRBY_IDENTITY_IMAGE_STRATEGIES = new Set(['product-proof', 'result-proof', 'service-proof', 'graphic-system']);
 const KIRBY_IDENTITY_ARTIFACTS = new Set(['menu', 'workflow', 'dashboard', 'booking', 'dive', 'catalog', 'timeline', 'comparison', 'story']);
+const KIRBY_IDENTITY_TITLE_SCALES = new Set(['restrained', 'balanced', 'expressive']);
+const KIRBY_IDENTITY_DEPTHS = new Set(['flat', 'layered', 'deep']);
+const KIRBY_IDENTITY_MATERIALS = new Set(['glass', 'paper', 'ink', 'metal', 'organic', 'canvas', 'technical']);
+const KIRBY_IDENTITY_TRANSPARENCIES = new Set(['solid', 'soft', 'clear']);
+const KIRBY_IDENTITY_RHYTHMS = new Set(['compact', 'measured', 'cinematic', 'staccato']);
+const KIRBY_IDENTITY_IMAGE_TREATMENTS = new Set(['full-bleed', 'collage', 'framed', 'filmstrip', 'masked', 'none']);
+const KIRBY_IDENTITY_MOTION_STYLES = new Set(['still', 'reveal', 'drift', 'parallax', 'kinetic']);
+const KIRBY_IDENTITY_HERO_PRIMITIVES = new Set(['immersive-hero', 'editorial-cover', 'asymmetric-grid', 'product-stage', 'vertical-narrative', 'map-led', 'cinematic-gallery', 'split-stage']);
+const KIRBY_IDENTITY_CONTENT_PRIMITIVES = new Set(['proof-mosaic', 'catalog-shelf', 'process-rail', 'story-chapters', 'gallery-reel', 'data-canvas']);
+const KIRBY_IDENTITY_ARTIFACT_PLACEMENTS = new Set(['hero', 'overlap', 'inline', 'rail', 'below']);
+const KIRBY_IDENTITY_IMAGE_PLACEMENTS = new Set(['background', 'dominant', 'collage', 'strip', 'supporting', 'none']);
+const KIRBY_IDENTITY_SECTION_KEYS = new Set(['hero', 'artifact', 'proof', 'gallery', 'flow']);
 
 const normalizeSiteSectorKey = (value = '') => stripAccents(normalizeText(value).toLowerCase())
     .replace(/[^a-z0-9]+/g, '-')
@@ -5506,12 +5560,12 @@ const finalizeOpenAiSiteProposal = ({ proposal = {}, brief = '' } = {}) => {
     const blueprint = sanitized.experienceBlueprint;
     const artifact = blueprint.primaryArtifact;
     const compositionFallbacks = {
-        'finance-os': 'product-canvas',
-        'product-dashboard': 'product-canvas',
-        'gallery-focus': 'split-flow',
-        'minimal-editorial': 'editorial-stack',
-        'luxury-asymmetric': 'artifact-led',
-        'cinematic-video': 'immersive-sequence',
+        'finance-os': 'product-stage',
+        'product-dashboard': 'product-stage',
+        'gallery-focus': 'asymmetric-grid',
+        'minimal-editorial': 'editorial-cover',
+        'luxury-asymmetric': 'asymmetric-grid',
+        'cinematic-video': 'cinematic-gallery',
     };
     const artifactFallbacks = {
         accounting: 'workflow',
@@ -5539,6 +5593,59 @@ const finalizeOpenAiSiteProposal = ({ proposal = {}, brief = '' } = {}) => {
     identity.imageStrategy = KIRBY_IDENTITY_IMAGE_STRATEGIES.has(normalizeSiteLayoutVariant(identity.imageStrategy))
         ? normalizeSiteLayoutVariant(identity.imageStrategy)
         : 'graphic-system';
+    identity.titleScale = KIRBY_IDENTITY_TITLE_SCALES.has(normalizeSiteLayoutVariant(identity.titleScale))
+        ? normalizeSiteLayoutVariant(identity.titleScale)
+        : 'balanced';
+    identity.depth = KIRBY_IDENTITY_DEPTHS.has(normalizeSiteLayoutVariant(identity.depth))
+        ? normalizeSiteLayoutVariant(identity.depth)
+        : 'layered';
+    identity.material = KIRBY_IDENTITY_MATERIALS.has(normalizeSiteLayoutVariant(identity.material))
+        ? normalizeSiteLayoutVariant(identity.material)
+        : identity.surfaceMode === 'glass' ? 'glass' : 'technical';
+    identity.transparency = KIRBY_IDENTITY_TRANSPARENCIES.has(normalizeSiteLayoutVariant(identity.transparency))
+        ? normalizeSiteLayoutVariant(identity.transparency)
+        : identity.surfaceMode === 'glass' ? 'clear' : 'soft';
+    identity.sectionRhythm = KIRBY_IDENTITY_RHYTHMS.has(normalizeSiteLayoutVariant(identity.sectionRhythm))
+        ? normalizeSiteLayoutVariant(identity.sectionRhythm)
+        : 'measured';
+    identity.imageTreatment = KIRBY_IDENTITY_IMAGE_TREATMENTS.has(normalizeSiteLayoutVariant(identity.imageTreatment))
+        ? normalizeSiteLayoutVariant(identity.imageTreatment)
+        : identity.imageStrategy === 'graphic-system' ? 'none' : 'framed';
+    identity.motionStyle = KIRBY_IDENTITY_MOTION_STYLES.has(normalizeSiteLayoutVariant(identity.motionStyle))
+        ? normalizeSiteLayoutVariant(identity.motionStyle)
+        : 'reveal';
+    identity.surfaceMode = ['glass', 'luminous', 'matte'].includes(normalizeSiteLayoutVariant(identity.surfaceMode))
+        ? normalizeSiteLayoutVariant(identity.surfaceMode)
+        : 'matte';
+
+    const compositionPlan = blueprint.compositionPlan;
+    const compositionAlias = {
+        'artifact-led': 'product-stage',
+        'split-flow': 'split-stage',
+        'editorial-stack': 'editorial-cover',
+        'product-canvas': 'product-stage',
+        'immersive-sequence': 'immersive-hero',
+    };
+    const requestedHero = normalizeSiteLayoutVariant(compositionPlan.heroPrimitive);
+    const identityHero = compositionAlias[identity.composition] || identity.composition;
+    compositionPlan.heroPrimitive = KIRBY_IDENTITY_HERO_PRIMITIVES.has(requestedHero)
+        ? requestedHero
+        : KIRBY_IDENTITY_HERO_PRIMITIVES.has(identityHero) ? identityHero : 'split-stage';
+    compositionPlan.contentPrimitive = KIRBY_IDENTITY_CONTENT_PRIMITIVES.has(normalizeSiteLayoutVariant(compositionPlan.contentPrimitive))
+        ? normalizeSiteLayoutVariant(compositionPlan.contentPrimitive)
+        : 'proof-mosaic';
+    compositionPlan.artifactPlacement = KIRBY_IDENTITY_ARTIFACT_PLACEMENTS.has(normalizeSiteLayoutVariant(compositionPlan.artifactPlacement))
+        ? normalizeSiteLayoutVariant(compositionPlan.artifactPlacement)
+        : 'hero';
+    compositionPlan.imagePlacement = KIRBY_IDENTITY_IMAGE_PLACEMENTS.has(normalizeSiteLayoutVariant(compositionPlan.imagePlacement))
+        ? normalizeSiteLayoutVariant(compositionPlan.imagePlacement)
+        : identity.imageStrategy === 'graphic-system' ? 'none' : 'dominant';
+    compositionPlan.sectionOrder = compositionPlan.sectionOrder
+        .map(normalizeSiteLayoutVariant)
+        .filter((item, index, items) => KIRBY_IDENTITY_SECTION_KEYS.has(item) && items.indexOf(item) === index);
+    ['hero', 'artifact', 'proof', 'gallery', 'flow'].forEach((item) => {
+        if (!compositionPlan.sectionOrder.includes(item)) compositionPlan.sectionOrder.push(item);
+    });
     artifact.type = KIRBY_IDENTITY_ARTIFACTS.has(normalizeSiteLayoutVariant(artifact.type))
         ? normalizeSiteLayoutVariant(artifact.type)
         : artifactFallbacks[sanitized.sectorKey] || 'story';
@@ -5573,9 +5680,9 @@ const finalizeOpenAiSiteProposal = ({ proposal = {}, brief = '' } = {}) => {
         sanitized.layoutVariant = 'lumina-showcase';
         sanitized.visualMood = 'dive-booking';
         sanitized.projectType = sanitized.projectType || 'Centre de plongee, formations et sorties en mer';
-        identity.surfaceMode = 'glass';
-        identity.composition = 'product-canvas';
-        identity.imageStrategy = 'service-proof';
+        if (!identity.imageStrategy || identity.imageStrategy === 'graphic-system') {
+            identity.imageStrategy = 'service-proof';
+        }
         artifact.type = 'dive';
         artifact.label = 'Carnet de plongee';
         artifact.title = artifact.title || 'Prochaine sortie';
