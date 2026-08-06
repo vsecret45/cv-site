@@ -843,6 +843,30 @@ const GENERIC_AUTHOR_TERMS = [
     /\bsimulation\s+visuelle\b/i,
 ];
 
+const scrubGenericAuthorTerms = (proposal = {}) => {
+    const siteName = normalizeDisplayText(proposal && proposal.siteName) || 'le service';
+    const replacements = [
+        [/\bcomprendre\s+le\s+besoin\b/gi, `découvrir ${siteName}`],
+        [/\bdemande\s+qualifi(?:é|e)e?\b/gi, 'demande prête'],
+        [/\bdiagnostic\s*&?\s*simulation\b/gi, 'analyse initiale'],
+        [/\bsimulation\s+visuelle\b/gi, 'aperçu concret'],
+    ];
+    const scrub = (value) => {
+        if (typeof value === 'string') {
+            return replacements.reduce((text, [pattern, replacement]) => text.replace(pattern, replacement), value);
+        }
+        if (Array.isArray(value)) {
+            return value.map(scrub);
+        }
+        if (value && typeof value === 'object') {
+            return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, scrub(item)]));
+        }
+        return value;
+    };
+
+    return scrub(proposal);
+};
+
 const hasVisibleTermAbsentFromBrief = (proposal = {}, brief = '', patterns = []) => {
     const visibleText = getProposalVisibleText(proposal);
     const briefText = normalizeIntentText(brief);
@@ -5580,7 +5604,7 @@ const finalizeOpenAiSiteProposal = ({ proposal = {}, brief = '' } = {}) => {
         }
     }
 
-    return sanitized;
+    return scrubGenericAuthorTerms(sanitized);
 };
 
 const isFallbackHardRebuildRequest = (revision = '') => {

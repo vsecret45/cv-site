@@ -323,3 +323,26 @@ test('Kirby ne confond pas une suite de sections avec une suite hôtelière', ()
     assert.ok(guardStart >= 0 && guardEnd > guardStart);
     assert.equal(guardSource.includes('/\\bsuites?\\b/'), false);
 });
+
+test('Kirby nettoie les formulations génériques sans annuler la génération', async () => {
+    const proposal = makeProposal({
+        siteName: 'Conta Direct',
+        projectType: 'Comptabilité fournisseurs',
+        serviceName: 'Circuit de validation',
+        layoutVariant: 'finance-os',
+        artifactType: 'workflow',
+    });
+    proposal.slogan = 'Comprendre le besoin';
+    proposal.homeSections[0].title = 'Demande qualifiée';
+    proposal.narrativePlan.commercialPromise = 'Diagnostic & simulation';
+    proposal.visualPlan.hero.purpose = 'Simulation visuelle';
+
+    const response = await callKirbyWithOpenAiProposal(
+        'Conta Direct automatise la comptabilité fournisseurs, la validation et le paiement des factures.',
+        proposal,
+    );
+    const body = response.body.toLowerCase();
+
+    assert.equal(response.statusCode, 200);
+    assert.doesNotMatch(body, /comprendre le besoin|demande qualifi|diagnostic & simulation|simulation visuelle/);
+});
