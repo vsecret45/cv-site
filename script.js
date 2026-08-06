@@ -9715,6 +9715,23 @@ const hasConcreteKirbyCvEditIntent = (message = '') => {
         || hasOpenEndedRewriteIntent;
 };
 
+const hasCompoundKirbyCvInstruction = (message = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(message));
+    const actionPatterns = [
+        /\b(ajoute|ajouter|insere|inserer|integre|integrer)\b/,
+        /\b(supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer)\b/,
+        /\b(remplace|remplacer|change|changer|modifie|modifier)\b/,
+        /\b(corrige|corriger|redige|rediger|ecris|ecrire|reecris|reecrire|ameliore|ameliorer|optimise|optimiser|reformule|reformuler|raccourcis|raccourcir)\b/,
+        /\b(range|ranger|trie|trier|classe|classer|reorganise|reorganiser|deplace|deplacer)\b|\bbon ordre\b/,
+        /\b(adapte|adapter|fais|faire|prepare|preparer)\b/,
+    ];
+    const groupCount = actionPatterns.filter((pattern) => pattern.test(source)).length;
+    const actionWords = source.match(/\b(ajoute|insere|integre|supprime|retire|enleve|efface|remplace|change|modifie|corrige|redige|ecris|reecris|ameliore|optimise|reformule|raccourcis|range|trie|classe|reorganise|deplace|adapte|fais|prepare)\b/g) || [];
+    const hasConnector = /\b(et|puis|ensuite|ainsi que)\b|[,;]/.test(source);
+
+    return groupCount >= 2 || (hasConnector && new Set(actionWords).size >= 2);
+};
+
 const isKirbyCvTechnicalOrExplanatoryInstruction = (message = '') => {
     const instruction = getKirbyUserInstruction(message);
     const source = normalizeForMatch(instruction);
@@ -12732,14 +12749,17 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
         return 'Kirby analyse déjà le CV.';
     }
 
-    const finalExperienceReply = await applyFinalExperienceTableCorrection(instruction);
-    if (finalExperienceReply) {
-        return finalExperienceReply;
-    }
+    const compoundInstruction = hasCompoundKirbyCvInstruction(instruction);
+    if (!compoundInstruction) {
+        const finalExperienceReply = await applyFinalExperienceTableCorrection(instruction);
+        if (finalExperienceReply) {
+            return finalExperienceReply;
+        }
 
-    const localOrderReply = await applyExperienceOrderCleanupFromKirby(instruction);
-    if (localOrderReply) {
-        return localOrderReply;
+        const localOrderReply = await applyExperienceOrderCleanupFromKirby(instruction);
+        if (localOrderReply) {
+            return localOrderReply;
+        }
     }
 
     const layoutIntent = getKirbyLayoutIntent(instruction);
@@ -12836,21 +12856,23 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
                     return;
                 }
 
-                const finalExperienceReply = await applyFinalExperienceTableCorrection(queuedMessage);
-                if (finalExperienceReply) {
-                    hideKirbyCvProposal();
-                    appendAssistantMessage(finalExperienceReply, 'bot');
-                    return;
-                }
+                const compoundInstruction = hasCompoundKirbyCvInstruction(queuedMessage);
+                if (!compoundInstruction) {
+                    const finalExperienceReply = await applyFinalExperienceTableCorrection(queuedMessage);
+                    if (finalExperienceReply) {
+                        hideKirbyCvProposal();
+                        appendAssistantMessage(finalExperienceReply, 'bot');
+                        return;
+                    }
 
-                const localOrderReply = await applyExperienceOrderCleanupFromKirby(queuedMessage);
-                if (localOrderReply) {
-                    hideKirbyCvProposal();
-                    appendAssistantMessage(localOrderReply, 'bot');
-                    return;
-                }
+                    const localOrderReply = await applyExperienceOrderCleanupFromKirby(queuedMessage);
+                    if (localOrderReply) {
+                        hideKirbyCvProposal();
+                        appendAssistantMessage(localOrderReply, 'bot');
+                        return;
+                    }
 
-                const quickReply = applyQuickKirbyCorrection(queuedMessage);
+                    const quickReply = applyQuickKirbyCorrection(queuedMessage);
                     if (quickReply) {
                         hideKirbyCvProposal();
                         if (isQuickKirbyMutationReply(quickReply)) {
@@ -12859,7 +12881,8 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
                             return;
                         }
                         appendAssistantMessage(quickReply, 'bot');
-                    return;
+                        return;
+                    }
                 }
 
                 if (isExplicitCvSaveInstruction(queuedMessage)) {
@@ -13114,18 +13137,21 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
         return;
     }
 
-    const finalExperienceReply = await applyFinalExperienceTableCorrection(cleanMessage);
-    if (finalExperienceReply) {
-        hideKirbyCvProposal();
-        appendAssistantMessage(finalExperienceReply, 'bot');
-        return;
-    }
+    const compoundInstruction = hasCompoundKirbyCvInstruction(cleanMessage);
+    if (!compoundInstruction) {
+        const finalExperienceReply = await applyFinalExperienceTableCorrection(cleanMessage);
+        if (finalExperienceReply) {
+            hideKirbyCvProposal();
+            appendAssistantMessage(finalExperienceReply, 'bot');
+            return;
+        }
 
-    const targetedDigitalReply = applyTargetedDigitalCvCompletion(cleanMessage);
-    if (targetedDigitalReply) {
-        hideKirbyCvProposal();
-        appendAssistantMessage(targetedDigitalReply, 'bot');
-        return;
+        const targetedDigitalReply = applyTargetedDigitalCvCompletion(cleanMessage);
+        if (targetedDigitalReply) {
+            hideKirbyCvProposal();
+            appendAssistantMessage(targetedDigitalReply, 'bot');
+            return;
+        }
     }
 
     if (isKirbyCvRequestInFlight) {
@@ -13155,23 +13181,25 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
         return;
     }
 
-    const localOrderReply = await applyExperienceOrderCleanupFromKirby(cleanMessage);
-    if (localOrderReply) {
-        hideKirbyCvProposal();
-        appendAssistantMessage(localOrderReply, 'bot');
-        return;
-    }
-
-    const quickReply = applyQuickKirbyCorrection(cleanMessage);
-    if (quickReply) {
-        hideKirbyCvProposal();
-        if (isQuickKirbyMutationReply(quickReply)) {
-            const persistence = await persistCvDraftImmediately();
-            appendAssistantMessage(buildKirbyQuickPersistenceReply(quickReply, persistence), 'bot');
+    if (!compoundInstruction) {
+        const localOrderReply = await applyExperienceOrderCleanupFromKirby(cleanMessage);
+        if (localOrderReply) {
+            hideKirbyCvProposal();
+            appendAssistantMessage(localOrderReply, 'bot');
             return;
         }
-        appendAssistantMessage(quickReply, 'bot');
-        return;
+
+        const quickReply = applyQuickKirbyCorrection(cleanMessage);
+        if (quickReply) {
+            hideKirbyCvProposal();
+            if (isQuickKirbyMutationReply(quickReply)) {
+                const persistence = await persistCvDraftImmediately();
+                appendAssistantMessage(buildKirbyQuickPersistenceReply(quickReply, persistence), 'bot');
+                return;
+            }
+            appendAssistantMessage(quickReply, 'bot');
+            return;
+        }
     }
 
     if (isExplicitCvSaveInstruction(cleanMessage)) {
