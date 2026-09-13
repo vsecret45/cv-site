@@ -360,6 +360,490 @@ for (const negatedName of ['My name is not John Smith.', 'Je m’appelle pas Jea
     });
 }
 
+test('CV raconté : restaure le domicile et le permis explicitement déclarés si le modèle les omet', async () => {
+    const extraction = {
+        ...expectedEliseExtraction,
+        location: '',
+        permit: '',
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative: eliseNarrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.extracted.location, 'Angers');
+    assert.match(body.cv.extracted.permit, /^permis B$/i);
+});
+
+test('CV raconté : un domicile et un permis niés ne deviennent pas des faits', async () => {
+    const narrative = eliseNarrative
+        .replace('J’habite à Angers.', 'Je n’habite pas à Nantes.')
+        .replace('J’ai le permis B.', 'Je n’ai pas le permis C.');
+    const extraction = {
+        ...expectedEliseExtraction,
+        location: 'Nantes',
+        permit: 'Permis C',
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.extracted.location, '');
+    assert.equal(body.cv.extracted.permit, '');
+});
+
+test('CV raconté : une rétractation de domicile efface la déclaration antérieure', async () => {
+    const narrative = eliseNarrative.replace(
+        'J’habite à Angers.',
+        'J’habite à Angers. En fait, je n’habite plus à Angers.',
+    );
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(expectedEliseExtraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.extracted.location, '');
+});
+
+test('CV raconté : une négation visant une autre ville ne rétracte pas le domicile déclaré', async () => {
+    const narrative = eliseNarrative.replace(
+        'J’habite à Angers.',
+        'J’habite à Angers. Je n’habite pas à Nantes.',
+    );
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(expectedEliseExtraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.extracted.location, 'Angers');
+});
+
+test('CV raconté : un conditionnel ne rétracte pas un domicile réellement déclaré', async () => {
+    const narrative = eliseNarrative.replace(
+        'J’habite à Angers.',
+        'J’habite à Angers. Si j’habite à Angers.',
+    );
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(expectedEliseExtraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.extracted.location, 'Angers');
+});
+
+test('CV raconté : un domicile souhaité ne devient pas un domicile actuel', async () => {
+    const narrative = eliseNarrative.replace('J’habite à Angers.', 'Je souhaite être domiciliée à Tours.');
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(expectedEliseExtraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.cv.extracted.location, '');
+});
+
+test('CV raconté : la dernière déclaration positive de domicile prévaut', async () => {
+    const narrative = eliseNarrative.replace(
+        'J’habite à Angers.',
+        'J’habite à Angers. En fait, j’habite à Tours.',
+    );
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(expectedEliseExtraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.extracted.location, 'Tours');
+});
+
+for (const fixture of [
+    { statement: 'Je suis domiciliée à Angers.', expected: 'Angers' },
+    { statement: 'Home address: Angers.', expected: 'Angers' },
+    { statement: 'Adresse : 12 rue des Fleurs, 49000 Angers.', expected: '12 rue des Fleurs, 49000 Angers' },
+    { statement: 'J’habite à Angers, je travaille à distance.', expected: 'Angers' },
+    { statement: 'J’habite à Angers, mais je travaille à distance.', expected: 'Angers' },
+    { statement: 'J’habite à Angers depuis 2020.', expected: 'Angers' },
+    { statement: 'J’habite à Angers et travaille à Nantes.', expected: 'Angers' },
+    { statement: 'I live in Angers with my family.', expected: 'Angers' },
+    { statement: 'Je vis à Angers pour mon travail.', expected: 'Angers' },
+    { statement: 'J’habite à Angers pour raisons personnelles.', expected: 'Angers' },
+    { statement: 'J’habite à Angers pour des raisons personnelles.', expected: 'Angers' },
+    { statement: 'J’habite à Angers, où je travaille.', expected: 'Angers' },
+    { statement: 'I live in Angers, where I work.', expected: 'Angers' },
+    { statement: 'J’habite à Angers, mais travaille à Nantes.', expected: 'Angers' },
+    { statement: 'I live in Angers while working in Nantes.', expected: 'Angers' },
+    { statement: 'Je vis à Angers car j’y travaille.', expected: 'Angers' },
+    { statement: 'Je vis à Angers parce que j’y travaille.', expected: 'Angers' },
+    { statement: 'Je vis à Angers quand je travaille.', expected: 'Angers' },
+    { statement: 'Je vis à Angers en télétravail.', expected: 'Angers' },
+    { statement: 'Je vis à Angers proche de ma famille.', expected: 'Angers' },
+    { statement: 'I live in Angers while employed in Nantes.', expected: 'Angers' },
+    { statement: 'Je suis basée à Angers.', expected: 'Angers' },
+    { statement: 'Ville : Angers.', expected: 'Angers' },
+    { statement: 'Localisation : Angers.', expected: 'Angers' },
+    { statement: 'J’habite sur Angers.', expected: 'Angers' },
+    { statement: 'J’habite à Angers avec deux enfants.', expected: 'Angers' },
+    { statement: 'Je vis à Angers près de ma famille.', expected: 'Angers' },
+    { statement: 'Je vis à Angers, mais suis salariée à Nantes.', expected: 'Angers' },
+    { statement: 'I live in Angers but am employed in Nantes.', expected: 'Angers' },
+    { statement: 'Je vis à Angers parce que mon travail est là-bas.', expected: 'Angers' },
+    { statement: 'Je vis à Angers pour être près de ma famille.', expected: 'Angers' },
+    { statement: 'J’habite à Angers et suis en télétravail.', expected: 'Angers' },
+]) {
+    test(`CV raconté : extrait exactement le domicile « ${fixture.statement} »`, async () => {
+        const narrative = eliseNarrative.replace('J’habite à Angers.', fixture.statement);
+        const extraction = { ...expectedEliseExtraction, location: '' };
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative,
+            assistantResult: buildAssistantResult(extraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'openai');
+        assert.equal(body.cv.extracted.location, fixture.expected);
+    });
+}
+
+for (const statement of [
+    'Je prépare le permis B.',
+    'Je souhaite obtenir le permis B.',
+    'Je vais passer le permis B.',
+    'Permis B en cours.',
+]) {
+    test(`CV raconté : ne transforme pas en permis acquis « ${statement} »`, async () => {
+        const narrative = eliseNarrative.replace('J’ai le permis B.', statement);
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative,
+            assistantResult: buildAssistantResult(expectedEliseExtraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'openai');
+        assert.equal(body.cv.extracted.permit, '');
+    });
+}
+
+for (const statement of [
+    'Permis B.',
+    'Je suis titulaire du permis B.',
+    'J’ai mon permis B.',
+    'J’ai obtenu mon permis B.',
+    'Je dispose du permis B.',
+    'I hold a driving licence B.',
+    'I have my B driving licence.',
+]) {
+    test(`CV raconté : reconnaît la possession explicite « ${statement} »`, async () => {
+        const narrative = eliseNarrative.replace('J’ai le permis B.', statement);
+        const extraction = { ...expectedEliseExtraction, permit: '' };
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative,
+            assistantResult: buildAssistantResult(extraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'openai');
+        assert.match(body.cv.extracted.permit, /(?:permis|licence).*B/i);
+    });
+}
+
+test('CV raconté : borne le permis avant une nouvelle proposition', async () => {
+    const narrative = eliseNarrative.replace('J’ai le permis B.', 'J’ai le permis B, je suis mobile.');
+    const extraction = { ...expectedEliseExtraction, permit: '' };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.match(body.cv.extracted.permit, /^permis B$/i);
+});
+
+test('CV raconté : une négation visant une autre catégorie ne rétracte pas le permis acquis', async () => {
+    const narrative = eliseNarrative.replace('J’ai le permis B.', 'J’ai le permis B. Je n’ai pas le permis C.');
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(expectedEliseExtraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.match(body.cv.extracted.permit, /^permis B$/i);
+});
+
+test('CV raconté : retire une seule catégorie d’un permis multiple', async () => {
+    const narrative = eliseNarrative.replace('J’ai le permis B.', 'J’ai les permis B et C. Je n’ai plus le permis B.');
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(expectedEliseExtraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.match(body.cv.extracted.permit, /permis C/i);
+    assert.doesNotMatch(body.cv.extracted.permit, /\bB\b/);
+});
+
+test('CV raconté : retire B après « désormais plus » sans perdre C', async () => {
+    const narrative = eliseNarrative.replace(
+        'J’ai le permis B.',
+        'J’ai les permis B et C. Je n’ai désormais plus le permis B.',
+    );
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(expectedEliseExtraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.match(body.cv.extracted.permit, /permis C/i);
+    assert.doesNotMatch(body.cv.extracted.permit, /\bB\b/);
+});
+
+test('CV raconté : cumule deux catégories de permis affirmées successivement', async () => {
+    const narrative = eliseNarrative.replace('J’ai le permis B.', 'J’ai le permis B. J’ai le permis C.');
+    const extraction = { ...expectedEliseExtraction, permit: 'Permis B et C' };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.match(body.cv.extracted.permit, /\bB\b/);
+    assert.match(body.cv.extracted.permit, /\bC\b/);
+});
+
+test('CV raconté : reconnaît « permis B ainsi que le C »', async () => {
+    const narrative = eliseNarrative.replace('J’ai le permis B.', 'J’ai le permis B ainsi que le C.');
+    const extraction = { ...expectedEliseExtraction, permit: 'Permis B et C' };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.match(body.cv.extracted.permit, /\bB\b/);
+    assert.match(body.cv.extracted.permit, /\bC\b/);
+});
+
+for (const statement of [
+    'J’ai le permis B ainsi que le permis C.',
+    'J’ai obtenu le permis B ainsi que le permis C.',
+]) {
+    test(`CV raconté : reconnaît le nom « permis » répété dans « ${statement} »`, async () => {
+        const narrative = eliseNarrative.replace('J’ai le permis B.', statement);
+        const extraction = { ...expectedEliseExtraction, permit: 'Permis B et C' };
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative,
+            assistantResult: buildAssistantResult(extraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'openai');
+        assert.match(body.cv.extracted.permit, /\bB\b/);
+        assert.match(body.cv.extracted.permit, /\bC\b/);
+    });
+}
+
+test('CV raconté : retire « mon C » expiré d’un permis B et C', async () => {
+    const narrative = eliseNarrative.replace(
+        'J’ai le permis B.',
+        'J’ai les permis B et C. Mon C n’est plus valide.',
+    );
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(expectedEliseExtraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.match(body.cv.extracted.permit, /\bB\b/);
+    assert.doesNotMatch(body.cv.extracted.permit, /\bC\b/);
+});
+
+test('CV raconté : conserve « permis B et le permis C »', async () => {
+    const narrative = eliseNarrative.replace('J’ai le permis B.', 'J’ai le permis B et le permis C.');
+    const extraction = { ...expectedEliseExtraction, permit: 'Permis B et C' };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.match(body.cv.extracted.permit, /\bB\b/);
+    assert.match(body.cv.extracted.permit, /\bC\b/);
+});
+
+for (const statement of [
+    'I have driving licences B and C.',
+    'I have B and C driving licences.',
+]) {
+    test(`CV raconté : reconnaît les permis anglais multiples « ${statement} »`, async () => {
+        const narrative = eliseNarrative.replace('J’ai le permis B.', statement);
+        const extraction = { ...expectedEliseExtraction, permit: 'Driving licence B and C' };
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative,
+            assistantResult: buildAssistantResult(extraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'openai');
+        assert.match(body.cv.extracted.permit, /\bB\b/);
+        assert.match(body.cv.extracted.permit, /\bC\b/);
+    });
+}
+
+test('CV raconté : reconnaît la catégorie placée avant « driving licence »', async () => {
+    const narrative = eliseNarrative.replace('J’ai le permis B.', 'I have a B driving licence.');
+    const extraction = { ...expectedEliseExtraction, permit: 'Driving licence B' };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.match(body.cv.extracted.permit, /\bB\b/);
+});
+
+for (const statement of [
+    'J’ai les permis B et C, sauf C.',
+    'I have driving licences B and C, except C.',
+]) {
+    test(`CV raconté : applique l’exclusion d’une catégorie « ${statement} »`, async () => {
+        const narrative = eliseNarrative.replace('J’ai le permis B.', statement);
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative,
+            assistantResult: buildAssistantResult(expectedEliseExtraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'openai');
+        assert.match(body.cv.extracted.permit, /\bB\b/);
+        assert.doesNotMatch(body.cv.extracted.permit, /\bC\b/);
+    });
+}
+
+for (const statement of [
+    'J’ai les permis B et C. Finalement, seulement le B.',
+    'J’ai les permis B et C. Finalement, j’ai seulement le permis B.',
+]) {
+    test(`CV raconté : une restriction ultérieure conserve seulement B « ${statement} »`, async () => {
+        const narrative = eliseNarrative.replace('J’ai le permis B.', statement);
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative,
+            assistantResult: buildAssistantResult(expectedEliseExtraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'openai');
+        assert.match(body.cv.extracted.permit, /\bB\b/);
+        assert.doesNotMatch(body.cv.extracted.permit, /\bC\b/);
+    });
+}
+
+test('CV raconté : « finalement seulement B » sans permis antérieur n’invente rien', async () => {
+    const narrative = eliseNarrative.replace('J’ai le permis B.', 'Finalement, seulement B.');
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(expectedEliseExtraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.extracted.permit, '');
+});
+
+test('CV raconté : une exclusion ne transforme pas un permis en préparation en permis acquis', async () => {
+    const narrative = eliseNarrative.replace('J’ai le permis B.', 'Je prépare les permis B et C, sauf C.');
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(expectedEliseExtraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.extracted.permit, '');
+});
+
+for (const statement of [
+    'I no longer have B and C driving licences.',
+    'I never have a B driving licence.',
+]) {
+    test(`CV raconté : la possession anglaise niée reste vide « ${statement} »`, async () => {
+        const narrative = eliseNarrative.replace('J’ai le permis B.', statement);
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative,
+            assistantResult: buildAssistantResult(expectedEliseExtraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'openai');
+        assert.equal(body.cv.extracted.permit, '');
+    });
+}
+
+test('CV raconté : « aussi » permet d’ajouter une seconde catégorie acquise', async () => {
+    const narrative = eliseNarrative.replace('J’ai le permis B.', 'J’ai le permis B. J’ai aussi le permis C.');
+    const extraction = { ...expectedEliseExtraction, permit: 'Permis B et C' };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.match(body.cv.extracted.permit, /\bB\b/);
+    assert.match(body.cv.extracted.permit, /\bC\b/);
+});
+
+for (const statement of [
+    'J’ai le permis B. Le permis B a expiré.',
+    'J’ai le permis B, mais il a expiré.',
+    'J’ai le permis B. Le permis B n’est désormais plus valide.',
+]) {
+    test(`CV raconté : un permis expiré n’est plus affiché « ${statement} »`, async () => {
+        const narrative = eliseNarrative.replace('J’ai le permis B.', statement);
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative,
+            assistantResult: buildAssistantResult(expectedEliseExtraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'openai');
+        assert.equal(body.cv.extracted.permit, '');
+    });
+}
+
+for (const retraction of ['Je n’ai plus de permis.', 'Je ne l’ai plus.']) {
+    test(`CV raconté : la rétractation « ${retraction} » efface le permis acquis`, async () => {
+        const narrative = eliseNarrative.replace('J’ai le permis B.', `J’ai le permis B. ${retraction}`);
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative,
+            assistantResult: buildAssistantResult(expectedEliseExtraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'openai');
+        assert.equal(body.cv.extracted.permit, '');
+    });
+}
+
 test('CV raconté : remplace une accroche paraphrasée non ancrée par la qualité source exacte', async () => {
     const extraction = {
         ...expectedEliseExtraction,
@@ -374,6 +858,697 @@ test('CV raconté : remplace une accroche paraphrasée non ancrée par la qualit
     assert.equal(body.source, 'openai');
     assert.equal(body.cv.extracted.summary, 'Je suis organisée, souriante et à l’aise avec les clients.');
     assert.equal(body.cv.summary, 'Je suis organisée, souriante et à l’aise avec les clients.');
+});
+
+test('CV raconté : retire un adjectif inventé du profil et conserve la phrase source', async () => {
+    const extraction = {
+        ...expectedEliseExtraction,
+        summary: 'Je suis organisée, souriante et créative.',
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative: eliseNarrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.extracted.summary, 'Je suis organisée, souriante et à l’aise avec les clients.');
+    assert.equal(body.cv.summary, 'Je suis organisée, souriante et à l’aise avec les clients.');
+    assert.doesNotMatch(body.cv.extracted.summary, /créative/i);
+});
+
+test('CV raconté : un adjectif explicitement nié ne peut pas entrer dans le profil', async () => {
+    const narrative = `${eliseNarrative}\n\nJe ne suis pas créative.`;
+    const extraction = {
+        ...expectedEliseExtraction,
+        summary: 'Je suis organisée, souriante et créative.',
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.extracted.summary, 'Je suis organisée, souriante et à l’aise avec les clients.');
+    assert.doesNotMatch(body.cv.extracted.summary, /créative/i);
+});
+
+test('CV raconté : un profil uniquement fondé sur une qualité niée est rejeté', async () => {
+    const narrative = eliseNarrative.replace(
+        'Je suis organisée, souriante et à l’aise avec les clients.',
+        'Je ne suis pas créative.',
+    );
+    const extraction = {
+        ...expectedEliseExtraction,
+        summary: 'Je suis créative.',
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'deterministic-fallback');
+});
+
+test('CV raconté : accepte une paraphrase bornée des qualités nominales', async () => {
+    const narrative = eliseNarrative.replace(
+        'Je suis organisée, souriante et à l’aise avec les clients.',
+        'Mes qualités : organisation, sourire et aisance avec les clients.',
+    );
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(expectedEliseExtraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.extracted.summary, expectedEliseExtraction.summary);
+});
+
+test('CV raconté : les synonymes de qualités n’autorisent pas un adjectif supplémentaire', async () => {
+    const narrative = eliseNarrative.replace(
+        'Je suis organisée, souriante et à l’aise avec les clients.',
+        'Mes qualités : organisation, sourire et aisance avec les clients.',
+    );
+    const extraction = {
+        ...expectedEliseExtraction,
+        summary: `${expectedEliseExtraction.summary} Je suis créative.`,
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'deterministic-fallback');
+});
+
+test('CV raconté : le nom d’un employeur ciblé ne devient pas une qualité personnelle', async () => {
+    const narrative = eliseNarrative.replace(
+        'Je cherche un poste de réceptionniste en hôtellerie.',
+        'Je cherche un poste de réceptionniste chez Créative.',
+    );
+    const extraction = {
+        ...expectedEliseExtraction,
+        summary: `${expectedEliseExtraction.summary} Je suis créative.`,
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.doesNotMatch(body.cv.extracted.summary, /créative/i);
+});
+
+test('CV raconté : le nom d’un hôtel ciblé ne devient pas une qualité personnelle', async () => {
+    const narrative = eliseNarrative.replace(
+        'Je cherche un poste de réceptionniste en hôtellerie.',
+        'Je cherche un poste de réceptionniste à l’hôtel Créative.',
+    );
+    const extraction = {
+        ...expectedEliseExtraction,
+        summary: `${expectedEliseExtraction.summary} Je suis créative.`,
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.doesNotMatch(body.cv.extracted.summary, /créative/i);
+});
+
+test('CV raconté : un adjectif du poste ciblé ne suffit pas à créer une qualité personnelle', async () => {
+    const narrative = eliseNarrative.replace(
+        'Je cherche un poste de réceptionniste en hôtellerie.',
+        'Je cherche un poste de réceptionniste créative en hôtellerie.',
+    );
+    const extraction = {
+        ...expectedEliseExtraction,
+        summary: `${expectedEliseExtraction.summary} Je suis créative.`,
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.doesNotMatch(body.cv.extracted.summary, /créative/i);
+});
+
+test('CV raconté : Creative Cloud ne devient pas la qualité créative', async () => {
+    const narrative = `${eliseNarrative}\n\nJe sais utiliser Creative Cloud.`;
+    const extraction = {
+        ...expectedEliseExtraction,
+        summary: `${expectedEliseExtraction.summary} Je suis créative.`,
+        skills: [...expectedEliseExtraction.skills, 'Creative Cloud'],
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.doesNotMatch(body.cv.extracted.summary, /créative/i);
+    assert.ok(body.cv.extracted.skills.some((skill) => /Creative Cloud/i.test(skill)));
+});
+
+test('CV raconté : un employeur dans un emploi sans date ne devient pas une qualité personnelle', async () => {
+    const narrative = [
+        'Mon nom est Léa Martin.',
+        'Je suis réceptionniste chez Créative.',
+        'Je suis organisée.',
+        'Le titre de mon CV doit être « Réceptionniste ».',
+    ].join('\n\n');
+    const extraction = {
+        fullName: 'Léa Martin',
+        location: '',
+        phone: '',
+        email: '',
+        permit: '',
+        headline: 'Réceptionniste',
+        summary: 'Je suis organisée et créative.',
+        skills: [],
+        experiences: [],
+        projects: [],
+        education: [],
+        certifications: [],
+        activities: [],
+        languages: [],
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.extracted.summary, 'Je suis organisée.');
+    assert.doesNotMatch(body.cv.extracted.summary, /créative/i);
+});
+
+test('CV raconté : « loin d’être créative » ne devient pas une qualité positive', async () => {
+    const narrative = `${eliseNarrative}\n\nJe suis loin d’être créative.`;
+    const extraction = {
+        ...expectedEliseExtraction,
+        summary: `${expectedEliseExtraction.summary} Je suis créative.`,
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.doesNotMatch(body.cv.extracted.summary, /créative/i);
+});
+
+test('CV raconté : un employeur cité dans la phrase des qualités ne devient pas une qualité', async () => {
+    const narrative = eliseNarrative.replace(
+        'Je suis organisée, souriante et à l’aise avec les clients.',
+        'Mes qualités : organisation, mon employeur est Créative.',
+    );
+    const extraction = {
+        ...expectedEliseExtraction,
+        summary: 'Je suis organisée et créative. Je sais gérer les réclamations avec calme, organiser les priorités et travailler en équipe.',
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'deterministic-fallback');
+    assert.doesNotMatch(body.cv.extracted.summary, /créative/i);
+});
+
+test('CV raconté : « réceptionniste pour Créative » reste un emploi, pas une qualité', async () => {
+    const narrative = [
+        'Mon nom est Léa Martin.',
+        'Je suis réceptionniste pour Créative.',
+        'Je suis organisée.',
+        'Le titre de mon CV doit être « Réceptionniste ».',
+    ].join('\n\n');
+    const extraction = {
+        fullName: 'Léa Martin',
+        location: '',
+        phone: '',
+        email: '',
+        permit: '',
+        headline: 'Réceptionniste',
+        summary: 'Je suis organisée et créative.',
+        skills: [],
+        experiences: [],
+        projects: [],
+        education: [],
+        certifications: [],
+        activities: [],
+        languages: [],
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.extracted.summary, 'Je suis organisée.');
+    assert.doesNotMatch(body.cv.extracted.summary, /créative/i);
+});
+
+for (const statement of [
+    'Je suis membre de l’association Créative.',
+    'Je suis fan de Creative Cloud.',
+    'Je suis la réceptionniste de Créative.',
+    'Je suis organisée et utilise Creative Cloud.',
+]) {
+    test(`CV raconté : la relation « ${statement} » ne prouve pas la qualité créative`, async () => {
+        const narrative = [
+            'Mon nom est Léa Martin.',
+            statement,
+            'Je suis organisée.',
+            'Le titre de mon CV doit être « Réceptionniste ».',
+        ].join('\n\n');
+        const extraction = {
+            fullName: 'Léa Martin', location: '', phone: '', email: '', permit: '',
+            headline: 'Réceptionniste', summary: 'Je suis organisée et créative.', skills: [],
+            experiences: [], projects: [], education: [], certifications: [], activities: [], languages: [],
+        };
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative,
+            assistantResult: buildAssistantResult(extraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.doesNotMatch(body.cv.extracted.summary, /créative/i);
+    });
+}
+
+for (const statement of [
+    'Je suis étudiante à Créative Academy.',
+    'Je suis membre d’une organisation humanitaire.',
+    'Je suis membre du Sourire Club.',
+    'Je suis abonnée à Creative Cloud.',
+    'Je suis intéressée par l’agence Créative.',
+    'Je suis réceptionniste au groupe Créative.',
+    'Je suis membre du collectif Créative.',
+    'Je suis fière du projet Créative.',
+    'Je suis cliente de l’agence créative.',
+    'Je suis participante au programme creative.',
+    'Je suis utilisatrice de l’application sourire.',
+]) {
+    test(`CV raconté : le statut ou l’entité « ${statement} » n’invente pas une qualité`, async () => {
+        const narrative = eliseNarrative.replace(
+            'Je suis organisée, souriante et à l’aise avec les clients.',
+            statement,
+        );
+        const extraction = {
+            ...expectedEliseExtraction,
+            summary: /Sourire/i.test(statement) ? 'Je suis souriante.'
+                : /organisation/i.test(statement) ? 'Je suis organisée.'
+                    : 'Je suis créative.',
+        };
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative,
+            assistantResult: buildAssistantResult(extraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'deterministic-fallback');
+    });
+}
+
+for (const statement of [
+    'Creative Cloud est un outil avec lequel je suis à l’aise.',
+    'Le Sourire Club est une association dont je suis membre.',
+    'Créative est une agence dont je suis cliente.',
+]) {
+    test(`CV raconté : une relation inversée « ${statement} » n’invente pas de qualité`, async () => {
+        const narrative = eliseNarrative.replace(
+            'Je suis organisée, souriante et à l’aise avec les clients.',
+            statement,
+        );
+        const extraction = {
+            ...expectedEliseExtraction,
+            summary: /Sourire/i.test(statement) ? 'Je suis souriante.' : 'Je suis créative.',
+        };
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative,
+            assistantResult: buildAssistantResult(extraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'deterministic-fallback');
+    });
+}
+
+for (const statement of [
+    'Mes qualités : organisation / outils : Creative Cloud.',
+    'Mes qualités : organisation — outils : Creative Cloud.',
+    'Je suis organisée puis j’utilise Creative Cloud.',
+    'Je suis organisée tout en utilisant Creative Cloud.',
+    'Je suis organisée, outils : Creative Cloud.',
+    'Mes qualités : organisation, logiciels : Creative Cloud.',
+]) {
+    test(`CV raconté : sépare qualité et outil dans « ${statement} »`, async () => {
+        const narrative = eliseNarrative.replace(
+            'Je suis organisée, souriante et à l’aise avec les clients.',
+            statement,
+        );
+        const extraction = {
+            ...expectedEliseExtraction,
+            summary: 'Je suis organisée et créative.',
+            skills: [...expectedEliseExtraction.skills, 'Creative Cloud'],
+        };
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative,
+            assistantResult: buildAssistantResult(extraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.doesNotMatch(body.cv.extracted.summary, /(?:suis\s+créative|am\s+creative)/i);
+    });
+}
+
+test('CV raconté : conserve la relation complète « à l’aise avec Microsoft Office »', async () => {
+    const faithfulSummary = 'Je suis organisée, souriante et à l’aise avec Microsoft Office.';
+    const narrative = eliseNarrative.replace(
+        'Je suis organisée, souriante et à l’aise avec les clients.',
+        faithfulSummary,
+    );
+    const extraction = { ...expectedEliseExtraction, summary: faithfulSummary };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.extracted.summary, faithfulSummary);
+});
+
+test('CV raconté : Creative Cloud dans une relation d’aisance ne prouve pas « créative »', async () => {
+    const narrative = eliseNarrative.replace(
+        'Je suis organisée, souriante et à l’aise avec les clients.',
+        'Je suis à l’aise avec Creative Cloud.',
+    );
+    const extraction = { ...expectedEliseExtraction, summary: 'Je suis créative.' };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.extracted.summary, 'Je suis à l’aise avec Creative Cloud.');
+    assert.doesNotMatch(body.cv.extracted.summary, /suis\s+créative/i);
+});
+
+for (const { statement, inventedSummary } of [
+    {
+        statement: 'Je suis à l’aise avec Creative Cloud.',
+        inventedSummary: 'Je suis à l’aise avec Creative Cloud et créative.',
+    },
+    {
+        statement: 'Je suis à l’aise avec Creative Cloud.',
+        inventedSummary: 'Je suis créative et à l’aise avec Cloud.',
+    },
+    {
+        statement: 'Je suis fière du projet Créative.',
+        inventedSummary: 'Je suis fière du projet Créative et créative.',
+    },
+    {
+        statement: 'Je suis fière du projet Créative.',
+        inventedSummary: 'Je suis fière et créative pour le projet.',
+    },
+]) {
+    test(`CV raconté : refuse l’ajout ou le réordonnancement inventé « ${inventedSummary} »`, async () => {
+        const narrative = eliseNarrative.replace(
+            'Je suis organisée, souriante et à l’aise avec les clients.',
+            statement,
+        );
+        const extraction = { ...expectedEliseExtraction, summary: inventedSummary };
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative,
+            assistantResult: buildAssistantResult(extraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.notEqual(body.cv.extracted.summary, inventedSummary);
+        assert.doesNotMatch(body.cv.extracted.summary, /\bcréative\b/i);
+    });
+}
+
+for (const statement of [
+    'Je suis organisée sans être créative.',
+    'Je suis nullement créative.',
+    'Je suis à l’opposé de créative.',
+    'I am far from creative.',
+    'I am anything but creative.',
+    'I am hardly creative.',
+    'Je suis organisée sans pour autant être créative.',
+    'Je suis loin de me considérer créative.',
+    'Je suis loin d’être une personne créative.',
+    'I am far from being a creative person.',
+    'I am scarcely creative.',
+    'Je suis difficilement créative.',
+    'I am anything but a genuinely creative person.',
+    'I am anything other than creative.',
+    'I am the least creative person.',
+    'I am far from what one would call creative.',
+    'I am nowhere near creative.',
+]) {
+    test(`CV raconté : la négation « ${statement} » ne devient pas une qualité positive`, async () => {
+        const narrative = `${eliseNarrative}\n\n${statement}`;
+        const extraction = {
+            ...expectedEliseExtraction,
+            summary: `${expectedEliseExtraction.summary} Je suis créative.`,
+        };
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative,
+            assistantResult: buildAssistantResult(extraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.doesNotMatch(body.cv.extracted.summary, /créative/i);
+    });
+}
+
+for (const replacement of [
+    'Je suis créative. Enfin non.',
+    'Je suis créative. Plus maintenant.',
+    'Je suis créative. Plus du tout.',
+    'Je suis créative. Je ne le suis plus.',
+    'Je suis créative. Ce n’est désormais plus le cas.',
+    'Je suis créative. Enfin, je ne le suis plus du tout.',
+    'Je suis créative. Ce n’est vraiment plus le cas.',
+    'Je suis créative. Correction : non.',
+    'Je suis créative. Finalement, après réflexion, ce n’est plus le cas.',
+    'Je suis créative. En fait, je ne pense plus que ce soit vrai.',
+    'I am creative. Actually, no.',
+    'I am creative. That’s no longer true.',
+    'I am creative. That is not true anymore.',
+    'I am creative. Actually, on reflection, that is no longer true.',
+]) {
+    test(`CV raconté : la rétractation anaphorique « ${replacement} » annule la qualité`, async () => {
+        const narrative = eliseNarrative.replace(
+            'Je suis organisée, souriante et à l’aise avec les clients.',
+            replacement,
+        );
+        const extraction = { ...expectedEliseExtraction, summary: 'Je suis créative.' };
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative,
+            assistantResult: buildAssistantResult(extraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'deterministic-fallback');
+    });
+}
+
+for (const replacement of [
+    'Je suis créative, mais plus maintenant.',
+    'Je suis créative, mais ce n’est plus le cas.',
+    'I am creative, but that is no longer true.',
+]) {
+    test(`CV raconté : la rétractation inline « ${replacement} » annule la qualité`, async () => {
+        const narrative = eliseNarrative.replace(
+            'Je suis organisée, souriante et à l’aise avec les clients.',
+            replacement,
+        );
+        const extraction = { ...expectedEliseExtraction, summary: 'Je suis créative.' };
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative,
+            assistantResult: buildAssistantResult(extraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'deterministic-fallback');
+    });
+}
+
+for (const faithfulSummary of [
+    'Je suis fière de mon parcours.',
+    'Je suis passionnée par l’hôtellerie.',
+    'Je suis attentive aux détails.',
+    'Je suis capable de gérer les priorités.',
+    'Je suis motivée pour ce poste.',
+    'Je suis douée avec Excel.',
+    'I am proud of my career path.',
+]) {
+    test(`CV raconté : conserve la qualité relationnelle fidèle « ${faithfulSummary} »`, async () => {
+        const narrative = eliseNarrative.replace(
+            'Je suis organisée, souriante et à l’aise avec les clients.',
+            faithfulSummary,
+        );
+        const extraction = { ...expectedEliseExtraction, summary: faithfulSummary };
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative,
+            assistantResult: buildAssistantResult(extraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'openai');
+        assert.equal(body.cv.extracted.summary, faithfulSummary);
+    });
+}
+
+test('CV raconté : accepte le libellé court « Qualités »', async () => {
+    const narrative = eliseNarrative.replace(
+        'Je suis organisée, souriante et à l’aise avec les clients.',
+        'Qualités : organisée et souriante.',
+    );
+    const extraction = { ...expectedEliseExtraction, summary: 'Je suis organisée et souriante.' };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.extracted.summary, 'Je suis organisée et souriante.');
+});
+
+test('CV raconté : accepte « organisée et sais utiliser Excel » sans perdre la compétence', async () => {
+    const faithfulSummary = 'Je suis organisée et sais utiliser Excel.';
+    const narrative = eliseNarrative.replace(
+        'Je suis organisée, souriante et à l’aise avec les clients.',
+        faithfulSummary,
+    );
+    const extraction = { ...expectedEliseExtraction, summary: faithfulSummary };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.extracted.summary, faithfulSummary);
+});
+
+test('CV raconté : accepte une accroche mixte qualité puis compétence', async () => {
+    const extraction = {
+        ...expectedEliseExtraction,
+        summary: 'Je suis organisée et utilise Excel.',
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative: eliseNarrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.extracted.summary, 'Je suis organisée et utilise Excel.');
+});
+
+test('CV raconté : accepte la contraction anglaise « I’m organized »', async () => {
+    const narrative = [
+        'My name is Jane Smith.',
+        'I’m organized.',
+        'The resume title must be “Receptionist”.',
+    ].join('\n\n');
+    const extraction = {
+        fullName: 'Jane Smith', location: '', phone: '', email: '', permit: '',
+        headline: 'Receptionist', summary: 'I am organized.', skills: [],
+        experiences: [], projects: [], education: [], certifications: [], activities: [], languages: [],
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.extracted.summary, 'I am organized.');
+});
+
+test('CV raconté : une correction positive ultérieure remplace la négation d’une qualité', async () => {
+    const narrative = `${eliseNarrative}\n\nJe ne suis pas organisée. En fait, je suis organisée.`;
+    const extraction = { ...expectedEliseExtraction, summary: 'Je suis organisée.' };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.extracted.summary, 'Je suis organisée.');
+});
+
+test('CV raconté : synchronise l’accroche racine avec l’extraction validée', async () => {
+    const assistantResult = buildAssistantResult(expectedEliseExtraction);
+    assistantResult.summary = 'Je suis créative.';
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative: eliseNarrative,
+        assistantResult,
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.summary, expectedEliseExtraction.summary);
+    assert.equal(body.cv.summary, body.cv.extracted.summary);
+});
+
+test('CV raconté : conserve une formation et un permis déclarés dans la même phrase', async () => {
+    const narrative = eliseNarrative
+        .replace(
+            'En 2017, j’ai obtenu un bac professionnel accueil au lycée fictif des Amandiers à Tours.',
+            'En 2017, j’ai obtenu un bac professionnel accueil au lycée fictif des Amandiers à Tours et le permis B.',
+        )
+        .replace('\n\nJ’ai le permis B.', '');
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(expectedEliseExtraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.ok(body.cv.extracted.education.some((item) => /bac professionnel accueil/i.test(item)));
+    assert.match(body.cv.extracted.permit, /permis B/i);
+});
+
+test('CV raconté : un permis seulement requis après le diplôme n’est pas déclaré acquis', async () => {
+    const narrative = eliseNarrative
+        .replace(
+            'En 2017, j’ai obtenu un bac professionnel accueil au lycée fictif des Amandiers à Tours.',
+            'En 2017, j’ai obtenu un bac professionnel accueil au lycée fictif des Amandiers à Tours et le permis B est requis pour le poste.',
+        )
+        .replace('\n\nJ’ai le permis B.', '');
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(expectedEliseExtraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.extracted.permit, '');
 });
 
 test('CV raconté : accepte des compétences fidèlement déduites des missions', async () => {
