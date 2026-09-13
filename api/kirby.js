@@ -10036,7 +10036,7 @@ const hasNarratedCvSkillContradiction = (item = '', allSourceFacts = []) => {
 };
 
 const NARRATED_CV_SAFE_SKILL_DIAGNOSTIC_TOKENS = new Set([
-    'arrivee', 'calme', 'client', 'consigne', 'cvhandover', 'cvmastery', 'cvorganization',
+    'accueil', 'arrivee', 'calme', 'client', 'consigne', 'cvcustomerrelation', 'cvhandover', 'cvmastery', 'cvorganization',
     'cvrequestresponse', 'cvresponsibility', 'cvteamwork', 'cvuse', 'demande', 'depart', 'equipe',
     'excel', 'facturation', 'fournisseur', 'hotelier', 'logiciel', 'mail', 'nuit', 'outlook',
     'priorite', 'reclamation', 'reservation', 'telephone',
@@ -10065,7 +10065,7 @@ const hasNarratedCvSkillCollectionGrounding = (
     const evaluations = values.map((item, index) => {
         const outputTokens = getNarratedCvSkillTokenRecords(item, { checkAffirmation: false })
             .map(({ token }) => token);
-        const categories = [...new Set(outputTokens
+        const categories = [...new Set([...outputTokens, ...getNarratedCvSkillConcepts(item)]
             .filter((token) => NARRATED_CV_SAFE_SKILL_DIAGNOSTIC_TOKENS.has(token)))];
         if (hasNarratedCvSkillContradiction(item, allSegments)) {
             return { index, passed: false, reason: 'contradiction', categories };
