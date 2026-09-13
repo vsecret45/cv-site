@@ -9573,6 +9573,16 @@ const hasNarratedCvLanguageGrounding = (languages = [], source = '', documentLan
     });
 };
 
+const rejectNarratedCvValidation = (reason = 'unknown', failedChecks = []) => {
+    if (process.env.KIRBY_CV_VALIDATION_DEBUG === '1' || process.env.VERCEL_ENV === 'production') {
+        console.warn('Kirby CV narrated extraction rejected:', {
+            reason,
+            failedChecks: Array.isArray(failedChecks) ? failedChecks : [],
+        });
+    }
+    return false;
+};
+
 const hasCompleteNarratedCvExtraction = (value, documentText = '') => {
     const documentLanguage = detectCvDocumentLanguage({}, documentText);
     const extracted = sanitizeCvExtraction(value, documentLanguage);
@@ -9749,20 +9759,17 @@ const hasCompleteNarratedCvExtraction = (value, documentText = '') => {
         .filter(([, passed]) => !passed)
         .map(([check]) => check);
     if (failedNarratedValidationChecks.length) {
-        if (process.env.KIRBY_CV_VALIDATION_DEBUG === '1') {
-            console.warn('Kirby CV narrated extraction rejected:', failedNarratedValidationChecks);
-        }
-        return false;
+        return rejectNarratedCvValidation('aggregate_checks', failedNarratedValidationChecks);
     }
     const extractedEmail = normalize(extracted.email);
     const extractedPhone = normalize(extracted.phone);
-    if (Boolean(sourceEmail) !== Boolean(extractedEmail)) return false;
-    if (sourceEmail && extractedEmail.toLowerCase() !== sourceEmail.toLowerCase()) return false;
-    if (Boolean(sourcePhone) !== Boolean(extractedPhone)) return false;
-    if (sourcePhone && !areNarratedCvPhonesEquivalent(extractedPhone, sourcePhone)) return false;
+    if (Boolean(sourceEmail) !== Boolean(extractedEmail)) return rejectNarratedCvValidation('email_presence');
+    if (sourceEmail && extractedEmail.toLowerCase() !== sourceEmail.toLowerCase()) return rejectNarratedCvValidation('email_value');
+    if (Boolean(sourcePhone) !== Boolean(extractedPhone)) return rejectNarratedCvValidation('phone_presence');
+    if (sourcePhone && !areNarratedCvPhonesEquivalent(extractedPhone, sourcePhone)) return rejectNarratedCvValidation('phone_value');
     const episodeAssignment = getNarratedCvEpisodeAssignment(workRecords, experiences);
-    if (workRecords.length && !episodeAssignment) return false;
-    if (!workRecords.length && experiences.length) return false;
+    if (workRecords.length && !episodeAssignment) return rejectNarratedCvValidation('experience_assignment');
+    if (!workRecords.length && experiences.length) return rejectNarratedCvValidation('unexpected_experience');
     if (episodeAssignment) {
         const episodeStructuredFactsGrounded = workRecords.every((record, index) => {
             const sourceContext = record.context || record.text;
@@ -9774,7 +9781,7 @@ const hasCompleteNarratedCvExtraction = (value, documentText = '') => {
                 && hasNarratedCvDateAndQuantityGrounding(sourceContext, outputExperience)
                 && hasNarratedCvOngoingSignal(sourceContext) === hasNarratedCvOngoingSignal(outputExperience);
         });
-        if (!episodeStructuredFactsGrounded) return false;
+        if (!episodeStructuredFactsGrounded) return rejectNarratedCvValidation('experience_structured_facts');
 
         const episodeFactsGrounded = workRecords.every((record, index) =>
             isNarratedCvItemGrounded(experiences[episodeAssignment[index]], record.context || record.text, {
@@ -9783,7 +9790,7 @@ const hasCompleteNarratedCvExtraction = (value, documentText = '') => {
                 minimumSourceRatio: 0.45,
             })
         );
-        if (!episodeFactsGrounded) return false;
+        if (!episodeFactsGrounded) return rejectNarratedCvValidation('experience_fact_coverage');
         const ongoingWorkIndexes = new Set();
         workRecords.forEach((record, index) => {
             if (hasNarratedCvOngoingSignal(record.text)) ongoingWorkIndexes.add(index);
@@ -9797,7 +9804,7 @@ const hasCompleteNarratedCvExtraction = (value, documentText = '') => {
             if (precedingIndex >= 0) ongoingWorkIndexes.add(precedingIndex);
         });
         if ([...ongoingWorkIndexes].some((index) => !hasNarratedCvOngoingSignal(experiences[episodeAssignment[index]]))) {
-            return false;
+            return rejectNarratedCvValidation('experience_ongoing_status');
         }
 
         const currentWorkIndexes = [...ongoingWorkIndexes];
@@ -9811,7 +9818,7 @@ const hasCompleteNarratedCvExtraction = (value, documentText = '') => {
                 ? currentWorkIndexes[0]
                 : workRecords.reduce((nearest, workRecord, index) => workRecord.index < record.index ? index : nearest, -1);
             if (sourceWorkIndex < 0 || !hasNarratedCvFollowUpCoverage(record.text, experiences[episodeAssignment[sourceWorkIndex]])) {
-                return false;
+                return rejectNarratedCvValidation('experience_follow_up');
             }
             supplementalContextByWorkIndex.set(
                 sourceWorkIndex,
@@ -9824,12 +9831,16 @@ const hasCompleteNarratedCvExtraction = (value, documentText = '') => {
                 `${record.identityContext || ''} ${record.context || record.text} ${supplementalContextByWorkIndex.get(index) || ''}`.trim(),
             )
         );
-        if (!episodeClausesGrounded) return false;
+        if (!episodeClausesGrounded) return rejectNarratedCvValidation('experience_clause_grounding');
     }
-    if (/\b(?:je sais|mes competences|skills?|competences?|outil|tools?)\b/.test(normalizedSource) && !(extracted.skills || []).length) return false;
-    if (getCvLanguagesFromText(source, documentLanguage, { requireContext: true }).length && !(extracted.languages || []).length) return false;
-    if (activitySegments.length && !(extracted.activities || []).length) return false;
-    if (firstPersonRequested && !summaryUsesFirstPerson) return false;
+    if (/\b(?:je sais|mes competences|skills?|competences?|outil|tools?)\b/.test(normalizedSource) && !(extracted.skills || []).length) {
+        return rejectNarratedCvValidation('missing_skills');
+    }
+    if (getCvLanguagesFromText(source, documentLanguage, { requireContext: true }).length && !(extracted.languages || []).length) {
+        return rejectNarratedCvValidation('missing_languages');
+    }
+    if (activitySegments.length && !(extracted.activities || []).length) return rejectNarratedCvValidation('missing_activities');
+    if (firstPersonRequested && !summaryUsesFirstPerson) return rejectNarratedCvValidation('summary_person');
     return true;
 };
 
