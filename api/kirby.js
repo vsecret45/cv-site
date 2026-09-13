@@ -9573,17 +9573,24 @@ const hasNarratedCvLanguageGrounding = (languages = [], source = '', documentLan
     });
 };
 
-const rejectNarratedCvValidation = (reason = 'unknown', failedChecks = []) => {
+const rejectNarratedCvValidation = (reason = 'unknown', failedChecks = [], diagnostics = null) => {
+    const safeFailedChecks = Array.isArray(failedChecks) ? failedChecks : [];
+    if (diagnostics && typeof diagnostics === 'object') {
+        diagnostics.reason = reason;
+        diagnostics.failedChecks = safeFailedChecks;
+    }
     if (process.env.KIRBY_CV_VALIDATION_DEBUG === '1' || process.env.VERCEL_ENV === 'production') {
         console.warn('Kirby CV narrated extraction rejected:', {
             reason,
-            failedChecks: Array.isArray(failedChecks) ? failedChecks : [],
+            failedChecks: safeFailedChecks,
         });
     }
     return false;
 };
 
-const hasCompleteNarratedCvExtraction = (value, documentText = '') => {
+const hasCompleteNarratedCvExtraction = (value, documentText = '', diagnostics = null) => {
+    const reject = (reason, failedChecks = []) =>
+        rejectNarratedCvValidation(reason, failedChecks, diagnostics);
     const documentLanguage = detectCvDocumentLanguage({}, documentText);
     const extracted = sanitizeCvExtraction(value, documentLanguage);
     const source = normalizeNarratedCvSourceText(documentText);
@@ -9759,17 +9766,17 @@ const hasCompleteNarratedCvExtraction = (value, documentText = '') => {
         .filter(([, passed]) => !passed)
         .map(([check]) => check);
     if (failedNarratedValidationChecks.length) {
-        return rejectNarratedCvValidation('aggregate_checks', failedNarratedValidationChecks);
+        return reject('aggregate_checks', failedNarratedValidationChecks);
     }
     const extractedEmail = normalize(extracted.email);
     const extractedPhone = normalize(extracted.phone);
-    if (Boolean(sourceEmail) !== Boolean(extractedEmail)) return rejectNarratedCvValidation('email_presence');
-    if (sourceEmail && extractedEmail.toLowerCase() !== sourceEmail.toLowerCase()) return rejectNarratedCvValidation('email_value');
-    if (Boolean(sourcePhone) !== Boolean(extractedPhone)) return rejectNarratedCvValidation('phone_presence');
-    if (sourcePhone && !areNarratedCvPhonesEquivalent(extractedPhone, sourcePhone)) return rejectNarratedCvValidation('phone_value');
+    if (Boolean(sourceEmail) !== Boolean(extractedEmail)) return reject('email_presence');
+    if (sourceEmail && extractedEmail.toLowerCase() !== sourceEmail.toLowerCase()) return reject('email_value');
+    if (Boolean(sourcePhone) !== Boolean(extractedPhone)) return reject('phone_presence');
+    if (sourcePhone && !areNarratedCvPhonesEquivalent(extractedPhone, sourcePhone)) return reject('phone_value');
     const episodeAssignment = getNarratedCvEpisodeAssignment(workRecords, experiences);
-    if (workRecords.length && !episodeAssignment) return rejectNarratedCvValidation('experience_assignment');
-    if (!workRecords.length && experiences.length) return rejectNarratedCvValidation('unexpected_experience');
+    if (workRecords.length && !episodeAssignment) return reject('experience_assignment');
+    if (!workRecords.length && experiences.length) return reject('unexpected_experience');
     if (episodeAssignment) {
         const episodeStructuredFactsGrounded = workRecords.every((record, index) => {
             const sourceContext = record.context || record.text;
@@ -9781,7 +9788,7 @@ const hasCompleteNarratedCvExtraction = (value, documentText = '') => {
                 && hasNarratedCvDateAndQuantityGrounding(sourceContext, outputExperience)
                 && hasNarratedCvOngoingSignal(sourceContext) === hasNarratedCvOngoingSignal(outputExperience);
         });
-        if (!episodeStructuredFactsGrounded) return rejectNarratedCvValidation('experience_structured_facts');
+        if (!episodeStructuredFactsGrounded) return reject('experience_structured_facts');
 
         const episodeFactsGrounded = workRecords.every((record, index) =>
             isNarratedCvItemGrounded(experiences[episodeAssignment[index]], record.context || record.text, {
@@ -9790,7 +9797,7 @@ const hasCompleteNarratedCvExtraction = (value, documentText = '') => {
                 minimumSourceRatio: 0.45,
             })
         );
-        if (!episodeFactsGrounded) return rejectNarratedCvValidation('experience_fact_coverage');
+        if (!episodeFactsGrounded) return reject('experience_fact_coverage');
         const ongoingWorkIndexes = new Set();
         workRecords.forEach((record, index) => {
             if (hasNarratedCvOngoingSignal(record.text)) ongoingWorkIndexes.add(index);
@@ -9804,7 +9811,7 @@ const hasCompleteNarratedCvExtraction = (value, documentText = '') => {
             if (precedingIndex >= 0) ongoingWorkIndexes.add(precedingIndex);
         });
         if ([...ongoingWorkIndexes].some((index) => !hasNarratedCvOngoingSignal(experiences[episodeAssignment[index]]))) {
-            return rejectNarratedCvValidation('experience_ongoing_status');
+            return reject('experience_ongoing_status');
         }
 
         const currentWorkIndexes = [...ongoingWorkIndexes];
@@ -9818,7 +9825,7 @@ const hasCompleteNarratedCvExtraction = (value, documentText = '') => {
                 ? currentWorkIndexes[0]
                 : workRecords.reduce((nearest, workRecord, index) => workRecord.index < record.index ? index : nearest, -1);
             if (sourceWorkIndex < 0 || !hasNarratedCvFollowUpCoverage(record.text, experiences[episodeAssignment[sourceWorkIndex]])) {
-                return rejectNarratedCvValidation('experience_follow_up');
+                return reject('experience_follow_up');
             }
             supplementalContextByWorkIndex.set(
                 sourceWorkIndex,
@@ -9831,29 +9838,39 @@ const hasCompleteNarratedCvExtraction = (value, documentText = '') => {
                 `${record.identityContext || ''} ${record.context || record.text} ${supplementalContextByWorkIndex.get(index) || ''}`.trim(),
             )
         );
-        if (!episodeClausesGrounded) return rejectNarratedCvValidation('experience_clause_grounding');
+        if (!episodeClausesGrounded) return reject('experience_clause_grounding');
     }
     if (/\b(?:je sais|mes competences|skills?|competences?|outil|tools?)\b/.test(normalizedSource) && !(extracted.skills || []).length) {
-        return rejectNarratedCvValidation('missing_skills');
+        return reject('missing_skills');
     }
     if (getCvLanguagesFromText(source, documentLanguage, { requireContext: true }).length && !(extracted.languages || []).length) {
-        return rejectNarratedCvValidation('missing_languages');
+        return reject('missing_languages');
     }
-    if (activitySegments.length && !(extracted.activities || []).length) return rejectNarratedCvValidation('missing_activities');
-    if (firstPersonRequested && !summaryUsesFirstPerson) return rejectNarratedCvValidation('summary_person');
+    if (activitySegments.length && !(extracted.activities || []).length) return reject('missing_activities');
+    if (firstPersonRequested && !summaryUsesFirstPerson) return reject('summary_person');
     return true;
 };
 
 const hasMeaningfulCvAssistantResult = (
     result,
-    { requireStructuredExtraction = false, requireNarratedCoverage = false, documentText = '' } = {},
+    {
+        requireStructuredExtraction = false,
+        requireNarratedCoverage = false,
+        documentText = '',
+        diagnostics = null,
+    } = {},
 ) => {
-    if (!result || typeof result !== 'object' || Array.isArray(result)) return false;
+    const reject = (reason) => {
+        if (diagnostics && typeof diagnostics === 'object') diagnostics.reason = reason;
+        return false;
+    };
+
+    if (!result || typeof result !== 'object' || Array.isArray(result)) return reject('result_shape');
 
     if (requireStructuredExtraction && !hasStructuredCvExtraction(result.extracted)) {
-        return false;
+        return reject('structured_extraction');
     }
-    if (requireNarratedCoverage && !hasCompleteNarratedCvExtraction(result.extracted, documentText)) {
+    if (requireNarratedCoverage && !hasCompleteNarratedCvExtraction(result.extracted, documentText, diagnostics)) {
         return false;
     }
 
@@ -9889,7 +9906,8 @@ const hasMeaningfulCvAssistantResult = (
         || rawLayout.singlePage === false
     );
 
-    return hasText || hasList || hasExtracted || hasLetter || hasQuality || hasLayoutAction;
+    return hasText || hasList || hasExtracted || hasLetter || hasQuality || hasLayoutAction
+        || reject('empty_content');
 };
 
 const ensureCompleteCvAssistantResult = ({ result, cv, task, jobOffer, instruction, documentText = '', documentLanguage = '', interaction = null }) => {
@@ -12744,6 +12762,7 @@ module.exports = async (request, response) => {
         }
 
         let fallbackReason = 'no_openai_api_key';
+        let fallbackDiagnostic = '';
         try {
             const openAiResult = await callOpenAiCvAssistant({
                 task,
@@ -12757,12 +12776,14 @@ module.exports = async (request, response) => {
             });
 
             const deterministicHeadline = getExplicitCvHeadline(instruction, cv.headline, cv.documentLanguage);
+            const validationDiagnostics = {};
             if (openAiResult && (
                 (deterministicHeadline && requestedSourceKind !== 'narrative')
                 || hasMeaningfulCvAssistantResult(openAiResult.result, {
                     requireStructuredExtraction: task === 'autofill' || task === 'create',
                     requireNarratedCoverage: requestedSourceKind === 'narrative',
                     documentText,
+                    diagnostics: validationDiagnostics,
                 })
             )) {
                 return json(response, 200, {
@@ -12781,7 +12802,22 @@ module.exports = async (request, response) => {
                     }),
                 });
             }
-            if (openAiResult) fallbackReason = 'empty_openai_result';
+            if (openAiResult) {
+                const failedChecks = Array.isArray(validationDiagnostics.failedChecks)
+                    ? validationDiagnostics.failedChecks.filter(Boolean)
+                    : [];
+                fallbackDiagnostic = [
+                    'empty_openai_result',
+                    normalize(validationDiagnostics.reason) || 'unknown',
+                    failedChecks.join('+'),
+                ].filter(Boolean).join(':');
+                fallbackReason = 'empty_openai_result';
+                if (process.env.KIRBY_CV_VALIDATION_DEBUG === '1' || process.env.VERCEL_ENV === 'production') {
+                    console.error('Kirby CV OpenAI result rejected:', {
+                        code: fallbackDiagnostic,
+                    });
+                }
+            }
         } catch (error) {
             fallbackReason = error && error.message ? error.message : 'openai_cv_request_failed';
             console.error('Kirby CV OpenAI failed:', {
@@ -12796,6 +12832,7 @@ module.exports = async (request, response) => {
             ok: true,
             source: 'deterministic-fallback',
             warning: fallbackReason,
+            ...(fallbackDiagnostic ? { diagnostic: { validation: fallbackDiagnostic } } : {}),
             cv: deterministicHeadline
                 ? finalizeCvAssistantResult({
                     result: safeFallback,
