@@ -9586,6 +9586,7 @@ const NARRATED_CV_SKILL_CONCEPT_TOKENS = new Set([
     'cvorganization',
     'cvrequestresponse',
     'cvresponsibility',
+    'cvsmile',
     'cvteamwork',
     'cvuse',
 ]);
@@ -9629,6 +9630,9 @@ const normalizeNarratedCvSkillToken = (value = '') => {
     }
     if (/^(?:organisation|organisations|organiser|organise|organisee|organises|organisees|priorisation|prioritisation|prioritiser|prioritize|prioritization|organization|organizations|organize|organizes|organized|organizing)$/.test(rawToken)) {
         return 'cvorganization';
+    }
+    if (/^(?:sourire|sourires|souriant|souriante|souriants|souriantes|smile|smiles|smiling)$/.test(rawToken)) {
+        return 'cvsmile';
     }
     if (/^(?:maitrise|maitriser|maitrises|master|masters|mastered|mastery)$/.test(rawToken)) return 'cvmastery';
     if (/^(?:utilisation|utilisations|utiliser|utilise|utilises|sais|savons|savez|use|uses|used|using|know|knows|known)$/.test(rawToken)) return 'cvuse';
@@ -9863,6 +9867,14 @@ const hasNarratedCvConceptualSkillGrounding = (item = '', sourceFacts = []) => {
         const sourceFact = sourceFactRecord.text;
         const sourceConcepts = getNarratedCvSkillConcepts(sourceFact, { checkAffirmation: true });
         const sourceSupportsConcept = (concept) => {
+            if (concept === 'cvsmile') {
+                const personalQualityEvidence = cleanNarratedCvSummaryQualityEvidence(sourceFact);
+                const normalizedQualityEvidence = stripAccents(normalizeText(personalQualityEvidence).toLowerCase());
+                return sourceFactRecord.kind === 'quality'
+                    && isNarratedCvSummaryQualitySource(sourceFact)
+                    && sourceConcepts.has(concept)
+                    && /\b(?:souriant|souriante|souriants|souriantes|smiling)\b/.test(normalizedQualityEvidence);
+            }
             if (sourceConcepts.has(concept)) return true;
             if (concept === 'cvuse' && sourceConcepts.has('cvmastery')) return true;
             if (concept === 'cvresponsibility' && outputDetailTokens.includes('demande')) {

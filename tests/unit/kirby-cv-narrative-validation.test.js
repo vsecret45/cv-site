@@ -1632,7 +1632,7 @@ for (const skill of [
     });
 }
 
-for (const skill of ['Sens de l’accueil', 'Aisance relationnelle', 'Organisation']) {
+for (const skill of ['Sens de l’accueil', 'Aisance relationnelle', 'Organisation', 'Sourire']) {
     test(`CV raconté : accepte la compétence synthétique mais fidèle « ${skill} »`, async () => {
         const extraction = {
             ...expectedEliseExtraction,
@@ -1647,6 +1647,82 @@ for (const skill of ['Sens de l’accueil', 'Aisance relationnelle', 'Organisati
         assert.equal(body.source, 'openai', `compétence fidèle rejetée (${body.warning || 'raison inconnue'})`);
     });
 }
+
+test('CV raconté : le nom « Sourire Club » ne suffit pas à créer la compétence « Sourire »', async () => {
+    const narrative = eliseNarrative.replace(
+        'Je cherche un poste de réceptionniste en hôtellerie. Je suis organisée, souriante et à l’aise avec les clients.',
+        'Je cherche un poste de réceptionniste en hôtellerie. Je suis organisée et à l’aise avec les clients. Je suis membre du Sourire Club.',
+    );
+    const extraction = {
+        ...expectedEliseExtraction,
+        summary: 'Je suis organisée et à l’aise avec les clients.',
+        skills: [...expectedEliseExtraction.skills, 'Sourire'],
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'deterministic-fallback');
+    assert.equal(body.warning, 'empty_openai_result');
+});
+
+for (const relation of [
+    'Je suis dans une équipe souriante.',
+    'Je suis membre d’une équipe souriante.',
+    'Je suis membre du collectif Souriante.',
+    'Je suis cliente de la société Souriante.',
+    'Je suis bénévole pour l’Association Souriante.',
+    'Je suis partenaire de l’agence Souriante.',
+    'Je suis adhérente, fan, participante et utilisatrice de Souriante.',
+]) {
+    test(`CV raconté : la relation « ${relation} » ne crée pas la compétence « Sourire »`, async () => {
+        const narrative = eliseNarrative.replace(
+            'Je cherche un poste de réceptionniste en hôtellerie. Je suis organisée, souriante et à l’aise avec les clients.',
+            `Je cherche un poste de réceptionniste en hôtellerie. Je suis organisée et à l’aise avec les clients. ${relation}`,
+        );
+        const extraction = {
+            ...expectedEliseExtraction,
+            summary: 'Je suis organisée et à l’aise avec les clients.',
+            skills: [...expectedEliseExtraction.skills, 'Sourire'],
+        };
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative,
+            assistantResult: buildAssistantResult(extraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'deterministic-fallback');
+        assert.equal(body.warning, 'empty_openai_result');
+    });
+}
+
+test('CV raconté : accepte ensemble les compétences fidèles observées dans une extraction réelle', async () => {
+    const extraction = {
+        ...expectedEliseExtraction,
+        skills: [
+            'Excel',
+            'Outlook',
+            'Logiciel de réservation hôtelière',
+            'Gestion des réclamations avec calme',
+            'Organisation des priorités',
+            'Travail en équipe',
+            'Sens de l’accueil',
+            'Aisance avec les clients',
+            'Organisation',
+            'Sourire',
+        ],
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative: eliseNarrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.ok(body.cv.extracted.skills.includes('Sourire'));
+});
 
 for (const skill of ['Satisfaction client', 'Fidélisation client', 'Écoute client']) {
     test(`CV raconté : rejette la qualité client non étayée « ${skill} »`, async () => {
