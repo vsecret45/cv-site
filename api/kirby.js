@@ -9747,7 +9747,7 @@ const hasNarratedCvOrderedSkillTokenGrounding = (outputTokens = [], sourceValue 
 
 const hasNarratedCvAffirmedCustomerRelation = (value = '') => {
     const source = normalizeNarratedCvSkillText(value);
-    const pattern = /\b(?:a l aise[\s\S]{0,32}clients?|conseil\w*[\s\S]{0,32}clients?|(?:repond\w*|respond\w*|answer\w*)[\s\S]{0,48}(?:clients?|customers?|guests?)|accueil\w*[\s\S]{0,32}(?:clients?|customers?|guests?)|relations?\s+(?:clients?|customers?)|customer\s+(?:relations?|service))\b/g;
+    const pattern = /\b(?:a l aise[\s\S]{0,32}(?:clients?|visiteurs?)|conseil\w*[\s\S]{0,32}(?:clients?|visiteurs?)|(?:repond\w*|respond\w*|answer\w*)[\s\S]{0,48}(?:clients?|customers?|guests?|visiteurs?|visitors?)|accueil\w*[\s\S]{0,32}(?:clients?|customers?|guests?|visiteurs?|visitors?)|relations?\s+(?:clients?|customers?|visiteurs?)|customer\s+(?:relations?|service))\b/g;
     return [...source.matchAll(pattern)].some((match) =>
         !/\b(?:mal|peu|pas|not|uncomfortable)\s+$/.test(source.slice(Math.max(0, match.index - 24), match.index))
         && isNarratedCvSkillMentionAffirmed(source, match.index, match[0].length)
@@ -9756,8 +9756,8 @@ const hasNarratedCvAffirmedCustomerRelation = (value = '') => {
 
 const hasNarratedCvNegatedCustomerRelation = (value = '') => {
     const source = normalizeNarratedCvSkillText(value);
-    return /\b(?:mal|pas|peu)\s+a l aise[\s\S]{0,32}clients?\b/.test(source)
-        || /\b(?:not comfortable|uncomfortable)[\s\S]{0,32}(?:clients?|customers?|guests?)\b/.test(source);
+    return /\b(?:mal|pas|peu)\s+a l aise[\s\S]{0,32}(?:clients?|visiteurs?)\b/.test(source)
+        || /\b(?:not comfortable|uncomfortable)[\s\S]{0,32}(?:clients?|customers?|guests?|visiteurs?|visitors?)\b/.test(source);
 };
 
 const getNarratedCvSkillConcepts = (value = '', { checkAffirmation = false } = {}) => {
@@ -9768,7 +9768,8 @@ const getNarratedCvSkillConcepts = (value = '', { checkAffirmation = false } = {
         concepts.add('cvhotelbookingsoftware');
     }
     const normalized = normalizeNarratedCvSkillText(value);
-    const outputMentionsCustomerRelation = /\b(?:relations?|service)\s+(?:clients?|clientele|customers?)\b/.test(normalized)
+    const outputMentionsCustomerRelation = /\b(?:relations?|service|relationnel(?:le)?|sens\s+du\s+contact)\s+(?:clients?|clientele|customers?|guests?|visiteurs?)\b/.test(normalized)
+        || /\baisance(?:\s+relationnelle)?(?:\s+(?:avec|aupres\s+de))?\s+(?:(?:les?|la)\s+)?(?:clients?|clientele|customers?|guests?|visiteurs?)\b/.test(normalized)
         || /\bcustomer\s+(?:relations?|service)\b/.test(normalized);
     if ((!checkAffirmation && outputMentionsCustomerRelation)
         || (checkAffirmation && hasNarratedCvAffirmedCustomerRelation(value))) {
@@ -9816,6 +9817,11 @@ const hasNarratedCvConceptualSkillGrounding = (item = '', sourceFacts = []) => {
     if (outputConcepts.has('cvcustomerrelation')) {
         coveredOutputTokens.add('relation');
         coveredOutputTokens.add('service');
+        coveredOutputTokens.add('relationnel');
+        coveredOutputTokens.add('relationnelle');
+        coveredOutputTokens.add('aisance');
+        coveredOutputTokens.add('sens');
+        coveredOutputTokens.add('contact');
     }
     const outputDetailTokens = outputRecords
         .map(({ token }) => token)
@@ -10126,6 +10132,84 @@ const rejectNarratedCvValidation = (reason = 'unknown', failedChecks = [], diagn
     return false;
 };
 
+const getNarratedCvExplicitFullName = (documentText = '') => {
+    const segments = getNarratedCvSegmentRecords(documentText).map(({ text }) => text);
+    for (const segment of segments) {
+        const match = segment.match(/\b(?:mon\s+nom\s+(?:est|:)|je\s+m[’']appelle|my\s+name(?:\s+is)?|name\s*:)\s*([^.!?;\n]{1,140})/iu);
+        if (!match) continue;
+        const candidate = normalizeText(match[1])
+            .replace(/\s+(?:(?:et|and)\s+)?(?:mon\s+(?:mail|e-?mail|courriel|t[eé]l[eé]phone)|j[’']habite|je\s+(?:vis|r[eé]side)|my\s+(?:email|phone)|i\s+(?:live|reside))\b[\s\S]*$/iu, '')
+            .split(',', 1)[0]
+            .replace(/^[\s«»"“”']+|[\s«»"“”']+$/g, '')
+            .trim();
+        const tokens = candidate.split(/\s+/).filter(Boolean);
+        if (candidate.length <= 100
+            && tokens.length >= 1
+            && tokens.length <= 6
+            && /^[\p{L}][\p{L}'’ -]*$/u.test(candidate)) {
+            return candidate;
+        }
+    }
+    return '';
+};
+
+const getNarratedCvSafeSourceProfile = (documentText = '') => {
+    const segmentRecords = getNarratedCvSegmentRecords(documentText);
+    const profile = getNarratedCvSourceSegments(
+        segmentRecords,
+        /\b(?:je suis|j aime travailler|i am|i enjoy working)\b/,
+    ).find((segment) => !isNarratedCvWorkSegment(segment)
+        && !isNarratedCvLanguageStatement(segment)
+        && !/\b(?:mon nom|je m appelle|my name)\b/i.test(segment)
+        && isSafeExtractedCvSummary(segment)
+        && hasNarratedCvClauseGrounding(segment, documentText));
+    return profile ? limitCvText(profile, 500) : '';
+};
+
+const hasNarratedCvSummaryNumbersGrounded = (summary = '', documentText = '') => {
+    const source = normalizeNarratedCvSourceText(documentText);
+    const normalizedSource = stripAccents(source.toLowerCase()).replace(/[’']/g, ' ');
+    const normalizedSummary = stripAccents(normalize(summary).toLowerCase()).replace(/[’']/g, ' ');
+    const sourceNumericFacts = new Set(source.match(/\b\d+(?:[.,]\d+)?\b/g) || []);
+    const numberWordPattern = /\b(?:deux|trois|quatre|cinq|six|sept|huit|neuf|dix|onze|douze|treize|quatorze|quinze|seize|vingt|trente|quarante|cinquante|soixante|cent|mille|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|twenty|thirty|forty|fifty|sixty|hundred|thousand)\b/g;
+    const sourceNumberWords = new Set(normalizedSource.match(numberWordPattern) || []);
+    return (normalize(summary).match(/\b\d+(?:[.,]\d+)?\b/g) || [])
+        .every((number) => sourceNumericFacts.has(number))
+        && (normalizedSummary.match(numberWordPattern) || [])
+            .every((number) => sourceNumberWords.has(number));
+};
+
+const reconcileNarratedCvAssistantResult = (result, documentText = '') => {
+    if (!result || typeof result !== 'object' || Array.isArray(result)
+        || !result.extracted || typeof result.extracted !== 'object' || Array.isArray(result.extracted)) {
+        return result;
+    }
+
+    const extracted = { ...result.extracted };
+    const explicitFullName = getNarratedCvExplicitFullName(documentText);
+    if (explicitFullName) extracted.fullName = explicitFullName;
+
+    const modelSummary = normalize(extracted.summary);
+    const safeSourceProfile = getNarratedCvSafeSourceProfile(documentText);
+    const summaryNeedsGroundedFallback = !modelSummary
+        || !hasNarratedCvClauseGrounding(modelSummary, documentText);
+    const modelSummaryCanBeDiscarded = !modelSummary || (
+        isSafeExtractedCvSummary(modelSummary)
+        && hasNarratedCvSensitiveClaimGrounding(modelSummary, documentText)
+        && hasNarratedCvSummaryNumbersGrounded(modelSummary, documentText)
+    );
+    if (safeSourceProfile && summaryNeedsGroundedFallback && modelSummaryCanBeDiscarded) {
+        extracted.summary = safeSourceProfile;
+        return {
+            ...result,
+            summary: safeSourceProfile,
+            extracted,
+        };
+    }
+
+    return { ...result, extracted };
+};
+
 const hasCompleteNarratedCvExtraction = (value, documentText = '', diagnostics = null) => {
     const reject = (reason, failedChecks = []) =>
         rejectNarratedCvValidation(reason, failedChecks, diagnostics);
@@ -10247,13 +10331,7 @@ const hasCompleteNarratedCvExtraction = (value, documentText = '', diagnostics =
         minimumMatches: 1,
         minimumOutputRatio: 0.7,
     });
-    const sourceNumericFacts = new Set(source.match(/\b\d+(?:[.,]\d+)?\b/g) || []);
-    const numberWordPattern = /\b(?:deux|trois|quatre|cinq|six|sept|huit|neuf|dix|onze|douze|treize|quatorze|quinze|seize|vingt|trente|quarante|cinquante|soixante|cent|mille|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|twenty|thirty|forty|fifty|sixty|hundred|thousand)\b/g;
-    const sourceNumberWords = new Set(normalizedSource.match(numberWordPattern) || []);
-    const summaryNumbersGrounded = (normalize(extracted.summary).match(/\b\d+(?:[.,]\d+)?\b/g) || [])
-        .every((number) => sourceNumericFacts.has(number))
-        && (stripAccents(normalize(extracted.summary).toLowerCase()).match(numberWordPattern) || [])
-            .every((number) => sourceNumberWords.has(number));
+    const summaryNumbersGrounded = hasNarratedCvSummaryNumbersGrounded(extracted.summary, source);
     const summaryGrounded = isNarratedCvItemGrounded(extracted.summary, source, {
         minimumMatches: 2,
         minimumOutputRatio: 0.35,
@@ -13321,12 +13399,15 @@ module.exports = async (request, response) => {
                 letter,
                 interaction,
             });
+            const candidateResult = openAiResult && requestedSourceKind === 'narrative'
+                ? reconcileNarratedCvAssistantResult(openAiResult.result, documentText)
+                : openAiResult && openAiResult.result;
 
             const deterministicHeadline = getExplicitCvHeadline(instruction, cv.headline, cv.documentLanguage);
             const validationDiagnostics = {};
             if (openAiResult && (
                 (deterministicHeadline && requestedSourceKind !== 'narrative')
-                || hasMeaningfulCvAssistantResult(openAiResult.result, {
+                || hasMeaningfulCvAssistantResult(candidateResult, {
                     requireStructuredExtraction: task === 'autofill' || task === 'create',
                     requireNarratedCoverage: requestedSourceKind === 'narrative',
                     documentText,
@@ -13338,7 +13419,7 @@ module.exports = async (request, response) => {
                     source: 'openai',
                     model: openAiResult.model,
                     cv: ensureCompleteCvAssistantResult({
-                        result: openAiResult.result,
+                        result: candidateResult,
                         cv,
                         task,
                         jobOffer,

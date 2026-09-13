@@ -283,6 +283,37 @@ for (const fixture of acceptedNarratives) {
     });
 }
 
+test('CV raconté : reprend exactement le nom explicitement déclaré', async () => {
+    const extraction = {
+        ...expectedEliseExtraction,
+        fullName: 'Élise Montbrun fictive',
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative: eliseNarrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.extracted.fullName, 'Élise Montbrun');
+});
+
+test('CV raconté : remplace une accroche paraphrasée non ancrée par la qualité source exacte', async () => {
+    const extraction = {
+        ...expectedEliseExtraction,
+        summary: 'Je suis organisée, souriante, avec une grande aisance relationnelle auprès des clients.',
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative: eliseNarrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.extracted.summary, 'Je suis organisée, souriante et à l’aise avec les clients.');
+    assert.equal(body.cv.summary, 'Je suis organisée, souriante et à l’aise avec les clients.');
+});
+
 test('CV raconté : accepte des compétences fidèlement déduites des missions', async () => {
     const extractionWithWorkSkills = {
         ...expectedEliseExtraction,
@@ -307,6 +338,10 @@ test('CV raconté : accepte des compétences fidèlement déduites des missions'
 
 for (const skill of [
     'Accueil client',
+    'Aisance avec les clients',
+    'Aisance relationnelle avec les clients',
+    'Relationnel client',
+    'Sens du contact client',
     'Réponse aux demandes par téléphone et e-mail',
     'Prise en charge des arrivées et départs',
     'Passation des consignes à l’équipe de nuit',
@@ -329,6 +364,22 @@ for (const skill of [
 
         assert.equal(statusCode, 200);
         assert.equal(body.source, 'openai', `paraphrase rejetée (${body.diagnostic?.validation || body.warning || 'raison inconnue'})`);
+    });
+}
+
+for (const skill of ['Satisfaction client', 'Fidélisation client', 'Écoute client']) {
+    test(`CV raconté : rejette la qualité client non étayée « ${skill} »`, async () => {
+        const extraction = {
+            ...expectedEliseExtraction,
+            skills: [...expectedEliseExtraction.skills, skill],
+        };
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative: eliseNarrative,
+            assistantResult: buildAssistantResult(extraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'deterministic-fallback');
     });
 }
 
