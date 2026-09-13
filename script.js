@@ -6603,19 +6603,184 @@ const hasNegatedExperienceOrderCommand = (message = '') => {
         || new RegExp(`\\b(?:do not|don t|dont|not|never|without)(?:\\s+[a-z0-9-]+){0,5}\\s+${orderVerb}\\b`).test(source);
 };
 
+const hasNegatedExperienceMoveCommand = (message = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(message))
+        .replace(/[’']/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    const moveVerb = '(?:deplace|deplacer|bouge|bouger|remonte|remonter|descend|descendre|place|placer|mets|mettre|move|reorder)';
+
+    return new RegExp(`\\b(?:ne|n)\\s+(?:me\\s+)?${moveVerb}(?:\\s+[a-z0-9-]+){0,3}\\s+(?:pas|plus|jamais)\\b`).test(source)
+        || new RegExp(`\\b(?:ne|n)(?:\\s+[a-z0-9-]+){0,3}\\s+(?:pas|plus|jamais)(?:\\s+[a-z0-9-]+){0,3}\\s+${moveVerb}\\b`).test(source)
+        || new RegExp(`\\bsans(?:\\s+[a-z0-9-]+){0,3}\\s+${moveVerb}\\b`).test(source)
+        || new RegExp(`\\b(?:do not|don t|dont|never|without)(?:\\s+[a-z0-9-]+){0,3}\\s+${moveVerb}\\b`).test(source);
+};
+
+const cleanDeterministicExperienceMoveLabel = (label = '') =>
+    normalizeCvSentenceText(label || '')
+        .replace(/\s+(?:et|,)\s+(?:au-dessus|au\s+dessus|avant|en\s+dessous|dessous|sous|apres|après)\b.*$/i, '')
+        .replace(/\s+(?:et|,)\s+(?:les?\s+)?experiences?\s+plus\s+ancien(?:ne)?s?\b.*$/i, '')
+        .trim();
+
+const getDeterministicExperienceMoveRequest = (instruction = '') => {
+    if (hasNegatedExperienceMoveCommand(instruction)) {
+        return null;
+    }
+
+    const source = normalizeForMatch(String(instruction || ''))
+        .replace(/[’']/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    if (!source) {
+        return null;
+    }
+
+    if (/^(?:pourquoi|comment|why|how)\b|^(?:est[\s-]ce\s+que|faut[\s-]il|dois[\s-]je|should\s+i|would\s+it)\b/.test(source)) {
+        return null;
+    }
+
+    if (!/\b(?:deplace|deplacer|place|placer|mets|mettre|bouge|bouger|remonte|remonter|descend|descendre|move|put)\b/.test(source)) {
+        return null;
+    }
+
+    const patterns = [
+        {
+            direction: 'after',
+            pattern: /\b(?:deplace|deplacer|place|placer|mets|mettre|bouge|bouger|remonte|remonter|descend|descendre|move|put)\s+(.+?)\s+(?:juste\s+)?(?:en\s+dessous\s+de|dessous|sous|apres|après)\s+(.+)$/i,
+        },
+        {
+            direction: 'before',
+            pattern: /\b(?:deplace|deplacer|place|placer|mets|mettre|bouge|bouger|remonte|remonter|descend|descendre|move|put)\s+(.+?)\s+(?:juste\s+)?(?:au-dessus\s+de|au\s+dessus\s+de|au-dessus|au\s+dessus|avant)\s+(.+)$/i,
+        },
+    ];
+
+    for (const { direction, pattern } of patterns) {
+        const match = source.match(pattern);
+        if (!match) {
+            continue;
+        }
+
+        const fromLabel = cleanDeterministicExperienceMoveLabel(match[1] || '');
+        const toLabel = cleanDeterministicExperienceMoveLabel(match[2] || '');
+        if (fromLabel && toLabel) {
+            return { fromLabel, toLabel, direction };
+        }
+    }
+
+    return null;
+};
+
+const getExperienceTitleOrderFromValue = (value = '') =>
+    splitLines(value).map((line) => parseExperienceEntry(line).title || '').filter(Boolean);
+
+const getVisibleExperienceTitleOrder = () =>
+    [...(previewNodes.experience?.querySelectorAll('.cv-experience-title') || [])]
+        .map((node) => node.textContent.trim())
+        .filter(Boolean);
+
+const areExperienceTitleOrdersEqual = (expected = [], actual = []) => {
+    const comparableTitle = (value = '') => normalizeForMatch(value).replace(/[^a-z0-9]+/g, ' ').trim();
+
+    return expected.length === actual.length && expected.every((title, index) => {
+        const expectedTitle = comparableTitle(title);
+        const actualTitle = comparableTitle(actual[index]);
+        return actualTitle === expectedTitle || actualTitle.startsWith(`${expectedTitle} `);
+    });
+};
+
+const verifyExperienceMovePersistenceAndRender = async (expectedValue = '', expectedOrder = [], persistence = {}) => {
+    const persistenceConfirmed = isCvPersistenceConfirmed(persistence) || isCvLocalPreviewPersistence(persistence);
+    if (!persistenceConfirmed) {
+        return { ok: false, reason: 'persistence_not_confirmed' };
+    }
+
+    try {
+        await loadCvDraft({ silent: true });
+        await new Promise((resolve) => window.requestAnimationFrame(resolve));
+    } catch (error) {
+        console.error(error);
+        return { ok: false, reason: 'reload_failed' };
+    }
+
+    const formValue = getExperienceField()?.value || '';
+    const formOrder = getExperienceTitleOrderFromValue(formValue);
+    const visibleOrder = getVisibleExperienceTitleOrder();
+
+    return {
+        ok: formValue === expectedValue
+            && areExperienceTitleOrdersEqual(expectedOrder, formOrder)
+            && areExperienceTitleOrdersEqual(expectedOrder, visibleOrder),
+        reason: 'state_mismatch',
+    };
+};
+
 const isExperienceOrderCleanupIntent = (message = '') =>
     hasExplicitExperienceOrderCommand(message)
     && !hasNegatedExperienceOrderCommand(message)
     && !hasExplicitDestructiveCvRemoval(message);
 
 const applyExperienceOrderCleanupFromKirby = async (message = '') => {
-    if (!cvForm || !isExperienceOrderCleanupIntent(message)) {
+    if (!cvForm) {
+        return '';
+    }
+
+    const moveRequest = getDeterministicExperienceMoveRequest(message);
+    if (!moveRequest && !isExperienceOrderCleanupIntent(message)) {
         return '';
     }
 
     const field = getExperienceField();
     if (!field || !field.value.trim()) {
         return "Je n'ai trouvé aucune expérience à ranger. Importez ou saisissez d'abord les expériences.";
+    }
+
+    if (moveRequest) {
+        const beforeState = getCvHistoryState();
+        const explicitlyTargetsExperiences = /\b(?:experience|experiences|parcours|poste|postes|mission|missions)\b/.test(
+            normalizeForMatch(getKirbyUserInstruction(message))
+        );
+        const moveResult = moveExperienceForOperation({
+            type: 'reorder_experiences',
+            target: { label: moveRequest.fromLabel },
+            position: {
+                [moveRequest.direction]: { label: moveRequest.toLabel },
+            },
+        });
+
+        if (!moveResult.changed) {
+            if (moveResult.status === 'already_ordered') {
+                setCvStatus('Expérience déjà à la position demandée');
+                return "L'expérience est déjà à la position demandée. Aucun contenu modifié.";
+            }
+            if (moveResult.status === 'ambiguous_target' || moveResult.status === 'ambiguous_reference') {
+                setCvStatus('Déplacement non appliqué : référence ambiguë');
+                return "Je n'ai pas déplacé l'expérience : plusieurs lignes correspondent à la demande. Précisez le poste ou l'entreprise.";
+            }
+            if (!explicitlyTargetsExperiences) {
+                return '';
+            }
+
+            setCvStatus('Déplacement non appliqué : expérience introuvable');
+            return "Je n'ai pas déplacé l'expérience : le poste à déplacer ou sa référence est introuvable dans le CV affiché.";
+        }
+
+        const expectedValue = field.value;
+        const expectedOrder = getExperienceTitleOrderFromValue(expectedValue);
+        renderExperienceEditor();
+        updateCvPreview();
+        commitCvHistoryTransition(beforeState);
+
+        const persistence = await persistCvDraftImmediately();
+        const verification = await verifyExperienceMovePersistenceAndRender(expectedValue, expectedOrder, persistence);
+        if (!verification.ok) {
+            setCvStatus('Modification Kirby non confirmée après relecture');
+            return `Modification non confirmée après relecture. ${formatCvPersistenceDetail(persistence)} L'ordre attendu n'est pas identique dans la sauvegarde et l'interface.`;
+        }
+
+        const placement = moveRequest.direction === 'before' ? 'au-dessus du poste demandé' : 'sous le poste demandé';
+        setCvStatus('Expérience déplacée et sauvegarde vérifiée');
+        return `Expérience déplacée ${placement}. ${formatCvPersistenceDetail(persistence)}`;
     }
 
     const beforeState = getCvHistoryState();
@@ -18339,11 +18504,14 @@ const shouldUseKirbyCvAssistant = (message = '', mode = activeKirbyMode) => {
 };
 
 const getCvDamageDiagnosticReply = (message = '') => {
-    const source = normalizeForMatch(message);
-    const reportsEmptyOrBrokenCv = /\b(cv|experience|experiences|rubrique|section)\b/.test(source)
-        && /\b(vide|vides|supprime|supprimees|supprimer|disparu|disparues|efface|effacees|tout supprimer|tout supprime|casse|bug)\b/.test(source);
+    const source = normalizeForMatch(message).replace(/[’']/g, ' ');
+    const targetsCv = /\b(cv|experience|experiences|rubrique|section)\b/.test(source);
+    const reportsEmptyOrBrokenCv = /\b(vide|vides|supprime|supprimees|supprimer|disparu|disparues|efface|effacees|tout supprimer|tout supprime|casse|bug)\b/.test(source);
+    const asksConcreteRemoval = /\b(?:supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|remove|delete)\s+(?:(?:uniquement|seulement|juste|exclusivement|only)\s+)?(?:(?:cette|cet|ce|la|le|les|une|un|l|this|the)\s+)?(?:experience|experiences|rubrique|section|ligne|poste|mission|puce|puces|bullet|bullets|competence|competences|skill|skills|formation|formations|education|projet|projets|langue|langues|language|languages|date|dates|intitule|titre|accroche|profil|photo|mot|texte|mention|phrase|element)\b/.test(source);
+    const asksConcreteEdit = asksConcreteRemoval
+        || /\b(ajoute|ajouter|deplace|deplacer|place|placer|mets|mettre|corrige|corriger|adapte|adapter|reordonne|reorganise|juste sous|avant|apres|lettre|optimise|optimiser|ameliore|ameliorer|remplace|reformule)\b/.test(source);
 
-    if (!reportsEmptyOrBrokenCv) {
+    if (!targetsCv || !reportsEmptyOrBrokenCv || asksConcreteEdit) {
         return '';
     }
 

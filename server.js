@@ -6,6 +6,7 @@ const accountDeleteHandler = require('./api/account-delete');
 const cvAuthConfigHandler = require('./api/cv-auth-config');
 const kirbyHandler = require('./api/kirby');
 const kirbyCvHandler = require('./api/kirby-cv');
+const flyersHandler = require('./api/flyers');
 const authObservabilityHandler = require('./api/auth-observability');
 
 const root = __dirname;
@@ -127,6 +128,8 @@ const sendStaticFile = (request, response) => {
 loadEnv();
 
 const server = http.createServer((request, response) => {
+    const requestPathname = new URL(request.url || '/', `http://${request.headers.host || `${host}:${port}`}`).pathname;
+
     if (request.url && request.url.startsWith('/api/contact')) {
         loadEnv();
         contactHandler(request, response);
@@ -139,13 +142,19 @@ const server = http.createServer((request, response) => {
         return;
     }
 
-    if (request.url && request.url.startsWith('/api/kirby-cv')) {
+    if (requestPathname === '/api/kirby-cv' || requestPathname === '/api/kirby-cv/') {
         loadEnv();
         kirbyCvHandler(request, response);
         return;
     }
 
-    if (request.url && request.url.startsWith('/api/kirby')) {
+    if (requestPathname === '/api/flyers' || requestPathname === '/api/flyers/') {
+        loadEnv();
+        flyersHandler(request, response);
+        return;
+    }
+
+    if (requestPathname === '/api/kirby' || requestPathname === '/api/kirby/') {
         loadEnv();
         kirbyHandler(request, response);
         return;

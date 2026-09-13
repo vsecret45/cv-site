@@ -2,13 +2,16 @@ const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
 const test = require('node:test');
 
-const handler = require('../../api/kirby-cv.js');
+// Ce fichier vérifie le cœur de normalisation des opérations. Le wrapper
+// `kirby-cv.js` ajoute l'authentification HTTP, couverte séparément.
+const handler = require('../../api/kirby.js');
 
 class MockRequest extends EventEmitter {
     constructor(body) {
         super();
         this.method = 'POST';
         this.headers = {};
+        this.kirbyService = 'cv';
         process.nextTick(() => {
             this.emit('data', Buffer.from(JSON.stringify(body)));
             this.emit('end');
@@ -60,8 +63,8 @@ const emptyCvPayload = {
 
 const callKirbyCv = async ({ cv, instruction, openAiCv }) => {
     const originalFetch = global.fetch;
-    const originalKey = process.env.KIRBY_OPENAI_API_KEY;
-    process.env.KIRBY_OPENAI_API_KEY = 'sk-test-key';
+    const originalKey = process.env.KIRBY_CV_OPENAI_API_KEY;
+    process.env.KIRBY_CV_OPENAI_API_KEY = 'sk-test-key';
     global.fetch = async () => ({
         ok: true,
         json: async () => ({
@@ -88,9 +91,9 @@ const callKirbyCv = async ({ cv, instruction, openAiCv }) => {
     } finally {
         global.fetch = originalFetch;
         if (originalKey === undefined) {
-            delete process.env.KIRBY_OPENAI_API_KEY;
+            delete process.env.KIRBY_CV_OPENAI_API_KEY;
         } else {
-            process.env.KIRBY_OPENAI_API_KEY = originalKey;
+            process.env.KIRBY_CV_OPENAI_API_KEY = originalKey;
         }
     }
 };
@@ -147,7 +150,7 @@ const cvFixtures = [
 ];
 
 for (const fixture of cvFixtures) {
-    test(`CV ${fixture.name}: keeps structured local operations generic`, async () => {
+    test(`CV ${fixture.name}: keeps targeted operations and rejects invented values`, async () => {
         const { statusCode, body } = await callKirbyCv({
             cv: fixture.cv,
             instruction: `Déplace ${fixture.first} après ${fixture.second}, corrige son intitulé et sa date, puis supprime uniquement ${fixture.second}.`,
@@ -200,10 +203,13 @@ for (const fixture of cvFixtures) {
         assert.equal(statusCode, 200);
         assert.equal(body.cv.bugReport, null);
         assert.deepEqual(body.cv.experienceOrder, [fixture.secondResolved, fixture.firstResolved]);
-        assert.equal(body.cv.operations.length, 6);
-        assert.equal(body.cv.operations[1].position.after.title, fixture.second);
-        assert.equal(body.cv.operations[2].position.before.title, fixture.second);
-        assert.equal(body.cv.operations[3].type, 'update_experience_title');
-        assert.equal(body.cv.operations[3].value, `${fixture.first} confirmé`);
+        assert.deepEqual(body.cv.operations.map((operation) => operation.type), [
+            'reorder_experiences',
+            'reorder_experiences',
+            'remove_experience',
+        ]);
+        assert.equal(body.cv.operations[0].position.after.title, fixture.second);
+        assert.equal(body.cv.operations[1].position.before.title, fixture.second);
+        assert.equal(body.cv.operations[2].target.title, fixture.second);
     });
 }
