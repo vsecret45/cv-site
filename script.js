@@ -4225,7 +4225,7 @@ const monthNamesPattern =
 const cvMonthYearPattern = `(?:(?:${monthNamesPattern})\\.?\\s*,?\\s*\\d{2,4}|(?:0?[1-9]|1[0-2])\\s*[-/.]\\s*(?:(?:19|20)\\d{2}|\\d{2}))`;
 const cvFullYearPattern = '\\b(?:19|20)\\d{2}\\b';
 const cvDatedTokenPattern = `(?:${cvMonthYearPattern}|${cvFullYearPattern})`;
-const cvOngoingDatePattern = "(?:aujourd'hui|present|pr[ée]sent|now|current)";
+const cvOngoingDatePattern = "(?:aujourd['’]hui|present|pr[ée]sent|now|current)";
 const cvDateTokenPattern = `(?:${cvDatedTokenPattern}|${cvOngoingDatePattern})`;
 
 const experienceDateRangePrefixPattern = "(?:(?:de|du|d['’]|from)\\s*)?";
@@ -9010,7 +9010,7 @@ const buildCvAutopilotInstruction = (message = '') =>
         message,
     ].filter(Boolean).join('\n\n');
 
-const CV_IMPORT_LIST_FIELDS = ['skills', 'experiences', 'projects', 'education', 'activities', 'languages'];
+const CV_IMPORT_LIST_FIELDS = ['skills', 'experiences', 'projects', 'education', 'certifications', 'activities', 'languages'];
 const CV_IMPORT_TEXT_FIELDS = ['fullName', 'location', 'phone', 'email', 'permit', 'headline', 'summary'];
 
 const detectImportedCvLocale = (text = '', fallbackLocale = 'fr') => {
@@ -9321,6 +9321,7 @@ const buildLocalImportedCvExtraction = (text = '') => {
             experiences: groupedExperiences.length ? groupedExperiences : dedupeImportedItems(rawExperienceItems),
             projects: mergeStandaloneDateItems(getImportedListItems(sections.projects)),
             education: normalizeImportedEducationItems(getImportedListItems(sections.education)),
+            certifications: [],
             activities: dedupeImportedItems([
                 ...getImportedActivityItems(sections.activities),
                 ...combinedLanguagesAndActivities.activities,
@@ -9349,6 +9350,7 @@ const getImportedCvExtractionStats = (extracted = {}) => ({
     experiences: getImportedExtractionList(extracted, 'experiences').length,
     skills: getImportedExtractionList(extracted, 'skills').length,
     education: getImportedExtractionList(extracted, 'education').length,
+    certifications: getImportedExtractionList(extracted, 'certifications').length,
     projects: getImportedExtractionList(extracted, 'projects').length,
     languages: getImportedExtractionList(extracted, 'languages').length,
     hasName: Boolean(normalizeCvSentenceText(extracted?.fullName || '')),
@@ -9359,10 +9361,10 @@ const getImportedCvExtractionStats = (extracted = {}) => ({
 
 const hasMeaningfulImportedCvExtraction = (extracted = {}) => {
     const stats = getImportedCvExtractionStats(extracted);
-    const listSections = [stats.experiences, stats.skills, stats.education, stats.projects, stats.languages]
+    const listSections = [stats.experiences, stats.skills, stats.education + stats.certifications, stats.projects, stats.languages]
         .filter((count) => count > 0).length;
     const contentScore = Math.min(stats.experiences, 2) * 2
-        + Math.min(stats.education, 1) * 2
+        + Math.min(stats.education + stats.certifications, 1) * 2
         + Math.min(stats.projects, 1) * 2
         + Math.min(stats.skills, 2)
         + Math.min(stats.languages, 1)
@@ -9381,19 +9383,169 @@ const importedCvGroundingStopWords = new Set([
     'sur', 'par', 'and', 'or', 'of', 'to', 'a', 'an', 'de', 'du', 'la', 'le', 'et', 'en', 'au', 'un', 'd', 'l',
 ]);
 
-const getImportedGroundingTokens = (value = '') => normalizeForMatch(value)
+const importedGroundingMonthTokens = {
+    jan: 'month01', janvier: 'month01', january: 'month01',
+    fev: 'month02', fevr: 'month02', fevrier: 'month02', feb: 'month02', february: 'month02',
+    mar: 'month03', mars: 'month03', march: 'month03',
+    avr: 'month04', avril: 'month04', apr: 'month04', april: 'month04',
+    mai: 'month05', may: 'month05',
+    juin: 'month06', jun: 'month06', june: 'month06',
+    juil: 'month07', juill: 'month07', juillet: 'month07', jul: 'month07', july: 'month07',
+    aout: 'month08', aug: 'month08', august: 'month08',
+    sept: 'month09', septembre: 'month09', sep: 'month09', september: 'month09',
+    oct: 'month10', octobre: 'month10', october: 'month10',
+    nov: 'month11', novembre: 'month11', november: 'month11',
+    dec: 'month12', decembre: 'month12', december: 'month12',
+};
+
+const normalizeImportedGroundingText = (value = '') => normalizeForMatch(value)
+    .replace(/[’']/g, ' ')
+    .replace(/\b\d{1,2}\s*[/.]\s*(0?[1-9]|1[0-2])\s*[/.]\s*((?:19|20)\d{2})\b/g, (match, month, year) =>
+        ` month${String(Number(month)).padStart(2, '0')} ${year} `)
+    .replace(/\b(?:aujourd hui|a ce jour|jusqu a present|actuellement|en cours|present|current|now|to date|still working|currently working|j y travaille encore|je travaille encore|toujours en poste|encore en poste)\b/g, ' current ')
+    .replace(/\b(janvier|january|janv?|fevrier|february|fevr?|feb|mars|march|mar|avril|april|avr|apr|mai|may|juin|june|jun|juillet|juil|juill|july|jul|aout|august|aug|septembre|september|sept|sep|octobre|october|oct|novembre|november|nov|decembre|december|dec)\.?\b/g, (month) => importedGroundingMonthTokens[month] || month)
     .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const getImportedGroundingTokens = (value = '') => normalizeImportedGroundingText(value)
     .split(/\s+/)
     .filter((token) => token.length > 1 && !importedCvGroundingStopWords.has(token));
+
+const getImportedGroundingCoverage = (value = '', sourceText = '') => {
+    const candidateTokens = getImportedGroundingTokens(value);
+    if (!candidateTokens.length) {
+        return 0;
+    }
+    const sourceTokens = new Set(getImportedGroundingTokens(sourceText));
+    const coveredTokens = candidateTokens.filter((token) => sourceTokens.has(token)).length;
+    return coveredTokens / candidateTokens.length;
+};
 
 const isImportedValueGrounded = (value = '', sourceText = '') => {
     const candidateTokens = getImportedGroundingTokens(value);
     if (!candidateTokens.length) {
         return false;
     }
-    const sourceTokens = new Set(getImportedGroundingTokens(sourceText));
-    const coveredTokens = candidateTokens.filter((token) => sourceTokens.has(token)).length;
-    return coveredTokens / candidateTokens.length >= 0.82;
+    return getImportedGroundingCoverage(value, sourceText) >= 0.82;
+};
+
+const hasOnlyImportedSourceYears = (value = '', sourceText = '') => {
+    const sourceYears = new Set(String(sourceText || '').match(/\b(?:19|20)\d{2}\b/g) || []);
+    return (String(value || '').match(/\b(?:19|20)\d{2}\b/g) || [])
+        .every((year) => sourceYears.has(year));
+};
+
+const looksLikeNarratedCvInstructionLeak = (value = '') => /\b(?:n invente|ne mets? pas|ne mettez pas|demande moi|demandez moi|a verifier|do not invent|don t put|do not put|ask me|check after|must appear|doit apparaitre|kirby ne doit)\b/i
+    .test(normalizeForMatch(value).replace(/[’']/g, ' '));
+
+const isNarratedImportedTextFieldGrounded = (fieldName = '', value = '', sourceText = '') => {
+    const candidate = normalizeCvSentenceText(value);
+    if (!candidate || looksLikeNarratedCvInstructionLeak(candidate) || !hasOnlyImportedSourceYears(candidate, sourceText)) {
+        return false;
+    }
+
+    if (fieldName === 'email') {
+        return normalizeForMatch(sourceText).includes(normalizeForMatch(candidate));
+    }
+    if (fieldName === 'phone') {
+        const digits = candidate.replace(/\D/g, '');
+        return digits.length >= 8 && String(sourceText || '').replace(/\D/g, '').includes(digits);
+    }
+
+    const thresholds = {
+        fullName: 1,
+        location: 0.65,
+        permit: 0.65,
+        headline: 0.45,
+        summary: 0.42,
+    };
+    return getImportedGroundingCoverage(candidate, sourceText) >= (thresholds[fieldName] ?? 0.65);
+};
+
+const isNarratedImportedExperienceGrounded = (value = '', sourceText = '') => {
+    const candidate = normalizeCvSentenceText(value);
+    if (!candidate || looksLikeNarratedCvInstructionLeak(candidate) || !hasOnlyImportedSourceYears(candidate, sourceText)) {
+        return false;
+    }
+
+    const entry = parseExperienceEntry(candidate);
+    const identity = [entry.title, entry.meta].filter(Boolean).join(' ');
+    const identityTokens = getImportedGroundingTokens(identity)
+        .filter((token) => !/^(?:cdi|cdd|stage|interim|alternance)$/.test(token));
+    const dateTokens = getImportedGroundingTokens(entry.date)
+        .filter((token) => /^(?:(?:19|20)\d{2}|month\d{2}|current)$/.test(token));
+    const sourceParagraphs = String(sourceText || '')
+        .split(/\n+/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+    const hasMatchingEpisode = sourceParagraphs.some((paragraph) => {
+        const paragraphTokens = new Set(getImportedGroundingTokens(paragraph));
+        const identityMatches = identityTokens.filter((token) => paragraphTokens.has(token)).length;
+        const datesMatch = !dateTokens.length || dateTokens.every((token) => paragraphTokens.has(token));
+        return datesMatch && identityMatches >= Math.min(2, Math.max(identityTokens.length, 1));
+    });
+
+    return hasMatchingEpisode && getImportedGroundingCoverage(candidate, sourceText) >= 0.58;
+};
+
+const getNarratedImportedSkillsSource = (sourceText = '') => {
+    const paragraphs = String(sourceText || '')
+        .split(/\n+/)
+        .map((paragraph) => paragraph.trim())
+        .filter(Boolean);
+    const selected = [];
+    let includeNext = false;
+
+    paragraphs.forEach((paragraph) => {
+        const normalized = normalizeForMatch(paragraph).replace(/[’']/g, ' ');
+        const isSkillsHeading = /^(?:competences?|savoir faire|techniques?|outils?|technologies?|skills?|tools?|strengths?|qualites?)\s*:?$/.test(normalized);
+        const explicitlyIntroducesSkills = /\b(?:je sais|je maitrise|je peux|j utilise|mes competences|mes outils|mes qualites|competences?|savoir faire|techniques?|outils?|technologies?|i know|i can|i use|my skills|my tools|proficient|experienced with)\b/.test(normalized);
+        const describesQualities = !/\b(?:19|20)\d{2}\b/.test(normalized)
+            && /\b(?:je suis|j aime travailler|i am|i like working)\b/.test(normalized);
+
+        if (includeNext || explicitlyIntroducesSkills || describesQualities) {
+            selected.push(paragraph);
+        }
+        includeNext = isSkillsHeading;
+    });
+
+    return selected.join('\n');
+};
+
+const isNarratedImportedListItemGrounded = (fieldName = '', value = '', sourceText = '') => {
+    const candidate = normalizeCvSentenceText(value);
+    if (!candidate || looksLikeNarratedCvInstructionLeak(candidate) || !hasOnlyImportedSourceYears(candidate, sourceText)) {
+        return false;
+    }
+    if (fieldName === 'experiences') {
+        return isNarratedImportedExperienceGrounded(candidate, sourceText);
+    }
+    if (fieldName === 'skills' && (emailPattern.test(candidate) || Boolean(extractImportedPhone([candidate])))) {
+        return false;
+    }
+    if (fieldName === 'skills') {
+        const explicitSkillsSource = getNarratedImportedSkillsSource(sourceText);
+        return Boolean(explicitSkillsSource)
+            && getImportedGroundingCoverage(candidate, explicitSkillsSource) >= 0.45;
+    }
+    return getImportedGroundingCoverage(candidate, sourceText) >= (fieldName === 'activities' ? 0.75 : 0.55);
+};
+
+const hasMeaningfulNarratedCvExtraction = (extracted = {}) => {
+    const stats = getImportedCvExtractionStats(extracted);
+    const identityScore = Number(stats.hasName) + Number(stats.hasContact) + Number(stats.hasHeadline);
+    const structuredSections = [
+        stats.experiences,
+        stats.skills,
+        stats.education + stats.certifications,
+        stats.languages,
+        stats.activities,
+    ].filter((count) => count > 0).length;
+
+    return identityScore >= 1
+        && structuredSections >= 2
+        && (stats.experiences > 0 || stats.education + stats.certifications > 0);
 };
 
 const isImportedExperienceGrounded = (value = '', sourceText = '') => {
@@ -9469,15 +9621,36 @@ const isImportedAssistantItemCompatible = (fieldName = '', item = '', localItems
         });
 };
 
-const mergeImportedCvExtractions = (localExtraction = {}, assistantExtraction = {}, sourceText = '') => {
+const mergeImportedCvExtractions = (
+    localExtraction = {},
+    assistantExtraction = {},
+    sourceText = '',
+    { sourceKind = 'document' } = {},
+) => {
     const merged = {};
+    const narratedSource = sourceKind === 'narrative';
     const localItemsByField = Object.fromEntries(
         CV_IMPORT_LIST_FIELDS.map((fieldName) => [fieldName, getImportedExtractionList(localExtraction, fieldName)])
     );
+    const compatibilityItemsByField = narratedSource
+        ? Object.fromEntries(CV_IMPORT_LIST_FIELDS.map((fieldName) => [fieldName, []]))
+        : localItemsByField;
 
     CV_IMPORT_TEXT_FIELDS.forEach((fieldName) => {
         const localValue = normalizeCvSentenceText(localExtraction?.[fieldName] || '');
         const assistantValue = normalizeCvSentenceText(assistantExtraction?.[fieldName] || '');
+        if (narratedSource) {
+            const safeAssistantValue = isNarratedImportedTextFieldGrounded(fieldName, assistantValue, sourceText)
+                ? assistantValue
+                : '';
+            const safeLocalValue = ['fullName', 'location', 'phone', 'email', 'permit'].includes(fieldName)
+                && isNarratedImportedTextFieldGrounded(fieldName, localValue, sourceText)
+                ? localValue
+                : '';
+            merged[fieldName] = safeAssistantValue || safeLocalValue;
+            return;
+        }
+
         merged[fieldName] = localValue || (
             assistantValue && isImportedValueGrounded(assistantValue, sourceText)
                 ? assistantValue
@@ -9486,12 +9659,14 @@ const mergeImportedCvExtractions = (localExtraction = {}, assistantExtraction = 
     });
 
     CV_IMPORT_LIST_FIELDS.forEach((fieldName) => {
-        const localItems = localItemsByField[fieldName];
+        const localItems = narratedSource ? [] : localItemsByField[fieldName];
         const assistantItems = getImportedExtractionList(assistantExtraction, fieldName)
-            .filter((item) => fieldName === 'experiences'
-                ? isImportedExperienceGrounded(item, sourceText)
-                : isImportedValueGrounded(item, sourceText))
-            .filter((item) => isImportedAssistantItemCompatible(fieldName, item, localItemsByField));
+            .filter((item) => narratedSource
+                ? isNarratedImportedListItemGrounded(fieldName, item, sourceText)
+                : fieldName === 'experiences'
+                    ? isImportedExperienceGrounded(item, sourceText)
+                    : isImportedValueGrounded(item, sourceText))
+            .filter((item) => isImportedAssistantItemCompatible(fieldName, item, compatibilityItemsByField));
         const combined = [...localItems];
         assistantItems.forEach((item) => {
             if (!combined.some((candidate) => importedItemsReferToSameFact(candidate, item))) {
@@ -9531,6 +9706,17 @@ const buildKirbyImportedCvInstruction = (index = 0, total = 1) => [
     `Document CV brut à extraire, partie ${index + 1}/${total}.`,
     'Restitue uniquement les faits explicitement présents dans cette partie dans extracted.',
     "N'invente aucune langue, compétence, mission, date, formation ou expérience. Ne résume pas une liste et ne réorganise pas les expériences.",
+].join('\n\n');
+
+const buildKirbyNarratedCvInstruction = () => [
+    "Construis maintenant un CV professionnel complet à partir des informations racontées directement par l'utilisateur.",
+    "Sépare strictement les coordonnées, le titre visé, le profil, les compétences, les expériences, les formations et certifications, les langues et les activités. Ne recopie jamais la demande, les remarques éditoriales ou la liste de vérification dans le CV.",
+    "Crée une expérience distincte pour chaque emploi explicitement décrit et classe-les du plus récent au plus ancien. Une activité en cours est la première. Rattache les compléments tardifs et les formulations comme « j'y » ou « dans ce poste » à l'expérience qu'ils désignent.",
+    "Conserve aussi les emplois hors du secteur visé. Une pause, un trou ou une raison personnelle ne devient jamais un emploi et ne doit pas être complété. Si l'utilisateur demande de ne pas détailler une pause, ne la mentionne pas et ne pose pas de question à son sujet.",
+    "Dans un CV français, présente les périodes sous la forme « mois année – mois année » et une activité en cours sous la forme « mois année – aujourd’hui ». Une date calendaire complète sert à déterminer le mois et l'année ; n'affiche pas le jour sauf demande explicite.",
+    "Le profil peut être reformulé uniquement à partir des faits fournis et doit respecter la personne grammaticale demandée. Ne place jamais un téléphone, un e-mail, une adresse, un âge ou une consigne dans les compétences.",
+    "Dans les compétences, garde seulement les savoir-faire, techniques, outils et qualités que l'utilisateur présente explicitement comme tels. Ne duplique pas automatiquement toutes les missions des emplois dans cette rubrique ; les missions restent avec leur expérience.",
+    "N'invente aucun fait. Si une information essentielle manque réellement, construis tout ce qui est possible puis ajoute une seule question courte dans suggestions. L'âge, la photo, le permis et les langues ne sont jamais obligatoires.",
 ].join('\n\n');
 
 const combineKirbyImportedCvExtractions = (extractions = []) => {
@@ -9598,6 +9784,19 @@ const getSafeImportedCvOnePageOperations = (result = {}, sourceExperience = '') 
 
         const sourceLine = sourceLines[index] || '';
         if (!description.every((bullet) => isImportedValueGrounded(bullet, sourceLine))) {
+            return;
+        }
+
+        // Une reformulation peut être entièrement fondée sur la source tout en
+        // supprimant une des missions. Vérifier aussi le sens inverse : chaque
+        // mission existante doit rester représentée dans le texte condensé.
+        // En cas de paraphrase trop éloignée pour être prouvée localement, on
+        // préfère conserver les puces originales plutôt que risquer une perte.
+        const condensedDescription = description.join(' ');
+        const preservesEverySourceMission = sourceEntries[index].bullets.every((bullet) =>
+            getImportedGroundingCoverage(bullet, condensedDescription) >= 0.7
+        );
+        if (!preservesEverySourceMission) {
             return;
         }
 
@@ -9673,10 +9872,16 @@ const runImportedCvOnePagePass = async (locale = 'fr') => {
     return { requested: true, applied: true, operations: operations.length };
 };
 
-const renderImportedCv = ({ locale = 'fr', status = 'CV importé fidèlement. Vérifiez puis sauvegardez le brouillon.' } = {}) => {
+const renderImportedCv = ({
+    locale = 'fr',
+    status = 'CV importé fidèlement. Vérifiez puis sauvegardez le brouillon.',
+    resetStructure = false,
+} = {}) => {
     currentCvContentLocale = locale === 'en' ? 'en' : 'fr';
     preserveEmptyImportedLanguages = !String(cvForm?.elements.languages?.value || '').trim();
-    cvSectionOrder = [...DEFAULT_CV_SECTION_ORDER];
+    if (resetStructure) {
+        cvSectionOrder = [...DEFAULT_CV_SECTION_ORDER];
+    }
     // Le contenu importé adopte la conception déjà choisie par l'utilisateur.
     // Les valeurs par défaut ne sont appliquées que si aucun style n'existe.
     applyReadyCvLayout();
@@ -9715,8 +9920,9 @@ const parseImportedCv = (text, { replace = true, render = true } = {}) => {
 
 const importCvTextWithKirby = async (
     text = '',
-    { onProgress = null, onLocalReady = null, profilePhoto = null } = {},
+    { onProgress = null, onLocalReady = null, profilePhoto = null, sourceKind = 'document' } = {},
 ) => {
+    const narratedSource = sourceKind === 'narrative';
     const reportProgress = (message) => {
         if (typeof onProgress === 'function') {
             onProgress(message);
@@ -9734,7 +9940,7 @@ const importCvTextWithKirby = async (
 
     const localImport = buildLocalImportedCvExtraction(text);
     currentCvContentLocale = localImport.locale === 'en' ? 'en' : 'fr';
-    const localExtractionReady = hasMeaningfulImportedCvExtraction(localImport.extracted);
+    const localExtractionReady = !narratedSource && hasMeaningfulImportedCvExtraction(localImport.extracted);
     const snapshotBeforeImport = getKirbyCvSnapshot();
     let importSnapshot = snapshotBeforeImport;
 
@@ -9749,6 +9955,7 @@ const importCvTextWithKirby = async (
         renderImportedCv({
             locale: localImport.locale,
             status: 'CV structuré et affiché. Kirby vérifie maintenant chaque rubrique sans supprimer le contenu source.',
+            resetStructure: narratedSource,
         });
         importSnapshot = getKirbyCvSnapshot();
         if (typeof onLocalReady === 'function') {
@@ -9770,21 +9977,26 @@ const importCvTextWithKirby = async (
                 ? `Kirby analyse le contenu (${index + 1}/${chunks.length})`
                 : 'Kirby analyse et structure le contenu');
             const result = await requestKirbyCvAssistant({
-                task: 'autofill',
-                instruction: buildKirbyImportedCvInstruction(index, chunks.length),
+                task: narratedSource ? 'create' : 'autofill',
+                instruction: narratedSource
+                    ? buildKirbyNarratedCvInstruction()
+                    : buildKirbyImportedCvInstruction(index, chunks.length),
                 documentText: chunks[index],
                 documentLanguage: localImport.locale,
                 cv: { documentLanguage: localImport.locale },
                 jobOffer: '',
-                interaction: { importSource: true },
-                timeoutMs: 25000,
+                sourceKind: narratedSource ? 'narrative' : 'document',
+                interaction: { importSource: !narratedSource, narratedBrief: narratedSource },
+                timeoutMs: narratedSource ? 40000 : 25000,
             });
             const extracted = result?.cv?.extracted;
             const hasStructuredExtraction = extracted && typeof extracted === 'object' && Object.entries(extracted)
                 .some(([fieldName, value]) => fieldName !== 'rawText' && (
                     Array.isArray(value) ? value.length > 0 : String(value || '').trim().length > 0
                 ));
-            const isAssistantExtraction = result?.source === 'openai' || hasStructuredExtraction;
+            const isAssistantExtraction = narratedSource
+                ? result?.source === 'openai' && hasMeaningfulNarratedCvExtraction(result.cv.extracted)
+                : result?.source === 'openai' || hasStructuredExtraction;
             if (isAssistantExtraction && hasStructuredExtraction) {
                 results.push(result.cv.extracted);
             }
@@ -9798,8 +10010,10 @@ const importCvTextWithKirby = async (
         console.warn('Kirby CV import fallback local:', error);
     }
 
-    const extracted = mergeImportedCvExtractions(localImport.extracted, assistantExtraction, text);
-    const mergedExtractionReady = hasMeaningfulImportedCvExtraction(extracted);
+    const extracted = mergeImportedCvExtractions(localImport.extracted, assistantExtraction, text, { sourceKind });
+    const mergedExtractionReady = narratedSource
+        ? hasMeaningfulNarratedCvExtraction(extracted)
+        : hasMeaningfulImportedCvExtraction(extracted);
     const sourceChangedDuringAnalysis = importSnapshot !== getKirbyCvSnapshot();
 
     if (!mergedExtractionReady) {
@@ -9813,6 +10027,7 @@ const importCvTextWithKirby = async (
         renderImportedCv({
             locale: localImport.locale,
             status: 'CV analysé et remis en forme par Kirby. Tous les éléments importés ont été conservés.',
+            resetStructure: narratedSource,
         });
         importSnapshot = getKirbyCvSnapshot();
     } else if (!localExtractionReady && !sourceChangedDuringAnalysis) {
@@ -9821,6 +10036,7 @@ const importCvTextWithKirby = async (
         renderImportedCv({
             locale: localImport.locale,
             status: 'CV analysé, structuré et prêt à utiliser. Tous les éléments reconnus ont été conservés.',
+            resetStructure: narratedSource,
         });
         importSnapshot = getKirbyCvSnapshot();
     } else if (sourceChangedDuringAnalysis) {
@@ -9872,16 +10088,30 @@ const importCvTextWithKirby = async (
 const getImportedCvReadySummary = (extracted = {}, locale = 'fr') => {
     const experienceCount = getImportedExtractionList(extracted, 'experiences').length;
     const skillCount = getImportedExtractionList(extracted, 'skills').length;
-    const educationCount = getImportedExtractionList(extracted, 'education').length;
+    const educationCount = dedupeImportedItems([
+        ...getImportedExtractionList(extracted, 'education'),
+        ...getImportedExtractionList(extracted, 'certifications'),
+    ]).length;
+    const missing = [];
+    if (!normalizeCvSentenceText(extracted?.fullName || '')) missing.push(locale === 'en' ? 'your full name' : 'vos nom et prénom');
+    if (!normalizeCvSentenceText(extracted?.email || '') && !normalizeCvSentenceText(extracted?.phone || '')) {
+        missing.push(locale === 'en' ? 'an email address or phone number' : 'un e-mail ou un téléphone');
+    }
+    if (!normalizeCvSentenceText(extracted?.headline || '')) missing.push(locale === 'en' ? 'the target role' : 'le poste recherché');
+    const missingSuffix = missing.length
+        ? locale === 'en'
+            ? ` To finalize it, please provide ${missing.join(', ')}.`
+            : ` Pour le finaliser, indiquez ${missing.join(', ')}.`
+        : '';
 
     if (locale === 'en') {
-        return `CV ready to use: ${experienceCount} experience${experienceCount === 1 ? '' : 's'}, ${skillCount} skill${skillCount === 1 ? '' : 's'} and ${educationCount} education item${educationCount === 1 ? '' : 's'} structured. The source content was preserved and the experiences were sorted by date.`;
+        return `CV ready to use: ${experienceCount} experience${experienceCount === 1 ? '' : 's'}, ${skillCount} skill${skillCount === 1 ? '' : 's'} and ${educationCount} education item${educationCount === 1 ? '' : 's'} structured. The source content was preserved and the experiences were sorted by date.${missingSuffix}`;
     }
 
-    return `CV prêt à l’emploi : ${experienceCount} expérience${experienceCount === 1 ? '' : 's'}, ${skillCount} compétence${skillCount === 1 ? '' : 's'} et ${educationCount} formation${educationCount === 1 ? '' : 's'} structurées. Le contenu source est conservé et les expériences sont classées par date.`;
+    return `CV prêt à l’emploi : ${experienceCount} expérience${experienceCount === 1 ? '' : 's'}, ${skillCount} compétence${skillCount === 1 ? '' : 's'} et ${educationCount} formation${educationCount === 1 ? '' : 's'} structurées. Le contenu source est conservé et les expériences sont classées par date.${missingSuffix}`;
 };
 
-const importPastedCvWithKirby = async (text = '') => {
+const importPastedCvWithKirby = async (text = '', { sourceKind = 'document' } = {}) => {
     const sourceText = String(text || '').trim();
     if (!sourceText || !cvForm) {
         return 'Collez le texte complet du CV pour que Kirby puisse le structurer.';
@@ -9897,6 +10127,7 @@ const importPastedCvWithKirby = async (text = '') => {
 
     try {
         const importResult = await importCvTextWithKirby(sourceText, {
+            sourceKind,
             onProgress: (message) => {
                 setCvStatus(message);
                 setAssistantActivity(message, true);
@@ -12373,6 +12604,7 @@ const requestKirbyCvAssistant = async ({
     cv = null,
     jobOffer = null,
     interaction = null,
+    sourceKind = '',
     timeoutMs = 0,
 } = {}) => {
     const client = await initializeSupabaseClient();
@@ -12409,6 +12641,7 @@ const requestKirbyCvAssistant = async ({
                 instruction,
                 documentText: typeof documentText === 'string' ? documentText : '',
                 documentLanguage: documentLanguage === 'en' ? 'en' : documentLanguage === 'fr' ? 'fr' : '',
+                sourceKind: sourceKind === 'narrative' ? 'narrative' : sourceKind === 'document' ? 'document' : '',
                 letter: getKirbyLetterSource(),
                 interaction: interaction && typeof interaction === 'object'
                     ? { ...getKirbyCvInteractionContext(), ...interaction }
@@ -12456,9 +12689,92 @@ const looksLikePastedCv = (message = '') => {
     return source.length > 220 && (hasContact || sectionCount >= 2) && sectionCount >= 2;
 };
 
+const looksLikeStronglyStructuredCv = (message = '') => {
+    const source = String(message || '').trim();
+    if (!source) {
+        return false;
+    }
+
+    const lines = splitLines(preprocessImportedCvText(source));
+    const sectionCount = new Set(lines.map(getSectionKey).filter(Boolean)).size;
+    if (sectionCount < 2) {
+        return false;
+    }
+
+    const datedRangePattern = new RegExp(
+        `${cvDatedTokenPattern}\\s*(?:[–—-]|[àa]|au|to|until|through|till)\\s*${cvDateTokenPattern}`,
+        'i'
+    );
+    const firstPersonPattern = /\b(?:je|j['’]|mon|ma|mes|nous|i|i['’]|my|we)\b/i;
+
+    // Un CV déjà structuré peut légitimement avoir un profil rédigé à la
+    // première personne. Ce qui le distingue d'un récit est au moins une
+    // période professionnelle présentée comme une ligne de CV, hors narration.
+    return lines.some((line) => datedRangePattern.test(line) && !firstPersonPattern.test(line));
+};
+
+const looksLikeNarratedCvBrief = (message = '') => {
+    const source = String(message || '').trim();
+    const words = source.split(/\s+/).filter(Boolean);
+    if (source.length < 60 || words.length < 10) {
+        return false;
+    }
+
+    const normalized = normalizeForMatch(source)
+        .replace(/[’']/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    const segments = source
+        .split(/\n+|(?<=[.!?])\s+(?=[A-ZÀ-ÖØ-Ý])/)
+        .map((segment) => segment.trim())
+        .filter(Boolean);
+    const hasContact = emailPattern.test(source) || Boolean(extractImportedPhone(segments));
+    const hasPersonalVoice = /\b(?:je suis|je travaille|je travaillais|j ai travaille|j etais|j habite|mon nom|mon mail|mon telephone|mes competences|mon parcours|i am|i work|i worked|i was|i live|i ve worked|i have worked|my name|my email|my phone|my skills|my experience|my career)\b/.test(normalized);
+    const hasCvIntent = /\b(?:cv|curriculum vitae|resume|poste recherche|poste de|emploi|parcours|experience|career|job|position)\b/.test(normalized);
+    const hasWorkEvidence = [
+        /\b(?:j ai travaille|je travaille|je travaillais)\b/,
+        /\bj etais\b.{0,90}\b(?:chez|en cdi|en cdd|en interim|freelance|apprenti|stagiaire)\b/,
+        /\bje suis\b.{0,90}\b(?:chez|en cdi|en cdd|en interim|freelance|depuis)\b/,
+        /\b(?:chez|pour l entreprise|au sein de)\b.{0,90}\b(?:cdi|cdd|interim|freelance|depuis|de|entre)\b/,
+        /\b(?:i ve worked|i have worked|i worked|i work|i was employed|i am working)\b/,
+        /\bi (?:was|am)\b.{0,90}\b(?:at|for|with|since|from)\b/,
+        /\b(?:working|employed)\s+(?:at|for|by|with)\b/,
+        /\b(?:cdi|cdd|interim|freelance|apprenti|stagiaire|apprentice|internship)\b/,
+    ].some((pattern) => pattern.test(normalized));
+    const dateMentions = source.match(/\b(?:19|20)\d{2}\b|\b\d{1,2}[/.]\d{1,2}[/.](?:19|20)\d{2}\b/g) || [];
+    const hasEducation = /\b(?:formation|diplome|certificat|certification|cap|bts|bac|licence|master|ecole|cfa|universite|education|degree|training|certificate|school|university)\b/.test(normalized);
+    const supportingSignals = [
+        hasEducation,
+        /\b(?:competence|je sais|outil|skills?|proficient|able to)\b/.test(normalized),
+        /\b(?:langue|anglais|francais|language|english|french)\b/.test(normalized),
+        /\b(?:loisir|activite|centre d interet|hobbies|interests?)\b/.test(normalized),
+        /\b(?:permis|driving licence|driving license)\b/.test(normalized),
+        hasContact,
+    ].filter(Boolean).length;
+    const hasRecruiterVoice = /\b(?:nous recherchons|profil recherche|vos missions|vous serez|candidat ideal|offre d emploi|we are looking|job description|your responsibilities|successful candidate|apply now|required qualifications)\b/.test(normalized);
+    const hasEditCommand = /\b(?:remplace|remplacer|corrige|corriger|modifie|modifier|supprime|supprimer|retire|retirer|replace|correct|modify|update|remove|delete)\b/.test(normalized);
+    const hasCareerAnchor = /\b(?:j ai travaille|i ve worked|i have worked|i worked|chez|au sein de|pour l entreprise|en tant que|cdi|cdd|interim|freelance|apprenti|stagiaire|at a company|at the company|for a company|for the company|as an?|employed|apprentice|internship)\b/.test(normalized);
+
+    if (hasRecruiterVoice) {
+        return false;
+    }
+    if (hasEditCommand && !hasCareerAnchor) {
+        return false;
+    }
+
+    // Un récit de création peut être court, ne contenir qu'un emploi et une
+    // formation, ou être dicté sans ponctuation. Les preuves sont donc comptées
+    // dans tout le texte et ne dépendent ni des phrases ni d'une liste de métiers.
+    return hasPersonalVoice
+        && hasWorkEvidence
+        && dateMentions.length >= 1
+        && (hasContact || hasCvIntent || hasEducation || supportingSignals >= 2)
+        && (hasEducation || supportingSignals >= 2 || dateMentions.length >= 2);
+};
+
 const looksLikeCvSourceText = (message = '') => {
     const source = String(message || '').trim();
-    if (looksLikePastedCv(source)) {
+    if (looksLikePastedCv(source) || looksLikeNarratedCvBrief(source)) {
         return true;
     }
 
@@ -12474,6 +12790,34 @@ const looksLikeCvSourceText = (message = '') => {
         && lines.length >= 6
         && hasContact
         && (sectionCount >= 1 || dateCount >= 1 || roleCount >= 2);
+};
+
+const getKirbyCvSourceKindForAssistantMessage = (message = '', mode = activeKirbyMode) => {
+    const source = String(message || '').trim();
+    if (!source) {
+        return '';
+    }
+
+    const pastedCv = looksLikePastedCv(source);
+    const stronglyStructuredCv = pastedCv && looksLikeStronglyStructuredCv(source);
+
+    // Un CV déjà structuré garde le pipeline document et son repli local, même
+    // si son profil emploie « je » ou « I ». Un récit dominant reste en create
+    // lorsqu'il ne contient que quelques libellés servant de repères.
+    if (stronglyStructuredCv) {
+        return 'document';
+    }
+    if (mode === 'create' && looksLikeNarratedCvBrief(source)) {
+        return 'narrative';
+    }
+    if (pastedCv) {
+        return 'document';
+    }
+    if (mode === 'create' && looksLikeCvSourceText(source)) {
+        return 'narrative';
+    }
+
+    return '';
 };
 
 const looksLikeJobOffer = (message = '') => {
@@ -16098,7 +16442,10 @@ const applyKirbyExtractedCv = (extracted = {}, { replace = false } = {}) => {
                 'experiences'
             ).join('\n'),
             projects: getImportedExtractionList(extracted, 'projects').join('\n'),
-            education: getImportedExtractionList(extracted, 'education').join('\n'),
+            education: dedupeImportedItems([
+                ...getImportedExtractionList(extracted, 'education'),
+                ...getImportedExtractionList(extracted, 'certifications'),
+            ]).join('\n'),
             activities: getImportedExtractionList(extracted, 'activities').join('\n'),
             languages: getImportedExtractionList(extracted, 'languages').join('\n'),
         };
@@ -17795,10 +18142,10 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
                     return;
                 }
 
-                if (looksLikePastedCv(queuedMessage)
-                    || (activeKirbyMode === 'create' && looksLikeCvSourceText(queuedMessage))) {
+                const queuedCvSourceKind = getKirbyCvSourceKindForAssistantMessage(queuedMessage, activeKirbyMode);
+                if (queuedCvSourceKind) {
                     hideKirbyCvProposal();
-                    appendAssistantMessage(await importPastedCvWithKirby(queuedMessage), 'bot');
+                    appendAssistantMessage(await importPastedCvWithKirby(queuedMessage, { sourceKind: queuedCvSourceKind }), 'bot');
                     return;
                 }
 
@@ -18021,7 +18368,8 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
     // Un CV complet collé dans Kirby emprunte exactement le même pipeline que
     // l'import PDF / Word. Il est structuré localement et affiché tout de suite,
     // puis vérifié par l'IA, au lieu d'être traité comme une simple question.
-    if (looksLikePastedCv(cleanMessage) || (mode === 'create' && looksLikeCvSourceText(cleanMessage))) {
+    const cvSourceKind = getKirbyCvSourceKindForAssistantMessage(cleanMessage, mode);
+    if (cvSourceKind) {
         if (isKirbyCvRequestInFlight) {
             queuedAssistantPrompt = cleanMessage;
             setAssistantActivity('CV collé enregistré : Kirby le traitera après l’analyse en cours.', true);
@@ -18029,7 +18377,7 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
         }
 
         hideKirbyCvProposal();
-        const reply = await importPastedCvWithKirby(cleanMessage);
+        const reply = await importPastedCvWithKirby(cleanMessage, { sourceKind: cvSourceKind });
         appendAssistantMessage(reply, 'bot');
         return;
     }
