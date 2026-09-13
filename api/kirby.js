@@ -6524,6 +6524,7 @@ const normalizeCvLanguageLevel = (value = '', documentLanguage = 'fr') => {
         'bases solides': 'elementary',
         beginner: 'beginner',
         debutant: 'beginner',
+        debutante: 'beginner',
         basic: 'basic',
         'basic english': 'basic',
         'basic knowledge': 'basic',
@@ -8976,7 +8977,7 @@ const isNarratedCvWorkSegment = (value = '') => {
     const cvStyleRole = /^(?!(?:formation|education|diplome|certificat|certification|training|degree|course)\b)[a-z][\s\S]{1,100}\b(?:chez|at|pour|with)\b/.test(source);
     const employmentAtOrganization = organizationContext && !nonWorkState && (copularStatement || cvStyleRole);
     const periodRoleStatement = /\b(?:pour la periode|sur la periode|during the period|for the period)\b[\s\S]{0,140}:/.test(source);
-    const editorial = /\b(?:a verifier|merci de verifier|verifie(?:z)? (?:apres|que|si|le cv|la mise en page)|check (?:that|whether|the cv|the resume)|make sure|must appear|kirby)\b/.test(source)
+    const editorial = /\b(?:a verifier|merci de verifier|verifie(?:z)? (?:apres|que|si|le cv|la mise en page)|check (?:that|whether|the cv|the resume)|make sure|must appear|kirby\s+(?:cv|assistant|doit|devrait|peut|analyse|corrige|verifie|genere))\b/.test(source)
         || isNarratedCvTechnicalAside(value);
     const hasWork = explicitWork || employmentAtOrganization || periodRoleStatement || (copularStatement && !nonWorkState);
     const gapOnly = isNarratedCvGapSegment(source) && !explicitWork;
@@ -9079,6 +9080,9 @@ const getNarratedCvAnchorTokens = (value = '') => [...new Set(
 
 const getNarratedCvTokenStem = (value = '') => {
     const token = String(value || '');
+    if (/^(?:stage|stages|stagiaire|stagiaires|intern|interns|internship|internships)$/.test(token)) {
+        return 'cvstage';
+    }
     return token.length > 5 && token.endsWith('s') ? token.slice(0, -1) : token;
 };
 
@@ -9424,7 +9428,7 @@ const getNarratedCvEpisodeAssignment = (workRecords = [], experiences = []) => {
     return visit(0) ? assignment : null;
 };
 
-const isNarratedCvEditorialSegment = (value = '') => /\b(?:a verifier|merci de verifier|verifie(?:z)? (?:apres|que|si|le cv|la mise en page)|ne mets? pas|ne (?:le )?devine pas|n invente pas|demande moi|do not|don t|check (?:that|whether|the cv|the resume)|make sure|must appear|kirby)\b/.test(
+const isNarratedCvEditorialSegment = (value = '') => /\b(?:a verifier|merci de verifier|verifie(?:z)? (?:apres|que|si|le cv|la mise en page)|ne mets? pas|ne (?:le )?devine pas|n invente pas|demande moi|do not|don t|check (?:that|whether|the cv|the resume)|make sure|must appear|kirby\s+(?:cv|assistant|doit|devrait|peut|analyse|corrige|verifie|genere))\b/.test(
     stripAccents(normalizeText(value).toLowerCase()).replace(/[’']/g, ' '),
 ) || isNarratedCvTechnicalAside(value);
 
@@ -9576,6 +9580,7 @@ const NARRATED_CV_SKILL_STOP_TOKENS = new Set([
 ]);
 
 const NARRATED_CV_SKILL_CONCEPT_TOKENS = new Set([
+    'cvcustomercomfort',
     'cvhandover',
     'cvmastery',
     'cvorganization',
@@ -9603,6 +9608,8 @@ const normalizeNarratedCvSkillText = (value = '') => stripAccents(normalizeText(
     .replace(/\blogiciel\s+hotelier\s+de\s+reservation\b/g, ' logiciel reservation hotelier ')
     .replace(/\b(?:hotel|hospitality)\s+(?:reservation|booking)\s+software\b/g, ' software reservation hotelier ')
     .replace(/\bprise\s+en\s+charge\b/g, ' cvresponsibility ')
+    .replace(/\bsens\s+de\s+(?:l\s+)?accueil\b/g, ' accueil ')
+    .replace(/\baisance\s+relationnelle\b/g, ' cvcustomercomfort ')
     .replace(/\bsens\s+de\s+(?:l\s+)?organisation\b/g, ' cvorganization ')
     .replace(/\b(?:travail|travaill(?:er|e|es|ons|ez|ent)|work(?:ed|ing|s)?)\s+(?:(?:bien|well|collaborativement|collaboratively|sans difficulte|sans probleme|without difficulty|without (?:a )?problem)\s+)?(?:en|dans|in)\s+(?:(?:une?|l|a|the)\s+)?(?:equipe|team)\b/g, ' cvteamwork ')
     .replace(/\bteamwork\b/g, ' cvteamwork ');
@@ -10891,6 +10898,28 @@ const reconcileNarratedCvAssistantResult = (result, documentText = '') => {
     if (explicitLocationState.seen) extracted.location = explicitLocationState.value;
     const explicitPermitState = getNarratedCvExplicitPermitState(documentText);
     if (explicitPermitState.seen) extracted.permit = explicitPermitState.value;
+
+    const documentLanguage = detectCvDocumentLanguage({}, documentText);
+    const sourceLanguages = getCvLanguagesFromText(documentText, documentLanguage, { requireContext: true });
+    const modelLanguages = Array.isArray(extracted.languages) ? extracted.languages : [];
+    const languagesMatchSource = sourceLanguages.length === modelLanguages.length
+        && sourceLanguages.every((sourceLanguage) => {
+            const modelLanguage = modelLanguages.find((item) =>
+                stripAccents(normalizeText(item && item.language).toLowerCase())
+                === stripAccents(normalizeText(sourceLanguage.language).toLowerCase())
+            );
+            return modelLanguage
+                && normalizeCvLanguageLevel(modelLanguage.level, documentLanguage)
+                    === normalizeCvLanguageLevel(sourceLanguage.level, documentLanguage);
+        });
+    if (sourceLanguages.length && languagesMatchSource) {
+        extracted.languages = modelLanguages.map((modelLanguage) =>
+            sourceLanguages.find((sourceLanguage) =>
+                stripAccents(normalizeText(sourceLanguage.language).toLowerCase())
+                === stripAccents(normalizeText(modelLanguage && modelLanguage.language).toLowerCase())
+            )
+        );
+    }
 
     const modelSummary = normalize(extracted.summary);
     const safeSourceProfile = getNarratedCvSafeSourceProfile(documentText);

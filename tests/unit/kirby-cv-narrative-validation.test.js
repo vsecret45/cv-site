@@ -312,6 +312,34 @@ test('CV raconté : reprend exactement le nom explicitement déclaré', async ()
     assert.equal(body.cv.extracted.fullName, 'Élise Montbrun');
 });
 
+test('CV raconté : le prénom Kirby reste une identité et non une consigne éditoriale', async () => {
+    const narrative = eliseNarrative.replace('Mon nom est Élise Montbrun.', 'Mon nom est Kirby Test.');
+    const extraction = { ...expectedEliseExtraction, fullName: 'Kirby Test' };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.extracted.fullName, 'Kirby Test');
+});
+
+test('CV raconté : apparie « stagiaire accueil » avec le stage d’accueil déclaré', async () => {
+    const experiences = [...expectedEliseExtraction.experiences];
+    experiences[experiences.length - 1] = experiences[experiences.length - 1]
+        .replace(/^Stage d’accueil/, 'Stagiaire accueil');
+    const extraction = { ...expectedEliseExtraction, experiences };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative: eliseNarrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.match(body.cv.extracted.experiences.at(-1), /^Stagiaire accueil/);
+});
+
 test('CV raconté : la dernière déclaration de nom explicite prévaut', async () => {
     const narrative = eliseNarrative.replace(
         'Mon nom est Élise Montbrun.',
@@ -1604,6 +1632,22 @@ for (const skill of [
     });
 }
 
+for (const skill of ['Sens de l’accueil', 'Aisance relationnelle', 'Organisation']) {
+    test(`CV raconté : accepte la compétence synthétique mais fidèle « ${skill} »`, async () => {
+        const extraction = {
+            ...expectedEliseExtraction,
+            skills: [...expectedEliseExtraction.skills, skill],
+        };
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative: eliseNarrative,
+            assistantResult: buildAssistantResult(extraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'openai', `compétence fidèle rejetée (${body.warning || 'raison inconnue'})`);
+    });
+}
+
 for (const skill of ['Satisfaction client', 'Fidélisation client', 'Écoute client']) {
     test(`CV raconté : rejette la qualité client non étayée « ${skill} »`, async () => {
         const extraction = {
@@ -1620,7 +1664,7 @@ for (const skill of ['Satisfaction client', 'Fidélisation client', 'Écoute cli
     });
 }
 
-for (const skill of ['Aisance avec les clients', 'Aisance relationnelle avec les clients', 'Sens du contact client']) {
+for (const skill of ['Aisance avec les clients', 'Aisance relationnelle', 'Aisance relationnelle avec les clients', 'Sens du contact client']) {
     test(`CV raconté : n’infère pas la qualité personnelle « ${skill} » des seules missions d’accueil`, async () => {
         const narrative = eliseNarrative.replace(
             'Je cherche un poste de réceptionniste en hôtellerie. Je suis organisée, souriante et à l’aise avec les clients.',
@@ -2749,6 +2793,25 @@ test('CV raconté : ne confond pas cinéma italien et langue déclarée', async 
     assert.equal(body.source, 'openai');
     assert.deepEqual(body.cv.extracted.languages, []);
     assert.ok(body.cv.extracted.activities.some((item) => /cinéma italien/i.test(item)));
+});
+
+test('CV raconté : accepte puis normalise les accords féminins des niveaux de langue', async () => {
+    const extraction = {
+        ...expectedEliseExtraction,
+        languages: expectedEliseExtraction.languages.map((item) => {
+            if (item.language === 'Français') return { ...item, level: 'Courante' };
+            if (item.language === 'Anglais') return { ...item, level: 'Débutante' };
+            return item;
+        }),
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative: eliseNarrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.deepEqual(body.cv.extracted.languages, expectedEliseExtraction.languages);
 });
 
 test('CV raconté : ne transforme pas une préférence professionnelle en loisir obligatoire', async () => {
