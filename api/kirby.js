@@ -9615,7 +9615,7 @@ const normalizeNarratedCvSkillToken = (value = '') => {
     if (/^(?:maitrise|maitriser|maitrises|master|masters|mastered|mastery)$/.test(rawToken)) return 'cvmastery';
     if (/^(?:utilisation|utilisations|utiliser|utilise|utilises|sais|savons|savez|use|uses|used|using|know|knows|known)$/.test(rawToken)) return 'cvuse';
     if (/^(?:priorite|priorites|priority|priorities)$/.test(rawToken)) return 'priorite';
-    if (/^(?:client|clients|clientele|customer|customers|guest|guests)$/.test(rawToken)) return 'client';
+    if (/^(?:client|clients|clientele|visiteur|visiteurs|customer|customers|guest|guests|visitor|visitors)$/.test(rawToken)) return 'client';
     if (/^(?:fournisseur|fournisseurs|supplier|suppliers|vendor|vendors)$/.test(rawToken)) return 'fournisseur';
     if (/^(?:demande|demandes|request|requests|inquiry|inquiries|enquiry|enquiries)$/.test(rawToken)) return 'demande';
     if (/^(?:e-?mail|email|emails|courriel|courriels|mail|mails)$/.test(rawToken)) return 'mail';

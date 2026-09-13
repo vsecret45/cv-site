@@ -306,6 +306,7 @@ test('CV raconté : accepte des compétences fidèlement déduites des missions'
 });
 
 for (const skill of [
+    'Accueil client',
     'Réponse aux demandes par téléphone et e-mail',
     'Prise en charge des arrivées et départs',
     'Passation des consignes à l’équipe de nuit',
