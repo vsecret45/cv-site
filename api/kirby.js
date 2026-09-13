@@ -10040,6 +10040,7 @@ const NARRATED_CV_SAFE_SKILL_DIAGNOSTIC_TOKENS = new Set([
     'cvrequestresponse', 'cvresponsibility', 'cvteamwork', 'cvuse', 'demande', 'depart', 'equipe',
     'excel', 'facturation', 'fournisseur', 'hotelier', 'logiciel', 'mail', 'nuit', 'outlook',
     'priorite', 'reclamation', 'reservation', 'telephone',
+    'aisance', 'conseil', 'contact', 'ecoute', 'orientation', 'relation', 'satisfaction', 'service',
 ]);
 
 const hasNarratedCvSkillCollectionGrounding = (
