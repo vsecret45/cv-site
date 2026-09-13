@@ -269,6 +269,20 @@ const acceptedNarratives = [
             'Mes centres d’intérêt sont la randonnée et le cinéma italien.',
         ),
     },
+    {
+        name: 'nom fourni avec le libellé court « Nom : »',
+        narrative: eliseNarrative.replace(
+            'Mon nom est Élise Montbrun.',
+            'Nom : Élise Montbrun.',
+        ),
+    },
+    {
+        name: 'nom suivi d’une qualité dans la même phrase',
+        narrative: eliseNarrative.replace(
+            'Mon nom est Élise Montbrun.',
+            'Mon nom est Élise Montbrun et je suis vendeuse.',
+        ),
+    },
 ];
 
 for (const fixture of acceptedNarratives) {
@@ -297,6 +311,54 @@ test('CV raconté : reprend exactement le nom explicitement déclaré', async ()
     assert.equal(body.source, 'openai');
     assert.equal(body.cv.extracted.fullName, 'Élise Montbrun');
 });
+
+test('CV raconté : la dernière déclaration de nom explicite prévaut', async () => {
+    const narrative = eliseNarrative.replace(
+        'Mon nom est Élise Montbrun.',
+        'Mon nom est Élise Montbrun. En fait, mon nom est Élise Durand.',
+    );
+    const extraction = { ...expectedEliseExtraction, fullName: 'Élise Durand' };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.extracted.fullName, 'Élise Durand');
+});
+
+test('CV raconté : ignore un nom placé dans une instruction négative', async () => {
+    const narrative = eliseNarrative.replace(
+        'Mon nom est Élise Montbrun.',
+        'Mon nom est Élise Montbrun. N’utilise pas mon nom : Jean Dupont.',
+    );
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(expectedEliseExtraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.extracted.fullName, 'Élise Montbrun');
+});
+
+for (const negatedName of ['My name is not John Smith.', 'Je m’appelle pas Jean Dupont.']) {
+    test(`CV raconté : un nom nié ne devient pas l’identité (« ${negatedName} »)`, async () => {
+        const narrative = eliseNarrative.replace('Mon nom est Élise Montbrun.', negatedName);
+        const extraction = {
+            ...expectedEliseExtraction,
+            fullName: /John/.test(negatedName) ? 'John Smith' : 'Jean Dupont',
+        };
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative,
+            assistantResult: buildAssistantResult(extraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'deterministic-fallback');
+    });
+}
 
 test('CV raconté : remplace une accroche paraphrasée non ancrée par la qualité source exacte', async () => {
     const extraction = {
@@ -375,6 +437,27 @@ for (const skill of ['Satisfaction client', 'Fidélisation client', 'Écoute cli
         };
         const { statusCode, body } = await callKirbyNarrative({
             narrative: eliseNarrative,
+            assistantResult: buildAssistantResult(extraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'deterministic-fallback');
+    });
+}
+
+for (const skill of ['Aisance avec les clients', 'Aisance relationnelle avec les clients', 'Sens du contact client']) {
+    test(`CV raconté : n’infère pas la qualité personnelle « ${skill} » des seules missions d’accueil`, async () => {
+        const narrative = eliseNarrative.replace(
+            'Je cherche un poste de réceptionniste en hôtellerie. Je suis organisée, souriante et à l’aise avec les clients.',
+            'Je cherche un poste de réceptionniste en hôtellerie. Je suis organisée et souriante.',
+        );
+        const extraction = {
+            ...expectedEliseExtraction,
+            summary: 'Je suis organisée et souriante.',
+            skills: [...expectedEliseExtraction.skills, skill],
+        };
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative,
             assistantResult: buildAssistantResult(extraction),
         });
 

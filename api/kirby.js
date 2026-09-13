@@ -9754,6 +9754,15 @@ const hasNarratedCvAffirmedCustomerRelation = (value = '') => {
     );
 };
 
+const hasNarratedCvAffirmedCustomerComfort = (value = '') => {
+    const source = normalizeNarratedCvSkillText(value);
+    const pattern = /\b(?:a l aise[\s\S]{0,32}(?:clients?|visiteurs?|customers?|guests?)|aisance(?:\s+relationnelle)?(?:\s+(?:avec|aupres\s+de))?\s+(?:(?:les?|la)\s+)?(?:clients?|clientele|visiteurs?|customers?|guests?)|relationnel(?:le)?\s+(?:clients?|clientele|visiteurs?|customers?|guests?)|sens\s+du\s+contact\s+(?:clients?|clientele|visiteurs?|customers?|guests?))\b/g;
+    return [...source.matchAll(pattern)].some((match) =>
+        !/\b(?:mal|peu|pas|not|uncomfortable)\s+$/.test(source.slice(Math.max(0, match.index - 24), match.index))
+        && isNarratedCvSkillMentionAffirmed(source, match.index, match[0].length)
+    );
+};
+
 const hasNarratedCvNegatedCustomerRelation = (value = '') => {
     const source = normalizeNarratedCvSkillText(value);
     return /\b(?:mal|pas|peu)\s+a l aise[\s\S]{0,32}(?:clients?|visiteurs?)\b/.test(source)
@@ -9768,12 +9777,17 @@ const getNarratedCvSkillConcepts = (value = '', { checkAffirmation = false } = {
         concepts.add('cvhotelbookingsoftware');
     }
     const normalized = normalizeNarratedCvSkillText(value);
-    const outputMentionsCustomerRelation = /\b(?:relations?|service|relationnel(?:le)?|sens\s+du\s+contact)\s+(?:clients?|clientele|customers?|guests?|visiteurs?)\b/.test(normalized)
-        || /\baisance(?:\s+relationnelle)?(?:\s+(?:avec|aupres\s+de))?\s+(?:(?:les?|la)\s+)?(?:clients?|clientele|customers?|guests?|visiteurs?)\b/.test(normalized)
+    const outputMentionsCustomerRelation = /\b(?:relations?|service)\s+(?:clients?|clientele|customers?|guests?|visiteurs?)\b/.test(normalized)
         || /\bcustomer\s+(?:relations?|service)\b/.test(normalized);
+    const outputMentionsCustomerComfort = /\b(?:relationnel(?:le)?|sens\s+du\s+contact)\s+(?:clients?|clientele|customers?|guests?|visiteurs?)\b/.test(normalized)
+        || /\baisance(?:\s+relationnelle)?(?:\s+(?:avec|aupres\s+de))?\s+(?:(?:les?|la)\s+)?(?:clients?|clientele|customers?|guests?|visiteurs?)\b/.test(normalized);
     if ((!checkAffirmation && outputMentionsCustomerRelation)
         || (checkAffirmation && hasNarratedCvAffirmedCustomerRelation(value))) {
         concepts.add('cvcustomerrelation');
+    }
+    if ((!checkAffirmation && outputMentionsCustomerComfort)
+        || (checkAffirmation && hasNarratedCvAffirmedCustomerComfort(value))) {
+        concepts.add('cvcustomercomfort');
     }
     return concepts;
 };
@@ -9814,7 +9828,7 @@ const hasNarratedCvConceptualSkillGrounding = (item = '', sourceFacts = []) => {
     const outputConcepts = getNarratedCvSkillConcepts(item);
     if (!outputConcepts.size) return null;
     const coveredOutputTokens = new Set([...NARRATED_CV_SKILL_CONCEPT_TOKENS]);
-    if (outputConcepts.has('cvcustomerrelation')) {
+    if (outputConcepts.has('cvcustomerrelation') || outputConcepts.has('cvcustomercomfort')) {
         coveredOutputTokens.add('relation');
         coveredOutputTokens.add('service');
         coveredOutputTokens.add('relationnel');
@@ -10034,7 +10048,8 @@ const hasNarratedCvSkillContradiction = (item = '', allSourceFacts = []) => {
                 || negatedTokens.some((token) => !nestedOutputTokens.has(token));
         });
     return allSourceFacts.some((sourceFactRecord) =>
-        (outputConcepts.has('cvcustomerrelation') && hasNarratedCvNegatedCustomerRelation(sourceFactRecord.text))
+        ([...outputConcepts].some((concept) => ['cvcustomerrelation', 'cvcustomercomfort'].includes(concept))
+            && hasNarratedCvNegatedCustomerRelation(sourceFactRecord.text))
         || hasNarratedCvExplicitCompetenceDenial(item, sourceFactRecord.text)
         || hasNarratedCvAnaphoricSkillRetraction(item, sourceFactRecord.text)
         || clauseContradicts(sourceFactRecord.text)
@@ -10132,26 +10147,34 @@ const rejectNarratedCvValidation = (reason = 'unknown', failedChecks = [], diagn
     return false;
 };
 
-const getNarratedCvExplicitFullName = (documentText = '') => {
-    const segments = getNarratedCvSegmentRecords(documentText).map(({ text }) => text);
-    for (const segment of segments) {
-        const match = segment.match(/\b(?:mon\s+nom\s+(?:est|:)|je\s+m[’']appelle|my\s+name(?:\s+is)?|name\s*:)\s*([^.!?;\n]{1,140})/iu);
-        if (!match) continue;
-        const candidate = normalizeText(match[1])
-            .replace(/\s+(?:(?:et|and)\s+)?(?:mon\s+(?:mail|e-?mail|courriel|t[eé]l[eé]phone)|j[’']habite|je\s+(?:vis|r[eé]side)|my\s+(?:email|phone)|i\s+(?:live|reside))\b[\s\S]*$/iu, '')
-            .split(',', 1)[0]
-            .replace(/^[\s«»"“”']+|[\s«»"“”']+$/g, '')
-            .trim();
-        const tokens = candidate.split(/\s+/).filter(Boolean);
-        if (candidate.length <= 100
-            && tokens.length >= 1
-            && tokens.length <= 6
-            && /^[\p{L}][\p{L}'’ -]*$/u.test(candidate)) {
-            return candidate;
-        }
+const getNarratedCvExplicitFullNameFromSegment = (segment = '') => {
+    const match = segment.match(/\b(?:mon\s+nom\s+(?:est|:)|nom\s*:|je\s+m[’']appelle|my\s+name(?:\s+is)?|name\s*:)\s*([^.!?;\n]{1,140})/iu);
+    if (!match) return '';
+    const prefix = stripAccents(normalizeText(segment.slice(0, match.index)).toLowerCase()).replace(/[’']/g, ' ');
+    if (/\b(?:ne|n)\b[\s\S]{0,48}\b(?:pas|jamais|plus)\b[\s\S]{0,32}$/.test(prefix)
+        || /\b(?:do not|don t|never)\b[\s\S]{0,48}$/.test(prefix)) {
+        return '';
     }
-    return '';
+    const candidate = normalizeText(match[1])
+        .replace(/\s+(?:(?:et|and)\s+)?(?:mon\s+(?:mail|e-?mail|courriel|t[eé]l[eé]phone)|j[’']habite|je\s+(?:suis|travaille|vis|r[eé]side)|my\s+(?:email|phone)|i\s+(?:am|work|live|reside))\b[\s\S]*$/iu, '')
+        .split(',', 1)[0]
+        .replace(/^[\s«»"“”']+|[\s«»"“”']+$/g, '')
+        .trim();
+    const normalizedCandidate = stripAccents(candidate.toLowerCase()).replace(/[’']/g, ' ');
+    const tokens = candidate.split(/\s+/).filter(Boolean);
+    return candidate.length <= 100
+        && tokens.length >= 1
+        && tokens.length <= 6
+        && !/^(?:pas|not|jamais|never|aucun|aucune)\b/.test(normalizedCandidate)
+        && /^[\p{L}][\p{L}'’ -]*$/u.test(candidate)
+        ? candidate
+        : '';
 };
+
+const getNarratedCvExplicitFullName = (documentText = '') => [...getNarratedCvSegmentRecords(documentText)]
+    .reverse()
+    .map(({ text }) => getNarratedCvExplicitFullNameFromSegment(text))
+    .find(Boolean) || '';
 
 const getNarratedCvSafeSourceProfile = (documentText = '') => {
     const segmentRecords = getNarratedCvSegmentRecords(documentText);
@@ -10270,8 +10293,8 @@ const hasCompleteNarratedCvExtraction = (value, documentText = '', diagnostics =
     ).filter((segment) => !isNarratedCvWorkSegment(segment));
     const fullNameSegments = getNarratedCvSourceSegments(
         segmentRecords,
-        /\b(?:mon nom|je m appelle|my name(?: is)?|name\s*:)\b/,
-    );
+        /\b(?:mon nom|nom\s*:|je m appelle|my name(?: is)?|name\s*:)/,
+    ).filter((segment) => Boolean(getNarratedCvExplicitFullNameFromSegment(segment)));
     const locationSegments = getNarratedCvSourceSegments(
         segmentRecords,
         /\b(?:j habite|je vis|je reside|domiciliee?|adresse\s*:|i live|i reside|home address|location\s*:)\b/,
