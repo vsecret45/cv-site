@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#080b11">
+    <meta
+      name="description"
+      content="Créez avec Kirby IA des flyers publicitaires modernes, modifiables et prêts à exporter."
+    >
+    <title>Kirby Flyers IA | SA Création Web</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&amp;family=Manrope:wght@400;500;600;700;800&amp;family=Playfair+Display:ital,wght@0,600;1,600&amp;family=Space+Grotesk:wght@400;500;600;700&amp;display=swap"
+      rel="stylesheet"
+    >
+    <link rel="stylesheet" href="flyers/flyers.css">
+  </head>
+  <body class="flyers-page">
+    <a class="skip-link" href="#flyer-studio">Aller au studio Flyers</a>
+
+    <header class="flyers-header" aria-label="Navigation principale">
+      <a class="flyers-brand" href="index.html" aria-label="SA Création Web, accueil">
+        <span class="flyers-brand-mark" aria-hidden="true">SA</span>
+        <span>
+          <strong>SA Création Web</strong>
+          <small>Propulsé par Kirby IA</small>
+        </span>
+      </a>
+
+      <nav class="product-switcher" aria-label="Choisir un outil de création">
+        <a href="index.html#kirby-assistant">Créer un site</a>
+        <a href="cv.html">Créer un CV</a>
+        <a class="is-active" href="flyers.html" aria-current="page">Créer un flyer</a>
+      </nav>
+
+      <a class="header-home-link" href="index.html">Retour à l’accueil</a>
+    </header>
+
+    <main>
+      <section class="flyers-intro" aria-labelledby="flyers-title">
+        <div class="intro-orbit intro-orbit-a" aria-hidden="true"></div>
+        <div class="intro-orbit intro-orbit-b" aria-hidden="true"></div>
+        <p class="intro-kicker">Nouveau studio publicitaire</p>
+        <h1 id="flyers-title">Votre activité mérite d’être remarquée.</h1>
+        <p class="intro-lead">Créez votre site et vos supports publicitaires avec Kirby IA.</p>
+        <div class="intro-proof" aria-label="Atouts du générateur de flyers">
+          <span>Direction artistique par métier</span>
+          <span>Textes toujours modifiables</span>
+          <span>PNG haute définition + PDF</span>
+        </div>
+      </section>
+
+      <section class="flyer-examples" id="flyerExamples" aria-labelledby="flyer-examples-title">
+        <div class="examples-heading">
+          <div>
+            <p class="step-label">Univers créatifs</p>
+            <h2 id="flyer-examples-title">Un métier, une identité — jamais le même modèle recoloré.</h2>
+          </div>
+          <p>Chargez un exemple sans appel IA, puis modifiez librement ses textes, couleurs et coordonnées.</p>
+        </div>
+
+        <div class="example-gallery" aria-label="Exemples de supports personnalisables">
+          <button class="flyer-example-card example-beauty" type="button" data-flyer-example="beauty">
+            <span class="example-meta">Beauté · Publication carrée</span>
+            <span class="example-art" aria-hidden="true">
+              <span class="example-kicker">MAISON ÉCLAT</span>
+              <strong>Peau<br>lumineuse.</strong>
+              <span class="example-pill">Réserver un soin</span>
+            </span>
+            <span class="example-load">Personnaliser cet exemple <span aria-hidden="true">↗</span></span>
+          </button>
+
+          <button class="flyer-example-card example-sport" type="button" data-flyer-example="sport">
+            <span class="example-meta">Coaching · Story</span>
+            <span class="example-art" aria-hidden="true">
+              <span class="example-kicker">LINA COACHING</span>
+              <strong>Ton rythme.<br>Tes progrès.</strong>
+              <span class="example-pill">Bilan offert</span>
+            </span>
+            <span class="example-load">Personnaliser cet exemple <span aria-hidden="true">↗</span></span>
+          </button>
+
+          <button class="flyer-example-card example-accounting" type="button" data-flyer-example="accounting-card">
+            <span class="example-meta">Comptabilité · Carte de visite</span>
+            <span class="example-art example-business-card" aria-hidden="true">
+              <span class="example-kicker">NOVA COMPTA</span>
+              <strong>Votre activité,<br>pilotée avec clarté.</strong>
+              <span class="example-contact">04 72 00 00 00 · nova-compta.fr</span>
+            </span>
+            <span class="example-load">Personnaliser cet exemple <span aria-hidden="true">↗</span></span>
+          </button>
+        </div>
+      </section>
+
+      <section class="flyer-studio" id="flyer-studio" aria-labelledby="studio-title">
+        <aside class="studio-controls" aria-label="Paramètres du flyer">
+          <div class="controls-heading">
+            <p class="step-label">01 — Brief créatif</p>
+            <h2 id="studio-title">Décrivez ce que vous voulez promouvoir</h2>
+            <p>Kirby analyse l’activité, le public et l’objectif avant de composer le flyer.</p>
+          </div>
+
+          <form id="flyerBriefForm" class="brief-form" data-flyer-form>
+            <label for="flyerBrief">Votre demande</label>
+            <textarea
+              id="flyerBrief"
+              name="brief"
+              rows="7"
+              minlength="18"
+              maxlength="2400"
+              required
+              placeholder="Ex. Flyer pour le lancement d’un studio de pilates premium à Lyon. Offre découverte à 29 €, ambiance sculpturale et lumineuse, réservation sur atelier-mouvement.fr…"
+            ></textarea>
+            <div class="field-meta">
+              <span>Activité, offre, public, ambiance et coordonnées si vous les avez.</span>
+              <span id="briefCount">0 / 2400</span>
+            </div>
+
+            <fieldset class="support-type-picker">
+              <legend>Support à créer</legend>
+              <div class="support-type-options">
+                <label class="support-type-option" for="supportTypeFlyer">
+                  <input id="supportTypeFlyer" name="supportType" type="radio" value="flyer" checked>
+                  <span>
+                    <strong>Flyer</strong>
+                    <small>Une publicité complète pour le web ou l’impression.</small>
+                  </span>
+                </label>
+                <label class="support-type-option" for="supportTypeBusinessCard">
+                  <input id="supportTypeBusinessCard" name="supportType" type="radio" value="business-card">
+                  <span>
+                    <strong>Carte de visite</strong>
+                    <small>Un brouillon recto 85 × 55 mm, modifiable et exportable.</small>
+                  </span>
+                </label>
+              </div>
+            </fieldset>
+
+            <label for="flyerFormat">Format de départ</label>
+            <select id="flyerFormat" name="format">
+              <option value="a4" data-support="flyer">A4 — impression</option>
+              <option value="a5" data-support="flyer">A5 — impression</option>
+              <option value="instagram-square" data-support="flyer">Instagram — carré 1080 × 1080</option>
+              <option value="story" data-support="flyer">Story — 1080 × 1920</option>
+              <option value="facebook" data-support="flyer">Facebook — 1200 × 630</option>
+              <option value="linkedin" data-support="flyer">LinkedIn — 1200 × 627</option>
+              <option value="business-card" data-support="business-card">Carte de visite — 85 × 55 mm</option>
+            </select>
+
+            <button class="primary-action" id="generateConceptButton" type="submit">
+              <span>Créer mon flyer avec Kirby</span>
+              <span aria-hidden="true">↗</span>
+            </button>
+          </form>
+
+          <div
+            class="generation-feedback"
+            id="generationFeedback"
+            data-flyer-feedback
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            hidden
+          >
+            <span class="feedback-indicator" aria-hidden="true"></span>
+            <div>
+              <strong id="generationStatus">Kirby prépare la direction artistique…</strong>
+              <p id="generationDetail">Analyse de la demande en cours.</p>
+            </div>
+            <button id="retryButton" type="button" data-flyer-retry hidden>Réessayer</button>
+            <a id="flyerAuthLink" class="feedback-auth-link" href="index.html#auth-actions" hidden>
+              Se connecter pour générer
+            </a>
+          </div>
+
+          <div class="editor-panel" id="flyerEditor" aria-disabled="false">
+            <div class="editor-panel-heading">
+              <div>
+                <p class="step-label">02 — Atelier</p>
+                <h2>Affinez chaque élément</h2>
+              </div>
+              <span class="draft-state" id="draftState">Brouillon local</span>
+            </div>
+
+            <details class="editor-group" open>
+              <summary>Textes publicitaires</summary>
+              <div class="editor-fields">
+                <label for="flyerEyebrow">Sur-titre</label>
+                <input id="flyerEyebrow" data-bind="copy.eyebrow" type="text" maxlength="48">
+
+                <label for="flyerHeadline">Accroche principale</label>
+                <textarea id="flyerHeadline" data-bind="copy.headline" rows="3" maxlength="72"></textarea>
+
+                <label for="flyerSupporting">Phrase d’appui</label>
+                <textarea id="flyerSupporting" data-bind="copy.supporting" rows="3" maxlength="150"></textarea>
+
+                <label for="flyerOffer">Offre ou information forte</label>
+                <input id="flyerOffer" data-bind="copy.offer" type="text" maxlength="64">
+
+                <label for="flyerCta">Appel à l’action</label>
+                <input id="flyerCta" data-bind="copy.cta" type="text" maxlength="42">
+
+                <fieldset class="details-editor">
+                  <legend>Informations essentielles</legend>
+                  <div class="detail-edit-row">
+                    <input id="detailLabel1" aria-label="Libellé information 1" maxlength="24" placeholder="Date">
+                    <input id="detailValue1" aria-label="Valeur information 1" maxlength="52" placeholder="18 septembre">
+                  </div>
+                  <div class="detail-edit-row">
+                    <input id="detailLabel2" aria-label="Libellé information 2" maxlength="24" placeholder="Lieu">
+                    <input id="detailValue2" aria-label="Valeur information 2" maxlength="52" placeholder="Paris 11e">
+                  </div>
+                  <div class="detail-edit-row">
+                    <input id="detailLabel3" aria-label="Libellé information 3" maxlength="24" placeholder="Prix">
+                    <input id="detailValue3" aria-label="Valeur information 3" maxlength="52" placeholder="À partir de 29 €">
+                  </div>
+                </fieldset>
+
+                <label for="flyerDisclaimer">Mention discrète</label>
+                <input id="flyerDisclaimer" data-bind="copy.disclaimer" type="text" maxlength="100">
+              </div>
+            </details>
+
+            <details class="editor-group">
+              <summary>Direction artistique</summary>
+              <div class="editor-fields">
+                <fieldset class="design-models" id="flyerDesignModels">
+                  <legend id="designModelsLegend">Modèles complets</legend>
+                  <p id="designModelsHint">Un clic change la composition, l’écriture, le fond et les couleurs.</p>
+                  <div class="design-model-options">
+                    <button type="button" data-design-model="classic-elegant" aria-pressed="false">
+                      <span class="design-model-preview" aria-hidden="true"><i></i><i></i><i></i></span>
+                      <span><strong>Classique élégant</strong><small>Cadre fin · champagne</small></span>
+                    </button>
+                    <button type="button" data-design-model="velours-signature" aria-pressed="false">
+                      <span class="design-model-preview" aria-hidden="true"><i></i><i></i><i></i></span>
+                      <span><strong>Velours signature</strong><small>Noir profond · plis dorés</small></span>
+                    </button>
+                    <button type="button" data-design-model="burgundy-refined" aria-pressed="false">
+                      <span class="design-model-preview" aria-hidden="true"><i></i><i></i><i></i></span>
+                      <span><strong>Bordeaux raffiné</strong><small>Prune · halo champagne</small></span>
+                    </button>
+                    <button type="button" data-design-model="art-deco-gold" aria-pressed="false">
+                      <span class="design-model-preview" aria-hidden="true"><i></i><i></i><i></i></span>
+                      <span><strong>Art déco doré</strong><small>Graphique · géométrique</small></span>
+                    </button>
+                    <button type="button" data-design-model="midnight-professional" aria-pressed="false">
+                      <span class="design-model-preview" aria-hidden="true"><i></i><i></i><i></i></span>
+                      <span><strong>Galaxie professionnelle</strong><small>Nuit · éclats discrets</small></span>
+                    </button>
+                    <button type="button" data-design-model="minimal-contemporary" aria-pressed="false">
+                      <span class="design-model-preview" aria-hidden="true"><i></i><i></i><i></i></span>
+                      <span><strong>Galerie éditoriale</strong><small>Image cadrée · aérée</small></span>
+                    </button>
+                    <button type="button" data-design-model="classic-simple" aria-pressed="false">
+                      <span class="design-model-preview" aria-hidden="true"><i></i><i></i><i></i></span>
+                      <span><strong>Papier blanc</strong><small>Sans motif · très lisible</small></span>
+                    </button>
+                    <button type="button" data-design-model="classic-burgundy" aria-pressed="false">
+                      <span class="design-model-preview" aria-hidden="true"><i></i><i></i><i></i></span>
+                      <span><strong>Lumière bordeaux</strong><small>Éditorial · chaleureux</small></span>
+                    </button>
+                    <button type="button" data-design-model="classic-night" aria-pressed="false">
+                      <span class="design-model-preview" aria-hidden="true"><i></i><i></i><i></i></span>
+                      <span><strong>Photo plein cadre</strong><small>Image forte · texte lisible</small></span>
+                    </button>
+                    <button type="button" data-design-model="geometric-studio" aria-pressed="false">
+                      <span class="design-model-preview" aria-hidden="true"><i></i><i></i><i></i></span>
+                      <span><strong>Marbre studio</strong><small>Minéral · moderne</small></span>
+                    </button>
+                  </div>
+                </fieldset>
+
+                <label for="flyerLayout">Composition</label>
+                <select id="flyerLayout" data-bind="artDirection.layout">
+                  <option value="classic-frame">Classique encadré</option>
+                  <option value="poster-cut">Poster découpé</option>
+                  <option value="editorial-impact">Impact éditorial</option>
+                  <option value="cinematic-split">Split cinématique</option>
+                  <option value="kinetic-grid">Grille cinétique</option>
+                  <option value="luxury-focus">Focus premium</option>
+                  <option value="event-pulse">Pulse événementiel</option>
+                </select>
+
+                <label for="flyerTypography">Style typographique</label>
+                <select id="flyerTypography">
+                  <option value="modern">Moderne précis</option>
+                  <option value="geometric">Géométrique impactant</option>
+                  <option value="editorial">Éditorial élégant</option>
+                  <option value="human">Humain contemporain</option>
+                </select>
+
+                <label for="flyerDecor">Décor de fond</label>
+                <select id="flyerDecor">
+                  <optgroup label="Fonds neutres">
+                    <option value="paper-white">Papier blanc — sans motif</option>
+                    <option value="classic-frame">Cadre classique fin</option>
+                    <option value="champagne-spotlight">Lumière éditoriale</option>
+                  </optgroup>
+                  <optgroup label="Fonds professionnels">
+                    <option value="gallery-window">Galerie avec image cadrée</option>
+                    <option value="geometric-blocks">Blocs géométriques</option>
+                    <option value="burgundy-panels">Grille professionnelle</option>
+                    <option value="marble-veins">Marbre discret</option>
+                  </optgroup>
+                  <optgroup label="Fonds signature">
+                    <option value="velvet-glow">Photographie plein cadre</option>
+                    <option value="velvet-folds">Luxe à bandes</option>
+                    <option value="night-constellation">Galaxie nocturne</option>
+                  </optgroup>
+                </select>
+
+                <fieldset class="palette-presets">
+                  <legend>Palettes de couleurs</legend>
+                  <p>La palette change uniquement les couleurs et conserve le fond que vous avez choisi.</p>
+                  <div class="palette-preset-options">
+                    <button type="button" data-palette-preset="velours-night" aria-pressed="false">
+                      <span class="preset-swatches" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                      <span><strong>Velours nuit</strong><small>Bleu nuit · bordeaux · or</small></span>
+                    </button>
+                    <button type="button" data-palette-preset="soft-burgundy" aria-pressed="false">
+                      <span class="preset-swatches" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                      <span><strong>Bordeaux doux</strong><small>Prune · ivoire · champagne</small></span>
+                    </button>
+                    <button type="button" data-palette-preset="champagne-light" aria-pressed="false">
+                      <span class="preset-swatches" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                      <span><strong>Champagne clair</strong><small>Ivoire · chocolat · vieux rose</small></span>
+                    </button>
+                    <button type="button" data-palette-preset="midnight-blue" aria-pressed="false">
+                      <span class="preset-swatches" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                      <span><strong>Bleu confidentiel</strong><small>Marine · crème · doré</small></span>
+                    </button>
+                    <button type="button" data-palette-preset="paper-white" aria-pressed="false">
+                      <span class="preset-swatches" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                      <span><strong>Papier blanc</strong><small>Blanc · graphite · bordeaux</small></span>
+                    </button>
+                    <button type="button" data-palette-preset="studio-neutral" aria-pressed="false">
+                      <span class="preset-swatches" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                      <span><strong>Studio neutre</strong><small>Gris clair · anthracite · bleu</small></span>
+                    </button>
+                  </div>
+                </fieldset>
+
+                <fieldset class="palette-editor">
+                  <legend>Palette</legend>
+                  <label>Fond <input id="colorBackground" type="color" value="#f4efe5"></label>
+                  <label>Surface <input id="colorSurface" type="color" value="#ffffff"></label>
+                  <label>Texte <input id="colorInk" type="color" value="#10151f"></label>
+                  <label>Accent <input id="colorAccent" type="color" value="#ff5a36"></label>
+                </fieldset>
+
+                <label for="variantInstruction">Consigne pour une nouvelle variante</label>
+                <textarea
+                  id="variantInstruction"
+                  rows="3"
+                  maxlength="300"
+                  placeholder="Ex. Plus éditorial, moins sombre, une photo plus humaine…"
+                ></textarea>
+                <button class="secondary-action" id="regenerateConceptButton" type="button">
+                  Proposer une autre direction
+                </button>
+                <p class="variant-status" id="variantStatus" role="status" aria-live="polite" hidden></p>
+                <button class="variant-cancel" id="cancelVariantButton" type="button" hidden>
+                  Annuler la demande
+                </button>
+                <a class="variant-auth-link" id="variantAuthLink" href="index.html#auth-actions" hidden>
+                  Se connecter pour créer cette variante
+                </a>
+              </div>
+            </details>
+
+            <details class="editor-group">
+              <summary>Image</summary>
+              <div class="editor-fields">
+                <p class="field-help">L’image reste un calque séparé : Kirby n’y inscrit ni titre, ni prix, ni coordonnées.</p>
+                <button class="secondary-action" id="generateImageButton" type="button">Générer un nouveau visuel IA</button>
+                <label class="upload-action" for="flyerImageUpload">
+                  <span>Importer votre propre image</span>
+                  <input id="flyerImageUpload" type="file" accept="image/jpeg,image/png,image/webp,image/avif">
+                </label>
+                <button class="text-action" id="removeImageButton" type="button">Retirer l’image</button>
+                <p class="image-credit" id="imageCredit">Aucun visuel chargé.</p>
+              </div>
+            </details>
+
+            <details class="editor-group">
+              <summary>Coordonnées et QR code</summary>
+              <div class="editor-fields">
+                <label for="flyerPhone">Téléphone</label>
+                <input id="flyerPhone" data-bind="contact.phone" type="tel" maxlength="32">
+                <label for="flyerEmail">E-mail</label>
+                <input id="flyerEmail" data-bind="contact.email" type="email" maxlength="96">
+                <label for="flyerWebsite">Site web</label>
+                <input id="flyerWebsite" data-bind="contact.website" type="text" maxlength="96">
+                <label for="flyerAddress">Adresse</label>
+                <input id="flyerAddress" data-bind="contact.address" type="text" maxlength="100">
+                <label for="flyerQrValue">Lien du QR code (optionnel)</label>
+                <input id="flyerQrValue" data-bind="contact.qrValue" type="url" maxlength="300" placeholder="https://…">
+              </div>
+            </details>
+          </div>
+        </aside>
+
+        <div class="studio-preview-column" id="previewFullscreen">
+          <div class="preview-toolbar">
+            <div>
+              <p class="step-label">03 — Aperçu en direct</p>
+              <strong class="preview-live-label" id="previewFormatName">Flyer · A4</strong>
+            </div>
+            <div class="preview-toolbar-actions" role="group" aria-label="Actions de l’aperçu">
+              <button class="preview-fullscreen-exit" id="exitFullscreenButton" type="button" hidden>
+                Quitter le plein écran
+              </button>
+              <details class="preview-options" name="preview-toolbar-menu">
+                <summary>Format et affichage</summary>
+                <div class="preview-options-menu">
+                  <div>
+                    <span>Détails du fichier</span>
+                    <strong id="formatLabel">A4 · 210 × 297 mm · 300 dpi</strong>
+                  </div>
+                  <p>Ces dimensions seront utilisées automatiquement au téléchargement et à l’impression.</p>
+                  <div class="preview-actions" id="previewDisplayActions" role="group" aria-label="Affichage de l’aperçu">
+                    <button id="fitPreviewButton" type="button" aria-pressed="true">Adapter à l’écran</button>
+                    <button
+                      id="zoomPreviewButton"
+                      type="button"
+                      aria-controls="previewFullscreen"
+                      aria-pressed="false"
+                    >Plein écran</button>
+                  </div>
+                </div>
+              </details>
+
+              <details class="export-options" name="preview-toolbar-menu">
+                <summary>Télécharger</summary>
+                <div class="export-options-menu">
+                  <button class="primary-action" id="exportPngButton" type="button" data-flyer-export="png">PNG HD</button>
+                  <button class="secondary-action" id="exportPdfButton" type="button" data-flyer-export="pdf">PDF impression</button>
+                  <p class="export-status" id="exportStatus" role="status" aria-live="polite"></p>
+                </div>
+              </details>
+              <p class="visually-hidden" id="previewFullscreenStatus" role="status" aria-live="polite"></p>
+            </div>
+          </div>
+
+          <div class="preview-stage" id="previewStage">
+            <article
+              class="flyer-canvas"
+              id="flyerCanvas"
+              data-format="a4"
+              data-layout="poster-cut"
+              data-typography="modern"
+              data-decor="velvet-glow"
+              data-support="flyer"
+              data-has-image="false"
+              data-flyer-canvas
+              aria-label="Aperçu du flyer"
+            >
+              <div class="flyer-visual" data-flyer-image-layer aria-hidden="true">
+                <img id="flyerImage" alt="" crossorigin="anonymous">
+                <div class="flyer-image-scrim"></div>
+                <div class="flyer-art-shape flyer-art-shape-a"></div>
+                <div class="flyer-art-shape flyer-art-shape-b"></div>
+                <div class="flyer-art-orbit"></div>
+              </div>
+
+              <div class="flyer-content" data-flyer-text-layer>
+                <p class="flyer-eyebrow" id="previewEyebrow">NOUVELLE CAMPAGNE</p>
+                <h2 class="flyer-headline" id="previewHeadline">Une idée forte mérite un vrai impact.</h2>
+                <p class="flyer-supporting" id="previewSupporting">Décrivez votre projet : Kirby composera un flyer pensé pour votre métier et votre public.</p>
+              </div>
+
+              <div class="flyer-offer" id="previewOffer">Lancement prochainement</div>
+
+              <dl class="flyer-details" id="previewDetails">
+                <div><dt>Format</dt><dd>Prêt à diffuser</dd></div>
+                <div><dt>Création</dt><dd>Modifiable</dd></div>
+                <div><dt>Export</dt><dd>HD + PDF</dd></div>
+              </dl>
+
+              <div class="flyer-action-zone">
+                <p class="flyer-cta" id="previewCta">Faites-vous remarquer</p>
+                <div class="flyer-contact" id="previewContact">
+                  <span id="previewPhone"></span>
+                  <span id="previewEmail"></span>
+                  <span id="previewWebsite">sacreationweb.com</span>
+                  <span id="previewAddress"></span>
+                </div>
+              </div>
+
+              <div class="flyer-qr" id="previewQr" aria-label="QR code" hidden></div>
+              <p class="flyer-disclaimer" id="previewDisclaimer">Conception assistée par Kirby IA</p>
+            </article>
+          </div>
+
+        </div>
+      </section>
+    </main>
+
+    <footer class="flyers-footer">
+      <a href="index.html">SA Création Web</a>
+      <p>Sites, CV et supports publicitaires propulsés par Kirby IA.</p>
+      <a href="contact.html">Besoin d’aide ?</a>
+    </footer>
+
+    <noscript>JavaScript est nécessaire pour utiliser le studio Kirby Flyers.</noscript>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
+    <script src="flyers/flyers.js" defer></script>
+  </body>
+</html>

@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta
         name="description"
-        content="SA Création Web accompagne les independants, artisans et petites entreprises avec des sites internet, domaines, emails professionnels, pages vitrines et accompagnement digital."
+        content="Créez votre site, votre CV et vos supports publicitaires avec Kirby IA, dans trois espaces créatifs distincts de SA Création Web."
     >
     <meta name="google-site-verification" content="RDW4DDGx8k2IFBNrP5nAbccTI4no8b-ffSa6S6aWy98">
-    <title>SA Création Web | Sites internet professionnels et accompagnement digital</title>
+    <title>SA Création Web | Sites, CV et flyers avec Kirby IA</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -17,7 +17,7 @@
     >
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <link rel="preload" href="assets/sa-creation-web-mark.svg" as="image" type="image/svg+xml">
-    <link rel="stylesheet" href="style.css?v=20260717-menu-settings-v3">
+    <link rel="stylesheet" href="style.css?v=20260820-kirby-vision-v3">
 </head>
 <body class="is-preload studio-home">
     <canvas class="cosmic-page-field" id="cosmic-page-field" aria-hidden="true"></canvas>
@@ -40,20 +40,21 @@
                         <a href="realisations.html">Exemples</a>
                         <a href="contact.html">Contact</a>
                         <a href="cv.html">CV & Portfolio</a>
+                        <a href="flyers.html">Flyers IA</a>
                     </div>
-                        <div class="site-menu-actions auth-actions" id="auth-actions">
-                            <span class="auth-badge is-hidden" id="auth-current-user"></span>
-                            <p class="site-menu-subtitle">Espace client</p>
-                            <button type="button" id="auth-open-login">Connexion</button>
-                            <button type="button" id="auth-open-signup">Creer un compte</button>
-                            <a class="is-hidden" href="cv.html" id="auth-client-link">Mon espace client</a>
-                            <a class="is-hidden" href="parametres.html" id="auth-settings-link">Parametres</a>
-                            <button class="is-hidden site-menu-logout" type="button" id="auth-logout">Deconnexion</button>
-                            <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Basculer entre mode nuit et mode jour" aria-pressed="false">
-                                <span class="theme-toggle-dot"></span>
-                                <span class="theme-toggle-text">Jour</span>
-                            </button>
-                        </div>
+                    <div class="site-menu-actions auth-actions" id="auth-actions">
+                        <span class="auth-badge is-hidden" id="auth-current-user"></span>
+                        <p class="site-menu-subtitle">Espace client</p>
+                        <button type="button" id="auth-open-login">Connexion</button>
+                        <button type="button" id="auth-open-signup">Creer un compte</button>
+                        <a class="is-hidden" href="cv.html" id="auth-client-link">Mon espace client</a>
+                        <a class="is-hidden" href="parametres.html" id="auth-settings-link">Parametres</a>
+                        <button class="is-hidden site-menu-logout" type="button" id="auth-logout">Deconnexion</button>
+                        <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Basculer entre mode nuit et mode jour" aria-pressed="false">
+                            <span class="theme-toggle-dot"></span>
+                            <span class="theme-toggle-text">Jour</span>
+                        </button>
+                    </div>
                 </div>
             </nav>
 
@@ -61,16 +62,17 @@
                 <div class="hero-content">
                     <p class="eyebrow eyebrow-balanced hero-reveal hero-reveal-delay-1">SA Création Web</p>
                     <h1 class="hero-title hero-reveal-delay-2">
-                        <span class="title-line">Bienvenue chez SA Création Web</span>
+                        <span class="title-line">Votre activité mérite d’être remarquée.</span>
                     </h1>
                     <p class="hero-role hero-reveal hero-reveal-delay-3">
-                        Votre partenaire pour la creation de sites web pour independants, artisans et petites entreprises.
+                        Créez votre site et vos supports publicitaires avec Kirby IA.
                     </p>
                     <p class="hero-text hero-reveal hero-reveal-delay-4">
-                        Découvrez des services adaptes a vos besoins numeriques.
+                        Trois outils spécialisés pour concevoir un site, un CV ou un flyer sans mélanger leurs créations.
                     </p>
                     <div class="hero-actions hero-reveal hero-reveal-delay-6">
-                        <a class="button button-primary" href="contact.html">Parler de votre projet</a>
+                        <a class="button button-primary" href="#kirby-assistant">Créer un site</a>
+                        <a class="button button-secondary" href="flyers.html">Créer un flyer</a>
                     </div>
                 </div>
 
@@ -85,6 +87,28 @@
         </header>
 
         <main id="main-content">
+            <section class="section reveal-section platform-tools-section" id="creations-kirby">
+                <div class="section-heading">
+                    <p class="eyebrow">Trois ateliers Kirby IA indépendants</p>
+                    <h2>Choisissez votre création</h2>
+                    <p class="section-intro">Chaque demande est envoyée au moteur qui lui correspond, avec son propre espace de travail.</p>
+                </div>
+                <div class="platform-product-grid" aria-label="Outils de création Kirby IA">
+                    <a class="platform-product-card is-featured" href="#kirby-assistant">
+                        <strong>Créer un site</strong>
+                        <p>Concevoir une expérience web complète.</p>
+                    </a>
+                    <a class="platform-product-card" href="cv.html">
+                        <strong>Créer un CV</strong>
+                        <p>Structurer un parcours professionnel.</p>
+                    </a>
+                    <a class="platform-product-card" href="flyers.html">
+                        <strong>Créer un flyer</strong>
+                        <p>Faire connaître immédiatement une activité ou une offre.</p>
+                    </a>
+                </div>
+            </section>
+
             <section class="section reveal-section platform-tools-section" id="services">
                 <div class="platform-product-grid platform-product-grid-services" aria-label="Services SA Création Web">
                     <article class="platform-product-card is-featured" id="sites-internet">
@@ -105,6 +129,9 @@
                     <article class="platform-product-card" id="kirby-service">
                         <strong>Générateur de site avec IA</strong>
                     </article>
+                    <article class="platform-product-card" id="flyer-service">
+                        <strong>Flyers et visuels publicitaires IA</strong>
+                    </article>
                     <article class="platform-product-card" id="contact-rapide">
                         <strong>Accompagnement professionnel</strong>
                     </article>
@@ -124,7 +151,7 @@
                             <textarea
                                 id="ai-brief-input"
                                 rows="5"
-                                placeholder="Exemple: Je suis coiffeuse a Rueil, je veux un site avec services, tarifs, photos, contact et prise de rendez-vous."
+                                placeholder="Exemple: Je suis coiffeuse a Rueil, je veux un site avec tarifs, photos, rendez-vous et contact."
                             ></textarea>
                         </label>
                         <div class="advisor-composer-actions">
@@ -224,6 +251,6 @@
     </section>
 
     <script src="auth-signup-utils.js?v=20260717-auth-confirmation-v1" defer></script>
-    <script src="script.js?v=20260717-mobile-auth-reset-v2" defer></script>
+    <script src="script.js?v=20260820-kirby-vision-v3" defer></script>
 </body>
 </html>

@@ -6,6 +6,9 @@
     },
     "api/kirby-cv.js": {
       "maxDuration": 300
+    },
+    "api/flyers.js": {
+      "maxDuration": 300
     }
   }
 }

@@ -1,0 +1,4015 @@
+:root {
+  color-scheme: dark;
+  --page-bg: #080b11;
+  --panel: #111621;
+  --panel-soft: #171d29;
+  --line: rgba(255, 255, 255, 0.11);
+  --line-strong: rgba(255, 255, 255, 0.2);
+  --text: #f7f5ee;
+  --muted: #9aa5b7;
+  --signal: #ff5a36;
+  --signal-soft: #ffb29f;
+  --focus: #8ec5ff;
+  --radius-lg: 28px;
+  --radius-md: 18px;
+  --shadow: 0 30px 90px rgba(0, 0, 0, 0.38);
+  font-family: "Manrope", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body.flyers-page {
+  min-width: 320px;
+  margin: 0;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 15% 8%, rgba(58, 89, 255, 0.13), transparent 27rem),
+    radial-gradient(circle at 85% 20%, rgba(255, 90, 54, 0.1), transparent 28rem),
+    var(--page-bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+a,
+select,
+input[type="color"],
+summary {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a {
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.56;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.skip-link {
+  position: fixed;
+  z-index: 1000;
+  top: 12px;
+  left: 12px;
+  padding: 12px 16px;
+  transform: translateY(-160%);
+  border-radius: 999px;
+  background: #fff;
+  color: #080b11;
+  font-weight: 800;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  clip-path: inset(50%) !important;
+  border: 0 !important;
+  white-space: nowrap !important;
+}
+
+.flyers-header {
+  position: sticky;
+  z-index: 50;
+  top: 0;
+  display: grid;
+  grid-template-columns: minmax(210px, 1fr) auto minmax(150px, 1fr);
+  align-items: center;
+  gap: 24px;
+  min-height: 84px;
+  padding: 14px clamp(20px, 4vw, 72px);
+  border-bottom: 1px solid var(--line);
+  background: rgba(8, 11, 17, 0.82);
+  backdrop-filter: blur(22px) saturate(130%);
+}
+
+.flyers-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  width: max-content;
+  text-decoration: none;
+}
+
+.flyers-brand-mark {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 13px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.12), transparent),
+    #171d28;
+  color: var(--signal-soft);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.flyers-brand strong,
+.flyers-brand small {
+  display: block;
+}
+
+.flyers-brand strong {
+  font-size: 0.96rem;
+}
+
+.flyers-brand small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.product-switcher {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.product-switcher a {
+  padding: 10px 16px;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 180ms ease, color 180ms ease, transform 180ms ease;
+}
+
+.product-switcher a:hover {
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.product-switcher .is-active {
+  background: var(--text);
+  color: #080b11;
+}
+
+.header-home-link {
+  justify-self: end;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.header-home-link:hover {
+  color: var(--text);
+}
+
+.flyers-intro {
+  position: relative;
+  display: grid;
+  min-height: min(680px, 76vh);
+  align-content: center;
+  justify-items: center;
+  padding: 100px 24px 112px;
+  overflow: hidden;
+  text-align: center;
+  isolation: isolate;
+}
+
+.flyers-intro::before {
+  position: absolute;
+  z-index: -2;
+  width: min(76vw, 1080px);
+  height: min(44vw, 570px);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 48% 50%, rgba(255, 116, 82, 0.18), transparent 42%),
+    radial-gradient(circle at 65% 45%, rgba(58, 89, 255, 0.2), transparent 52%);
+  filter: blur(20px);
+  content: "";
+}
+
+.intro-orbit {
+  position: absolute;
+  z-index: -1;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: intro-drift 18s ease-in-out infinite alternate;
+}
+
+.intro-orbit::before,
+.intro-orbit::after {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--signal);
+  box-shadow: 0 0 22px rgba(255, 90, 54, 0.82);
+  content: "";
+}
+
+.intro-orbit-a {
+  top: 12%;
+  left: 8%;
+  width: 310px;
+  height: 520px;
+  transform: rotate(42deg);
+}
+
+.intro-orbit-a::before {
+  top: 28%;
+  left: -4px;
+}
+
+.intro-orbit-a::after {
+  right: 16%;
+  bottom: 4%;
+}
+
+.intro-orbit-b {
+  right: 6%;
+  bottom: 3%;
+  width: 420px;
+  height: 260px;
+  transform: rotate(-18deg);
+  animation-delay: -6s;
+}
+
+.intro-orbit-b::before {
+  top: -4px;
+  left: 52%;
+}
+
+.intro-orbit-b::after {
+  right: 4%;
+  bottom: 24%;
+}
+
+.intro-kicker,
+.step-label {
+  margin: 0 0 14px;
+  color: var(--signal-soft);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.flyers-intro h1 {
+  max-width: 18ch;
+  margin: 0;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: clamp(2.35rem, 4.7vw, 4.8rem);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 1.03;
+  text-wrap: balance;
+}
+
+.intro-lead {
+  max-width: 700px;
+  margin: 34px auto 0;
+  color: #c9d1de;
+  font-size: clamp(1.05rem, 2vw, 1.45rem);
+  line-height: 1.55;
+  text-wrap: balance;
+}
+
+.intro-proof {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 38px;
+}
+
+.intro-proof span {
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.035);
+  color: #b9c3d2;
+  font-size: 0.76rem;
+}
+
+.flyer-examples {
+  padding: clamp(64px, 8vw, 118px) clamp(20px, 5vw, 82px);
+  border-top: 1px solid var(--line);
+  background:
+    radial-gradient(circle at 8% 16%, rgba(255, 90, 54, 0.09), transparent 24rem),
+    linear-gradient(180deg, #0b0f16, #080b11);
+}
+
+.examples-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.62fr);
+  gap: 32px 8vw;
+  align-items: end;
+  max-width: 1500px;
+  margin: 0 auto 38px;
+}
+
+.examples-heading h2 {
+  max-width: 17ch;
+  margin: 0;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: clamp(2rem, 4vw, 4.8rem);
+  font-weight: 500;
+  letter-spacing: -0.06em;
+  line-height: 0.98;
+  text-wrap: balance;
+}
+
+.examples-heading > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.65;
+}
+
+.example-gallery {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  max-width: 1500px;
+  margin: 0 auto;
+}
+
+.flyer-example-card {
+  display: grid;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.025);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.2);
+  color: var(--text);
+  text-align: left;
+  transition: border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+}
+
+.flyer-example-card:hover {
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: 0 26px 62px rgba(0, 0, 0, 0.34);
+  transform: translateY(-5px);
+}
+
+.example-meta,
+.example-load {
+  padding: 15px 17px;
+  color: #abb6c6;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.example-meta {
+  border-bottom: 1px solid var(--line);
+}
+
+.example-load {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--line);
+  color: #eff3f9;
+}
+
+.example-art {
+  position: relative;
+  display: flex;
+  min-height: 340px;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 30px;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.example-art::before,
+.example-art::after {
+  position: absolute;
+  z-index: -1;
+  border-radius: 999px;
+  content: "";
+}
+
+.example-kicker {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+
+.example-art strong {
+  max-width: 11ch;
+  font-size: clamp(2.2rem, 3.8vw, 4.4rem);
+  font-weight: 600;
+  letter-spacing: -0.065em;
+  line-height: 0.88;
+}
+
+.example-pill {
+  width: max-content;
+  max-width: 100%;
+  padding: 10px 15px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.example-beauty .example-art {
+  background: linear-gradient(145deg, #f5e5df, #d9bda8);
+  color: #3d2722;
+}
+
+.example-beauty .example-art::before {
+  top: -20%;
+  right: -28%;
+  width: 88%;
+  aspect-ratio: 1;
+  border: 1px solid rgba(111, 72, 61, 0.26);
+}
+
+.example-beauty .example-art::after {
+  right: -8%;
+  bottom: -22%;
+  width: 58%;
+  aspect-ratio: 1;
+  background: rgba(255, 255, 255, 0.38);
+  filter: blur(1px);
+}
+
+.example-beauty .example-art strong {
+  font-family: "Playfair Display", Georgia, serif;
+}
+
+.example-sport .example-art {
+  background: linear-gradient(135deg, #101713 0 58%, #65ff40 58% 100%);
+  color: #f7f5ee;
+}
+
+.example-sport .example-art::before {
+  top: 8%;
+  right: 10%;
+  width: 25%;
+  aspect-ratio: 1;
+  border: 1px solid rgba(255, 255, 255, 0.46);
+  box-shadow: 0 0 56px rgba(101, 255, 64, 0.34);
+}
+
+.example-sport .example-art::after {
+  right: 17%;
+  bottom: 12%;
+  width: 8px;
+  height: 8px;
+  background: #f7f5ee;
+  box-shadow: 0 0 25px #65ff40;
+}
+
+.example-sport .example-kicker {
+  color: #65ff40;
+}
+
+.example-sport .example-pill {
+  border-color: #65ff40;
+  background: #65ff40;
+  color: #071008;
+}
+
+.example-accounting .example-art {
+  background:
+    radial-gradient(circle at 84% 26%, rgba(208, 166, 74, 0.3), transparent 32%),
+    #071a34;
+  color: #f9f3e4;
+}
+
+.example-accounting .example-business-card {
+  min-height: 0;
+  aspect-ratio: 85 / 55;
+  justify-content: center;
+  gap: 20px;
+}
+
+.example-accounting .example-art::before {
+  right: -8%;
+  bottom: -38%;
+  width: 66%;
+  aspect-ratio: 1;
+  border: 1px solid rgba(208, 166, 74, 0.48);
+}
+
+.example-accounting .example-kicker,
+.example-accounting .example-contact {
+  color: #d0a64a;
+}
+
+.example-accounting .example-art strong {
+  max-width: 15ch;
+  font-family: "DM Sans", sans-serif;
+  font-size: clamp(1.75rem, 2.8vw, 3.15rem);
+  line-height: 0.98;
+}
+
+.example-contact {
+  font-size: 0.64rem;
+  font-weight: 700;
+}
+
+.flyer-studio {
+  display: grid;
+  width: 100%;
+  grid-template-columns: minmax(360px, 460px) minmax(0, 1fr);
+  justify-content: stretch;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--page-bg);
+}
+
+.studio-controls,
+.studio-preview-column {
+  min-width: 0;
+  background: var(--page-bg);
+}
+
+.studio-controls {
+  padding: clamp(28px, 4vw, 56px) clamp(22px, 3vw, 42px) 64px;
+  border-right: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+.controls-heading h2,
+.editor-panel-heading h2 {
+  margin: 0;
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1.08;
+}
+
+.controls-heading h2 {
+  font-size: clamp(1.8rem, 3vw, 2.65rem);
+}
+
+.controls-heading > p:last-child {
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.65;
+}
+
+.brief-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 34px;
+}
+
+.brief-form label,
+.editor-fields > label,
+.details-editor legend,
+.palette-editor legend,
+.design-models legend {
+  color: #dfe5ef;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.brief-form textarea,
+.brief-form select,
+.editor-fields input,
+.editor-fields textarea,
+.editor-fields select {
+  width: 100%;
+  border: 1px solid var(--line-strong);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--text);
+  transition: border 160ms ease, background 160ms ease;
+}
+
+.brief-form textarea,
+.editor-fields textarea {
+  resize: vertical;
+}
+
+.brief-form textarea {
+  min-height: 166px;
+  padding: 16px;
+  line-height: 1.55;
+}
+
+.brief-form select,
+.editor-fields input,
+.editor-fields textarea,
+.editor-fields select {
+  padding: 11px 12px;
+}
+
+.brief-form textarea:hover,
+.brief-form select:hover,
+.editor-fields input:hover,
+.editor-fields textarea:hover,
+.editor-fields select:hover {
+  border-color: rgba(255, 255, 255, 0.34);
+}
+
+.field-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 9px;
+  color: #768195;
+  font-size: 0.64rem;
+  line-height: 1.45;
+}
+
+.field-meta span:last-child {
+  flex: 0 0 auto;
+}
+
+.support-type-picker {
+  margin: 6px 0 10px;
+  padding: 0;
+  border: 0;
+}
+
+.support-type-picker legend {
+  margin-bottom: 10px;
+  color: #dfe5ef;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.support-type-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.support-type-option {
+  position: relative;
+  display: block;
+  cursor: pointer;
+}
+
+.support-type-option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.support-type-option span {
+  display: grid;
+  min-height: 104px;
+  align-content: start;
+  gap: 7px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.028);
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.support-type-option strong {
+  color: #dfe5ef;
+  font-size: 0.78rem;
+}
+
+.support-type-option small {
+  color: var(--muted);
+  font-size: 0.64rem;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.support-type-option input:checked + span {
+  border-color: rgba(255, 178, 159, 0.68);
+  background: rgba(255, 90, 54, 0.11);
+  box-shadow: inset 0 0 0 1px rgba(255, 90, 54, 0.12);
+}
+
+.support-type-option input:focus-visible + span {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.support-type-option:hover span {
+  transform: translateY(-1px);
+}
+
+.primary-action,
+.secondary-action,
+.upload-action,
+.text-action,
+.preview-actions button,
+.generation-feedback button {
+  min-height: 48px;
+  border-radius: 999px;
+  font-weight: 800;
+  transition: transform 160ms ease, border 160ms ease, background 160ms ease;
+}
+
+.primary-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 0;
+  padding: 14px 20px;
+  background: var(--signal);
+  box-shadow: 0 16px 38px rgba(255, 90, 54, 0.2);
+  color: #080b11;
+}
+
+.primary-action:hover:not(:disabled),
+.secondary-action:hover:not(:disabled),
+.upload-action:hover,
+.text-action:hover:not(:disabled),
+.preview-actions button:hover {
+  transform: translateY(-2px);
+}
+
+.secondary-action,
+.upload-action,
+.text-action,
+.preview-actions button,
+.generation-feedback button {
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--text);
+}
+
+.secondary-action,
+.upload-action,
+.text-action {
+  display: grid;
+  width: 100%;
+  place-items: center;
+  padding: 12px 18px;
+  text-align: center;
+}
+
+.text-action {
+  min-height: 42px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+
+.generation-feedback {
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+  margin-top: 18px;
+  padding: 15px;
+  border: 1px solid rgba(142, 197, 255, 0.24);
+  border-radius: 15px;
+  background: rgba(142, 197, 255, 0.075);
+}
+
+.generation-feedback:not([hidden]) {
+  display: grid;
+}
+
+.generation-feedback.is-error {
+  border-color: rgba(255, 104, 104, 0.34);
+  background: rgba(255, 104, 104, 0.08);
+}
+
+.generation-feedback.is-success {
+  border-color: rgba(115, 255, 175, 0.28);
+  background: rgba(115, 255, 175, 0.065);
+}
+
+.feedback-indicator {
+  width: 9px;
+  height: 9px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--focus);
+  box-shadow: 0 0 18px var(--focus);
+  animation: none;
+}
+
+.generation-feedback.is-loading .feedback-indicator {
+  animation: feedback-pulse 1.2s ease-in-out infinite;
+}
+
+.is-error .feedback-indicator {
+  background: #ff6868;
+  box-shadow: 0 0 18px rgba(255, 104, 104, 0.65);
+  animation: none;
+}
+
+.is-success .feedback-indicator {
+  background: #73ffaf;
+  box-shadow: 0 0 18px rgba(115, 255, 175, 0.55);
+  animation: none;
+}
+
+.generation-feedback strong {
+  display: block;
+  font-size: 0.78rem;
+}
+
+.generation-feedback p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.generation-feedback button {
+  grid-column: 2;
+  width: max-content;
+  min-height: 34px;
+  padding: 6px 12px;
+  font-size: 0.7rem;
+}
+
+.feedback-auth-link {
+  grid-column: 2;
+  width: max-content;
+  color: #dcecff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-underline-offset: 3px;
+}
+
+.feedback-auth-link[hidden] {
+  display: none;
+}
+
+.editor-panel {
+  margin-top: 42px;
+  opacity: 1;
+  transition: opacity 180ms ease;
+}
+
+.editor-panel[aria-disabled="true"] {
+  opacity: 0.5;
+}
+
+.editor-panel-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.editor-panel-heading h2 {
+  font-size: 1.35rem;
+}
+
+.draft-state {
+  color: #778396;
+  font-size: 0.65rem;
+}
+
+.editor-group {
+  border-top: 1px solid var(--line);
+}
+
+.editor-group:last-child {
+  border-bottom: 1px solid var(--line);
+}
+
+.editor-group summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 17px 0;
+  color: #dfe5ef;
+  font-size: 0.8rem;
+  font-weight: 800;
+  list-style: none;
+  cursor: pointer;
+}
+
+.editor-group summary::-webkit-details-marker {
+  display: none;
+}
+
+.editor-group summary::after {
+  color: var(--signal-soft);
+  content: "+";
+  font-size: 1.2rem;
+  font-weight: 400;
+}
+
+.editor-group[open] summary::after {
+  content: "−";
+}
+
+.editor-fields {
+  display: grid;
+  gap: 10px;
+  padding: 2px 0 22px;
+}
+
+.editor-fields > label:not(:first-child) {
+  margin-top: 4px;
+}
+
+.editor-fields input,
+.editor-fields textarea,
+.editor-fields select {
+  font-size: 0.78rem;
+}
+
+.details-editor,
+.palette-editor,
+.palette-presets,
+.design-models {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.detail-edit-row {
+  display: grid;
+  grid-template-columns: 0.7fr 1.3fr;
+  gap: 7px;
+}
+
+.palette-editor {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.palette-editor legend {
+  grid-column: 1 / -1;
+}
+
+.palette-editor label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.palette-editor input[type="color"] {
+  width: 38px;
+  height: 30px;
+  padding: 2px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: transparent;
+}
+
+.palette-presets {
+  margin-top: 4px;
+}
+
+.design-models {
+  margin: 0 0 8px;
+  padding: 14px;
+}
+
+.design-models[hidden] {
+  display: none;
+}
+
+.design-models legend {
+  padding: 0 4px;
+}
+
+.design-models > p {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 0.65rem;
+  line-height: 1.45;
+}
+
+.palette-presets > p {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 0.65rem;
+  line-height: 1.45;
+}
+
+.design-model-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.design-model-options button {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text);
+  text-align: left;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.design-model-options button:hover {
+  transform: translateY(-1px);
+  border-color: var(--line-strong);
+}
+
+.design-model-options button[aria-pressed="true"] {
+  border-color: rgba(255, 178, 159, 0.68);
+  background: rgba(255, 90, 54, 0.09);
+  box-shadow: inset 0 0 0 1px rgba(255, 90, 54, 0.1);
+}
+
+.design-model-options button > span:last-child,
+.design-model-options strong,
+.design-model-options small {
+  display: block;
+  min-width: 0;
+}
+
+.design-model-options strong {
+  overflow: hidden;
+  font-size: 0.67rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.design-model-options small {
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.54rem;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.design-model-preview {
+  position: relative;
+  display: block;
+  height: 52px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: #0b1020;
+}
+
+.design-model-preview i {
+  position: absolute;
+  display: block;
+}
+
+.design-model-preview i:nth-child(1) {
+  top: 11px;
+  left: 10px;
+  width: 42%;
+  height: 4px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 8px 0 color-mix(in srgb, currentColor 58%, transparent);
+}
+
+.design-model-preview i:nth-child(2) {
+  right: 8px;
+  bottom: 8px;
+  width: 30%;
+  height: 28%;
+  border: 1px solid currentColor;
+  border-radius: 999px 999px 3px 3px;
+  opacity: 0.72;
+}
+
+.design-model-preview i:nth-child(3) {
+  bottom: 8px;
+  left: 10px;
+  width: 28%;
+  height: 3px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.72;
+}
+
+[data-design-model="classic-elegant"] .design-model-preview {
+  color: #8b1538;
+  background: linear-gradient(145deg, #fff9f1, #f4ede4);
+  box-shadow: inset 0 0 0 3px #fff9f1, inset 0 0 0 4px rgba(139, 21, 56, 0.42);
+}
+
+[data-design-model="velours-signature"] .design-model-preview {
+  color: #c9a14a;
+  background: repeating-linear-gradient(98deg, #0a0000 0 15%, #2b0e14 26%, #0a0000 38%);
+}
+
+[data-design-model="burgundy-refined"] .design-model-preview {
+  color: #d8c089;
+  background: radial-gradient(circle at 76% 24%, #7a3046, transparent 28%), #2b0e14;
+}
+
+[data-design-model="art-deco-gold"] .design-model-preview {
+  color: #c9a14a;
+  background:
+    linear-gradient(72deg, transparent 0 68%, rgba(201, 161, 74, 0.46) 69% 70%, transparent 71%),
+    linear-gradient(88deg, transparent 0 72%, rgba(201, 161, 74, 0.46) 73% 74%, transparent 75%),
+    #0a0000;
+}
+
+[data-design-model="midnight-professional"] .design-model-preview {
+  color: #c9a14a;
+  background:
+    radial-gradient(circle at 82% 20%, rgba(201, 161, 74, 0.72) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 69% 38%, rgba(244, 237, 228, 0.56) 0 1px, transparent 1.5px),
+    radial-gradient(circle at 91% 61%, rgba(201, 161, 74, 0.48) 0 1px, transparent 1.5px),
+    linear-gradient(145deg, #07101f, #111b2e);
+}
+
+[data-design-model="minimal-contemporary"] .design-model-preview {
+  color: #8b1538;
+  background: linear-gradient(90deg, #fff9f1 0 64%, #e8ded5 64% 100%);
+}
+
+[data-design-model="minimal-contemporary"] .design-model-preview i:nth-child(2) {
+  right: 7px;
+  bottom: 7px;
+  width: 28%;
+  height: 34px;
+  border-radius: 0;
+}
+
+[data-design-model="classic-simple"] .design-model-preview {
+  color: #181a1f;
+  background: #ffffff;
+  box-shadow: inset 0 0 0 3px #ffffff, inset 0 0 0 4px rgba(24, 26, 31, 0.28);
+}
+
+[data-design-model="classic-simple"] .design-model-preview i:nth-child(2) { display: none; }
+
+[data-design-model="classic-burgundy"] .design-model-preview {
+  color: #d8c089;
+  background:
+    linear-gradient(90deg, #2b0e14 0 67%, #4a1424 67% 100%),
+    #2b0e14;
+}
+
+[data-design-model="classic-night"] .design-model-preview {
+  color: #c9a14a;
+  background: linear-gradient(115deg, #07101f 0 48%, rgba(7, 16, 31, 0.35) 72%, transparent), #283548;
+}
+
+[data-design-model="geometric-studio"] .design-model-preview {
+  color: #24527a;
+  background:
+    linear-gradient(112deg, transparent 0 66%, rgba(23, 32, 43, 0.18) 66.2% 66.7%, transparent 67%),
+    linear-gradient(58deg, transparent 0 82%, rgba(36, 82, 122, 0.34) 82.2% 82.7%, transparent 83%),
+    #eef1f4;
+}
+
+[data-design-model="geometric-studio"] .design-model-preview i:nth-child(2) {
+  border-radius: 0;
+}
+
+.palette-presets legend {
+  padding: 0 4px;
+  color: #dfe5ef;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.palette-preset-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.palette-preset-options button {
+  display: grid;
+  min-width: 0;
+  gap: 9px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text);
+  text-align: left;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.palette-preset-options button:hover {
+  transform: translateY(-1px);
+  border-color: var(--line-strong);
+}
+
+.palette-preset-options button[aria-pressed="true"] {
+  border-color: rgba(255, 178, 159, 0.62);
+  background: rgba(255, 90, 54, 0.09);
+  box-shadow: inset 0 0 0 1px rgba(255, 90, 54, 0.1);
+}
+
+.palette-preset-options button > span:last-child,
+.palette-preset-options strong,
+.palette-preset-options small {
+  display: block;
+}
+
+.palette-preset-options strong {
+  overflow: hidden;
+  font-size: 0.7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.palette-preset-options small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.58rem;
+  line-height: 1.35;
+}
+
+.preset-swatches {
+  display: grid;
+  height: 22px;
+  grid-template-columns: repeat(4, 1fr);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+}
+
+.preset-swatches i {
+  display: block;
+}
+
+[data-palette-preset="velours-night"] .preset-swatches i:nth-child(1) { background: #0a0000; }
+[data-palette-preset="velours-night"] .preset-swatches i:nth-child(2) { background: #2b0e14; }
+[data-palette-preset="velours-night"] .preset-swatches i:nth-child(3) { background: #f4ede4; }
+[data-palette-preset="velours-night"] .preset-swatches i:nth-child(4) { background: #c9a14a; }
+[data-palette-preset="soft-burgundy"] .preset-swatches i:nth-child(1) { background: #2b0e14; }
+[data-palette-preset="soft-burgundy"] .preset-swatches i:nth-child(2) { background: #4a1424; }
+[data-palette-preset="soft-burgundy"] .preset-swatches i:nth-child(3) { background: #f4ede4; }
+[data-palette-preset="soft-burgundy"] .preset-swatches i:nth-child(4) { background: #d8c089; }
+[data-palette-preset="champagne-light"] .preset-swatches i:nth-child(1) { background: #f4ede4; }
+[data-palette-preset="champagne-light"] .preset-swatches i:nth-child(2) { background: #fff9f1; }
+[data-palette-preset="champagne-light"] .preset-swatches i:nth-child(3) { background: #2b0e14; }
+[data-palette-preset="champagne-light"] .preset-swatches i:nth-child(4) { background: #8b1538; }
+[data-palette-preset="midnight-blue"] .preset-swatches i:nth-child(1) { background: #07101f; }
+[data-palette-preset="midnight-blue"] .preset-swatches i:nth-child(2) { background: #111b2e; }
+[data-palette-preset="midnight-blue"] .preset-swatches i:nth-child(3) { background: #f4ede4; }
+[data-palette-preset="midnight-blue"] .preset-swatches i:nth-child(4) { background: #c9a14a; }
+[data-palette-preset="paper-white"] .preset-swatches i:nth-child(1) { background: #ffffff; }
+[data-palette-preset="paper-white"] .preset-swatches i:nth-child(2) { background: #f3f1ec; }
+[data-palette-preset="paper-white"] .preset-swatches i:nth-child(3) { background: #181a1f; }
+[data-palette-preset="paper-white"] .preset-swatches i:nth-child(4) { background: #8b1538; }
+[data-palette-preset="studio-neutral"] .preset-swatches i:nth-child(1) { background: #eef1f4; }
+[data-palette-preset="studio-neutral"] .preset-swatches i:nth-child(2) { background: #ffffff; }
+[data-palette-preset="studio-neutral"] .preset-swatches i:nth-child(3) { background: #17202b; }
+[data-palette-preset="studio-neutral"] .preset-swatches i:nth-child(4) { background: #24527a; }
+
+.upload-action {
+  position: relative;
+  cursor: pointer;
+}
+
+.upload-action input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.field-help,
+.image-credit {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.55;
+}
+
+.variant-status {
+  margin: 2px 0 0;
+  padding: 11px 13px;
+  border: 1px solid rgba(142, 197, 255, 0.24);
+  border-radius: 12px;
+  background: rgba(142, 197, 255, 0.075);
+  color: #dcecff;
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+
+.variant-status.is-error {
+  border-color: rgba(255, 104, 104, 0.34);
+  background: rgba(255, 104, 104, 0.08);
+  color: #ffd4d4;
+}
+
+.variant-status.is-success {
+  border-color: rgba(115, 255, 175, 0.28);
+  background: rgba(115, 255, 175, 0.065);
+  color: #caffdd;
+}
+
+.variant-status[hidden],
+.variant-cancel[hidden],
+.variant-auth-link[hidden] {
+  display: none;
+}
+
+.variant-cancel {
+  width: max-content;
+  padding: 3px 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.variant-cancel:hover {
+  color: var(--text);
+}
+
+.variant-auth-link {
+  width: max-content;
+  color: #dcecff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-underline-offset: 3px;
+}
+
+.studio-preview-column {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  border-right: 1px solid var(--line);
+}
+
+.preview-toolbar {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 80px;
+  padding: 16px clamp(20px, 3.4vw, 52px);
+  border-bottom: 1px solid var(--line);
+}
+
+.preview-toolbar .step-label {
+  margin-bottom: 5px;
+}
+
+.preview-toolbar strong {
+  color: #dfe5ef;
+  font-size: 0.76rem;
+}
+
+.preview-live-label {
+  display: block;
+}
+
+.preview-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.preview-fullscreen-exit {
+  min-height: 40px;
+  padding: 9px 13px;
+  border: 1px solid rgba(255, 178, 159, 0.55);
+  border-radius: 999px;
+  background: rgba(255, 90, 54, 0.12);
+  color: var(--signal-soft);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.preview-fullscreen-exit[hidden] {
+  display: none;
+}
+
+.preview-options,
+.export-options {
+  position: relative;
+}
+
+.preview-options > summary,
+.export-options > summary {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 13px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  color: #dfe5ef;
+  font-size: 0.7rem;
+  font-weight: 800;
+  list-style: none;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.preview-options > summary::-webkit-details-marker,
+.export-options > summary::-webkit-details-marker {
+  display: none;
+}
+
+.preview-options > summary::after,
+.export-options > summary::after {
+  color: var(--signal-soft);
+  content: "+";
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.preview-options[open] > summary,
+.export-options[open] > summary {
+  border-color: rgba(255, 178, 159, 0.55);
+  background: rgba(255, 90, 54, 0.1);
+}
+
+.preview-options[open] > summary::after,
+.export-options[open] > summary::after {
+  content: "−";
+}
+
+.preview-options-menu {
+  position: absolute;
+  z-index: 12;
+  top: calc(100% + 9px);
+  right: 0;
+  display: grid;
+  width: min(290px, calc(100vw - 40px));
+  gap: 12px;
+  padding: 15px;
+  border: 1px solid var(--line-strong);
+  border-radius: 15px;
+  background: #151b26;
+  box-shadow: var(--shadow);
+}
+
+.export-options-menu {
+  position: absolute;
+  z-index: 12;
+  top: calc(100% + 9px);
+  right: 0;
+  display: grid;
+  width: min(230px, calc(100vw - 40px));
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 15px;
+  background: #151b26;
+  box-shadow: var(--shadow);
+}
+
+.export-options-menu .primary-action,
+.export-options-menu .secondary-action {
+  min-height: 38px;
+  padding: 8px 12px;
+  justify-content: center;
+  font-size: 0.68rem;
+}
+
+.export-options-menu .export-status {
+  min-height: 0;
+  margin: 1px 2px 0;
+  color: var(--muted);
+  font-size: 0.62rem;
+  line-height: 1.4;
+}
+
+.preview-options-menu > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.preview-options-menu span {
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.preview-options-menu p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.66rem;
+  line-height: 1.5;
+}
+
+.preview-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.preview-actions button {
+  flex: 1;
+  min-height: 36px;
+  padding: 7px 12px;
+  font-size: 0.68rem;
+}
+
+.preview-actions button[aria-pressed="true"] {
+  border-color: rgba(255, 178, 159, 0.55);
+  background: rgba(255, 90, 54, 0.12);
+  color: var(--signal-soft);
+}
+
+.preview-stage {
+  position: relative;
+  display: grid;
+  min-height: 720px;
+  flex: 1;
+  place-items: center;
+  padding: clamp(24px, 5vw, 74px);
+  overflow: auto;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px) 0 0 / 32px 32px,
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px) 0 0 / 32px 32px,
+    #0c1017;
+}
+
+.flyer-canvas {
+  --flyer-ratio: 0.7071;
+  --flyer-background: #f4efe5;
+  --flyer-surface: #ffffff;
+  --flyer-ink: #10151f;
+  --flyer-muted: #5f6673;
+  --flyer-accent: #ff5a36;
+  --flyer-accent-ink: #0b0f16;
+  --flyer-surface-ink: #0b0f16;
+  --flyer-surface-accent: #9f2d16;
+  --flyer-accent-a26: rgba(255, 90, 54, 0.26);
+  --flyer-accent-a38: rgba(255, 90, 54, 0.38);
+  --flyer-accent-a54: rgba(255, 90, 54, 0.54);
+  --flyer-accent-a56: rgba(255, 90, 54, 0.56);
+  --flyer-background-a86: rgba(244, 239, 229, 0.86);
+  --flyer-background-a92: rgba(244, 239, 229, 0.92);
+  --flyer-background-a95: rgba(244, 239, 229, 0.95);
+  --flyer-ink-a10: rgba(16, 21, 31, 0.1);
+  --flyer-ink-a22: rgba(16, 21, 31, 0.22);
+  --flyer-ink-a28: rgba(16, 21, 31, 0.28);
+  --flyer-ink-a30: rgba(16, 21, 31, 0.3);
+  --flyer-surface-a84: rgba(255, 255, 255, 0.84);
+  --headline-scale: 1;
+  --flyer-copy-scale: 1;
+  position: relative;
+  display: grid;
+  width: min(100%, calc(72vh * var(--flyer-ratio)));
+  aspect-ratio: var(--flyer-ratio);
+  overflow: hidden;
+  container-type: inline-size;
+  background: var(--flyer-background);
+  box-shadow: var(--shadow), 0 0 0 1px rgba(255, 255, 255, 0.13);
+  color: var(--flyer-ink);
+  isolation: isolate;
+}
+
+.flyer-canvas[data-format="a5"] {
+  --flyer-ratio: 0.7048;
+}
+
+.flyer-canvas[data-format="instagram-square"] {
+  --flyer-ratio: 1;
+}
+
+.flyer-canvas[data-format="story"] {
+  --flyer-ratio: 0.5625;
+}
+
+.flyer-canvas[data-format="facebook"] {
+  --flyer-ratio: 1.9048;
+}
+
+.flyer-canvas[data-format="linkedin"] {
+  --flyer-ratio: 1.9139;
+}
+
+.flyer-canvas[data-format="business-card"] {
+  --flyer-ratio: 1.5455;
+  width: min(100%, calc(54vh * var(--flyer-ratio)));
+}
+
+.flyer-canvas[data-support="flyer"] {
+  --flyer-copy-scale: 1.1;
+}
+
+.flyer-visual,
+.flyer-image-scrim,
+.flyer-art-shape,
+.flyer-art-orbit {
+  position: absolute;
+}
+
+.flyer-visual {
+  z-index: -2;
+  inset: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 70% 22%, var(--flyer-accent-a54), transparent 28%),
+    linear-gradient(145deg, var(--flyer-surface), var(--flyer-background));
+}
+
+.flyer-visual img {
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  object-fit: cover;
+  transition: opacity 260ms ease;
+}
+
+.flyer-canvas[data-has-image="true"] .flyer-visual img {
+  opacity: 1;
+}
+
+.flyer-image-scrim {
+  inset: 0;
+  background:
+    linear-gradient(0deg, var(--flyer-background-a92), transparent 33%),
+    linear-gradient(
+      90deg,
+      var(--flyer-background-a95) 0 43%,
+      transparent 68%,
+      var(--flyer-background-a86)
+    );
+}
+
+.flyer-art-shape {
+  border-radius: 42% 58% 67% 33% / 48% 38% 62% 52%;
+  background: var(--flyer-accent);
+  opacity: 0.9;
+  filter: saturate(112%);
+}
+
+.flyer-art-shape-a {
+  top: -18%;
+  right: -10%;
+  width: 58%;
+  height: 74%;
+  transform: rotate(-18deg);
+}
+
+.flyer-art-shape-b {
+  right: 18%;
+  bottom: -15%;
+  width: 36%;
+  height: 48%;
+  opacity: 0.16;
+  filter: blur(1px);
+}
+
+.flyer-art-orbit {
+  right: 4%;
+  bottom: 8%;
+  width: 38%;
+  aspect-ratio: 1;
+  border: 1px solid var(--flyer-ink-a28);
+  border-radius: 50%;
+}
+
+.flyer-art-orbit::before,
+.flyer-art-orbit::after {
+  position: absolute;
+  inset: 16%;
+  border: inherit;
+  border-radius: inherit;
+  content: "";
+}
+
+.flyer-art-orbit::after {
+  inset: 33%;
+  background: var(--flyer-accent-a26);
+  box-shadow: 0 0 6cqw var(--flyer-accent-a38);
+}
+
+.flyer-content,
+.flyer-offer,
+.flyer-details,
+.flyer-action-zone,
+.flyer-qr,
+.flyer-disclaimer {
+  position: absolute;
+  z-index: 2;
+}
+
+.flyer-content {
+  top: 8%;
+  left: 7%;
+  width: 62%;
+}
+
+.flyer-eyebrow {
+  margin: 0 0 3cqw;
+  color: var(--flyer-accent);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: calc(2.25cqw * var(--flyer-copy-scale));
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+.flyer-headline {
+  max-width: 13ch;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--flyer-ink);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: calc(7.2cqw * var(--headline-scale));
+  font-weight: 600;
+  letter-spacing: -0.065em;
+  line-height: 0.94;
+  text-wrap: balance;
+}
+
+.flyer-supporting {
+  max-width: 31ch;
+  margin: 3.4cqw 0 0;
+  color: var(--flyer-muted);
+  font-size: calc(2.72cqw * var(--flyer-copy-scale));
+  font-weight: 500;
+  line-height: 1.38;
+  text-wrap: balance;
+}
+
+.flyer-offer {
+  top: 8%;
+  right: 6%;
+  max-width: 24%;
+  padding: 1.7cqw 2.2cqw;
+  border-radius: 999px;
+  background: var(--flyer-accent);
+  color: var(--flyer-accent-ink);
+  font-size: calc(2.05cqw * var(--flyer-copy-scale));
+  font-weight: 800;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.flyer-details {
+  right: 6%;
+  bottom: 21%;
+  display: grid;
+  width: 38%;
+  margin: 0;
+  border-top: 1px solid var(--flyer-ink-a22);
+}
+
+.flyer-details > div {
+  display: grid;
+  grid-template-columns: 0.72fr 1.28fr;
+  gap: 1.5cqw;
+  padding: 1.8cqw 0;
+  border-bottom: 1px solid var(--flyer-ink-a22);
+}
+
+.flyer-details dt,
+.flyer-details dd {
+  margin: 0;
+  font-size: calc(2.02cqw * var(--flyer-copy-scale));
+  line-height: 1.25;
+}
+
+.flyer-details dt {
+  color: var(--flyer-accent);
+  font-weight: 800;
+}
+
+.flyer-details dd {
+  color: var(--flyer-ink);
+  font-weight: 600;
+}
+
+.flyer-action-zone {
+  right: 6%;
+  bottom: 6%;
+  left: 7%;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 3cqw;
+  padding-top: 2.4cqw;
+  border-top: 1px solid var(--flyer-ink-a30);
+}
+
+.flyer-cta {
+  max-width: 48%;
+  margin: 0;
+  color: var(--flyer-ink);
+  font-size: 3.3cqw;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  text-wrap: balance;
+}
+
+.flyer-contact {
+  display: flex;
+  max-width: 43%;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.7cqw 1.3cqw;
+  color: var(--flyer-muted);
+  font-size: calc(1.78cqw * var(--flyer-copy-scale));
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.flyer-contact span:empty {
+  display: none;
+}
+
+.flyer-qr {
+  top: 26%;
+  right: 6%;
+  bottom: auto;
+  display: grid;
+  width: 11%;
+  aspect-ratio: 1;
+  place-items: center;
+  padding: 0.8cqw;
+  border-radius: 1cqw;
+  background: #fff;
+}
+
+.flyer-qr[hidden],
+.flyer-offer[hidden],
+.flyer-details[hidden],
+.flyer-contact[hidden],
+.flyer-disclaimer[hidden] {
+  display: none;
+}
+
+.flyer-qr img,
+.flyer-qr canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.flyer-disclaimer {
+  bottom: 1.65%;
+  left: 7%;
+  max-width: 80%;
+  margin: 0;
+  color: var(--flyer-muted);
+  font-size: calc(1.42cqw * var(--flyer-copy-scale));
+  line-height: 1.25;
+}
+
+/* Each layout changes hierarchy, not only color. */
+.flyer-canvas[data-layout="editorial-impact"] .flyer-visual {
+  inset: 0 0 0 57%;
+  border-radius: 52% 0 0 52%;
+}
+
+.flyer-canvas[data-layout="editorial-impact"] .flyer-image-scrim {
+  background: linear-gradient(90deg, var(--flyer-background), transparent 42%);
+}
+
+.flyer-canvas[data-layout="editorial-impact"] .flyer-art-shape-a {
+  inset: 12% auto auto -12%;
+  width: 48%;
+  height: 44%;
+  opacity: 0.18;
+}
+
+.flyer-canvas[data-layout="editorial-impact"] .flyer-content {
+  top: 10%;
+  width: 52%;
+}
+
+.flyer-canvas[data-layout="editorial-impact"] .flyer-headline {
+  font-weight: 500;
+}
+
+.flyer-canvas[data-layout="editorial-impact"] .flyer-offer {
+  top: auto;
+  right: auto;
+  bottom: 22%;
+  left: 7%;
+  max-width: 40%;
+}
+
+.flyer-canvas[data-layout="editorial-impact"] .flyer-details {
+  top: 12%;
+  right: 4%;
+  bottom: auto;
+  width: 31%;
+  padding: 2cqw;
+  background: var(--flyer-surface-a84);
+  backdrop-filter: blur(8px);
+}
+
+.flyer-canvas[data-layout="editorial-impact"] .flyer-details dt {
+  color: var(--flyer-surface-accent);
+}
+
+.flyer-canvas[data-layout="editorial-impact"] .flyer-details dd {
+  color: var(--flyer-surface-ink);
+}
+
+.flyer-canvas[data-layout="cinematic-split"] .flyer-visual {
+  inset: 0 0 43%;
+}
+
+.flyer-canvas[data-layout="cinematic-split"] .flyer-image-scrim {
+  background: linear-gradient(0deg, var(--flyer-background), transparent 45%);
+}
+
+.flyer-canvas[data-layout="cinematic-split"] .flyer-content {
+  top: 50%;
+  width: 68%;
+}
+
+.flyer-canvas[data-layout="cinematic-split"] .flyer-eyebrow {
+  margin-bottom: 2cqw;
+}
+
+.flyer-canvas[data-layout="cinematic-split"] .flyer-headline {
+  font-size: calc(6.8cqw * var(--headline-scale));
+}
+
+.flyer-canvas[data-layout="cinematic-split"] .flyer-supporting {
+  margin-top: 2cqw;
+  font-size: calc(2.3cqw * var(--flyer-copy-scale));
+}
+
+.flyer-canvas[data-layout="cinematic-split"] .flyer-offer {
+  top: 5%;
+}
+
+.flyer-canvas[data-layout="cinematic-split"] .flyer-details {
+  bottom: 18%;
+  width: 28%;
+}
+
+.flyer-canvas[data-layout="kinetic-grid"] {
+  background:
+    linear-gradient(90deg, transparent 49.8%, var(--flyer-ink-a10) 50%, transparent 50.2%),
+    linear-gradient(transparent 49.8%, var(--flyer-ink-a10) 50%, transparent 50.2%),
+    var(--flyer-background);
+}
+
+.flyer-canvas[data-layout="kinetic-grid"] .flyer-visual {
+  inset: 8% 7% 38% 44%;
+  border-radius: 45% 55% 18% 82% / 54% 31% 69% 46%;
+}
+
+.flyer-canvas[data-layout="kinetic-grid"] .flyer-image-scrim {
+  background: transparent;
+}
+
+.flyer-canvas[data-layout="kinetic-grid"] .flyer-content {
+  top: 9%;
+  width: 39%;
+}
+
+.flyer-canvas[data-layout="kinetic-grid"] .flyer-headline {
+  font-size: calc(6.7cqw * var(--headline-scale));
+}
+
+.flyer-canvas[data-layout="kinetic-grid"] .flyer-supporting {
+  font-size: calc(2.4cqw * var(--flyer-copy-scale));
+}
+
+.flyer-canvas[data-layout="kinetic-grid"] .flyer-offer {
+  top: 54%;
+  right: auto;
+  left: 7%;
+  max-width: 36%;
+  border-radius: 0;
+}
+
+.flyer-canvas[data-layout="kinetic-grid"] .flyer-details {
+  right: 7%;
+  bottom: 18%;
+  width: 49%;
+}
+
+.flyer-canvas[data-layout="luxury-focus"] .flyer-visual,
+.flyer-canvas[data-layout="event-pulse"] .flyer-visual {
+  inset: 0;
+}
+
+.flyer-canvas[data-layout="luxury-focus"] .flyer-image-scrim {
+  background: linear-gradient(0deg, var(--flyer-background-a95), transparent 68%);
+}
+
+.flyer-canvas[data-layout="luxury-focus"] .flyer-content {
+  top: 8%;
+  right: 32%;
+  bottom: auto;
+  left: 8%;
+  width: auto;
+  padding: 3.2cqw;
+  border: 1px solid var(--flyer-accent-a38);
+  background: var(--flyer-background-a86);
+  backdrop-filter: blur(10px);
+}
+
+.flyer-canvas[data-layout="luxury-focus"] .flyer-headline,
+.flyer-canvas[data-layout="luxury-focus"] .flyer-supporting {
+  color: var(--flyer-ink);
+}
+
+.flyer-canvas[data-layout="luxury-focus"] .flyer-headline {
+  max-width: 15ch;
+  font-family: "Playfair Display", Georgia, serif;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+}
+
+.flyer-canvas[data-layout="luxury-focus"] .flyer-offer {
+  top: 6%;
+}
+
+.flyer-canvas[data-layout="luxury-focus"] .flyer-details {
+  right: 8%;
+  bottom: 19%;
+  left: 8%;
+  display: grid;
+  width: auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid var(--flyer-accent-a38);
+  background: var(--flyer-background-a92);
+  backdrop-filter: blur(10px);
+}
+
+.flyer-canvas[data-layout="luxury-focus"] .flyer-details > div {
+  display: block;
+  min-width: 0;
+  padding: 1.8cqw 2cqw;
+  border-bottom: 0;
+}
+
+.flyer-canvas[data-layout="luxury-focus"] .flyer-details > div + div {
+  border-left: 1px solid var(--flyer-ink-a22);
+}
+
+.flyer-canvas[data-layout="luxury-focus"] .flyer-details dt {
+  margin-bottom: 0.7cqw;
+}
+
+.flyer-canvas[data-layout="luxury-focus"] .flyer-details dd {
+  color: var(--flyer-ink);
+}
+
+.flyer-canvas[data-layout="luxury-focus"] .flyer-action-zone {
+  bottom: 5%;
+  border-color: var(--flyer-ink-a30);
+}
+
+.flyer-canvas[data-layout="luxury-focus"] .flyer-cta,
+.flyer-canvas[data-layout="luxury-focus"] .flyer-contact,
+.flyer-canvas[data-layout="luxury-focus"] .flyer-disclaimer {
+  color: var(--flyer-ink);
+}
+
+.flyer-canvas[data-layout="event-pulse"] .flyer-image-scrim {
+  background:
+    linear-gradient(0deg, var(--flyer-background-a95), transparent 32%),
+    linear-gradient(90deg, var(--flyer-background-a95) 0 52%, var(--flyer-background-a86) 72%, transparent);
+}
+
+.flyer-canvas[data-layout="event-pulse"] .flyer-content {
+  top: 13%;
+  width: 66%;
+}
+
+.flyer-canvas[data-layout="event-pulse"] .flyer-headline,
+.flyer-canvas[data-layout="event-pulse"] .flyer-supporting {
+  color: var(--flyer-ink);
+}
+
+.flyer-canvas[data-layout="event-pulse"] .flyer-headline {
+  text-transform: uppercase;
+}
+
+.flyer-canvas[data-layout="event-pulse"] .flyer-offer {
+  top: auto;
+  right: auto;
+  bottom: 22%;
+  left: 7%;
+  border-radius: 0;
+}
+
+.flyer-canvas[data-layout="event-pulse"] .flyer-details {
+  top: 10%;
+  bottom: auto;
+  padding: 2cqw;
+  border-top: 0;
+  background: var(--flyer-background-a86);
+  backdrop-filter: blur(8px);
+}
+
+.flyer-canvas[data-layout="event-pulse"] .flyer-details dd,
+.flyer-canvas[data-layout="event-pulse"] .flyer-cta,
+.flyer-canvas[data-layout="event-pulse"] .flyer-contact,
+.flyer-canvas[data-layout="event-pulse"] .flyer-disclaimer {
+  color: var(--flyer-ink);
+}
+
+/* A calm, timeless composition for users who prefer a traditional flyer. */
+.flyer-canvas:where([data-support="flyer"])[data-layout="classic-frame"]::before,
+.flyer-canvas:where([data-support="flyer"])[data-layout="classic-frame"]::after {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+  content: "";
+}
+
+.flyer-canvas:where([data-support="flyer"])[data-layout="classic-frame"]::before {
+  inset: 3.2%;
+  border: 0.16cqw solid var(--flyer-accent-a54);
+}
+
+.flyer-canvas:where([data-support="flyer"])[data-layout="classic-frame"]::after {
+  inset: 4.15%;
+  border: 0.06cqw solid var(--flyer-ink-a22);
+}
+
+.flyer-canvas:where([data-support="flyer"])[data-layout="classic-frame"] .flyer-visual {
+  inset: 0;
+  border-radius: 0;
+}
+
+.flyer-canvas:where([data-support="flyer"])[data-layout="classic-frame"] .flyer-image-scrim {
+  background:
+    linear-gradient(90deg, var(--flyer-background-a95) 0 55%, var(--flyer-background-a86) 72%, transparent),
+    linear-gradient(0deg, var(--flyer-background-a92), transparent 34%);
+}
+
+.flyer-canvas:where([data-support="flyer"])[data-layout="classic-frame"] .flyer-content {
+  top: 10%;
+  left: 9%;
+  width: 55%;
+}
+
+.flyer-canvas:where([data-support="flyer"])[data-layout="classic-frame"] .flyer-eyebrow {
+  margin-bottom: 2.2cqw;
+  letter-spacing: 0.18em;
+}
+
+.flyer-canvas:where([data-support="flyer"])[data-layout="classic-frame"] .flyer-headline {
+  max-width: 18ch;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: calc(5.55cqw * var(--headline-scale));
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.06;
+}
+
+.flyer-canvas:where([data-support="flyer"])[data-layout="classic-frame"] .flyer-supporting {
+  max-width: 38ch;
+  margin-top: 2.6cqw;
+  font-size: calc(2.6cqw * var(--flyer-copy-scale));
+  line-height: 1.5;
+}
+
+.flyer-canvas:where([data-support="flyer"])[data-layout="classic-frame"] .flyer-offer {
+  top: 9%;
+  right: 8%;
+  max-width: 25%;
+  padding: 1.35cqw 1.7cqw;
+  border: 0.12cqw solid var(--flyer-accent);
+  border-radius: 0.45cqw;
+  background: var(--flyer-background-a92);
+  color: var(--flyer-ink);
+  font-size: calc(1.9cqw * var(--flyer-copy-scale));
+}
+
+.flyer-canvas:where([data-support="flyer"])[data-layout="classic-frame"] .flyer-details {
+  right: 8%;
+  bottom: 21%;
+  display: grid;
+  width: 35%;
+  padding: 1.2cqw 1.6cqw;
+  border: 0.1cqw solid var(--flyer-ink-a22);
+  background: var(--flyer-background-a86);
+}
+
+.flyer-canvas:where([data-support="flyer"])[data-layout="classic-frame"] .flyer-details > div {
+  padding: 1.25cqw 0;
+}
+
+.flyer-canvas:where([data-support="flyer"])[data-layout="classic-frame"] .flyer-action-zone {
+  right: 8%;
+  bottom: 7%;
+  left: 9%;
+}
+
+.flyer-canvas[data-typography="geometric"] .flyer-headline,
+.flyer-canvas[data-typography="geometric"] .flyer-cta {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+}
+
+.flyer-canvas[data-typography="editorial"] .flyer-headline,
+.flyer-canvas[data-typography="editorial"] .flyer-cta {
+  font-family: "Playfair Display", Georgia, serif;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+
+.flyer-canvas[data-typography="human"] .flyer-headline,
+.flyer-canvas[data-typography="human"] .flyer-cta {
+  font-family: "DM Sans", sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.045em;
+}
+
+.flyer-canvas[data-format="facebook"] .flyer-content,
+.flyer-canvas[data-format="linkedin"] .flyer-content {
+  top: 11%;
+  width: 50%;
+}
+
+.flyer-canvas[data-format="facebook"] .flyer-headline,
+.flyer-canvas[data-format="linkedin"] .flyer-headline {
+  font-size: calc(5.6cqw * var(--headline-scale));
+}
+
+.flyer-canvas[data-format="facebook"] .flyer-supporting,
+.flyer-canvas[data-format="linkedin"] .flyer-supporting {
+  margin-top: 1.8cqw;
+  font-size: calc(2.05cqw * var(--flyer-copy-scale));
+}
+
+.flyer-canvas[data-format="facebook"] .flyer-eyebrow,
+.flyer-canvas[data-format="linkedin"] .flyer-eyebrow {
+  margin-bottom: 1.6cqw;
+  font-size: calc(1.7cqw * var(--flyer-copy-scale));
+}
+
+.flyer-canvas[data-format="facebook"] .flyer-details,
+.flyer-canvas[data-format="linkedin"] .flyer-details {
+  bottom: 25%;
+  width: 34%;
+}
+
+.flyer-canvas[data-format="facebook"] .flyer-details > div,
+.flyer-canvas[data-format="linkedin"] .flyer-details > div {
+  padding: 1.1cqw 0;
+}
+
+.flyer-canvas[data-format="facebook"] .flyer-details dt,
+.flyer-canvas[data-format="facebook"] .flyer-details dd,
+.flyer-canvas[data-format="linkedin"] .flyer-details dt,
+.flyer-canvas[data-format="linkedin"] .flyer-details dd {
+  font-size: calc(1.52cqw * var(--flyer-copy-scale));
+}
+
+.flyer-canvas[data-format="facebook"] .flyer-action-zone,
+.flyer-canvas[data-format="linkedin"] .flyer-action-zone {
+  padding-top: 1.4cqw;
+}
+
+.flyer-canvas[data-format="facebook"] .flyer-cta,
+.flyer-canvas[data-format="linkedin"] .flyer-cta {
+  font-size: 2.4cqw;
+}
+
+.flyer-canvas[data-format="facebook"] .flyer-contact,
+.flyer-canvas[data-format="linkedin"] .flyer-contact {
+  font-size: calc(1.28cqw * var(--flyer-copy-scale));
+}
+
+.flyer-canvas[data-format="story"] .flyer-content {
+  top: 9%;
+  width: 78%;
+}
+
+.flyer-canvas[data-format="story"] .flyer-headline {
+  max-width: 11ch;
+  font-size: calc(8.8cqw * var(--headline-scale));
+}
+
+.flyer-canvas[data-format="story"] .flyer-supporting {
+  max-width: 26ch;
+  font-size: calc(3.4cqw * var(--flyer-copy-scale));
+}
+
+.flyer-canvas[data-format="story"] .flyer-offer {
+  top: 48%;
+  right: auto;
+  left: 7%;
+  max-width: 58%;
+  font-size: calc(2.8cqw * var(--flyer-copy-scale));
+}
+
+.flyer-canvas[data-format="story"] .flyer-details {
+  right: 7%;
+  bottom: 17%;
+  left: 7%;
+  width: auto;
+}
+
+.flyer-canvas[data-format="story"] .flyer-details dt,
+.flyer-canvas[data-format="story"] .flyer-details dd {
+  font-size: calc(2.72cqw * var(--flyer-copy-scale));
+}
+
+.flyer-canvas[data-format="story"] .flyer-cta {
+  font-size: 4.25cqw;
+}
+
+.flyer-canvas[data-format="story"] .flyer-contact {
+  font-size: calc(2.25cqw * var(--flyer-copy-scale));
+}
+
+.flyer-canvas[data-format="story"] .flyer-qr {
+  top: 48%;
+  right: 7%;
+  width: 15%;
+}
+
+/* A business card is a dedicated identity object, not a reduced flyer. */
+.flyer-canvas[data-support="business-card"] .flyer-visual {
+  inset: 0;
+  border-radius: 0;
+  background:
+    radial-gradient(circle at 83% 24%, var(--flyer-accent-a38), transparent 27%),
+    linear-gradient(135deg, var(--flyer-background), var(--flyer-background-a92));
+}
+
+.flyer-canvas[data-support="business-card"] .flyer-image-scrim {
+  background:
+    linear-gradient(90deg, var(--flyer-background-a95) 0 54%, transparent 82%),
+    linear-gradient(0deg, var(--flyer-background-a86), transparent 44%);
+}
+
+.flyer-canvas[data-support="business-card"] .flyer-art-shape-a {
+  top: -68%;
+  right: -14%;
+  width: 55%;
+  height: 170%;
+  opacity: 0.84;
+  transform: rotate(18deg);
+}
+
+.flyer-canvas[data-support="business-card"] .flyer-art-shape-b {
+  right: 20%;
+  bottom: -55%;
+  width: 34%;
+  height: 112%;
+}
+
+.flyer-canvas[data-support="business-card"] .flyer-art-orbit {
+  right: 3%;
+  bottom: 7%;
+  width: 27%;
+}
+
+.flyer-canvas[data-support="business-card"] .flyer-content {
+  top: 10%;
+  right: auto;
+  bottom: auto;
+  left: 6%;
+  width: 58%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  backdrop-filter: none;
+}
+
+.flyer-canvas[data-support="business-card"] .flyer-eyebrow {
+  margin-bottom: 1.3cqw;
+  font-size: 1.35cqw;
+}
+
+.flyer-canvas[data-support="business-card"] .flyer-headline {
+  max-width: 18ch;
+  color: var(--flyer-ink);
+  font-size: calc(4.25cqw * var(--headline-scale));
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  line-height: 0.98;
+  text-transform: none;
+}
+
+.flyer-canvas[data-support="business-card"] .flyer-supporting {
+  max-width: 38ch;
+  margin-top: 1.35cqw;
+  color: var(--flyer-muted);
+  font-size: 1.45cqw;
+  line-height: 1.32;
+}
+
+.flyer-canvas[data-support="business-card"] .flyer-offer {
+  top: 9%;
+  right: 5%;
+  bottom: auto;
+  left: auto;
+  max-width: 27%;
+  padding: 1.05cqw 1.45cqw;
+  border-radius: 999px;
+  font-size: 1.2cqw;
+}
+
+.flyer-canvas[data-support="business-card"] .flyer-details {
+  top: auto;
+  right: 6%;
+  bottom: 22%;
+  left: 6%;
+  display: grid;
+  width: auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 0;
+  border: 0;
+  border-top: 1px solid var(--flyer-ink-a22);
+  background: transparent;
+  backdrop-filter: none;
+}
+
+.flyer-canvas[data-support="business-card"] .flyer-details > div {
+  display: block;
+  min-width: 0;
+  padding: 1.25cqw 1.5cqw 1.2cqw 0;
+  border-bottom: 1px solid var(--flyer-ink-a22);
+}
+
+.flyer-canvas[data-support="business-card"] .flyer-details > div + div {
+  padding-left: 1.5cqw;
+  border-left: 1px solid var(--flyer-ink-a22);
+}
+
+.flyer-canvas[data-support="business-card"] .flyer-details dt,
+.flyer-canvas[data-support="business-card"] .flyer-details dd {
+  font-size: 1.08cqw;
+}
+
+.flyer-canvas[data-support="business-card"] .flyer-details dt {
+  margin-bottom: 0.42cqw;
+}
+
+.flyer-canvas[data-support="business-card"] .flyer-details dd {
+  color: var(--flyer-ink);
+}
+
+.flyer-canvas[data-support="business-card"] .flyer-action-zone {
+  right: 6%;
+  bottom: 5%;
+  left: 6%;
+  gap: 2cqw;
+  padding-top: 1.2cqw;
+  border-color: var(--flyer-ink-a30);
+}
+
+.flyer-canvas[data-support="business-card"] .flyer-cta {
+  max-width: 34%;
+  color: var(--flyer-ink);
+  font-size: 1.75cqw;
+}
+
+.flyer-canvas[data-support="business-card"] .flyer-contact {
+  max-width: 62%;
+  color: var(--flyer-muted);
+  font-size: 1.02cqw;
+}
+
+.flyer-canvas[data-support="business-card"] .flyer-qr {
+  top: auto;
+  right: 6%;
+  bottom: 4.8%;
+  width: 8.5%;
+  padding: 0.5cqw;
+}
+
+.flyer-canvas[data-support="business-card"]:has(.flyer-qr:not([hidden])) .flyer-action-zone {
+  right: 17%;
+}
+
+.flyer-canvas[data-support="business-card"] .flyer-disclaimer {
+  bottom: 1.2%;
+  left: 6%;
+  color: var(--flyer-muted);
+  font-size: 0.72cqw;
+}
+
+/* Decorative backgrounds remain separate from the editable copy and from business cards. */
+.flyer-canvas[data-support="flyer"][data-decor="velvet-glow"] .flyer-visual {
+  background:
+    radial-gradient(circle at 82% 18%, var(--flyer-accent-a54), transparent 26%),
+    radial-gradient(circle at 18% 84%, var(--flyer-surface-a84), transparent 32%),
+    linear-gradient(145deg, var(--flyer-background), var(--flyer-surface));
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="burgundy-halo"] .flyer-visual {
+  background:
+    radial-gradient(circle at 68% 28%, var(--flyer-accent-a56), transparent 24%),
+    radial-gradient(ellipse at 84% 76%, var(--flyer-surface-a84), transparent 36%),
+    linear-gradient(155deg, var(--flyer-background) 8%, var(--flyer-surface) 92%);
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="burgundy-halo"] .flyer-art-shape-a {
+  top: -12%;
+  right: -17%;
+  width: 66%;
+  height: 66%;
+  border-radius: 50%;
+  opacity: 0.54;
+  filter: blur(1.2cqw);
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="burgundy-halo"] .flyer-art-shape-b {
+  right: 34%;
+  bottom: -22%;
+  opacity: 0.22;
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="champagne-lines"] .flyer-visual {
+  background:
+    repeating-linear-gradient(118deg, transparent 0 8cqw, var(--flyer-ink-a10) 8.1cqw 8.25cqw),
+    radial-gradient(circle at 80% 16%, var(--flyer-accent-a38), transparent 27%),
+    linear-gradient(145deg, var(--flyer-background), var(--flyer-surface));
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="champagne-lines"] .flyer-art-shape-a {
+  top: 4%;
+  right: -23%;
+  height: 52%;
+  border: 0.45cqw solid var(--flyer-accent);
+  border-radius: 50%;
+  background: transparent;
+  opacity: 0.72;
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="champagne-lines"] .flyer-art-shape-b {
+  right: 8%;
+  bottom: -9%;
+  border-radius: 50% 50% 0 0;
+  opacity: 0.12;
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="midnight-arches"] .flyer-visual {
+  background:
+    radial-gradient(ellipse at 78% 16%, var(--flyer-accent-a38), transparent 24%),
+    linear-gradient(135deg, var(--flyer-background), var(--flyer-surface));
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="midnight-arches"] .flyer-art-shape-a {
+  top: -8%;
+  right: -8%;
+  width: 54%;
+  height: 68%;
+  border-radius: 50% 50% 8% 8%;
+  opacity: 0.68;
+  transform: rotate(7deg);
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="midnight-arches"] .flyer-art-orbit {
+  right: -6%;
+  bottom: 3%;
+  width: 48%;
+  border-width: 0.35cqw;
+  border-color: var(--flyer-accent-a54);
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="minimal-soft"] .flyer-visual {
+  background:
+    radial-gradient(circle at 82% 18%, var(--flyer-accent-a26), transparent 22%),
+    linear-gradient(145deg, var(--flyer-background), var(--flyer-surface));
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="minimal-soft"] .flyer-art-shape,
+.flyer-canvas[data-support="flyer"][data-decor="minimal-soft"] .flyer-art-orbit {
+  opacity: 0;
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="classic-frame"] .flyer-visual {
+  background:
+    radial-gradient(ellipse at 96% 8%, var(--flyer-accent-a26), transparent 30%),
+    var(--flyer-background);
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="classic-frame"] .flyer-art-shape-a {
+  inset: 3.4%;
+  width: auto;
+  height: auto;
+  border: 0.12cqw solid var(--flyer-accent-a38);
+  border-radius: 0;
+  background: transparent;
+  opacity: 0.55;
+  filter: none;
+  transform: none;
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="classic-frame"] .flyer-art-shape-b,
+.flyer-canvas[data-support="flyer"][data-decor="classic-frame"] .flyer-art-orbit {
+  opacity: 0;
+}
+
+.flyer-canvas[data-support="flyer"][data-layout="classic-frame"][data-decor="classic-frame"] .flyer-art-shape {
+  opacity: 0;
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="velvet-folds"] .flyer-visual {
+  background:
+    linear-gradient(104deg, transparent 0 70%, var(--flyer-accent-a26) 70.4% 78%, transparent 78.5%),
+    linear-gradient(95deg, transparent 0 78%, var(--flyer-ink-a10) 78.3% 89%, transparent 89.4%),
+    var(--flyer-background);
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="velvet-folds"] .flyer-art-shape,
+.flyer-canvas[data-support="flyer"][data-decor="velvet-folds"] .flyer-art-orbit {
+  opacity: 0;
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="art-deco-sun"] .flyer-visual {
+  background:
+    linear-gradient(90deg, transparent 0 73%, var(--flyer-accent-a38) 73% 73.3%, transparent 73.3%),
+    linear-gradient(90deg, transparent 0 78%, var(--flyer-ink-a10) 78% 78.18%, transparent 78.18%),
+    var(--flyer-background);
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="art-deco-sun"] .flyer-art-shape-a,
+.flyer-canvas[data-support="flyer"][data-decor="art-deco-sun"] .flyer-art-shape-b {
+  right: 4%;
+  left: auto;
+  width: 22%;
+  height: 12%;
+  border: 0;
+  border-right: 0.14cqw solid var(--flyer-accent-a54);
+  border-radius: 0;
+  background: transparent;
+  opacity: 0.5;
+  filter: none;
+  transform: none;
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="art-deco-sun"] .flyer-art-shape-a {
+  top: 5%;
+  bottom: auto;
+  border-top: 0.14cqw solid var(--flyer-accent-a54);
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="art-deco-sun"] .flyer-art-shape-b {
+  top: auto;
+  bottom: 5%;
+  border-bottom: 0.14cqw solid var(--flyer-accent-a54);
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="art-deco-sun"] .flyer-art-orbit {
+  opacity: 0;
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="burgundy-panels"] .flyer-visual {
+  background:
+    linear-gradient(90deg, transparent 0 70%, var(--flyer-accent-a38) 70% 70.25%, transparent 70.25%),
+    linear-gradient(90deg, var(--flyer-background) 0 70%, var(--flyer-accent-a26) 70% 100%);
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="burgundy-panels"] .flyer-art-shape,
+.flyer-canvas[data-support="flyer"][data-decor="burgundy-panels"] .flyer-art-orbit {
+  opacity: 0;
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="champagne-spotlight"] .flyer-visual {
+  background:
+    radial-gradient(ellipse at 96% 8%, var(--flyer-accent-a26), transparent 34%),
+    linear-gradient(90deg, var(--flyer-background) 0 95%, var(--flyer-accent-a26) 95% 95.3%, var(--flyer-background) 95.3%);
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="champagne-spotlight"] .flyer-art-shape,
+.flyer-canvas[data-support="flyer"][data-decor="champagne-spotlight"] .flyer-art-orbit {
+  opacity: 0;
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="night-constellation"] .flyer-visual {
+  background:
+    linear-gradient(112deg, transparent 0 78%, var(--flyer-accent-a26) 78.2% 82%, transparent 82.4%),
+    radial-gradient(ellipse at 106% 48%, var(--flyer-ink-a10), transparent 42%),
+    var(--flyer-background);
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="night-constellation"] .flyer-art-shape {
+  opacity: 0;
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="night-constellation"] .flyer-art-orbit {
+  opacity: 0;
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="marble-veins"] .flyer-visual {
+  background:
+    linear-gradient(112deg, transparent 0 74%, var(--flyer-ink-a10) 74.1% 74.28%, transparent 74.5%),
+    linear-gradient(68deg, transparent 0 87%, var(--flyer-accent-a26) 87.1% 87.35%, transparent 87.55%),
+    radial-gradient(ellipse at 100% 22%, var(--flyer-accent-a26), transparent 34%),
+    var(--flyer-background);
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="marble-veins"] .flyer-art-shape,
+.flyer-canvas[data-support="flyer"][data-decor="marble-veins"] .flyer-art-orbit {
+  opacity: 0;
+}
+
+/*
+ * Every flyer background is autonomous. Layouts may move the copy, but they no
+ * longer leak the same blob, orbit or rounded image crop into every design.
+ */
+.flyer-canvas[data-support="flyer"][data-decor] .flyer-visual {
+  inset: 0;
+  border-radius: 0;
+}
+
+.flyer-canvas[data-support="flyer"][data-decor] .flyer-art-shape,
+.flyer-canvas[data-support="flyer"][data-decor] .flyer-art-orbit {
+  inset: auto;
+  display: none;
+  width: auto;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  opacity: 0;
+  filter: none;
+  transform: none;
+}
+
+.flyer-canvas[data-support="flyer"][data-decor] .flyer-art-orbit::before,
+.flyer-canvas[data-support="flyer"][data-decor] .flyer-art-orbit::after {
+  content: none;
+}
+
+/* 1. A true blank sheet: no image, no shadow, no decorative shape. */
+.flyer-canvas[data-support="flyer"][data-decor="paper-white"] .flyer-visual {
+  background: var(--flyer-background);
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="paper-white"] .flyer-image-scrim {
+  background: transparent;
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="paper-white"][data-has-image="true"] .flyer-visual img {
+  opacity: 0;
+}
+
+/* 2. A single traditional frame, independent from the selected palette. */
+.flyer-canvas[data-support="flyer"][data-decor="classic-frame"] .flyer-visual {
+  background: var(--flyer-background);
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="classic-frame"] .flyer-image-scrim {
+  background:
+    linear-gradient(0deg, var(--flyer-background-a95), transparent 30%),
+    linear-gradient(90deg, var(--flyer-background-a95) 0 58%, transparent 78%);
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="classic-frame"] .flyer-art-shape-a {
+  inset: 3.5%;
+  display: block;
+  width: auto;
+  height: auto;
+  border: 0.12cqw solid var(--flyer-accent-a54);
+  background: transparent;
+  opacity: 1;
+}
+
+.flyer-canvas[data-support="flyer"][data-layout="classic-frame"][data-decor="classic-frame"] .flyer-art-shape-a {
+  display: none;
+}
+
+/* 3. A quiet light split with no halo or circular motif. */
+.flyer-canvas[data-support="flyer"][data-decor="champagne-spotlight"] .flyer-visual {
+  background:
+    linear-gradient(90deg, transparent 0 67%, var(--flyer-accent-a38) 67% 67.25%, transparent 67.25%),
+    linear-gradient(90deg, var(--flyer-background) 0 67%, var(--flyer-surface) 67% 100%);
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="champagne-spotlight"] .flyer-image-scrim {
+  background:
+    linear-gradient(0deg, var(--flyer-background-a92), transparent 25%),
+    linear-gradient(90deg, var(--flyer-background-a95) 0 54%, transparent 72%);
+}
+
+/* 4. A gallery page: the picture becomes a clean rectangular window. */
+.flyer-canvas[data-support="flyer"][data-decor="gallery-window"] .flyer-visual {
+  background: linear-gradient(90deg, var(--flyer-background) 0 61%, var(--flyer-surface) 61% 100%);
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="gallery-window"] .flyer-image-scrim {
+  background:
+    linear-gradient(0deg, var(--flyer-background-a95), transparent 23%),
+    linear-gradient(90deg, var(--flyer-background-a95) 0 58%, transparent 58% 100%);
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="gallery-window"] .flyer-art-shape-a {
+  top: 6%;
+  right: 4%;
+  display: block;
+  width: 35%;
+  height: 52%;
+  border: 0.12cqw solid var(--flyer-accent-a54);
+  background: transparent;
+  opacity: 1;
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="gallery-window"][data-has-image="true"] .flyer-visual img {
+  position: absolute;
+  top: 7%;
+  right: 5%;
+  width: 33%;
+  height: 50%;
+  object-fit: cover;
+}
+
+/* 5. Strong angular planes instead of a rounded Canva-like blob. */
+.flyer-canvas[data-support="flyer"][data-decor="geometric-blocks"] .flyer-visual {
+  background:
+    linear-gradient(132deg, transparent 0 61%, var(--flyer-accent-a38) 61% 78%, transparent 78%),
+    linear-gradient(42deg, var(--flyer-surface) 0 22%, transparent 22%),
+    var(--flyer-background);
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="geometric-blocks"] .flyer-image-scrim {
+  background:
+    linear-gradient(0deg, var(--flyer-background-a95), transparent 29%),
+    linear-gradient(90deg, var(--flyer-background-a95) 0 50%, transparent 74%);
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="geometric-blocks"] .flyer-art-shape-a {
+  top: 5%;
+  right: 5%;
+  display: block;
+  width: 25%;
+  height: 16%;
+  border-top: 0.15cqw solid var(--flyer-accent);
+  border-right: 0.15cqw solid var(--flyer-accent);
+  background: transparent;
+  opacity: 0.8;
+}
+
+/* 6. A sober architectural grid with one straight accent bar. */
+.flyer-canvas[data-support="flyer"][data-decor="burgundy-panels"] .flyer-visual {
+  background:
+    linear-gradient(90deg, var(--flyer-ink-a10) 0 0.08cqw, transparent 0.08cqw) 0 0 / 12cqw 100%,
+    linear-gradient(var(--flyer-ink-a10) 0 0.08cqw, transparent 0.08cqw) 0 0 / 100% 12cqw,
+    var(--flyer-background);
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="burgundy-panels"] .flyer-image-scrim {
+  background:
+    linear-gradient(0deg, var(--flyer-background-a92), transparent 28%),
+    linear-gradient(90deg, var(--flyer-background-a95) 0 55%, transparent 76%);
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="burgundy-panels"] .flyer-art-shape-a {
+  top: 5%;
+  right: 5%;
+  display: block;
+  width: 1.2%;
+  height: 32%;
+  background: var(--flyer-accent);
+  opacity: 0.82;
+}
+
+/* 7. Fine mineral lines, confined to the right half of the page. */
+.flyer-canvas[data-support="flyer"][data-decor="marble-veins"] .flyer-visual {
+  background:
+    linear-gradient(116deg, transparent 0 67%, var(--flyer-ink-a10) 67.1% 67.28%, transparent 67.45%),
+    linear-gradient(64deg, transparent 0 81%, var(--flyer-accent-a38) 81.1% 81.28%, transparent 81.45%),
+    linear-gradient(104deg, transparent 0 89%, var(--flyer-ink-a10) 89.1% 89.22%, transparent 89.4%),
+    var(--flyer-background);
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="marble-veins"] .flyer-image-scrim {
+  background:
+    linear-gradient(0deg, var(--flyer-background-a95), transparent 24%),
+    linear-gradient(90deg, var(--flyer-background-a95) 0 52%, transparent 73%);
+}
+
+/* 8. Full-frame photography with straight reading gradients only. */
+.flyer-canvas[data-support="flyer"][data-decor="velvet-glow"] .flyer-visual {
+  background: linear-gradient(145deg, var(--flyer-background), var(--flyer-surface));
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="velvet-glow"] .flyer-image-scrim {
+  background:
+    linear-gradient(0deg, var(--flyer-background-a95), transparent 30%),
+    linear-gradient(90deg, var(--flyer-background-a95) 0 47%, var(--flyer-background-a86) 63%, transparent 82%);
+}
+
+/* 9. Luxury expressed by broad vertical bands, never by circles. */
+.flyer-canvas[data-support="flyer"][data-decor="velvet-folds"] .flyer-visual {
+  background:
+    linear-gradient(90deg, transparent 0 62%, var(--flyer-accent-a26) 62% 76%, transparent 76%),
+    linear-gradient(90deg, transparent 0 78%, var(--flyer-ink-a10) 78% 92%, transparent 92%),
+    var(--flyer-background);
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="velvet-folds"] .flyer-image-scrim {
+  background:
+    linear-gradient(0deg, var(--flyer-background-a95), transparent 27%),
+    linear-gradient(90deg, var(--flyer-background-a95) 0 56%, transparent 78%);
+}
+
+/* 10. A dark galaxy made from isolated points and one narrow light trail. */
+.flyer-canvas[data-support="flyer"][data-decor="night-constellation"] .flyer-visual {
+  background:
+    radial-gradient(circle at 78% 12%, var(--flyer-accent) 0 0.13cqw, transparent 0.18cqw),
+    radial-gradient(circle at 91% 24%, var(--flyer-ink) 0 0.1cqw, transparent 0.16cqw),
+    radial-gradient(circle at 69% 37%, var(--flyer-accent) 0 0.09cqw, transparent 0.15cqw),
+    radial-gradient(circle at 86% 53%, var(--flyer-ink) 0 0.12cqw, transparent 0.18cqw),
+    radial-gradient(circle at 73% 68%, var(--flyer-accent) 0 0.1cqw, transparent 0.16cqw),
+    radial-gradient(circle at 94% 79%, var(--flyer-ink) 0 0.08cqw, transparent 0.14cqw),
+    linear-gradient(145deg, var(--flyer-background), var(--flyer-surface));
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="night-constellation"] .flyer-image-scrim {
+  background:
+    linear-gradient(0deg, var(--flyer-background-a95), transparent 28%),
+    linear-gradient(90deg, var(--flyer-background-a95) 0 50%, var(--flyer-background-a86) 69%, transparent 86%);
+}
+
+.flyer-canvas[data-support="flyer"][data-decor="night-constellation"] .flyer-art-shape-a {
+  top: -12%;
+  right: 16%;
+  display: block;
+  width: 7%;
+  height: 124%;
+  background: linear-gradient(90deg, transparent, var(--flyer-accent-a26), transparent);
+  opacity: 0.7;
+  transform: rotate(-13deg);
+}
+
+/*
+ * Business cards have their own visual system. A composition controls only
+ * hierarchy; a decor controls only the image and background. This keeps every
+ * selector useful instead of falling back to the same blob and orbit.
+ */
+.flyer-canvas[data-support="business-card"][data-layout] {
+  background: var(--flyer-background);
+}
+
+.flyer-canvas[data-support="business-card"][data-layout]::before,
+.flyer-canvas[data-support="business-card"][data-layout]::after {
+  content: none;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout] .flyer-visual {
+  inset: 0;
+  border-radius: 0;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout] .flyer-content {
+  top: 10%;
+  right: auto;
+  bottom: auto;
+  left: 6%;
+  width: 48%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  backdrop-filter: none;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout] .flyer-headline {
+  max-width: 18ch;
+  color: var(--flyer-ink);
+  text-align: inherit;
+  text-transform: none;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout] .flyer-supporting {
+  max-width: 38ch;
+  color: var(--flyer-muted);
+  text-align: inherit;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout] .flyer-offer {
+  top: 9%;
+  right: 5%;
+  bottom: auto;
+  left: auto;
+  max-width: 27%;
+  border-radius: 999px;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout] .flyer-details {
+  top: auto;
+  right: 6%;
+  bottom: 22%;
+  left: 6%;
+  display: grid;
+  width: auto;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 0;
+  border: 0;
+  border-top: 1px solid var(--flyer-ink-a22);
+  background: transparent;
+  backdrop-filter: none;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout] .flyer-details > div {
+  display: block;
+  min-width: 0;
+  padding: 1.25cqw 1.5cqw 1.2cqw 0;
+  border-bottom: 1px solid var(--flyer-ink-a22);
+}
+
+.flyer-canvas[data-support="business-card"][data-layout] .flyer-details > div + div {
+  padding-left: 1.5cqw;
+  border-left: 1px solid var(--flyer-ink-a22);
+}
+
+.flyer-canvas[data-support="business-card"][data-layout] .flyer-details dd {
+  color: var(--flyer-ink);
+}
+
+.flyer-canvas[data-support="business-card"][data-layout] .flyer-action-zone {
+  right: 6%;
+  bottom: 5%;
+  left: 6%;
+  padding-top: 1.2cqw;
+  border-color: var(--flyer-ink-a30);
+}
+
+.flyer-canvas[data-support="business-card"][data-layout] .flyer-cta {
+  color: var(--flyer-ink);
+  text-align: left;
+  text-transform: none;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout] .flyer-contact,
+.flyer-canvas[data-support="business-card"][data-layout] .flyer-disclaimer {
+  color: var(--flyer-muted);
+}
+
+.flyer-canvas[data-support="business-card"][data-layout] .flyer-qr {
+  top: auto;
+  right: 6%;
+  bottom: 4.8%;
+  left: auto;
+  width: 8.5%;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout]:has(.flyer-qr:not([hidden])) .flyer-action-zone {
+  right: 17%;
+}
+
+/* Card decor reset: no inherited blob, shadowed circle or decorative orbit. */
+.flyer-canvas[data-support="business-card"][data-decor] .flyer-art-shape,
+.flyer-canvas[data-support="business-card"][data-decor] .flyer-art-orbit {
+  inset: auto;
+  display: none;
+  width: auto;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  opacity: 0;
+  filter: none;
+  transform: none;
+}
+
+.flyer-canvas[data-support="business-card"][data-decor] .flyer-art-orbit::before,
+.flyer-canvas[data-support="business-card"][data-decor] .flyer-art-orbit::after {
+  content: none;
+}
+
+.flyer-canvas[data-support="business-card"][data-decor][data-has-image="true"] .flyer-visual img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.16;
+}
+
+/* Card decor 1: a genuinely blank professional stock. */
+.flyer-canvas[data-support="business-card"][data-decor="paper-white"] .flyer-visual {
+  background: var(--flyer-background);
+}
+
+.flyer-canvas[data-support="business-card"][data-decor="paper-white"] .flyer-image-scrim {
+  background: transparent;
+}
+
+.flyer-canvas[data-support="business-card"][data-decor="paper-white"][data-has-image="true"] .flyer-visual img {
+  opacity: 0;
+}
+
+/* Card decor 2: one fine rectangular frame. */
+.flyer-canvas[data-support="business-card"][data-decor="classic-frame"] .flyer-visual {
+  background: var(--flyer-background);
+}
+
+.flyer-canvas[data-support="business-card"][data-decor="classic-frame"] .flyer-image-scrim {
+  background: transparent;
+}
+
+.flyer-canvas[data-support="business-card"][data-decor="classic-frame"][data-has-image="true"] .flyer-visual img {
+  opacity: 0;
+}
+
+.flyer-canvas[data-support="business-card"][data-decor="classic-frame"] .flyer-art-shape-a {
+  inset: 3.5%;
+  display: block;
+  width: auto;
+  height: auto;
+  border: 0.13cqw solid var(--flyer-accent-a54);
+  background: transparent;
+  opacity: 1;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="classic-frame"][data-decor="classic-frame"] .flyer-art-shape-a {
+  display: none;
+}
+
+/* Card decor 3: a straight editorial split with a narrow rule. */
+.flyer-canvas[data-support="business-card"][data-decor="champagne-spotlight"] .flyer-visual {
+  background:
+    linear-gradient(90deg, transparent 0 64%, var(--flyer-accent-a38) 64% 64.3%, transparent 64.3%),
+    linear-gradient(90deg, var(--flyer-background) 0 64%, var(--flyer-surface) 64% 100%);
+}
+
+.flyer-canvas[data-support="business-card"][data-decor="champagne-spotlight"] .flyer-image-scrim {
+  background: linear-gradient(90deg, var(--flyer-background-a95) 0 48%, transparent 72%);
+}
+
+.flyer-canvas[data-support="business-card"][data-decor="champagne-spotlight"][data-has-image="true"] .flyer-visual img {
+  inset: 0 0 0 auto;
+  width: 36%;
+  opacity: 0.42;
+}
+
+/* Card decor 4: the picture is a clean gallery window, never full-frame. */
+.flyer-canvas[data-support="business-card"][data-decor="gallery-window"] .flyer-visual {
+  background: linear-gradient(90deg, var(--flyer-background) 0 61%, var(--flyer-surface) 61% 100%);
+}
+
+.flyer-canvas[data-support="business-card"][data-decor="gallery-window"] .flyer-image-scrim {
+  background: linear-gradient(90deg, var(--flyer-background-a95) 0 54%, transparent 69%);
+}
+
+.flyer-canvas[data-support="business-card"][data-decor="gallery-window"] .flyer-art-shape-a {
+  top: 8%;
+  right: 4%;
+  display: block;
+  width: 35%;
+  height: 62%;
+  border: 0.13cqw solid var(--flyer-accent-a54);
+  background: transparent;
+  opacity: 1;
+}
+
+.flyer-canvas[data-support="business-card"][data-decor="gallery-window"][data-has-image="true"] .flyer-visual img {
+  inset: 9% 5% auto auto;
+  width: 33%;
+  height: 60%;
+  opacity: 0.9;
+}
+
+/* Card decor 5: angular planes with no rounded shape. */
+.flyer-canvas[data-support="business-card"][data-decor="geometric-blocks"] .flyer-visual {
+  background:
+    linear-gradient(128deg, transparent 0 58%, var(--flyer-accent-a38) 58% 73%, transparent 73%),
+    linear-gradient(38deg, var(--flyer-surface) 0 19%, transparent 19%),
+    var(--flyer-background);
+}
+
+.flyer-canvas[data-support="business-card"][data-decor="geometric-blocks"] .flyer-image-scrim {
+  background: linear-gradient(90deg, var(--flyer-background-a92) 0 47%, transparent 72%);
+}
+
+.flyer-canvas[data-support="business-card"][data-decor="geometric-blocks"] .flyer-art-shape-a {
+  top: 7%;
+  right: 4%;
+  display: block;
+  width: 22%;
+  height: 18%;
+  border-top: 0.16cqw solid var(--flyer-accent);
+  border-right: 0.16cqw solid var(--flyer-accent);
+  background: transparent;
+  opacity: 0.9;
+}
+
+/* Card decor 6: an architectural grid and one straight accent bar. */
+.flyer-canvas[data-support="business-card"][data-decor="burgundy-panels"] .flyer-visual {
+  background:
+    linear-gradient(90deg, var(--flyer-ink-a10) 0 0.08cqw, transparent 0.08cqw) 0 0 / 10cqw 100%,
+    linear-gradient(var(--flyer-ink-a10) 0 0.08cqw, transparent 0.08cqw) 0 0 / 100% 10cqw,
+    var(--flyer-background);
+}
+
+.flyer-canvas[data-support="business-card"][data-decor="burgundy-panels"] .flyer-image-scrim {
+  background: linear-gradient(90deg, var(--flyer-background-a92) 0 52%, transparent 79%);
+}
+
+.flyer-canvas[data-support="business-card"][data-decor="burgundy-panels"] .flyer-art-shape-a {
+  top: 7%;
+  right: 4%;
+  display: block;
+  width: 0.85%;
+  height: 32%;
+  background: var(--flyer-accent);
+  opacity: 0.82;
+}
+
+/* Card decor 7: restrained mineral veins, kept away from the copy. */
+.flyer-canvas[data-support="business-card"][data-decor="marble-veins"] .flyer-visual {
+  background:
+    linear-gradient(112deg, transparent 0 68%, var(--flyer-ink-a10) 68.1% 68.3%, transparent 68.45%),
+    linear-gradient(61deg, transparent 0 80%, var(--flyer-accent-a38) 80.1% 80.3%, transparent 80.45%),
+    linear-gradient(101deg, transparent 0 88%, var(--flyer-ink-a10) 88.1% 88.24%, transparent 88.4%),
+    var(--flyer-background);
+}
+
+.flyer-canvas[data-support="business-card"][data-decor="marble-veins"] .flyer-image-scrim {
+  background: linear-gradient(90deg, var(--flyer-background-a95) 0 53%, transparent 76%);
+}
+
+.flyer-canvas[data-support="business-card"][data-decor="marble-veins"][data-has-image="true"] .flyer-visual img {
+  opacity: 0.06;
+}
+
+/* Card decor 8: full-frame photography with straight reading gradients. */
+.flyer-canvas[data-support="business-card"][data-decor="velvet-glow"] .flyer-visual {
+  background: linear-gradient(145deg, var(--flyer-background), var(--flyer-surface));
+}
+
+.flyer-canvas[data-support="business-card"][data-decor="velvet-glow"] .flyer-image-scrim {
+  background:
+    linear-gradient(0deg, var(--flyer-background-a92), transparent 44%),
+    linear-gradient(90deg, var(--flyer-background-a95) 0 46%, var(--flyer-background-a86) 63%, transparent 86%);
+}
+
+.flyer-canvas[data-support="business-card"][data-decor="velvet-glow"][data-has-image="true"] .flyer-visual img {
+  opacity: 0.72;
+}
+
+/* Card decor 9: broad luxury bands instead of a soft circular fold. */
+.flyer-canvas[data-support="business-card"][data-decor="velvet-folds"] .flyer-visual {
+  background:
+    linear-gradient(90deg, transparent 0 57%, var(--flyer-accent-a26) 57% 70%, transparent 70%),
+    linear-gradient(90deg, transparent 0 73%, var(--flyer-ink-a10) 73% 88%, transparent 88%),
+    var(--flyer-background);
+}
+
+.flyer-canvas[data-support="business-card"][data-decor="velvet-folds"] .flyer-image-scrim {
+  background: linear-gradient(90deg, var(--flyer-background-a95) 0 54%, transparent 79%);
+}
+
+.flyer-canvas[data-support="business-card"][data-decor="velvet-folds"][data-has-image="true"] .flyer-visual img {
+  opacity: 0.12;
+}
+
+/* Card decor 10: tiny stars and one narrow trail, with no large orbit. */
+.flyer-canvas[data-support="business-card"][data-decor="night-constellation"] .flyer-visual {
+  background:
+    radial-gradient(circle at 73% 15%, var(--flyer-accent) 0 0.12cqw, transparent 0.18cqw),
+    radial-gradient(circle at 89% 24%, var(--flyer-ink) 0 0.09cqw, transparent 0.15cqw),
+    radial-gradient(circle at 67% 42%, var(--flyer-accent) 0 0.08cqw, transparent 0.14cqw),
+    radial-gradient(circle at 84% 59%, var(--flyer-ink) 0 0.1cqw, transparent 0.16cqw),
+    radial-gradient(circle at 75% 76%, var(--flyer-accent) 0 0.09cqw, transparent 0.15cqw),
+    linear-gradient(145deg, var(--flyer-background), var(--flyer-surface));
+}
+
+.flyer-canvas[data-support="business-card"][data-decor="night-constellation"] .flyer-image-scrim {
+  background: linear-gradient(90deg, var(--flyer-background-a95) 0 48%, var(--flyer-background-a86) 66%, transparent 88%);
+}
+
+.flyer-canvas[data-support="business-card"][data-decor="night-constellation"] .flyer-art-shape-a {
+  top: -28%;
+  right: 18%;
+  display: block;
+  width: 4%;
+  height: 156%;
+  background: linear-gradient(90deg, transparent, var(--flyer-accent-a26), transparent);
+  opacity: 0.75;
+  transform: rotate(-17deg);
+}
+
+/* Seven card compositions with visibly different reading paths. */
+.flyer-canvas[data-support="business-card"][data-layout="classic-frame"]::before {
+  position: absolute;
+  z-index: 1;
+  inset: 3.5%;
+  border: 0.13cqw solid var(--flyer-accent-a54);
+  content: "";
+  pointer-events: none;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="classic-frame"] .flyer-content {
+  top: 14%;
+  left: 8%;
+  width: 46%;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="classic-frame"] .flyer-offer {
+  top: auto;
+  right: auto;
+  bottom: 23%;
+  left: 8%;
+  max-width: 34%;
+  border-radius: 0;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="classic-frame"] .flyer-details {
+  top: 14%;
+  right: 7%;
+  bottom: auto;
+  left: auto;
+  width: 31%;
+  grid-template-columns: 1fr;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="classic-frame"] .flyer-details > div,
+.flyer-canvas[data-support="business-card"][data-layout="classic-frame"] .flyer-details > div + div {
+  display: grid;
+  grid-template-columns: 0.72fr 1.28fr;
+  gap: 1cqw;
+  padding: 1.05cqw 0;
+  border-left: 0;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="classic-frame"] .flyer-action-zone {
+  right: 8%;
+  bottom: 6%;
+  left: 8%;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="poster-cut"] .flyer-content {
+  top: 10%;
+  left: 6%;
+  width: 47%;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="poster-cut"] .flyer-details {
+  top: 36%;
+  right: 6%;
+  bottom: auto;
+  left: auto;
+  width: 35%;
+  grid-template-columns: 1fr;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="poster-cut"] .flyer-details > div,
+.flyer-canvas[data-support="business-card"][data-layout="poster-cut"] .flyer-details > div + div {
+  display: grid;
+  grid-template-columns: 0.7fr 1.3fr;
+  gap: 1cqw;
+  padding: 0.95cqw 0;
+  border-left: 0;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="editorial-impact"]::before {
+  position: absolute;
+  z-index: 1;
+  top: 10%;
+  bottom: 10%;
+  left: 5%;
+  width: 0.4%;
+  background: var(--flyer-accent);
+  content: "";
+  pointer-events: none;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="editorial-impact"] .flyer-content {
+  top: 14%;
+  left: 9%;
+  width: 45%;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="editorial-impact"] .flyer-headline {
+  font-size: calc(4.65cqw * var(--headline-scale));
+  font-weight: 500;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="editorial-impact"] .flyer-offer {
+  top: auto;
+  right: auto;
+  bottom: 22%;
+  left: 9%;
+  max-width: 32%;
+  border-radius: 0;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="editorial-impact"] .flyer-details {
+  top: 10%;
+  right: 5%;
+  bottom: auto;
+  left: auto;
+  width: 31%;
+  grid-template-columns: 1fr;
+  padding: 1.6cqw;
+  border: 0;
+  background: var(--flyer-surface-a84);
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="editorial-impact"] .flyer-details > div,
+.flyer-canvas[data-support="business-card"][data-layout="editorial-impact"] .flyer-details > div + div {
+  display: grid;
+  grid-template-columns: 0.72fr 1.28fr;
+  gap: 0.9cqw;
+  padding: 0.85cqw 0;
+  border-left: 0;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="editorial-impact"] .flyer-details dt {
+  color: var(--flyer-surface-accent);
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="editorial-impact"] .flyer-details dd {
+  color: var(--flyer-surface-ink);
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="cinematic-split"] .flyer-visual {
+  inset: 0 58% 0 0;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="cinematic-split"] .flyer-image-scrim {
+  background: linear-gradient(90deg, transparent 0 60%, var(--flyer-background-a92) 100%);
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="cinematic-split"] .flyer-content {
+  top: 11%;
+  left: 47%;
+  width: 46%;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="cinematic-split"] .flyer-offer {
+  top: 9%;
+  right: auto;
+  left: 5%;
+  max-width: 32%;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="cinematic-split"] .flyer-details {
+  right: 6%;
+  bottom: 22%;
+  left: 47%;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="cinematic-split"] .flyer-action-zone {
+  left: 47%;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="cinematic-split"] .flyer-contact {
+  max-width: 56%;
+  font-size: 0.92cqw;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="kinetic-grid"]::before,
+.flyer-canvas[data-support="business-card"][data-layout="kinetic-grid"]::after {
+  position: absolute;
+  z-index: 1;
+  background: var(--flyer-ink-a10);
+  content: "";
+  pointer-events: none;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="kinetic-grid"]::before {
+  top: 7%;
+  bottom: 7%;
+  left: 47%;
+  width: 0.1cqw;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="kinetic-grid"]::after {
+  right: 5%;
+  bottom: 20%;
+  left: 5%;
+  height: 0.1cqw;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="kinetic-grid"] .flyer-content {
+  top: 10%;
+  left: 6%;
+  width: 37%;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="kinetic-grid"] .flyer-offer {
+  top: auto;
+  right: auto;
+  bottom: 22%;
+  left: 6%;
+  max-width: 34%;
+  border-radius: 0;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="kinetic-grid"] .flyer-details {
+  top: 10%;
+  right: 5%;
+  bottom: auto;
+  left: auto;
+  width: 43%;
+  grid-template-columns: 1fr;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="kinetic-grid"] .flyer-details > div,
+.flyer-canvas[data-support="business-card"][data-layout="kinetic-grid"] .flyer-details > div + div {
+  display: grid;
+  grid-template-columns: 0.62fr 1.38fr;
+  gap: 1.1cqw;
+  padding: 1cqw 0;
+  border-left: 0;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="luxury-focus"] .flyer-content {
+  top: 10%;
+  right: 30%;
+  left: 8%;
+  width: auto;
+  padding: 2.1cqw;
+  border: 0.13cqw solid var(--flyer-accent-a38);
+  background: var(--flyer-background-a86);
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="luxury-focus"] .flyer-headline {
+  max-width: 16ch;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="luxury-focus"] .flyer-details {
+  right: 8%;
+  bottom: 22%;
+  left: 8%;
+  padding: 0 1.5cqw;
+  border: 0.13cqw solid var(--flyer-accent-a38);
+  background: var(--flyer-background-a92);
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="luxury-focus"] .flyer-action-zone {
+  right: 8%;
+  bottom: 6%;
+  left: 8%;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="event-pulse"]::before {
+  position: absolute;
+  z-index: 1;
+  inset: 0 auto 0 0;
+  width: 2.2%;
+  background: var(--flyer-accent);
+  content: "";
+  pointer-events: none;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="event-pulse"] .flyer-content {
+  top: 9%;
+  left: 7%;
+  width: 56%;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="event-pulse"] .flyer-headline {
+  text-transform: uppercase;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="event-pulse"] .flyer-offer {
+  top: auto;
+  right: auto;
+  bottom: 22%;
+  left: 7%;
+  max-width: 36%;
+  border-radius: 0;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="event-pulse"] .flyer-details {
+  top: 10%;
+  right: 5%;
+  bottom: auto;
+  left: auto;
+  width: 29%;
+  grid-template-columns: 1fr;
+  padding: 1.5cqw;
+  border: 0;
+  background: var(--flyer-surface-a84);
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="event-pulse"] .flyer-details > div,
+.flyer-canvas[data-support="business-card"][data-layout="event-pulse"] .flyer-details > div + div {
+  display: grid;
+  grid-template-columns: 0.7fr 1.3fr;
+  gap: 0.8cqw;
+  padding: 0.8cqw 0;
+  border-left: 0;
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="event-pulse"] .flyer-details dt {
+  color: var(--flyer-surface-accent);
+}
+
+.flyer-canvas[data-support="business-card"][data-layout="event-pulse"] .flyer-details dd {
+  color: var(--flyer-surface-ink);
+}
+
+/* Typography selectors stay effective on the card instead of being overridden. */
+.flyer-canvas[data-support="business-card"][data-typography="modern"] .flyer-headline,
+.flyer-canvas[data-support="business-card"][data-typography="modern"] .flyer-cta {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 600;
+}
+
+.flyer-canvas[data-support="business-card"][data-typography="geometric"] .flyer-headline,
+.flyer-canvas[data-support="business-card"][data-typography="geometric"] .flyer-cta {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.05em;
+}
+
+.flyer-canvas[data-support="business-card"][data-typography="editorial"] .flyer-headline,
+.flyer-canvas[data-support="business-card"][data-typography="editorial"] .flyer-cta {
+  font-family: "Playfair Display", Georgia, serif;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+
+.flyer-canvas[data-support="business-card"][data-typography="human"] .flyer-headline,
+.flyer-canvas[data-support="business-card"][data-typography="human"] .flyer-cta {
+  font-family: "DM Sans", sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+}
+
+.flyers-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 36px clamp(20px, 4vw, 72px);
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.flyers-footer a {
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.flyers-footer a:hover {
+  color: var(--text);
+}
+
+@keyframes intro-drift {
+  to { transform: rotate(56deg) translate3d(18px, -14px, 0); }
+}
+
+@keyframes feedback-pulse {
+  50% { opacity: 0.35; transform: scale(0.78); }
+}
+
+@media (min-width: 841px) {
+  .flyer-studio {
+    --preview-sticky-top: 84px;
+    align-items: start;
+  }
+
+  .studio-preview-column {
+    position: sticky;
+    top: var(--preview-sticky-top);
+    align-self: start;
+    width: 100%;
+    height: calc(100dvh - var(--preview-sticky-top));
+    min-height: 0;
+    max-height: none;
+    overflow: hidden;
+  }
+
+  .preview-toolbar {
+    min-height: 64px;
+    flex: 0 0 auto;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .preview-stage {
+    container-type: size;
+    height: auto;
+    min-height: 0;
+    flex: 1 1 auto;
+    padding: clamp(8px, 1vw, 14px);
+    overflow: hidden;
+  }
+
+  .flyer-canvas:not([data-support="business-card"]) {
+    width: min(calc(100cqw - 20px), calc((100cqh - 20px) * var(--flyer-ratio)), 900px);
+  }
+
+  .flyer-canvas[data-format="business-card"] {
+    width: min(calc(100cqw - 20px), 900px);
+  }
+}
+
+@media (min-width: 1121px) {
+  .design-model-options {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .design-model-options button {
+    gap: 6px;
+    padding: 7px;
+  }
+
+  .design-model-options strong {
+    min-height: 2.35em;
+    font-size: 0.61rem;
+    line-height: 1.18;
+    white-space: normal;
+  }
+
+  .design-model-options small {
+    font-size: 0.49rem;
+  }
+
+  .design-model-preview {
+    height: 44px;
+  }
+}
+
+@media (min-width: 841px) and (max-width: 1120px) {
+  .flyer-studio {
+    --preview-sticky-top: 132px;
+  }
+}
+
+@media (max-width: 1120px) {
+  .flyers-header {
+    grid-template-columns: 1fr auto;
+  }
+
+  .product-switcher {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: center;
+  }
+
+  .header-home-link {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .flyer-studio {
+    grid-template-columns: minmax(300px, 370px) minmax(0, 1fr);
+  }
+
+  .preview-stage {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 840px) {
+  .examples-heading,
+  .example-gallery {
+    grid-template-columns: 1fr;
+  }
+
+  .examples-heading h2 {
+    max-width: 20ch;
+  }
+
+  .flyers-header {
+    position: relative;
+    gap: 14px;
+    padding: 14px 18px;
+  }
+
+  .product-switcher {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .product-switcher a {
+    flex: 1 0 auto;
+    text-align: center;
+  }
+
+  .flyer-studio {
+    display: block;
+  }
+
+  .studio-controls {
+    border-bottom: 1px solid var(--line);
+    border-right: 0;
+    border-left: 0;
+  }
+
+  .studio-preview-column {
+    min-height: 0;
+    border-right: 0;
+  }
+
+  .preview-stage {
+    min-height: 620px;
+  }
+
+  .flyers-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 520px) {
+  .flyers-brand small,
+  .header-home-link {
+    display: none;
+  }
+
+  .flyers-header {
+    grid-template-columns: 1fr;
+  }
+
+  .product-switcher {
+    grid-column: 1;
+  }
+
+  .flyers-intro {
+    min-height: 620px;
+    padding-top: 70px;
+  }
+
+  .flyers-intro h1 {
+    font-size: clamp(2.15rem, 10vw, 3.2rem);
+  }
+
+  .intro-proof {
+    align-items: center;
+    flex-direction: column;
+  }
+
+  .flyer-examples {
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
+  .support-type-options {
+    grid-template-columns: 1fr;
+  }
+
+  .support-type-option span {
+    min-height: 0;
+  }
+
+  .studio-controls {
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
+  .preview-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .preview-toolbar-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    margin-left: 0;
+  }
+
+  .preview-options-menu,
+  .export-options-menu {
+    right: auto;
+    left: 0;
+  }
+
+  .preview-stage {
+    min-height: 520px;
+    padding: 28px 12px;
+  }
+
+  .field-meta {
+    flex-direction: column;
+  }
+}
+
+.studio-preview-column:fullscreen {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: flex;
+  width: 100vw;
+  height: 100dvh;
+  min-height: 0;
+  max-height: none;
+  overflow: hidden;
+  border: 0;
+  background: #0c1017;
+}
+
+.studio-preview-column:fullscreen::backdrop {
+  background: #080b11;
+}
+
+.studio-preview-column:fullscreen .preview-toolbar {
+  min-height: 64px;
+  flex: 0 0 auto;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  background: #0b0f16;
+}
+
+.studio-preview-column:fullscreen .preview-stage {
+  container-type: size;
+  height: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: clamp(10px, 2vmin, 24px);
+  overflow: hidden;
+  place-items: center;
+}
+
+.studio-preview-column:fullscreen .flyer-canvas,
+.studio-preview-column:fullscreen .flyer-canvas[data-format="business-card"] {
+  width: min(calc(100cqw - 20px), calc((100cqh - 20px) * var(--flyer-ratio)));
+  max-width: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  .flyers-header,
+  .flyers-intro,
+  .flyer-examples,
+  .studio-controls,
+  .preview-toolbar,
+  .flyers-footer {
+    display: none !important;
+  }
+
+  .flyer-studio,
+  .studio-preview-column,
+  .preview-stage {
+    display: block;
+    position: static;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    padding: 0;
+    border: 0;
+    overflow: visible;
+    background: transparent;
+  }
+
+  .flyer-canvas {
+    width: 100%;
+    box-shadow: none;
+  }
+}
