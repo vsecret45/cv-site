@@ -10260,19 +10260,24 @@ const hasCompleteNarratedCvExtraction = (value, documentText = '', diagnostics =
         ...(extracted.certifications || []),
         ...(extracted.activities || []),
     ].join(' ')));
-    const scalarFieldsGrounded = [
-        { value: extracted.fullName, segments: fullNameSegments },
-        { value: extracted.location, segments: locationSegments },
-        { value: extracted.permit, segments: permitSegments, includeShortTokens: true },
-    ].every(({ value: fieldValue, segments, includeShortTokens = false }) => {
-        if (!segments.length) return !normalize(fieldValue);
-        if (!normalize(fieldValue)) return false;
-        return isNarratedCvScalarGrounded(
+    const scalarFieldEntries = [
+        { name: 'fullName', value: extracted.fullName, segments: fullNameSegments },
+        { name: 'location', value: extracted.location, segments: locationSegments },
+        { name: 'permit', value: extracted.permit, segments: permitSegments, includeShortTokens: true },
+    ];
+    const failedScalarFields = scalarFieldEntries.filter(({ value: fieldValue, segments, includeShortTokens = false }) => {
+        if (!segments.length) return Boolean(normalize(fieldValue));
+        if (!normalize(fieldValue)) return true;
+        return !isNarratedCvScalarGrounded(
             fieldValue,
             segments.join(' '),
             { includeShortTokens },
         );
-    });
+    }).map(({ name }) => name);
+    const scalarFieldsGrounded = failedScalarFields.length === 0;
+    if (diagnostics && typeof diagnostics === 'object') {
+        diagnostics.scalarFailures = failedScalarFields;
+    }
     const headlineGrounded = isNarratedCvItemGrounded(extracted.headline, source, {
         minimumMatches: 1,
         minimumOutputRatio: 0.7,
@@ -13393,6 +13398,9 @@ module.exports = async (request, response) => {
                     previewSkillDiagnostic = {
                         count: Number(validationDiagnostics.skillCount) || 0,
                         aggregateGrounded: validationDiagnostics.skillAggregateGrounded === true,
+                        scalarFailures: Array.isArray(validationDiagnostics.scalarFailures)
+                            ? validationDiagnostics.scalarFailures.slice(0, 3)
+                            : [],
                         failures: Array.isArray(validationDiagnostics.skillFailures)
                             ? validationDiagnostics.skillFailures.slice(0, 24)
                             : [],
