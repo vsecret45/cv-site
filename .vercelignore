@@ -1,0 +1,32 @@
+# Secrets et environnements locaux
+.env
+.env.*
+.vercel
+
+# Métadonnées et automatisation de développement
+.git
+.github
+.agents
+.codex
+.vscode
+node_modules
+tests
+tmp
+.tmp-*
+
+# Copies imbriquées du projet — ne jamais les publier avec le site racine
+cv-site
+cv-site-clone
+
+# Sources personnelles et outils Supabase locaux non nécessaires au runtime Vercel
+CV_Fatima_SidiAmar_cedocx_extrait.txt
+PhotoappartFatimaSA
+supabase
+
+# Outils et documentation de travail non utilisés par le runtime Vercel
+server.js
+strategie-90j-integration.md
+
+# Fichiers locaux divers
+.DS_Store
+npm-debug.log*

@@ -15,7 +15,7 @@
         rel="stylesheet"
     >
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
-    <link rel="stylesheet" href="style.css?v=20260725-pdf-safe-v31">
+    <link rel="stylesheet" href="style.css?v=20260913-kirbycv-safe-targeting-v14">
 </head>
 <body class="is-preload cv-workspace-page cv-workspace-locked">
     <div class="page-shell">
@@ -56,11 +56,13 @@
                     <div class="cv-import-copy">
                         <p class="cv-mobile-title">Mon CV</p>
                         <h3>Importer un CV</h3>
+                        <p id="cv-import-help">PDF avec texte sélectionnable, ancien PDF KirbyCV, Word (.docx) ou ancien document Word SA Création Web (.doc), en français ou en anglais. L’export Word produit un vrai fichier .docx éditable. Kirby conserve les informations et prépare automatiquement une mise en page professionnelle.</p>
                     </div>
                     <label class="cv-import-field">
                         <span>Choisir un fichier</span>
-                        <input type="file" id="cv-import" accept=".txt,.md,.text,.pdf,.doc,.docx">
+                        <input type="file" id="cv-import" accept=".txt,.md,.text,.pdf,.doc,.docx" aria-describedby="cv-import-help cv-import-progress">
                     </label>
+                    <p class="cv-import-progress" id="cv-import-progress" role="status" aria-live="polite" hidden></p>
                 </div>
                 <div class="cv-private-gate" id="cv-private-gate" aria-hidden="false">
                     <p class="section-kicker">Espace prive</p>
@@ -91,7 +93,7 @@
                                 <div class="form-split">
                                     <label class="field">
                                         <span>Nom</span>
-                                        <input type="text" name="fullName" placeholder="Votre nom complet" value="Fatima Sidi Amar">
+                                        <input type="text" name="fullName" placeholder="Votre nom complet" value="">
                                     </label>
                                     <label class="field">
                                         <span>Titre du métier</span>
@@ -99,29 +101,41 @@
                                             type="text"
                                             name="headline"
                                             placeholder="Ex. Conductrice de transport en commun - Permis D"
-                                            value="Conseiller commercial bancaire"
+                                            value=""
                                         >
                                     </label>
                                 </div>
                                 <div class="form-split">
                                     <label class="field">
                                         <span>Ville / code postal</span>
-                                        <input type="text" name="location" placeholder="Ex. Paris (75000)" value="Rueil-Malmaison (92500)">
+                                        <input type="text" name="location" placeholder="Ex. Paris (75000)" value="">
                                     </label>
                                     <label class="field">
                                         <span>Telephone</span>
-                                        <input type="text" name="phone" placeholder="Votre numero" value="07.77.46.48.37">
+                                        <input type="text" name="phone" placeholder="Votre numero" value="">
                                     </label>
                                 </div>
                                 <div class="form-split">
                                     <label class="field">
                                         <span>Email</span>
-                                        <input type="email" name="email" placeholder="Votre email" value="sharian@live.fr">
+                                        <input type="email" name="email" placeholder="Votre email" value="">
                                     </label>
                                     <label class="field">
                                         <span>Permis</span>
-                                        <input type="text" name="permit" placeholder="Ex. Permis B" value="Permis B et D">
+                                        <input type="text" name="permit" placeholder="Ex. Permis B" value="">
                                     </label>
+                                </div>
+                                <div class="cv-photo-control">
+                                    <div>
+                                        <span class="field-label">Photo de profil</span>
+                                        <p>Kirby la récupère automatiquement lorsqu’elle est intégrée au PDF. Vous pouvez aussi la choisir ou la remplacer ici.</p>
+                                    </div>
+                                    <div class="cv-photo-actions">
+                                        <label class="button button-secondary" for="cv-photo-input">Choisir une photo</label>
+                                        <input type="file" id="cv-photo-input" accept="image/jpeg,image/png,image/webp" aria-describedby="cv-photo-status">
+                                        <button class="button button-secondary" type="button" id="cv-photo-remove" hidden>Retirer</button>
+                                    </div>
+                                    <p class="cv-photo-status" id="cv-photo-status" role="status" aria-live="polite">Aucune photo</p>
                                 </div>
                                 <label class="field field-message">
                                     <span>Profil / accroche</span>
@@ -129,7 +143,7 @@
                                         name="summary"
                                         rows="4"
                                         placeholder="Optionnel"
-                                    >Conseillère de vente avec une expérience confirmée en accueil, conseil client, vente à distance et fidélisation. À l’écoute et orientée satisfaction client, je sais analyser les besoins, proposer des solutions adaptées et contribuer au développement commercial. Organisée, autonome et à l’aise avec les outils numériques et professionnels, je souhaite mettre mon sens du service au profit d’une expérience client soignée.</textarea>
+                                    ></textarea>
                                 </label>
                                 <label class="field field-message">
                                     <span>Activites / centres d'interet</span>
@@ -137,9 +151,7 @@
                                         name="activities"
                                         rows="3"
                                         placeholder="Une activite par ligne"
-                                    >Technologie et innovation numérique
-Apprentissage continu (programmation, IA)
-Sport / activités personnelles</textarea>
+                                    ></textarea>
                                 </label>
                             </div>
                         </details>
@@ -164,12 +176,7 @@ Sport / activités personnelles</textarea>
                                                 name="experience"
                                                 rows="5"
                                                 placeholder="Une experience par ligne"
-                                            >Créatrice de sites web / Développeuse web - Projet personnel / Autoformation - 2025 - 2026 • Conception et développement de sites vitrines et d’outils web. • Création d’interfaces adaptées aux besoins des utilisateurs.
-Machiniste-Receveur - RATP, Nanterre - avr. 2024 - oct. 2024 • Sécurité, autonomie, gestion d’horaires et relation clientèle.
-Développement web - Projets autodidactes - Paris - 2023 • Conception de pages web et d’interfaces en HTML, CSS et JavaScript. • Réalisation de projets personnels concrets pour développer mes compétences techniques.
-Conseillère commerciale digitale - Caisse d’Épargne Île-de-France, Montigny-le-Bretonneux - nov. 2022 • Conseil à distance. • Analyse des besoins. • Proposition de solutions bancaires adaptées.
-Responsable adjointe - Camaïeu, Rueil-Malmaison - oct. 2021 - oct. 2022 • Management de l’équipe. • Développement du chiffre d’affaires. • Gestion des stocks. • Fidélisation de la clientèle.
-Conseillère commerciale - American Express / Air France, Roissy - 2019 - 2021 • Conseil et accompagnement des voyageurs. • Constitution et suivi des dossiers. • Vente de produits et services financiers. • Développement commercial et fidélisation.</textarea>
+                                            ></textarea>
                                         </label>
                                     </details>
                                 </div>
@@ -185,13 +192,7 @@ Conseillère commerciale - American Express / Air France, Roissy - 2019 - 2021 �
                                         name="skills"
                                         rows="5"
                                         placeholder="Un point fort par ligne"
-                                    >Relation et accompagnement
-Analyse des besoins et orientation vers des solutions adaptées
-Gestion administrative et suivi de dossiers
-Travail en autonomie et en équipe
-Accueil et écoute active
-Accompagnement et suivi des personnes
-Organisation du travail et respect des procédures</textarea>
+                                    ></textarea>
                                 </label>
                             </div>
                         </details>
@@ -205,9 +206,7 @@ Organisation du travail et respect des procédures</textarea>
                                         name="education"
                                         rows="5"
                                         placeholder="Une formation ou certification par ligne"
-                                    >IOBSP Niveau 1 &amp; 3 - Finance et banque - FDV Thiais (2019 - 2021)
-Certification intermédiaire en opérations bancaires
-Permis B et D - FIMO Voyageurs</textarea>
+                                    ></textarea>
                                 </label>
                             </div>
                         </details>
@@ -242,8 +241,7 @@ Permis B et D - FIMO Voyageurs</textarea>
                                                 name="languages"
                                                 rows="3"
                                                 placeholder="Ex. Français : langue maternelle"
-                                            >Français : langue maternelle
-Anglais : intermédiaire</textarea>
+                                            ></textarea>
                                         </label>
                                     </details>
                                 </div>
@@ -316,6 +314,12 @@ Anglais : intermédiaire</textarea>
                     </div>
 
                     <aside class="cv-preview-shell">
+                        <details class="cv-tools-drawer" id="cv-tools-drawer">
+                            <summary>
+                                <span class="cv-tools-menu-icon" aria-hidden="true">☰</span>
+                                <span>Personnaliser le CV</span>
+                            </summary>
+                            <div class="cv-tools-drawer-content">
                         <details class="cv-collapsible cv-models-panel">
                             <summary>Modeles</summary>
                             <div class="cv-ribbon-presets" aria-label="Modeles de CV prets">
@@ -329,6 +333,16 @@ Anglais : intermédiaire</textarea>
                                     <strong>Moderne</strong>
                                     <span>Colonne claire, rythme net</span>
                                 </button>
+                                <button class="template-chip" type="button" data-template-preset="digital">
+                                    <span class="template-mini template-mini-digital" aria-hidden="true"><i></i><i></i><i></i></span>
+                                    <strong>Glass Digital</strong>
+                                    <span>Verre doux, rendu creatif</span>
+                                </button>
+                                <button class="template-chip" type="button" data-template-preset="holographic">
+                                    <span class="template-mini template-mini-holographic" aria-hidden="true"><i></i><i></i><i></i></span>
+                                    <strong>Glass Holographique</strong>
+                                    <span>Surface premium, impact</span>
+                                </button>
                                 <button class="template-chip" type="button" data-template-preset="elegant">
                                     <span class="template-mini template-mini-classic" aria-hidden="true"><i></i><i></i><i></i></span>
                                     <strong>Elegant</strong>
@@ -338,6 +352,11 @@ Anglais : intermédiaire</textarea>
                                     <span class="template-mini template-mini-premium" aria-hidden="true"><i></i><i></i><i></i></span>
                                     <strong>Premium</strong>
                                     <span>Cadre discret, impact</span>
+                                </button>
+                                <button class="template-chip" type="button" data-template-preset="creative">
+                                    <span class="template-mini template-mini-design" aria-hidden="true"><i></i><i></i><i></i></span>
+                                    <strong>Creatif</strong>
+                                    <span>Accent editorial, style marque</span>
                                 </button>
                             </div>
                         </details>
@@ -362,8 +381,11 @@ Anglais : intermédiaire</textarea>
                                     <select id="preview-layout-theme" name="layoutTheme" form="cv-form">
                                         <option value="ats">Classique ATS</option>
                                         <option value="modern">Moderne</option>
+                                        <option value="digital">Glass Digital</option>
+                                        <option value="holographic">Glass Holographique</option>
                                         <option value="elegant">Elegant</option>
                                         <option value="premium" selected>Premium</option>
+                                        <option value="creative">Creatif</option>
                                         <option value="wordpro">Word Pro</option>
                                     </select>
                                 </label>
@@ -539,12 +561,18 @@ Anglais : intermédiaire</textarea>
                                 </div>
                             </div>
                         </div>
+                                <button class="cv-tools-close" id="cv-tools-close" type="button">Fermer les outils</button>
+                            </div>
+                        </details>
                         <div class="cv-preview-viewport" id="cv-preview-viewport">
                             <div class="cv-preview-stage" id="cv-preview-stage">
                                 <article class="cv-preview theme-executive font-manrope template-wordpro" id="cv-preview" data-preview-doc="cv">
                                     <div class="cv-page-guide" aria-hidden="true"></div>
                                     <header class="cv-header">
                                         <p class="cv-label">CV intelligent</p>
+                                        <figure class="cv-profile-photo" id="cv-profile-photo" hidden>
+                                            <img id="cv-profile-photo-image" alt="">
+                                        </figure>
                                         <h3 id="preview-name" data-edit-target="fullName" contenteditable="true" spellcheck="false">Votre nom</h3>
                                         <p class="cv-meta" id="preview-meta" data-edit-target="location" contenteditable="false" spellcheck="false" title="Modifiez les coordonnées dans le formulaire situé sous le CV.">Ville / code postal | 06 00 00 00 00 | email@exemple.com</p>
                                         <p id="preview-headline" data-edit-target="headline" contenteditable="true" spellcheck="false">Intitule du poste vise</p>
@@ -636,29 +664,21 @@ Anglais : intermédiaire</textarea>
                                 <article class="cv-preview cv-letter-page theme-executive font-manrope template-wordpro is-hidden-preview" id="letter-page-preview" data-preview-doc="letter" aria-hidden="true">
                                     <header class="cv-header cv-header-letter">
                                         <p class="cv-label">Lettre de motivation</p>
-                                        <h3 id="letter-page-title">Fatima Sidi Amar</h3>
-                                        <p class="cv-meta" id="letter-page-meta">Candidature Nespresso</p>
+                                        <h3 id="letter-page-title">Votre nom</h3>
+                                        <p class="cv-meta" id="letter-page-meta">Candidature — Entreprise</p>
                                     </header>
                                     <div class="letter-page-body">
-                                        <p class="letter-subject" id="letter-subject-page" contenteditable="true" spellcheck="true">Objet : Candidature - Vendeuse en CDI</p>
+                                        <p class="letter-subject" id="letter-subject-page" contenteditable="true" spellcheck="true">Objet : Candidature au poste visé</p>
                                         <div class="letter-body" id="letter-body-page" contenteditable="true" spellcheck="true">
                                             Madame, Monsieur,
 
-                                            Je vous adresse ma candidature pour le poste de vendeuse en CDI au sein de votre boutique Nespresso du CNIT.
-
-                                            Mon parcours m’a permis de développer une solide expérience en accueil, conseil, vente et accompagnement client, notamment dans la relation commerciale à distance, la banque, le service premium et la gestion de clientèle. J’ai l’habitude d’écouter les besoins, de proposer des solutions adaptées et de créer une relation de confiance durable avec les clients.
-
-                                            Le poste que vous proposez m’intéresse particulièrement pour son contact direct avec la clientèle, son exigence de qualité de service et sa dimension commerciale. J’apprécie l’idée de contribuer à une expérience client personnalisée, de participer au développement des ventes et de représenter une marque reconnue pour son attention portée au service et à ses engagements.
-
-                                            Organisée, autonome et attachée au travail d’équipe, je saurai m’impliquer dans la vie de la boutique, respecter les process et contribuer aux objectifs collectifs avec sérieux et bonne humeur.
-
-                                            Je serais ravie de pouvoir échanger avec vous afin de vous présenter plus en détail ma motivation.
+                                            Le contenu de votre lettre de motivation apparaîtra ici après génération.
 
                                             Cordialement,
 
-                                            Fatima Sidi Amar
+                                            Votre nom
                                         </div>
-                                        <p class="letter-contact-footer" id="letter-contact-footer-page" contenteditable="true" spellcheck="false">Rueil-Malmaison (92500) | 07.77.46.48.37 | sharian@live.fr</p>
+                                        <p class="letter-contact-footer" id="letter-contact-footer-page" contenteditable="true" spellcheck="false">Ville | 06 00 00 00 00 | email@exemple.com</p>
                                     </div>
                                 </article>
                             </div>
@@ -671,11 +691,11 @@ Anglais : intermédiaire</textarea>
                             <div class="form-split">
                                 <label class="field">
                                     <span>Entreprise</span>
-                                    <input type="text" id="letter-company" name="letterCompany" placeholder="Nom de l'entreprise" value="Nespresso">
+                                    <input type="text" id="letter-company" name="letterCompany" placeholder="Nom de l'entreprise" value="">
                                 </label>
                                 <label class="field">
                                     <span>Poste vise</span>
-                                    <input type="text" id="letter-role" name="letterRole" placeholder="Ex. Developpeur web front-end" value="Vendeuse en CDI">
+                                    <input type="text" id="letter-role" name="letterRole" placeholder="Ex. Developpeur web front-end" value="">
                                 </label>
                             </div>
                             <label class="field">
@@ -688,7 +708,7 @@ Anglais : intermédiaire</textarea>
                             </label>
                             <label class="field">
                                 <span>Motivation principale</span>
-                                <input type="text" id="letter-motivation" name="letterMotivation" placeholder="Pourquoi ce poste vous interesse" value="contribuer à une expérience client personnalisée, développer les ventes et fidéliser les clients en boutique">
+                                <input type="text" id="letter-motivation" name="letterMotivation" placeholder="Pourquoi ce poste vous interesse" value="">
                             </label>
                             <div class="cv-actions">
                                 <button class="button button-secondary" type="button" id="letter-generate">Generer ma lettre</button>
@@ -696,25 +716,17 @@ Anglais : intermédiaire</textarea>
                                 <button class="button button-primary" type="button" id="letter-email">Envoyer par mail</button>
                             </div>
                             <article class="letter-preview" id="letter-preview">
-                                <p class="letter-subject" id="letter-subject">Objet : Candidature - Vendeuse en CDI</p>
+                                <p class="letter-subject" id="letter-subject">Objet : Candidature au poste visé</p>
                                 <div class="letter-body" id="letter-body">
                                     Madame, Monsieur,
 
-                                    Je vous adresse ma candidature pour le poste de vendeuse en CDI au sein de votre boutique Nespresso du CNIT.
-
-                                    Mon parcours m’a permis de développer une solide expérience en accueil, conseil, vente et accompagnement client, notamment dans la relation commerciale à distance, la banque, le service premium et la gestion de clientèle. J’ai l’habitude d’écouter les besoins, de proposer des solutions adaptées et de créer une relation de confiance durable avec les clients.
-
-                                    Le poste que vous proposez m’intéresse particulièrement pour son contact direct avec la clientèle, son exigence de qualité de service et sa dimension commerciale. J’apprécie l’idée de contribuer à une expérience client personnalisée, de participer au développement des ventes et de représenter une marque reconnue pour son attention portée au service et à ses engagements.
-
-                                    Organisée, autonome et attachée au travail d’équipe, je saurai m’impliquer dans la vie de la boutique, respecter les process et contribuer aux objectifs collectifs avec sérieux et bonne humeur.
-
-                                    Je serais ravie de pouvoir échanger avec vous afin de vous présenter plus en détail ma motivation.
+                                    Le contenu de votre lettre de motivation apparaîtra ici après génération.
 
                                     Cordialement,
 
-                                    Fatima Sidi Amar
+                                    Votre nom
                                 </div>
-                                <p class="letter-contact-footer" id="letter-contact-footer" contenteditable="true" spellcheck="false">Rueil-Malmaison (92500) | 07.77.46.48.37 | sharian@live.fr</p>
+                                <p class="letter-contact-footer" id="letter-contact-footer" contenteditable="true" spellcheck="false">Ville | 06 00 00 00 00 | email@exemple.com</p>
                             </article>
                         </div>
                     </aside>
@@ -737,7 +749,7 @@ Anglais : intermédiaire</textarea>
             <strong>Kirby</strong>
             <button class="assistant-close" id="assistant-close" type="button" aria-label="Fermer">×</button>
         </div>
-        <p class="assistant-newcv-tip" aria-live="polite">Décrivez votre parcours, Kirby prépare votre CV.</p>
+        <p class="assistant-newcv-tip" aria-live="polite">Demandez une modification : Kirby analyse le CV et l’applique au document.</p>
         <div class="kirby-mode-tabs" role="group" aria-label="Action Kirby">
             <button class="kirby-mode" type="button" data-kirby-mode="create" aria-pressed="false" title="Construire un CV">
                 <strong>Créer</strong>
@@ -769,8 +781,8 @@ Anglais : intermédiaire</textarea>
         </section>
         <form class="assistant-input-row" id="assistant-form">
             <label class="sr-only" for="assistant-input">Votre demande pour Kirby</label>
-            <textarea id="assistant-input" rows="2" placeholder="Écrivez une demande ou collez un CV / une offre."></textarea>
-            <button class="button button-primary" id="assistant-submit" type="submit">Analyser</button>
+            <textarea id="assistant-input" rows="2" placeholder="Ex. Supprime cette phrase, trie mes expériences ou adapte mon CV au poste."></textarea>
+            <button class="button button-primary" id="assistant-submit" type="submit">Exécuter</button>
         </form>
     </section>
 
@@ -860,6 +872,8 @@ Anglais : intermédiaire</textarea>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js" defer></script>
     <script src="auth-signup-utils.js?v=20260717-auth-confirmation-v1" defer></script>
-    <script src="script.js?v=20260725-pdf-safe-v31" defer></script>
+    <script src="kirby-docx.js?v=20260909-kirbycv-docx-v1" defer></script>
+    <script src="kirby-cv-media.js?v=20260909-kirbycv-photo-v2" defer></script>
+    <script src="script.js?v=20260913-kirbycv-legacy-import-v15" defer></script>
 </body>
 </html>

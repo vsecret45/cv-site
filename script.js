@@ -17,6 +17,9 @@ const cvSaveButton = document.querySelector('#cv-save');
 const cvUndoButton = document.querySelector('#cv-undo');
 const cvFitPageButton = document.querySelector('#cv-fit-page');
 const cvImportInput = document.querySelector('#cv-import');
+const cvPhotoInput = document.querySelector('#cv-photo-input');
+const cvPhotoRemoveButton = document.querySelector('#cv-photo-remove');
+const cvPhotoStatus = document.querySelector('#cv-photo-status');
 const cvExportWordButton = document.querySelector('#cv-export-word');
 const cvExportWebButton = document.querySelector('#cv-export-web');
 const cvShareButton = document.querySelector('#cv-share');
@@ -40,6 +43,7 @@ const cvAnalyzeButton = document.querySelector('#cv-analyze');
 const cvMatchJobButton = document.querySelector('#cv-match-job');
 const jobOfferField = document.querySelector('#job-offer');
 const cvImportBlock = document.querySelector('#cv-import-block');
+const cvImportProgress = document.querySelector('#cv-import-progress');
 const cvLayout = document.querySelector('#cv-layout');
 const cvEditorPanel = document.querySelector('#cv-editor-panel');
 const cvLayoutToggle = document.querySelector('#cv-layout-toggle');
@@ -52,6 +56,8 @@ const previewHeadlineScale = document.querySelector('#preview-headline-scale');
 const previewLineSpacing = document.querySelector('#preview-line-spacing');
 const previewLayoutTheme = document.querySelector('#preview-layout-theme');
 const cvWordToolbarShell = document.querySelector('#cv-word-toolbar-shell');
+const cvToolsDrawer = document.querySelector('#cv-tools-drawer');
+const cvToolsCloseButton = document.querySelector('#cv-tools-close');
 const cvInlineFont = document.querySelector('#cv-inline-font');
 const cvInlineSize = document.querySelector('#cv-inline-size');
 const cvInlineBoldButton = document.querySelector('#cv-inline-bold');
@@ -68,6 +74,8 @@ const cvInlineSectionBorders = document.querySelector('#cv-inline-section-border
 const previewSectionsRoot = document.querySelector('#cv-preview-sections');
 const previewHeader = document.querySelector('#cv-preview > .cv-header');
 const previewHeaderLabel = previewHeader?.querySelector('.cv-label');
+const cvProfilePhotoNode = document.querySelector('#cv-profile-photo');
+const cvProfilePhotoImage = document.querySelector('#cv-profile-photo-image');
 const modernPreviewLayout = document.querySelector('#cv-modern-layout');
 const modernPreviewSidebar = document.querySelector('#cv-modern-sidebar');
 const modernPreviewMain = document.querySelector('#cv-modern-main');
@@ -165,6 +173,20 @@ const PASSWORD_RESET_EXPIRED_MESSAGE = 'Le lien de réinitialisation a expiré. 
 const DEFAULT_CV_SECTION_ORDER = ['summary', 'skills', 'experience', 'projects', 'education', 'activities', 'languages'];
 const CV_ROUNDTRIP_START = 'SACW_CV_DATA_V1_START';
 const CV_ROUNDTRIP_END = 'SACW_CV_DATA_V1_END';
+const CV_ROUNDTRIP_MAX_ENCODED_LENGTH = 400_000;
+const CV_ROUNDTRIP_LEGACY_MAX_ENCODED_LENGTH = 1_000_000;
+const TRANSPORT_CV_HEADLINE = 'Chauffeur de bus';
+const TRANSPORT_CV_SUMMARY = 'Professionnelle de la relation client, titulaire du permis D, souhaitant mettre à profit son sens du service, sa rigueur et son autonomie dans le transport de voyageurs.';
+const TRANSPORT_CV_SKILLS = [
+    'Relation client',
+    'Analyse des besoins',
+    'Autonomie',
+    'Conseil client',
+    'Accompagnement et suivi des clients',
+    'Accueil et écoute active',
+    'Organisation du travail',
+    'Gestion administrative',
+];
 const getAuthSignupUtils = () => window.AuthSignupUtils || {};
 
 let pdfjsLoader;
@@ -172,6 +194,10 @@ let currentPreviewPage = 1;
 let currentPreviewMode = 'cv';
 let isAutoFittingCv = false;
 let cvSectionOrder = [...DEFAULT_CV_SECTION_ORDER];
+let currentCvContentLocale = 'fr';
+let preserveEmptyImportedLanguages = false;
+let cvDensityMeasurementFrame = 0;
+let forceNextCvDraftLayoutPersistence = false;
 let currentUser = null;
 let supabaseClientPromise = null;
 let supabaseAuthListenerReady = false;
@@ -198,6 +224,9 @@ let lastAssistantAction = null;
 let pendingKirbyCvProposal = null;
 let queuedAssistantPrompt = '';
 let activeKirbyMode = 'optimize';
+let cvContentMigrations = [];
+let cvProfilePhoto = null;
+let pendingNewCvRollbackState = '';
 
 const previewNodes = {
     fullName: document.querySelector('#preview-name'),
@@ -253,7 +282,7 @@ const setKirbyCvRequestInFlight = (inFlight) => {
     if (assistantSubmitButton) {
         assistantSubmitButton.disabled = isKirbyCvRequestInFlight;
         assistantSubmitButton.setAttribute('aria-busy', String(isKirbyCvRequestInFlight));
-        assistantSubmitButton.textContent = isKirbyCvRequestInFlight ? 'Analyse...' : 'Analyser';
+        assistantSubmitButton.textContent = isKirbyCvRequestInFlight ? 'Exécution...' : 'Exécuter';
     }
 };
 
@@ -279,6 +308,38 @@ const cvSectionLabels = {
     education: 'Formations & certifications',
     activities: 'Activites',
     languages: 'Langues',
+};
+
+const localizedCvSectionLabels = {
+    fr: cvSectionLabels,
+    en: {
+        summary: 'Profile',
+        skills: 'Skills',
+        experience: 'Professional experience',
+        projects: 'Projects',
+        education: 'Education & certifications',
+        activities: 'Activities & interests',
+        languages: 'Languages',
+    },
+};
+
+const localizedCvDocumentLabels = {
+    fr: {
+        name: 'Votre nom',
+        headline: 'Intitulé du métier',
+        location: 'Ville',
+        phone: 'Tél.',
+        email: 'E-mail',
+        permit: 'Permis',
+    },
+    en: {
+        name: 'Your name',
+        headline: 'Professional title',
+        location: 'Location',
+        phone: 'Phone',
+        email: 'Email',
+        permit: 'Driving licence',
+    },
 };
 
 const templatePresets = {
@@ -435,11 +496,15 @@ const templatePresets = {
     },
 };
 
-const retiredTemplatePresets = new Set(['digital', 'holographic', 'creative']);
+const retiredTemplatePresets = new Set();
 const fallbackTemplatePreset = 'premium';
 
 const normalizeLayoutTheme = (layoutTheme = '') =>
     retiredTemplatePresets.has(String(layoutTheme)) ? fallbackTemplatePreset : layoutTheme;
+
+const structuredCvLayoutThemes = new Set(['modern', 'holographic']);
+const usesStructuredCvLayout = (layoutTheme = '') =>
+    structuredCvLayoutThemes.has(normalizeLayoutTheme(String(layoutTheme || '')));
 
 const normalizeCurrentLayoutTheme = (values = {}) => {
     const normalizedTheme = normalizeLayoutTheme(values.layoutTheme || cvForm?.elements.layoutTheme?.value || fallbackTemplatePreset);
@@ -460,10 +525,28 @@ const normalizeCurrentLayoutTheme = (values = {}) => {
 };
 
 const modernColorPalettes = {
-    indigo: { accentColor: '#2f3f7f', sidebarColor: '#eef1f7', headingColor: '#263047', frameColor: '#d6dce9' },
-    emerald: { accentColor: '#0f766e', sidebarColor: '#eaf4f1', headingColor: '#173f3c', frameColor: '#cde4de' },
-    rose: { accentColor: '#be185d', sidebarColor: '#f8edf2', headingColor: '#4a2638', frameColor: '#ebd1dd' },
-    graphite: { accentColor: '#334155', sidebarColor: '#eef0f2', headingColor: '#26303a', frameColor: '#d4d9df' },
+    indigo: { accentColor: '#2f3f7f', sidebarColor: '#eef1f7', headingColor: '#263047', paperColor: '#f7f9fe', frameColor: '#d6dce9' },
+    emerald: { accentColor: '#0f766e', sidebarColor: '#eaf4f1', headingColor: '#173f3c', paperColor: '#f5fbf8', frameColor: '#cde4de' },
+    rose: { accentColor: '#be185d', sidebarColor: '#f8edf2', headingColor: '#4a2638', paperColor: '#fff7fb', frameColor: '#ebd1dd' },
+    graphite: { accentColor: '#334155', sidebarColor: '#eef0f2', headingColor: '#26303a', paperColor: '#f8fafc', frameColor: '#d4d9df' },
+};
+
+const getCvColorRgbChannels = (value = '', fallback = '#ffffff') => {
+    const normalize = (candidate) => {
+        const clean = String(candidate || '').trim();
+        if (/^#[0-9a-f]{6}$/i.test(clean)) {
+            return clean.slice(1);
+        }
+        if (/^#[0-9a-f]{3}$/i.test(clean)) {
+            return `${clean[1]}${clean[1]}${clean[2]}${clean[2]}${clean[3]}${clean[3]}`;
+        }
+        return '';
+    };
+    const clean = normalize(value) || normalize(fallback) || 'ffffff';
+
+    return [0, 2, 4]
+        .map((offset) => Number.parseInt(clean.slice(offset, offset + 2), 16))
+        .join(', ');
 };
 
 const applyModernColorPalette = (theme = '') => {
@@ -598,15 +681,10 @@ const applyCvPreset = (preset) => {
     }
 
     if (preset === 'transport') {
-        form.headline.value = 'Agent de transport / Conductrice de metro (formation)';
-        form.summary.value = "Professionnelle rigoureuse et organisee, motivee par les metiers du transport public. Sens aigu des responsabilites, respect strict des procedures de securite et capacite a gerer des situations sous pression.";
+        form.headline.value = TRANSPORT_CV_HEADLINE;
+        form.summary.value = TRANSPORT_CV_SUMMARY;
         form.skills.value = [
-            'Respect des procedures de securite',
-            'Sens des responsabilites et vigilance',
-            'Gestion du stress et des situations imprevues',
-            'Ponctualite et rigueur professionnelle',
-            'Relation avec le public et communication',
-            'Travail en equipe',
+            ...TRANSPORT_CV_SKILLS,
         ].join('\n');
         form.experience.value = [
             'Relation client / Gestion administrative - Divers postes • France | Dates • Accueil et orientation du public • Gestion des demandes et resolution de situations clients • Travail en coordination avec differentes equipes',
@@ -616,11 +694,11 @@ const applyCvPreset = (preset) => {
         form.education.value = ['Formation ou diplome - Etablissement - Annee'].join('\n');
         form.languages.value = ['Francais : courant', 'Arabe : bilingue'].join('\n');
         form.activities.value = ['Lecture', 'Developpement personnel', 'Activites culturelles'].join('\n');
-        form.jobTarget.value = 'relation client';
+        form.jobTarget.value = TRANSPORT_CV_HEADLINE;
         form.location.value = 'Ville / code postal';
         form.phone.value = '06 00 00 00 00';
         form.email.value = defaultEmail;
-        form.permit.value = 'Permis B et D';
+        form.permit.value = 'Permis D';
         form.fontTheme.value = 'lato';
         form.layoutTheme.value = 'wordpro';
         form.colorTheme.value = 'graphite';
@@ -718,14 +796,16 @@ const stripDirectionalFormatting = (value = '') =>
 const toTitleCase = (value) =>
     value.replace(/\w\S*/g, (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
 
-const normalizeImportedText = (text) =>
-    stripDirectionalFormatting(text)
+const normalizeImportedText = (text, { preservePipes = false } = {}) => {
+    const normalized = stripDirectionalFormatting(text)
         .replace(/\r/g, '\n')
         .replace(/[ \t]+/g, ' ')
         .replace(/\u00a0/g, ' ')
-        .replace(/[|]/g, '\n')
         .replace(/\n{3,}/g, '\n\n')
         .trim();
+
+    return preservePipes ? normalized : normalized.replace(/[|]/g, '\n');
+};
 
 const downloadFile = (filename, content, type) => {
     const blob = new Blob([content], { type });
@@ -737,10 +817,152 @@ const downloadFile = (filename, content, type) => {
     URL.revokeObjectURL(url);
 };
 
+const downloadBlob = (filename, blob) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
 const setCvStatus = (message) => {
     if (cvStatus) {
         cvStatus.textContent = message;
     }
+};
+
+const normalizeCvProfilePhoto = (value) => {
+    const mediaTools = window.KirbyCvMedia;
+    return typeof mediaTools?.normalizeMediaState === 'function'
+        ? mediaTools.normalizeMediaState(value)
+        : null;
+};
+
+const syncCvProfilePhoto = (fullName = '') => {
+    const photo = normalizeCvProfilePhoto(cvProfilePhoto);
+    cvProfilePhoto = photo;
+    const hasPhoto = Boolean(photo?.dataUrl);
+
+    previewNodes.preview?.classList.toggle('has-profile-photo', hasPhoto);
+    previewHeader?.classList.toggle('has-profile-photo', hasPhoto);
+    if (cvProfilePhotoNode) {
+        cvProfilePhotoNode.hidden = !hasPhoto;
+    }
+    if (cvProfilePhotoImage) {
+        if (hasPhoto) {
+            cvProfilePhotoImage.src = photo.dataUrl;
+            const cleanName = String(fullName || '').replace(/\s+/g, ' ').trim().slice(0, 100);
+            cvProfilePhotoImage.alt = cleanName ? `Photo de profil de ${cleanName}` : 'Photo de profil';
+        } else {
+            cvProfilePhotoImage.removeAttribute('src');
+            cvProfilePhotoImage.alt = '';
+        }
+    }
+    if (cvPhotoRemoveButton) {
+        cvPhotoRemoveButton.hidden = !hasPhoto;
+    }
+    if (cvPhotoStatus) {
+        cvPhotoStatus.textContent = hasPhoto
+            ? photo.source === 'pdf-import'
+                ? 'Photo récupérée depuis le PDF'
+                : photo.source === 'word-import'
+                    ? 'Photo récupérée depuis le document Word'
+                : 'Photo ajoutée'
+            : 'Aucune photo';
+    }
+
+    return hasPhoto;
+};
+
+const setCvProfilePhoto = (value, { refresh = true } = {}) => {
+    cvProfilePhoto = normalizeCvProfilePhoto(value);
+    if (refresh) {
+        syncCvProfilePhoto(cvForm?.elements.fullName?.value || '');
+        scheduleCvDensityMeasurement();
+    }
+    return cvProfilePhoto;
+};
+
+const loadBrowserImage = (source) => new Promise((resolve, reject) => {
+    const image = new Image();
+    image.decoding = 'async';
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('profile_photo_decode_failed'));
+    image.src = source;
+});
+
+const createCvProfilePhotoFromFile = async (file) => {
+    const supportedType = /^(?:image\/jpeg|image\/png|image\/webp)$/i.test(String(file?.type || ''));
+    if (!file || !supportedType || file.size > 15 * 1024 * 1024) {
+        throw new Error('profile_photo_invalid');
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    try {
+        const image = await loadBrowserImage(objectUrl);
+        const sourceWidth = Number(image.naturalWidth || image.width || 0);
+        const sourceHeight = Number(image.naturalHeight || image.height || 0);
+        if (sourceWidth < 48 || sourceHeight < 48 || sourceWidth * sourceHeight > 20_000_000) {
+            throw new Error('profile_photo_dimensions_invalid');
+        }
+
+        const scale = Math.min(1, 720 / Math.max(sourceWidth, sourceHeight));
+        const width = Math.max(48, Math.round(sourceWidth * scale));
+        const height = Math.max(48, Math.round(sourceHeight * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext('2d');
+        if (!context) {
+            throw new Error('profile_photo_canvas_unavailable');
+        }
+        context.fillStyle = '#ffffff';
+        context.fillRect(0, 0, width, height);
+        context.imageSmoothingEnabled = true;
+        context.imageSmoothingQuality = 'high';
+        context.drawImage(image, 0, 0, width, height);
+
+        return normalizeCvProfilePhoto({
+            schemaVersion: 1,
+            type: 'profile-photo',
+            source: 'user-upload',
+            dataUrl: canvas.toDataURL('image/jpeg', 0.84),
+            width,
+            height,
+            originalWidth: sourceWidth,
+            originalHeight: sourceHeight,
+            pageNumber: 1,
+            placement: { xRatio: 0, yRatio: 0, widthRatio: 0, heightRatio: 0 },
+            score: 100,
+        });
+    } finally {
+        URL.revokeObjectURL(objectUrl);
+    }
+};
+
+const setCvImportProgress = ({ fileName = '', message = '', state = 'idle' } = {}) => {
+    const cleanFileName = String(fileName || '').trim();
+    const cleanMessage = String(message || '').trim();
+    const isBusy = state === 'busy';
+
+    cvImportBlock?.classList.toggle('is-importing', isBusy);
+    cvImportBlock?.setAttribute('aria-busy', String(isBusy));
+    if (cvImportInput) {
+        cvImportInput.disabled = isBusy;
+    }
+
+    if (!cvImportProgress) {
+        return;
+    }
+
+    cvImportProgress.hidden = !cleanFileName && !cleanMessage;
+    cvImportProgress.classList.toggle('is-busy', isBusy);
+    cvImportProgress.classList.toggle('is-success', state === 'success');
+    cvImportProgress.classList.toggle('is-error', state === 'error');
+    cvImportProgress.textContent = [cleanFileName, cleanMessage].filter(Boolean).join(' — ');
 };
 
 const setSettingsFeedback = (message = '', isError = false) => {
@@ -759,6 +981,8 @@ let isCvHistoryCoalescing = false;
 let isRestoringCvHistory = false;
 let isLoadingCvDraft = false;
 let isImportingCvPreview = false;
+let isReplacingCvDocument = false;
+let cvDraftLoadSerial = 0;
 let lastUserLayoutThemeChangeAt = 0;
 const cvUndoStack = [];
 const CV_HISTORY_LIMIT = 15;
@@ -776,15 +1000,18 @@ const CV_STYLE_HISTORY_FIELDS = [
     'headingColor',
     'paperColor',
     'frameColor',
+    'pageFrame',
+    'sectionBorders',
 ];
 
 const scheduleCvDraftSave = () => {
-    if (isLoadingCvDraft) {
+    if (isLoadingCvDraft || isReplacingCvDocument) {
         return;
     }
 
     if (isImportingCvPreview) {
-        setCvStatus('Import chargé en aperçu : vérifiez puis sauvegardez manuellement.');
+        window.clearTimeout(cvDraftSaveTimer);
+        cvDraftSaveTimer = window.setTimeout(scheduleCvDraftSave, 500);
         return;
     }
 
@@ -816,9 +1043,9 @@ const isOfficialCvPersistenceHost = () => {
 };
 
 const getCvDraftTimestamp = (payload, fallback = '') => {
-    const value = payload?.savedAt || payload?.updated_at || fallback || '';
-    const timestamp = Date.parse(value);
-    return Number.isFinite(timestamp) ? timestamp : 0;
+    const value = [payload?.savedAt, payload?.updated_at, fallback]
+        .find((candidate) => Number.isFinite(Date.parse(candidate || '')));
+    return value ? Date.parse(value) : 0;
 };
 
 const pickNewestCvDraftPayload = (drafts = []) =>
@@ -833,6 +1060,9 @@ const getComparableCvDraftPayload = (payload = {}) => {
         editableContent: source.editableContent && typeof source.editableContent === 'object' ? source.editableContent : {},
         sectionTitleStyles: source.sectionTitleStyles && typeof source.sectionTitleStyles === 'object' ? source.sectionTitleStyles : {},
         sectionOrder: Array.isArray(source.sectionOrder) ? source.sectionOrder : [],
+        contentLocale: source.contentLocale === 'en' ? 'en' : 'fr',
+        preserveEmptyLanguages: source.preserveEmptyLanguages === true,
+        profilePhoto: source.profilePhoto && typeof source.profilePhoto === 'object' ? source.profilePhoto : null,
     };
 };
 
@@ -889,9 +1119,12 @@ const normalizeSupabaseUser = (user) => {
 };
 
 const resetCvDraftState = () => {
+    lastKirbyCvDateEditContext = null;
     cvEditableContent = {};
     cvSectionTitleStyles = {};
     cvSectionOrder = [...DEFAULT_CV_SECTION_ORDER];
+    cvContentMigrations = [];
+    cvProfilePhoto = null;
 };
 
 const clearLegacyAuthStorage = () => {
@@ -984,7 +1217,7 @@ const preserveExistingLayoutForSilentSave = (payload, existingPayload, silent = 
     const existingValues = existingPayload?.values;
     const nextValues = payload?.values;
 
-    if (!silent || !existingValues || !nextValues) {
+    if (forceNextCvDraftLayoutPersistence || !silent || !existingValues || !nextValues) {
         return payload;
     }
 
@@ -1087,7 +1320,7 @@ const initializeSupabaseClient = async () => {
                 }
 
                 if (currentUser) {
-                    if (isApplyingKirbyCvChange) {
+                    if (isApplyingKirbyCvChange || isImportingCvPreview || isReplacingCvDocument) {
                         return;
                     }
                     loadCvDraft({ silent: true }).catch((error) => {
@@ -1097,7 +1330,7 @@ const initializeSupabaseClient = async () => {
                     return;
                 }
 
-                if (isApplyingKirbyCvChange) {
+                if (isApplyingKirbyCvChange || isImportingCvPreview || isReplacingCvDocument) {
                     return;
                 }
 
@@ -1572,11 +1805,24 @@ const blankCvFieldNames = [
     'projectType',
 ];
 
-const openBlankCvSheet = () => {
+const supersedePendingCvDraftLoad = () => {
+    cvDraftLoadSerial += 1;
+    isLoadingCvDraft = false;
+    window.clearTimeout(cvDraftSaveTimer);
+    cvDraftSaveTimer = null;
+};
+
+const openBlankCvSheet = ({ persist = true, status = 'Feuille CV blanche prête à remplir' } = {}) => {
     if (!cvForm) {
         return;
     }
 
+    resetCvDraftState();
+    if (cvPhotoInput) {
+        cvPhotoInput.value = '';
+    }
+    currentCvContentLocale = 'fr';
+    preserveEmptyImportedLanguages = true;
     blankCvFieldNames.forEach((fieldName) => {
         const field = cvForm.elements[fieldName];
         if (field) {
@@ -1606,8 +1852,10 @@ const openBlankCvSheet = () => {
         resetCvHistory();
     }
 
-    scheduleCvDraftSave();
-    setCvStatus('Feuille CV blanche prête à remplir');
+    if (persist) {
+        scheduleCvDraftSave();
+    }
+    setCvStatus(status);
 };
 
 const extractEditableNodeStyleState = (node) => ({
@@ -1622,17 +1870,55 @@ const extractEditableNodeStyleState = (node) => ({
     textTransform: node?.style.textTransform || '',
 });
 
-const normalizeStyleState = (styleState = {}) => ({
-    fontFamily: styleState.fontFamily || '',
-    fontSize: styleState.fontSize || '',
-    textAlign: styleState.textAlign || '',
-    lineHeight: styleState.lineHeight || '1.2',
-    fontWeight: styleState.fontWeight || '',
-    fontStyle: styleState.fontStyle || '',
-    textDecoration: styleState.textDecoration || '',
-    letterSpacing: styleState.letterSpacing || '',
-    textTransform: styleState.textTransform || '',
-});
+const CV_EDITABLE_FONT_FAMILIES = new Set([
+    '',
+    'Arial, sans-serif',
+    "'Manrope', sans-serif",
+    "'Inter', sans-serif",
+    'Roboto, sans-serif',
+    "'Lato', sans-serif",
+    "'Times New Roman', serif",
+    "'Libre Baskerville', serif",
+    "'Playfair Display', serif",
+    "'IBM Plex Sans', sans-serif",
+]);
+
+const normalizeSafeCssNumber = (value, { fallback = '', min = 0, max = 100, unit = '' } = {}) => {
+    const source = String(value ?? '').trim();
+    const pattern = unit ? new RegExp(`^(-?\\d+(?:\\.\\d+)?)${unit}$`, 'i') : /^-?\d+(?:\.\d+)?$/;
+    const match = source.match(pattern);
+    const numericValue = match ? Number.parseFloat(match[1] ?? match[0]) : Number.NaN;
+
+    return Number.isFinite(numericValue) && numericValue >= min && numericValue <= max
+        ? `${numericValue}${unit}`
+        : fallback;
+};
+
+const normalizeStyleState = (styleState = {}) => {
+    const source = styleState && typeof styleState === 'object' && !Array.isArray(styleState) ? styleState : {};
+    const fontFamily = String(source.fontFamily || '').trim();
+    const textAlign = String(source.textAlign || '').trim().toLowerCase();
+    const fontWeight = String(source.fontWeight || '').trim().toLowerCase();
+    const fontStyle = String(source.fontStyle || '').trim().toLowerCase();
+    const textDecoration = String(source.textDecoration || '').trim().toLowerCase();
+    const textTransform = String(source.textTransform || '').trim().toLowerCase();
+    const rawLetterSpacing = String(source.letterSpacing || '').trim().toLowerCase();
+    const letterSpacing = rawLetterSpacing.endsWith('em')
+        ? normalizeSafeCssNumber(rawLetterSpacing, { min: -0.1, max: 0.3, unit: 'em' })
+        : normalizeSafeCssNumber(rawLetterSpacing, { min: -2, max: 8, unit: 'px' });
+
+    return {
+        fontFamily: CV_EDITABLE_FONT_FAMILIES.has(fontFamily) ? fontFamily : '',
+        fontSize: normalizeSafeCssNumber(source.fontSize, { min: 8, max: 48, unit: 'px' }),
+        textAlign: ['left', 'right', 'center', 'justify', 'start', 'end'].includes(textAlign) ? textAlign : '',
+        lineHeight: normalizeSafeCssNumber(source.lineHeight, { fallback: '1.2', min: 0.8, max: 3 }),
+        fontWeight: /^(?:[1-9]00|normal|bold)$/.test(fontWeight) ? fontWeight : '',
+        fontStyle: ['normal', 'italic', 'oblique'].includes(fontStyle) ? fontStyle : '',
+        textDecoration: /^(?:none|underline|line-through|underline line-through)$/.test(textDecoration) ? textDecoration : '',
+        letterSpacing,
+        textTransform: ['none', 'uppercase', 'lowercase', 'capitalize'].includes(textTransform) ? textTransform : '',
+    };
+};
 
 const applyEditableNodeStyleState = (node, styleState = {}) => {
     if (!node) {
@@ -1765,9 +2051,10 @@ const appendSanitizedInlineChildren = (source, target) => {
 
         if (tag === 'SPAN') {
             const span = document.createElement('span');
+            const safeStyle = normalizeStyleState(child.style);
             ['fontFamily', 'fontSize', 'lineHeight', 'fontWeight', 'fontStyle', 'textDecoration'].forEach((key) => {
-                if (child.style[key]) {
-                    span.style[key] = child.style[key];
+                if (safeStyle[key]) {
+                    span.style[key] = safeStyle[key];
                 }
             });
             appendSanitizedInlineChildren(child, span);
@@ -1872,6 +2159,54 @@ const sanitizeListHtml = (html) => {
     return items.map((item) => item.outerHTML).join('');
 };
 
+const CV_EDITABLE_HTML_MAX_LENGTH = 100000;
+
+const sanitizeCvEditableHtml = (target = '', html = '') => {
+    if (!editableTargets.includes(target)) {
+        return '';
+    }
+
+    const source = String(html || '').slice(0, CV_EDITABLE_HTML_MAX_LENGTH);
+    const previewNode = editablePreviewNodeMap[target];
+    return previewNode?.tagName === 'UL' || previewNode?.tagName === 'OL'
+        ? sanitizeListHtml(source)
+        : sanitizeTextBlockHtml(source);
+};
+
+const sanitizeCvEditableContent = (content = {}) => {
+    if (!content || typeof content !== 'object' || Array.isArray(content)) {
+        return {};
+    }
+
+    return editableTargets.reduce((safeContent, target) => {
+        const entry = content[target];
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+            return safeContent;
+        }
+
+        const html = typeof entry.html === 'string' ? sanitizeCvEditableHtml(target, entry.html) : '';
+        const style = normalizeStyleState(entry.style);
+        if (html || !isDefaultEditableStyleState(style)) {
+            safeContent[target] = html ? { html, style } : { style };
+        }
+        return safeContent;
+    }, {});
+};
+
+const sanitizeCvSectionTitleStyles = (styles = {}) => {
+    if (!styles || typeof styles !== 'object' || Array.isArray(styles)) {
+        return {};
+    }
+
+    return Object.keys(cvSectionLabels).reduce((safeStyles, key) => {
+        const style = normalizeStyleState(styles[key]);
+        if (!isDefaultEditableStyleState(style)) {
+            safeStyles[key] = style;
+        }
+        return safeStyles;
+    }, {});
+};
+
 const normalizeEditableNode = (node) => {
     if (!node) {
         return;
@@ -1905,8 +2240,12 @@ const storeEditableNodeState = (node) => {
     cvEditableContent[target] = { html, style };
 };
 
-const clearEditableOverride = (target) => {
+const clearEditableOverride = (target, { preserveHtml = false } = {}) => {
     if (!target) {
+        return;
+    }
+
+    if (preserveHtml && cvEditableContent[target]) {
         return;
     }
 
@@ -1919,6 +2258,49 @@ const clearEditableOverride = (target) => {
     cvEditableContent[target] = { style };
 };
 
+const reconcileEditableDateOverride = (target, currentValue = '', replacementValue = '') => {
+    const override = typeof cvEditableContent === 'object' && cvEditableContent
+        ? cvEditableContent[target]
+        : null;
+    const html = String(override?.html || '');
+    if (!html) {
+        clearEditableOverride(target);
+        return;
+    }
+
+    const visibleText = html
+        .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/&nbsp;|&#160;|&#x0*a0;/gi, ' ')
+        .replace(/&amp;/gi, '&')
+        .replace(/\s+/g, ' ')
+        .trim();
+    const htmlOccurrences = getEquivalentCvDateValueOccurrences(html, currentValue);
+    const visibleOccurrences = getEquivalentCvDateValueOccurrences(visibleText, currentValue);
+
+    if (htmlOccurrences.length === 1 && visibleOccurrences.length === 1) {
+        const occurrence = htmlOccurrences[0];
+        cvEditableContent[target] = {
+            ...override,
+            html: html.slice(0, occurrence.start)
+                + replacementValue
+                + html.slice(occurrence.end),
+        };
+        return;
+    }
+
+    // Aucun ancien fragment visible : ce HTML est une personnalisation
+    // indépendante de la date et peut être conservé tel quel. S'il contient
+    // l'ancienne date de façon ambiguë ou coupée par des balises, on retire
+    // uniquement le HTML périmé ; les styles directs restent intacts.
+    if (!visibleOccurrences.length) {
+        return;
+    }
+
+    clearEditableOverride(target);
+};
+
 const clearEditableOverrides = (targets = editableTargets) => {
     targets.forEach((target) => clearEditableOverride(target));
 };
@@ -1929,9 +2311,13 @@ const buildCvDraftPayload = () => {
 
     return {
         values,
+        contentMigrations: [...new Set(cvContentMigrations)],
         editableContent: cvEditableContent,
         sectionTitleStyles: cvSectionTitleStyles,
         sectionOrder: cvSectionOrder,
+        contentLocale: currentCvContentLocale,
+        preserveEmptyLanguages: preserveEmptyImportedLanguages,
+        profilePhoto: normalizeCvProfilePhoto(cvProfilePhoto),
         history: cvUndoStack.slice(-CV_HISTORY_LIMIT),
         savedAt: new Date().toISOString(),
         userId: currentUser?.id || null,
@@ -1956,11 +2342,70 @@ const decodeUnicodeBase64 = (value = '') => {
     return new TextDecoder().decode(bytes);
 };
 
-const buildCvRoundTripPayload = () => ({
-    ...buildCvDraftPayload(),
-    source: 'sa-creation-web-pdf',
-    exportedAt: new Date().toISOString(),
-});
+const getCvRoundTripProfilePhotoPayload = (photo, { includeDataUrl = true } = {}) => {
+    const normalizedPhoto = normalizeCvProfilePhoto(photo);
+    if (!normalizedPhoto) {
+        return null;
+    }
+    if (includeDataUrl) {
+        return normalizedPhoto;
+    }
+
+    const { dataUrl, ...metadata } = normalizedPhoto;
+    return { ...metadata, embeddedInDocument: true };
+};
+
+const resolveCvRoundTripProfilePhoto = (payloadPhoto, embeddedPhoto) =>
+    normalizeCvProfilePhoto(embeddedPhoto) || normalizeCvProfilePhoto(payloadPhoto);
+
+const buildCvRoundTripPayload = ({ includeProfilePhotoDataUrl = true } = {}) => {
+    const draft = buildCvDraftPayload();
+
+    return {
+        schemaVersion: 2,
+        source: 'sa-creation-web-cv',
+        values: draft.values,
+        contentMigrations: draft.contentMigrations,
+        editableContent: sanitizeCvEditableContent(draft.editableContent),
+        sectionTitleStyles: sanitizeCvSectionTitleStyles(draft.sectionTitleStyles),
+        sectionOrder: draft.sectionOrder,
+        contentLocale: draft.contentLocale,
+        preserveEmptyLanguages: draft.preserveEmptyLanguages,
+        profilePhoto: getCvRoundTripProfilePhotoPayload(draft.profilePhoto, {
+            includeDataUrl: includeProfilePhotoDataUrl,
+        }),
+        exportedAt: new Date().toISOString(),
+    };
+};
+
+const buildCvRoundTripMarkerText = ({ includeProfilePhotoDataUrl = true } = {}) => {
+    if (!cvForm) {
+        return '';
+    }
+
+    const encoded = encodeUnicodeBase64(JSON.stringify(buildCvRoundTripPayload({ includeProfilePhotoDataUrl })));
+    const maximumEncodedLength = includeProfilePhotoDataUrl
+        ? CV_ROUNDTRIP_LEGACY_MAX_ENCODED_LENGTH
+        : CV_ROUNDTRIP_MAX_ENCODED_LENGTH;
+    if (!encoded || encoded.length > maximumEncodedLength) {
+        return '';
+    }
+    return [
+        CV_ROUNDTRIP_START,
+        ...(encoded.match(/.{1,96}/g) || []),
+        CV_ROUNDTRIP_END,
+    ].join('\n');
+};
+
+const buildCvRoundTripHtmlComment = () => {
+    try {
+        const markerText = buildCvRoundTripMarkerText();
+        return markerText ? `<!--\n${markerText}\n-->` : '';
+    } catch (error) {
+        console.error(error);
+        return '';
+    }
+};
 
 const getCvRoundTripPayloadFromText = (text = '') => {
     const markerRegex = new RegExp(`${CV_ROUNDTRIP_START}\\s*([A-Za-z0-9+/=\\s]+?)\\s*${CV_ROUNDTRIP_END}`);
@@ -1971,14 +2416,50 @@ const getCvRoundTripPayloadFromText = (text = '') => {
     }
 
     try {
-        return JSON.parse(decodeUnicodeBase64(match[1].replace(/\s+/g, '')));
+        const encoded = match[1].replace(/\s+/g, '');
+        // Older KirbyCV DOCX files duplicated the (bounded) photo data URL in
+        // this marker. Keep a separate, still-bounded compatibility ceiling so
+        // those existing exports remain importable. New DOCX exports stay under
+        // the smaller limit because their image lives only in word/media.
+        if (!encoded || encoded.length > CV_ROUNDTRIP_LEGACY_MAX_ENCODED_LENGTH) {
+            return null;
+        }
+
+        const payload = JSON.parse(decodeUnicodeBase64(encoded));
+        if (
+            !payload ||
+            typeof payload !== 'object' ||
+            Array.isArray(payload) ||
+            !payload.values ||
+            typeof payload.values !== 'object' ||
+            Array.isArray(payload.values)
+        ) {
+            return null;
+        }
+
+        const isCurrentPayload = payload.schemaVersion === 2
+            && payload.source === 'sa-creation-web-cv';
+        const isLegacyPdfPayload = (payload.schemaVersion === undefined || payload.schemaVersion === null)
+            && payload.source === 'sa-creation-web-pdf';
+
+        if (!isCurrentPayload && !isLegacyPdfPayload) {
+            return null;
+        }
+
+        // Les PDF KirbyCV exportés avant le schéma unifié embarquaient déjà
+        // toutes les données éditables, mais sous l'ancienne signature. Les
+        // migrer uniquement en mémoire permet de les rouvrir sans élargir
+        // l'acceptation à des marqueurs inconnus ou non validés.
+        return isLegacyPdfPayload
+            ? { ...payload, schemaVersion: 2, source: 'sa-creation-web-cv' }
+            : payload;
     } catch (error) {
         console.error(error);
         return null;
     }
 };
 
-const restoreCvPayloadToEditor = (payload) => {
+const restoreCvPayloadToEditor = (payload, { profilePhoto: embeddedProfilePhoto = null } = {}) => {
     if (!cvForm || !payload) {
         return false;
     }
@@ -2007,15 +2488,17 @@ const restoreCvPayloadToEditor = (payload) => {
         }
     });
 
-    cvEditableContent = payload?.editableContent && typeof payload.editableContent === 'object'
-        ? payload.editableContent
-        : {};
-    cvSectionTitleStyles = payload?.sectionTitleStyles && typeof payload.sectionTitleStyles === 'object'
-        ? payload.sectionTitleStyles
-        : {};
+    cvEditableContent = sanitizeCvEditableContent(payload?.editableContent);
+    cvSectionTitleStyles = sanitizeCvSectionTitleStyles(payload?.sectionTitleStyles);
+    cvContentMigrations = Array.isArray(payload?.contentMigrations)
+        ? payload.contentMigrations.filter((migration) => typeof migration === 'string')
+        : [];
     cvSectionOrder = Array.isArray(payload?.sectionOrder) && payload.sectionOrder.length
         ? payload.sectionOrder.filter((key) => cvSectionLabels[key])
         : [...DEFAULT_CV_SECTION_ORDER];
+    currentCvContentLocale = payload?.contentLocale === 'en' ? 'en' : 'fr';
+    preserveEmptyImportedLanguages = payload?.preserveEmptyLanguages === true;
+    setCvProfilePhoto(resolveCvRoundTripProfilePhoto(payload?.profilePhoto, embeddedProfilePhoto), { refresh: false });
 
     updateCvPreview();
     renderExperienceEditor();
@@ -2027,23 +2510,63 @@ const restoreCvPayloadToEditor = (payload) => {
     return true;
 };
 
-const embedCvRoundTripData = (doc) => {
-    if (!cvForm || !doc || currentPreviewMode !== 'cv') {
+const getCvSemanticTextLines = (mode = currentPreviewMode) => {
+    if (mode === 'letter') {
+        return [
+            cvForm?.elements.fullName?.value,
+            cvForm?.elements.headline?.value,
+            letterSubject?.textContent,
+            letterBody?.textContent,
+            letterContactFooter?.textContent || letterContactFooterPage?.textContent,
+        ].map((value) => String(value || '').trim()).filter(Boolean);
+    }
+
+    const data = getCvExportData();
+    const timelineLines = (entries = []) => entries.flatMap((entry) => [
+        [entry.title, entry.meta, entry.date].filter(Boolean).join(' | '),
+        ...(entry.bullets || []),
+    ]).filter(Boolean);
+
+    return [
+        data.fullName,
+        data.headline,
+        data.metaParts.join(' | '),
+        data.labels.summary,
+        data.summary,
+        data.labels.skills,
+        ...data.skills,
+        data.labels.experience,
+        ...timelineLines(data.experiences),
+        data.labels.projects,
+        ...timelineLines(data.projects),
+        data.labels.education,
+        ...timelineLines(data.education),
+        data.labels.languages,
+        ...data.languages,
+        data.labels.activities,
+        ...data.activities,
+    ].map((value) => String(value || '').trim()).filter(Boolean);
+};
+
+const embedCvSemanticText = (doc, mode = currentPreviewMode) => {
+    if (!cvForm || !doc) {
         return;
     }
 
     try {
-        const encoded = encodeUnicodeBase64(JSON.stringify(buildCvRoundTripPayload()));
-        const lines = [
-            CV_ROUNDTRIP_START,
-            ...(encoded.match(/.{1,96}/g) || []),
-            CV_ROUNDTRIP_END,
-        ];
+        const lines = getCvSemanticTextLines(mode).slice(0, 500);
+        if (!lines.length) {
+            return;
+        }
 
+        doc.setPage(1);
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(1);
-        doc.setTextColor(255, 255, 255);
-        doc.text(lines, 1, 296, { lineHeightFactor: 0.72 });
+        doc.setFontSize(1.2);
+        doc.text(lines, 1, 1, {
+            lineHeightFactor: 0.75,
+            renderingMode: 'invisible',
+            maxWidth: 208,
+        });
     } catch (error) {
         console.error(error);
     }
@@ -2069,7 +2592,7 @@ const saveCvDraft = async (silent = false) => {
         const localSaved = writeGuestLocalDraft(payload);
         if (!silent) {
             setCvStatus(localSaved
-                ? 'Aperçu conservé dans ce navigateur. Connectez-vous pour enregistrer votre CV.'
+                ? 'CV conservé dans ce navigateur. Connectez-vous pour enregistrer votre brouillon.'
                 : 'Connectez-vous pour enregistrer votre brouillon.');
         }
         return localSaved
@@ -2085,8 +2608,8 @@ const saveCvDraft = async (silent = false) => {
         const localSaved = writeScopedLocalDraft(currentUser.id, payload);
         if (!silent) {
             setCvStatus(localSaved
-                ? 'Aperçu conservé dans ce navigateur. Le CV publié n’est pas modifié.'
-                : 'Aperçu non enregistré. Le CV publié n’est pas modifié.');
+                ? 'Brouillon CV conservé dans ce navigateur.'
+                : 'Brouillon CV non enregistré.');
         }
         return localSaved
             ? { status: 'local_fallback', detail: 'remote_persistence_disabled_on_local_host', payload, localSaved }
@@ -2144,7 +2667,7 @@ const saveCvDraft = async (silent = false) => {
         const localSaved = writeScopedLocalDraft(currentUser.id, payload);
         if (!silent) {
             setCvStatus(localSaved
-                ? 'Enregistrement non confirmé. Le CV affiché reste disponible dans cet aperçu.'
+                ? 'Enregistrement non confirmé. Le CV affiché reste disponible dans ce navigateur.'
                 : 'Enregistrement non confirmé.');
         }
         return localSaved
@@ -2167,11 +2690,11 @@ const formatCvPersistenceDetail = (result = {}) => {
     }
 
     if (isCvLocalPreviewPersistence(result)) {
-        return 'Modification appliquée pour cet aperçu. Elle ne sera pas enregistrée sur le CV publié.';
+        return 'Modification appliquée au CV affiché. Sur cette URL de test, le brouillon est conservé dans ce navigateur.';
     }
 
     if (result.status === 'local_fallback' && !currentUser?.id) {
-        return 'Modification appliquée pour cet aperçu. Connectez-vous pour l’enregistrer.';
+        return 'Modification appliquée au CV affiché. Connectez-vous pour enregistrer le brouillon.';
     }
 
     if (result.status === 'unauthenticated') {
@@ -2190,7 +2713,7 @@ const buildKirbyPersistenceReply = (changes = [], persistence = {}) => {
     const detail = formatCvPersistenceDetail(persistence);
 
     if (isCvLocalPreviewPersistence(persistence)) {
-        setCvStatus('Modification appliquée pour cet aperçu. Le CV publié n’est pas modifié.');
+        setCvStatus('Modification appliquée au CV affiché.');
         return detail;
     }
 
@@ -2209,8 +2732,8 @@ const buildKirbyQuickPersistenceReply = (quickReply = '', persistence = {}) => {
     const detail = formatCvPersistenceDetail(persistence);
 
     if (isCvLocalPreviewPersistence(persistence)) {
-        setCvStatus('Modification appliquée pour cet aperçu. Le CV publié n’est pas modifié.');
-        return detail;
+        setCvStatus('Modification appliquée au CV affiché.');
+        return `${quickReply}\n${detail}`;
     }
 
     if (!isCvPersistenceConfirmed(persistence)) {
@@ -2220,6 +2743,23 @@ const buildKirbyQuickPersistenceReply = (quickReply = '', persistence = {}) => {
 
     setCvStatus('Modification Kirby enregistrée.');
     return `${quickReply}\n${detail}`;
+};
+
+const appendQuickKirbyMutationReply = (quickReply = '') => {
+    const messageNode = appendAssistantMessage(quickReply, 'bot');
+    void persistCvDraftImmediately()
+        .then((persistence) => {
+            const finalReply = buildKirbyQuickPersistenceReply(quickReply, persistence);
+            const body = messageNode?.querySelector?.('.assistant-thread-body');
+            if (body) {
+                body.textContent = finalReply;
+                assistantThread.scrollTop = assistantThread.scrollHeight;
+            }
+        })
+        .catch((error) => {
+            console.error(error);
+            setCvStatus('Modification appliquée, enregistrement non confirmé.');
+        });
 };
 
 const getCvHistoryState = () => {
@@ -2237,6 +2777,10 @@ const getCvHistoryState = () => {
         editableContent: cvEditableContent,
         sectionTitleStyles: cvSectionTitleStyles,
         sectionOrder: cvSectionOrder,
+        contentLocale: currentCvContentLocale,
+        preserveEmptyLanguages: preserveEmptyImportedLanguages,
+        profilePhoto: normalizeCvProfilePhoto(cvProfilePhoto),
+        previewDensity: previewNodes.preview?.dataset?.cvDensity || '',
     });
 };
 
@@ -2328,7 +2872,7 @@ const captureCvHistoryFromInteraction = ({ immediate = false } = {}) => {
 };
 
 const syncCvDraftToVisibleState = () => {
-    if (!cvForm || isRestoringCvHistory || isLoadingCvDraft) {
+    if (!cvForm || isRestoringCvHistory || isLoadingCvDraft || isImportingCvPreview || isReplacingCvDocument) {
         return;
     }
 
@@ -2378,13 +2922,10 @@ const restorePreviousCvVersion = () => {
     }
 
     isRestoringCvHistory = true;
+    lastKirbyCvDateEditContext = null;
     try {
-        const preservedStyleValues = getCurrentCvStyleValues();
         resetCvFormToDefaults();
-        const values = {
-            ...(state?.values && typeof state.values === 'object' ? state.values : {}),
-            ...preservedStyleValues,
-        };
+        const values = state?.values && typeof state.values === 'object' ? state.values : {};
         Object.entries(values).forEach(([key, value]) => {
             const field = cvForm.elements[key] || [...document.querySelectorAll('[form="cv-form"][name]')]
                 .find((candidate) => candidate.name === key);
@@ -2399,29 +2940,23 @@ const restorePreviousCvVersion = () => {
             }
         });
 
-        cvEditableContent = state?.editableContent && typeof state.editableContent === 'object'
-            ? state.editableContent
-            : {};
-        cvSectionTitleStyles = state?.sectionTitleStyles && typeof state.sectionTitleStyles === 'object'
-            ? state.sectionTitleStyles
-            : {};
-        structuredPreviewTargets.forEach((target) => {
-            const style = cvEditableContent[target]?.style || {};
-            if (isDefaultEditableStyleState(style)) {
-                delete cvEditableContent[target];
-            } else {
-                cvEditableContent[target] = { style };
-            }
-        });
+        cvEditableContent = sanitizeCvEditableContent(state?.editableContent);
+        cvSectionTitleStyles = sanitizeCvSectionTitleStyles(state?.sectionTitleStyles);
         cvSectionOrder = Array.isArray(state?.sectionOrder) && state.sectionOrder.length
             ? state.sectionOrder.filter((key) => cvSectionLabels[key])
             : [...DEFAULT_CV_SECTION_ORDER];
+        currentCvContentLocale = state?.contentLocale === 'en' ? 'en' : 'fr';
+        preserveEmptyImportedLanguages = state?.preserveEmptyLanguages === true;
+        setCvProfilePhoto(state?.profilePhoto, { refresh: false });
         activeEditableNode = null;
         activeFormatNode = null;
         savedFormatRange = null;
         renderExperienceEditor();
         renderLanguageEditor();
-        updateCvPreview();
+        if (state?.previewDensity && previewNodes.preview) {
+            previewNodes.preview.dataset.cvDensity = state.previewDensity;
+        }
+        updateCvPreview({ preserveDensity: Boolean(state?.previewDensity) });
         scheduleCvDraftSave();
         setCvStatus('Version précédente restaurée');
     } finally {
@@ -2445,6 +2980,7 @@ const restoreCvHistorySnapshot = (stateJson = '', status = '') => {
     }
 
     isRestoringCvHistory = true;
+    lastKirbyCvDateEditContext = null;
     try {
         resetCvFormToDefaults();
         const values = state?.values && typeof state.values === 'object' ? state.values : {};
@@ -2462,18 +2998,21 @@ const restoreCvHistorySnapshot = (stateJson = '', status = '') => {
             }
         });
 
-        cvEditableContent = state?.editableContent && typeof state.editableContent === 'object'
-            ? state.editableContent
-            : {};
-        cvSectionTitleStyles = state?.sectionTitleStyles && typeof state.sectionTitleStyles === 'object'
-            ? state.sectionTitleStyles
-            : {};
+        cvEditableContent = sanitizeCvEditableContent(state?.editableContent);
+        cvSectionTitleStyles = sanitizeCvSectionTitleStyles(state?.sectionTitleStyles);
         cvSectionOrder = Array.isArray(state?.sectionOrder) && state.sectionOrder.length
             ? state.sectionOrder.filter((key) => cvSectionLabels[key])
             : [...DEFAULT_CV_SECTION_ORDER];
+        currentCvContentLocale = state?.contentLocale === 'en' ? 'en' : 'fr';
+        preserveEmptyImportedLanguages = state?.preserveEmptyLanguages === true;
+        setCvProfilePhoto(state?.profilePhoto, { refresh: false });
         renderExperienceEditor();
         renderLanguageEditor();
-        updateCvPreview();
+        if (state?.previewDensity && previewNodes.preview) {
+            previewNodes.preview.dataset.cvDensity = state.previewDensity;
+        }
+        updateCvPreview({ preserveDensity: Boolean(state?.previewDensity) });
+        scheduleCvDraftSave();
         if (status) {
             setCvStatus(status);
         }
@@ -2490,6 +3029,10 @@ const loadCvDraft = async ({ silent = false } = {}) => {
         return;
     }
 
+    if (isImportingCvPreview || isReplacingCvDocument) {
+        return;
+    }
+
     if (isApplyingKirbyCvChange) {
         if (!silent) {
             setCvStatus('Chargement reporté : modification Kirby en cours');
@@ -2497,12 +3040,15 @@ const loadCvDraft = async ({ silent = false } = {}) => {
         return;
     }
 
+    const draftLoadSerial = ++cvDraftLoadSerial;
+
     try {
         isLoadingCvDraft = true;
         window.clearTimeout(cvDraftSaveTimer);
         cvDraftSaveTimer = null;
-        const forceFilledDefaults = new URLSearchParams(window.location.search).has('filled');
-        const forceLetterPreview = new URLSearchParams(window.location.search).has('letter');
+        const cvSearchParams = new URLSearchParams(window.location.search);
+        const forceFilledDefaults = cvSearchParams.has('filled');
+        const forceLetterPreview = cvSearchParams.has('letter');
         let payload = null;
         let savedHistory = [];
         let shouldMigrateLegacyDraft = false;
@@ -2515,6 +3061,7 @@ const loadCvDraft = async ({ silent = false } = {}) => {
 
         if (!forceFilledDefaults && currentUser?.id) {
             let remotePayload = null;
+            let remoteUpdatedAt = '';
             try {
                 if (isOfficialCvPersistenceHost()) {
                     const client = await initializeSupabaseClient();
@@ -2530,6 +3077,7 @@ const loadCvDraft = async ({ silent = false } = {}) => {
                     }
 
                     remotePayload = data?.payload || null;
+                    remoteUpdatedAt = data?.updated_at || '';
                 }
             } catch (error) {
                 console.error(error);
@@ -2538,20 +3086,22 @@ const loadCvDraft = async ({ silent = false } = {}) => {
             const localPayload = readScopedLocalDraft(currentUser.id);
             const legacyPayload = readLegacyLocalDraft(currentUser.email);
 
-            if (remotePayload) {
-                payload = remotePayload;
-            } else if (localPayload) {
-                payload = localPayload;
-            } else if (legacyPayload) {
-                payload = legacyPayload;
-                shouldMigrateLegacyDraft = true;
-            }
+            payload = pickNewestCvDraftPayload([
+                { payload: remotePayload, updatedAt: remoteUpdatedAt },
+                { payload: localPayload },
+                { payload: legacyPayload },
+            ]);
+            shouldMigrateLegacyDraft = Boolean(payload && payload === legacyPayload);
 
             if (shouldMigrateLegacyDraft) {
                 removeLegacyLocalDraft(currentUser.email);
             }
         } else if (!forceFilledDefaults) {
             payload = readGuestLocalDraft();
+        }
+
+        if (draftLoadSerial !== cvDraftLoadSerial) {
+            return;
         }
 
         const hasDraftValues = Boolean(
@@ -2582,7 +3132,7 @@ const loadCvDraft = async ({ silent = false } = {}) => {
             });
 
             if (payload?.editableContent && typeof payload.editableContent === 'object') {
-                cvEditableContent = payload.editableContent;
+                cvEditableContent = sanitizeCvEditableContent(payload.editableContent);
                 structuredPreviewTargets.forEach((target) => {
                     const style = cvEditableContent[target]?.style || {};
                     if (isDefaultEditableStyleState(style)) {
@@ -2594,12 +3144,19 @@ const loadCvDraft = async ({ silent = false } = {}) => {
             }
 
             if (payload?.sectionTitleStyles && typeof payload.sectionTitleStyles === 'object') {
-                cvSectionTitleStyles = payload.sectionTitleStyles;
+                cvSectionTitleStyles = sanitizeCvSectionTitleStyles(payload.sectionTitleStyles);
             }
+
+            cvContentMigrations = Array.isArray(payload?.contentMigrations)
+                ? payload.contentMigrations.filter((migration) => typeof migration === 'string')
+                : [];
 
             cvSectionOrder = Array.isArray(payload?.sectionOrder) && payload.sectionOrder.length
                 ? payload.sectionOrder.filter((key) => cvSectionLabels[key])
                 : [...DEFAULT_CV_SECTION_ORDER];
+            currentCvContentLocale = payload?.contentLocale === 'en' ? 'en' : 'fr';
+            preserveEmptyImportedLanguages = payload?.preserveEmptyLanguages === true;
+            setCvProfilePhoto(payload?.profilePhoto, { refresh: false });
         } else if (!forceFilledDefaults) {
             applyCurrentUserDefaults();
         }
@@ -2616,7 +3173,11 @@ const loadCvDraft = async ({ silent = false } = {}) => {
             await saveCvDraft(true);
         }
         if (!silent) {
-            setCvStatus(forceFilledDefaults ? 'CV prérempli dans cet aperçu' : currentUser ? 'Brouillon prive charge' : 'Mode invite actif');
+            setCvStatus(forceFilledDefaults
+                ? 'CV prérempli dans cet aperçu'
+                : currentUser
+                    ? 'Brouillon prive charge'
+                    : 'Mode invite actif');
         }
         if (forceLetterPreview) {
             window.setTimeout(() => {
@@ -2625,11 +3186,15 @@ const loadCvDraft = async ({ silent = false } = {}) => {
         }
     } catch (error) {
         console.error(error);
-        setCvStatus('Impossible de charger le brouillon securise');
+        if (draftLoadSerial === cvDraftLoadSerial) {
+            setCvStatus('Impossible de charger le brouillon securise');
+        }
     } finally {
-        window.clearTimeout(cvDraftSaveTimer);
-        cvDraftSaveTimer = null;
-        isLoadingCvDraft = false;
+        if (draftLoadSerial === cvDraftLoadSerial) {
+            window.clearTimeout(cvDraftSaveTimer);
+            cvDraftSaveTimer = null;
+            isLoadingCvDraft = false;
+        }
     }
 };
 
@@ -2668,6 +3233,55 @@ const isPdfDocument = (file) => {
     return filename.endsWith('.pdf') || mime.includes('pdf');
 };
 
+const extractCvRoundTripMarkerFromPdfBuffer = (buffer) => {
+    try {
+        const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+        // Les anciens PDF KirbyCV utilisaient un flux jsPDF non compressé. Un
+        // plafond évite de convertir en chaîne un document anormalement lourd.
+        if (!bytes.length || bytes.byteLength > 30_000_000) {
+            return '';
+        }
+
+        const rawPdf = new TextDecoder('latin1').decode(bytes);
+        const startToken = `(${CV_ROUNDTRIP_START})`;
+        const endToken = `(${CV_ROUNDTRIP_END})`;
+        const startIndex = rawPdf.indexOf(startToken);
+        const endIndex = startIndex >= 0
+            ? rawPdf.indexOf(endToken, startIndex + startToken.length)
+            : -1;
+
+        if (startIndex < 0 || endIndex < 0) {
+            return '';
+        }
+
+        const encodedStream = rawPdf.slice(startIndex + startToken.length, endIndex);
+        if (encodedStream.length > CV_ROUNDTRIP_LEGACY_MAX_ENCODED_LENGTH + 200_000) {
+            return '';
+        }
+
+        const chunks = [];
+        const textOperatorPattern = /\(([A-Za-z0-9+/=]{1,96})\)\s*Tj/g;
+        let match;
+        while ((match = textOperatorPattern.exec(encodedStream)) !== null) {
+            chunks.push(match[1]);
+        }
+
+        const encoded = chunks.join('');
+        if (
+            !encoded ||
+            encoded.length > CV_ROUNDTRIP_LEGACY_MAX_ENCODED_LENGTH ||
+            encoded.length % 4 !== 0
+        ) {
+            return '';
+        }
+
+        return [CV_ROUNDTRIP_START, ...chunks, CV_ROUNDTRIP_END].join('\n');
+    } catch (error) {
+        console.warn('Marqueur KirbyCV PDF ancien non lisible, extraction PDF standard utilisée.', error);
+        return '';
+    }
+};
+
 const loadPdfJs = async () => {
     if (!pdfjsLoader) {
         pdfjsLoader = import(PDFJS_MODULE_URL).then((module) => {
@@ -2679,84 +3293,261 @@ const loadPdfJs = async () => {
     return pdfjsLoader;
 };
 
-const extractTextFromPdf = async (file) => {
-    const pdfjs = await loadPdfJs();
-    const buffer = await file.arrayBuffer();
-    const pdf = await pdfjs.getDocument({ data: new Uint8Array(buffer) }).promise;
-    const pageTexts = [];
+const groupPdfTextItemsIntoLines = (items = []) => {
+    const lines = [];
 
-    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-        const page = await pdf.getPage(pageNumber);
-        const textContent = await page.getTextContent();
-        const rawItems = textContent.items
-            .filter((item) => 'str' in item && item.str && Array.isArray(item.transform))
-            .map((item) => ({
-                text: item.str.trim(),
-                x: Number(item.transform[4] || 0),
-                y: Number(item.transform[5] || 0),
-            }))
-            .filter((item) => item.text);
-
-        if (!rawItems.length) {
-            continue;
-        }
-
-        rawItems.sort((a, b) => {
-            if (Math.abs(b.y - a.y) > 2) {
-                return b.y - a.y;
-            }
-            return a.x - b.x;
-        });
-
-        const lines = [];
-
-        rawItems.forEach((item) => {
-            const lastLine = lines[lines.length - 1];
-
-            if (!lastLine || Math.abs(lastLine.y - item.y) > 2.5) {
+    [...items]
+        .sort((left, right) => Math.abs(right.y - left.y) > 2 ? right.y - left.y : left.x - right.x)
+        .forEach((item) => {
+            const line = lines.find((candidate) => Math.abs(candidate.y - item.y) <= 2.5);
+            if (line) {
+                line.parts.push(item);
+            } else {
                 lines.push({ y: item.y, parts: [item] });
-                return;
             }
-
-            lastLine.parts.push(item);
         });
 
-        const pageLineText = lines
-            .map((line) =>
-                line.parts
-                    .sort((a, b) => a.x - b.x)
-                    .map((part, index, parts) => {
-                        const previous = parts[index - 1];
-                        if (!previous) {
-                            return part.text;
-                        }
+    return lines
+        .sort((left, right) => right.y - left.y)
+        .map((line) => line.parts
+            .sort((left, right) => left.x - right.x)
+            .reduce((text, part, index, parts) => {
+                if (!index) {
+                    return part.text;
+                }
 
-                        const gap = part.x - previous.x;
-                        const spacer = gap > 12 ? ' ' : '';
-                        return `${spacer}${part.text}`;
-                    })
-                    .join('')
-                    .replace(/\s{2,}/g, ' ')
-                    .trim()
-            )
-            .filter(Boolean);
-
-        if (pageLineText.length) {
-            pageTexts.push(pageLineText.join('\n'));
-        }
-    }
-
-    return pageTexts.join('\n\n');
+                const previous = parts[index - 1];
+                const previousRight = previous.x + Math.max(0, previous.width || 0);
+                const geometricGap = part.x - previousRight;
+                const referenceHeight = Math.min(
+                    Math.max(0, previous.height || 0),
+                    Math.max(0, part.height || 0),
+                );
+                // PDF.js peut scinder un même mot ou acronyme en plusieurs
+                // fragments contigus ("Financi" + "al", "C" + "P" + "PIB").
+                // Un véritable espace typographique est nettement plus large :
+                // ne recoller que les fragments quasiment jointifs.
+                const isContiguousFragment = geometricGap <= Math.max(0.65, referenceHeight * 0.075);
+                const separator = isContiguousFragment || /^[,.;:!?%)\]}]/.test(part.text) ? '' : ' ';
+                return `${text}${separator}${part.text}`;
+            }, '')
+            .replace(/\s{2,}/g, ' ')
+            .trim())
+        .filter(Boolean);
 };
 
-const extractTextFromDocx = async (file) => {
-    if (!window.mammoth) {
-        throw new Error('Mammoth indisponible');
+const findPdfColumnSplit = (items = [], pageWidth = 0) => {
+    if (items.length < 8 || !Number.isFinite(pageWidth) || pageWidth <= 0) {
+        return 0;
     }
 
+    const anchors = [...new Set(items.map((item) => Math.round(item.x * 2) / 2))].sort((left, right) => left - right);
+    const candidates = anchors.slice(1).map((value, index) => ({
+        left: anchors[index],
+        right: value,
+        gap: value - anchors[index],
+    })).filter((candidate) => candidate.gap >= pageWidth * 0.1);
+
+    const isMostlyDateColumn = (columnItems = []) => {
+        if (!columnItems.length) return false;
+        const dateOnlyPattern = /^(?:(?:jan(?:uary|vier)?|feb(?:ruary|ruary)?|f[eé]v(?:rier)?|mar(?:ch|s)?|apr(?:il)?|avr(?:il)?|may|mai|jun(?:e)?|juin|jul(?:y|let)?|aug(?:ust)?|ao[uû]t|sep(?:tember|tembre)?|oct(?:ober|obre)?|nov(?:ember|embre)?|dec(?:ember|embre)?)[\s.]+)?(?:19|20)\d{2}(?:\s*[-–—]\s*(?:(?:19|20)\d{2}|present|pr[eé]sent|today|aujourd['’]?hui))?$/i;
+        const dateOnlyCount = columnItems.filter((item) => dateOnlyPattern.test(item.text.trim())).length;
+        const averageLength = columnItems.reduce((total, item) => total + item.text.trim().length, 0) / columnItems.length;
+        return dateOnlyCount / columnItems.length >= 0.55 && averageLength <= 28;
+    };
+
+    for (const candidate of candidates.sort((left, right) => right.gap - left.gap)) {
+        const split = (candidate.left + candidate.right) / 2;
+        const leftItems = items.filter((item) => item.x < split);
+        const rightItems = items.filter((item) => item.x >= split);
+        const leftCount = leftItems.length;
+        const rightCount = rightItems.length;
+        const totalCharacters = items.reduce((total, item) => total + item.text.trim().length, 0);
+        const leftCharacters = leftItems.reduce((total, item) => total + item.text.trim().length, 0);
+        const rightCharacters = totalCharacters - leftCharacters;
+        const columnsHaveSubstance = totalCharacters > 0
+            && leftCharacters / totalCharacters >= 0.12
+            && rightCharacters / totalCharacters >= 0.12;
+        if (
+            leftCount >= 4
+            && rightCount >= 4
+            && leftCount / items.length >= 0.15
+            && rightCount / items.length >= 0.15
+            && columnsHaveSubstance
+            && !isMostlyDateColumn(leftItems)
+            && !isMostlyDateColumn(rightItems)
+        ) {
+            return split;
+        }
+    }
+
+    return 0;
+};
+
+const reconstructPdfPageText = (items = [], pageWidth = 0) => {
+    if (!items.length) {
+        return '';
+    }
+
+    const sectionHeadingPattern = /^(?:profile|profil|summary|skills|core expertise|savoir(?:-|\s)faire|tech(?:nical)? stack|comp[eé]tences?|professional experience|work experience|exp[eé]riences? professionnelles?|parcours professionnel|academic appointments?|professional appointments?|education|formation|dipl[oô]mes?|degrees?|academic background|parcours acad[eé]mique|projects?|projets?|research(?: experience| projects?)?|recherche(?: et d[eé]veloppement)?|publications?|selected publications?|languages?|langues?|activities|activit[eé]s|interests?|centres? d['’ ]int[eé]r[eê]t)\s*:?$/i;
+    const sectionHeadingY = items
+        .filter((item) => sectionHeadingPattern.test(item.text.trim()))
+        .reduce((highest, item) => Math.max(highest, item.y), Number.NEGATIVE_INFINITY);
+    const headerItems = Number.isFinite(sectionHeadingY)
+        ? items.filter((item) => item.y > sectionHeadingY + 3)
+        : [];
+    const bodyItems = headerItems.length
+        ? items.filter((item) => !headerItems.includes(item))
+        : items;
+    const split = findPdfColumnSplit(bodyItems, pageWidth);
+    const headerLines = groupPdfTextItemsIntoLines(headerItems);
+
+    if (!split) {
+        return [...headerLines, ...groupPdfTextItemsIntoLines(bodyItems)].join('\n');
+    }
+
+    const leftItems = bodyItems.filter((item) => item.x < split);
+    const rightItems = bodyItems.filter((item) => item.x >= split);
+    return [
+        ...headerLines,
+        ...groupPdfTextItemsIntoLines(leftItems),
+        ...groupPdfTextItemsIntoLines(rightItems),
+    ].join('\n');
+};
+
+const extractCvContentFromPdf = async (file) => {
     const buffer = await file.arrayBuffer();
-    const result = await window.mammoth.extractRawText({ arrayBuffer: buffer });
-    return result.value || '';
+    const embeddedRoundTripMarker = extractCvRoundTripMarkerFromPdfBuffer(buffer);
+    if (embeddedRoundTripMarker && getCvRoundTripPayloadFromText(embeddedRoundTripMarker)) {
+        return { text: embeddedRoundTripMarker, profilePhoto: null };
+    }
+
+    const pdfjs = await loadPdfJs();
+    const pdf = await pdfjs.getDocument({ data: new Uint8Array(buffer) }).promise;
+    const mediaPromise = typeof window.KirbyCvMedia?.extractPdfPortraitFromDocument === 'function'
+        ? window.KirbyCvMedia.extractPdfPortraitFromDocument(pdf, pdfjs)
+            .catch((error) => {
+                console.warn('Photo de profil PDF non récupérée.', error);
+                return null;
+            })
+        : Promise.resolve(null);
+
+    try {
+        const textPromise = (async () => {
+            const pageTexts = [];
+
+            for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+                const page = await pdf.getPage(pageNumber);
+                const viewport = page.getViewport({ scale: 1 });
+                const textContent = await page.getTextContent();
+                const rawItems = textContent.items
+                    .filter((item) => 'str' in item && item.str && Array.isArray(item.transform))
+                    .map((item) => ({
+                        text: item.str.trim(),
+                        x: Number(item.transform[4] || 0),
+                        y: Number(item.transform[5] || 0),
+                        width: Number(item.width || 0),
+                        height: Math.abs(Number(item.height || item.transform[3] || 0)),
+                    }))
+                    .filter((item) => item.text);
+
+                if (!rawItems.length) {
+                    continue;
+                }
+
+                const pageText = reconstructPdfPageText(rawItems, viewport.width);
+                if (pageText) {
+                    pageTexts.push(pageText);
+                }
+            }
+
+            return pageTexts.join('\n\n');
+        })();
+        const [text, profilePhoto] = await Promise.all([textPromise, mediaPromise]);
+        return { text, profilePhoto: normalizeCvProfilePhoto(profilePhoto) };
+    } finally {
+        try {
+            await pdf.destroy?.();
+        } catch (error) {
+            console.warn('Nettoyage PDF.js incomplet.', error);
+        }
+    }
+};
+
+const extractTextFromPdf = async (file) => (await extractCvContentFromPdf(file)).text;
+
+const extractCvContentFromDocx = async (file) => {
+    const buffer = await file.arrayBuffer();
+    const docxTools = window.KirbyDocx;
+    let profilePhoto = null;
+
+    // A KirbyCV DOCX carries a hidden, size-bounded round-trip marker. Read it
+    // before generic extraction so a re-import restores the exact structure,
+    // section order, language and presentation settings. Its profile photo is
+    // restored from word/media instead of duplicating binary data in the marker.
+    if (docxTools?.inspectRoundTrip) {
+        try {
+            const inspection = await docxTools.inspectRoundTrip(buffer, CV_ROUNDTRIP_START, CV_ROUNDTRIP_END);
+            profilePhoto = normalizeCvProfilePhoto(inspection?.profilePhoto);
+            if (inspection?.state === 'valid' && inspection.marker) {
+                return { text: inspection.marker, profilePhoto };
+            }
+            if (inspection?.state === 'modified' && inspection.visibleText?.trim()) {
+                return { text: inspection.visibleText, profilePhoto };
+            }
+        } catch (error) {
+            console.warn('Marqueur KirbyCV DOCX non lisible, import Word standard utilisé.', error);
+        }
+    }
+
+    if (!profilePhoto && docxTools?.extractProfilePhoto) {
+        try {
+            profilePhoto = normalizeCvProfilePhoto(await docxTools.extractProfilePhoto(buffer));
+        } catch (error) {
+            console.warn('Photo KirbyCV DOCX non lisible, import du texte poursuivi.', error);
+        }
+    }
+
+    if (window.mammoth) {
+        try {
+            const result = await window.mammoth.extractRawText({ arrayBuffer: buffer });
+            if (result.value?.trim()) {
+                return { text: result.value, profilePhoto };
+            }
+        } catch (error) {
+            console.warn('Extraction Mammoth indisponible, lecture OOXML locale utilisée.', error);
+        }
+    }
+
+    if (docxTools?.extractDocumentText) {
+        const fallbackText = await docxTools.extractDocumentText(buffer);
+        if (fallbackText.trim()) {
+            return { text: fallbackText, profilePhoto };
+        }
+    }
+
+    throw new Error('docx_text_unavailable');
+};
+
+const extractTextFromDocx = async (file) => (await extractCvContentFromDocx(file)).text;
+
+const extractTextFromLegacyWord = async (file) => {
+    const raw = await file.text();
+
+    // SA Creation Web exports an editable, Word-compatible HTML document.
+    // Keep its hidden round-trip marker intact so re-import is lossless.
+    if (getCvRoundTripPayloadFromText(raw)) {
+        return raw;
+    }
+
+    if (!/<(?:!doctype|html|body|div|table|p|h[1-6])\b/i.test(raw)) {
+        throw new Error('legacy_binary_word_document');
+    }
+
+    const parsed = new DOMParser().parseFromString(raw, 'text/html');
+    return (parsed.body?.innerText || parsed.body?.textContent || '')
+        .replace(/\u00a0/g, ' ')
+        .trim();
 };
 
 const looksLikeBrokenPdfText = (text) => {
@@ -2788,7 +3579,7 @@ const looksLikeBrokenPdfText = (text) => {
 };
 
 const getUnreadablePdfImportMessage = () =>
-    "Ce PDF est une ancienne version image : l'éditeur ne peut pas récupérer son contenu. Utilisez le Word, ou exportez un nouveau PDF depuis sacreationweb.com puis réimportez-le.";
+    "Ce PDF est scanné ou ne contient pas de texte sélectionnable. L’OCR n’est pas encore pris en charge : utilisez le fichier Word (.docx) ou un PDF avec couche texte, puis réimportez-le.";
 
 const applyCompactCvLayout = (autoTriggered = false) => {
     if (!cvForm) {
@@ -2909,23 +3700,102 @@ const setPreviewMode = (mode) => {
 };
 
 const updatePreviewViewport = () => {
-    if (!previewNodes.preview || !cvPreviewStage) {
+    if (!previewNodes.preview || !cvPreviewStage || !cvPreviewViewport) {
         return;
     }
 
     const stagePages = getVisiblePreviewPages();
     if (!stagePages.length) {
         cvPreviewStage.style.height = 'auto';
+        cvPreviewStage.style.removeProperty('--cv-preview-stage-width');
+        cvPreviewStage.style.removeProperty('--cv-preview-stage-height');
+        cvPreviewViewport.style.removeProperty('--cv-preview-viewport-height');
+        cvPreviewStage.classList.remove('is-fit-to-width');
+        cvPreviewStage.classList.remove('is-fit-to-viewport');
         return;
     }
-    const pageGap = stagePages.length > 1 ? (stagePages.length - 1) * 18 * 3.78 : 0;
-    const totalHeight = stagePages.reduce((sum, page) => {
-        page.style.transform = '';
-        return sum + page.scrollHeight;
-    }, 0);
 
-    cvPreviewStage.style.height = `${Math.max(totalHeight + pageGap, 0)}px`;
+    cvPreviewStage.style.height = 'auto';
+    cvPreviewStage.style.removeProperty('--cv-preview-stage-width');
+    cvPreviewStage.style.removeProperty('--cv-preview-stage-height');
+    cvPreviewViewport.style.removeProperty('--cv-preview-viewport-height');
+
+    const pageDimensions = stagePages.map((page) => {
+        page.style.transform = '';
+        page.style.transformOrigin = '';
+        page.style.removeProperty('--cv-preview-page-height');
+        return {
+            width: Math.max(page.scrollWidth, page.offsetWidth),
+            height: Math.max(page.scrollHeight, page.offsetHeight),
+        };
+    });
+    const widestPage = pageDimensions.reduce((max, page) => Math.max(max, page.width), 0);
+    const stageStyles = window.getComputedStyle(cvPreviewStage);
+    const pageGap = stagePages.length > 1
+        ? (stagePages.length - 1) * (parseFloat(stageStyles.rowGap) || 0)
+        : 0;
+    const naturalHeight = pageDimensions.reduce((sum, page) => sum + page.height, 0) + pageGap;
+    const viewportStyles = window.getComputedStyle(cvPreviewViewport);
+    const viewportInlineChrome = ['paddingLeft', 'paddingRight', 'borderLeftWidth', 'borderRightWidth']
+        .reduce((sum, property) => sum + (parseFloat(viewportStyles[property]) || 0), 0);
+    const viewportBlockChrome = ['paddingTop', 'paddingBottom', 'borderTopWidth', 'borderBottomWidth']
+        .reduce((sum, property) => sum + (parseFloat(viewportStyles[property]) || 0), 0);
+    const availableWidth = Math.max(0, cvPreviewViewport.clientWidth - viewportInlineChrome);
+    const previewScale = widestPage && availableWidth
+        ? Math.min(1, availableWidth / widestPage)
+        : 1;
+    const shouldScalePreview = previewScale < 0.999;
+    const fittedWidth = Math.max(widestPage * previewScale, 0);
+    const fittedHeight = Math.max(naturalHeight * previewScale, 0);
+
+    cvPreviewStage.classList.toggle('is-fit-to-width', shouldScalePreview);
+    cvPreviewStage.classList.toggle('is-fit-to-viewport', shouldScalePreview);
+    stagePages.forEach((page, index) => {
+        page.style.setProperty('--cv-preview-page-height', `${pageDimensions[index].height}px`);
+        page.style.transform = shouldScalePreview ? `scale(${previewScale})` : '';
+        page.style.transformOrigin = shouldScalePreview ? 'top left' : '';
+    });
+
+    cvPreviewStage.style.setProperty('--cv-preview-stage-width', `${fittedWidth}px`);
+    cvPreviewStage.style.setProperty('--cv-preview-stage-height', `${fittedHeight}px`);
+    cvPreviewStage.style.height = `${fittedHeight}px`;
+    cvPreviewViewport.style.setProperty(
+        '--cv-preview-viewport-height',
+        `${fittedHeight + viewportBlockChrome}px`,
+    );
 };
+
+if (cvPreviewViewport && cvPreviewStage) {
+    let previewViewportFrame = 0;
+    const schedulePreviewViewportUpdate = () => {
+        window.cancelAnimationFrame(previewViewportFrame);
+        previewViewportFrame = window.requestAnimationFrame(updatePreviewViewport);
+    };
+
+    window.addEventListener('resize', schedulePreviewViewportUpdate);
+    window.addEventListener('orientationchange', schedulePreviewViewportUpdate);
+
+    if ('ResizeObserver' in window) {
+        const previewViewportObserver = new ResizeObserver(schedulePreviewViewportUpdate);
+        previewViewportObserver.observe(cvPreviewViewport);
+        [previewNodes.preview, letterPagePreview].filter(Boolean).forEach((page) => {
+            previewViewportObserver.observe(page);
+        });
+    }
+
+    if (document.fonts?.ready) {
+        document.fonts.ready.then(schedulePreviewViewportUpdate).catch(() => {});
+    }
+
+    cvToolsDrawer?.addEventListener('toggle', schedulePreviewViewportUpdate);
+    cvToolsCloseButton?.addEventListener('click', () => {
+        if (!cvToolsDrawer) {
+            return;
+        }
+        cvToolsDrawer.open = false;
+        cvToolsDrawer.querySelector('summary')?.focus();
+    });
+}
 
 const fitCvToSinglePage = () => {
     if (!cvForm || !previewNodes.preview) {
@@ -3218,12 +4088,6 @@ const sanitizeCrystalGlassSkillItems = (items = []) => {
     });
 };
 
-const sanitizeCrystalGlassEducationItems = (items = []) =>
-    items.map((item) => String(item || '').replace(
-        /Simplon\s*[—-]\s*Formation numérique\s*\/\s*développement web/gi,
-        'Simplon — Formation numérique'
-    ));
-
 const optimizeForPrint = () => {
     if (!cvForm) {
         return null;
@@ -3353,31 +4217,158 @@ const fillList = (target, items) => {
 };
 
 const monthNamesPattern =
-    '(?:janv(?:ier)?|f[ée]vr(?:ier)?|mars|avr(?:il)?|mai|juin|juil(?:let)?|ao[uû]t|sept(?:embre)?|oct(?:obre)?|nov(?:embre)?|d[ée]c(?:embre)?)';
+    '(?:janv(?:ier)?|f[ée]v(?:r(?:ier)?)?|mars|avr(?:il)?|mai|juin|juil(?:l(?:et)?)?|ao[uû]t|sept(?:embre)?|oct(?:obre)?|nov(?:embre)?|d[ée]c(?:embre)?|jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)';
 
+// Les CV anglophones emploient souvent des années abrégées avec le mois
+// ("July 25"). Une année seule reste volontairement attendue sur 4 chiffres
+// afin de ne pas confondre un nombre ordinaire avec une date.
+const cvMonthYearPattern = `(?:(?:${monthNamesPattern})\\.?\\s*,?\\s*\\d{2,4}|(?:0?[1-9]|1[0-2])\\s*[-/.]\\s*(?:(?:19|20)\\d{2}|\\d{2}))`;
+const cvFullYearPattern = '\\b(?:19|20)\\d{2}\\b';
+const cvDatedTokenPattern = `(?:${cvMonthYearPattern}|${cvFullYearPattern})`;
+const cvOngoingDatePattern = "(?:aujourd'hui|present|pr[ée]sent|now|current)";
+const cvDateTokenPattern = `(?:${cvDatedTokenPattern}|${cvOngoingDatePattern})`;
+
+const experienceDateRangePrefixPattern = "(?:(?:de|du|d['’]|from)\\s*)?";
+const experienceDateRangeConnectorPattern = "(?:[–—-]|[àa]|au|jusqu['’]?[àa]|to|until|through|till)";
 const experienceDateRegex = new RegExp(
-    `((?:${monthNamesPattern})\\.?\\s*\\d{4}|\\d{4})\\s*[–-]\\s*((?:${monthNamesPattern})\\.?\\s*\\d{4}|\\d{4}|aujourd'hui|present|pr[ée]sent)`,
+    `${experienceDateRangePrefixPattern}(${cvDatedTokenPattern})\\s*${experienceDateRangeConnectorPattern}\\s*(${cvDateTokenPattern})`,
     'i'
 );
+
+// PDF.js peut intercaler l'entreprise entre le mois de fin et son année,
+// par exemple « de novembre 2022 à janvier CEIDF ... 2023 ». On récupère
+// alors la période sans jeter le fragment d'entreprise intercalé.
+const experienceInterleavedDateRegex = new RegExp(
+    `${experienceDateRangePrefixPattern}(${cvMonthYearPattern})\\s*${experienceDateRangeConnectorPattern}\\s*(${monthNamesPattern})\\.?\\s+([^•\\n]{1,180}?)\\s+((?:19|20)\\d{2})(?=\\s|•|$)`,
+    'i'
+);
+
+// Certains moteurs PDF déplacent aussi l'année de fin au début de la puce
+// suivante : « de septembre 2019 à août Employeur • 2021 Lieu Mission ».
+// Le séparateur de puce est conservé afin que l'employeur et la mission
+// restent deux fragments distincts après extraction de la période.
+const experienceInterleavedBulletDateRegex = new RegExp(
+    `(^|•\\s*)${experienceDateRangePrefixPattern}(${cvMonthYearPattern})\\s*${experienceDateRangeConnectorPattern}\\s*(${monthNamesPattern})\\.?\\s+([^•\\n]{1,180}?)\\s*•\\s*((?:19|20)\\d{2})(?=\\s|$)`,
+    'i'
+);
+
+const getExperienceDateMatchScope = (line = '', matchIndex = -1) => {
+    const source = String(line || '');
+    const firstBulletIndex = source.indexOf('•');
+
+    if (matchIndex < 0) {
+        return '';
+    }
+    if (firstBulletIndex === -1 || matchIndex < firstBulletIndex) {
+        return 'header';
+    }
+
+    const leadingFirstDetailText = source
+        .slice(firstBulletIndex + 1, matchIndex)
+        .trim();
+    return matchIndex === firstBulletIndex || !leadingFirstDetailText
+        ? 'first-detail'
+        : '';
+};
+
+const hasPlausibleInterleavedExperienceYears = (start = '', end = '') => {
+    const startYear = Number(String(start || '').match(/\b((?:19|20)\d{2})\b/)?.[1] || 0);
+    const endYear = Number(end || 0);
+    const currentYear = new Date().getFullYear();
+
+    return endYear >= 1900
+        && endYear <= currentYear + 5
+        && (!startYear || endYear >= startYear);
+};
+
+const buildExperienceDateMatch = (line, match, {
+    date,
+    replacement = '',
+} = {}) => {
+    if (!match || !date) {
+        return null;
+    }
+
+    const scope = getExperienceDateMatchScope(line, match.index);
+    if (!scope) {
+        return null;
+    }
+
+    const matchEnd = (match.index || 0) + match[0].length;
+    const nextBulletIndex = String(line || '').indexOf('•', matchEnd);
+    const firstDetailSuffix = scope === 'first-detail'
+        ? String(line || '').slice(matchEnd, nextBulletIndex === -1 ? undefined : nextBulletIndex)
+        : '';
+
+    return {
+        date,
+        index: match.index,
+        matchedText: match[0],
+        replacement,
+        scope,
+        preserveFirstDetailMeta: scope === 'first-detail'
+            && Boolean(`${replacement} ${firstDetailSuffix}`.replace(/[•|,;–—-]/g, ' ').trim()),
+    };
+};
+
+const extractExperienceDateMatch = (line = '') => {
+    const source = String(line || '');
+    const directMatch = source.match(experienceDateRegex);
+    const directResult = directMatch
+        ? buildExperienceDateMatch(source, directMatch, {
+            date: `${directMatch[1]} - ${directMatch[2]}`,
+        })
+        : null;
+    if (directResult) {
+        return directResult;
+    }
+
+    const interleavedMatch = source.match(experienceInterleavedDateRegex);
+    const interleavedResult = interleavedMatch
+        && hasPlausibleInterleavedExperienceYears(interleavedMatch[1], interleavedMatch[4])
+        ? buildExperienceDateMatch(source, interleavedMatch, {
+            date: `${interleavedMatch[1]} - ${interleavedMatch[2]} ${interleavedMatch[4]}`,
+            replacement: interleavedMatch[3],
+        })
+        : null;
+    if (interleavedResult) {
+        return interleavedResult;
+    }
+
+    const bulletMatch = source.match(experienceInterleavedBulletDateRegex);
+    if (
+        !bulletMatch
+        || !hasPlausibleInterleavedExperienceYears(bulletMatch[2], bulletMatch[5])
+    ) {
+        return null;
+    }
+
+    const keptBulletBoundary = bulletMatch[1] ? ' • ' : '';
+    return buildExperienceDateMatch(source, bulletMatch, {
+        date: `${bulletMatch[2]} - ${bulletMatch[3]} ${bulletMatch[5]}`,
+        replacement: `${keptBulletBoundary}${bulletMatch[4]} • `,
+    });
+};
 
 const parseExperienceEntry = (line) => {
     const cleanLine = line
         .replace(/^(?:(?:[•\-\u2022]|→)\s*)+/g, '')
         .replace(/\s{2,}/g, ' ')
         .trim();
-    const dateMatch = cleanLine.match(experienceDateRegex);
-    let date = dateMatch ? `${dateMatch[1]} - ${dateMatch[2]}` : '';
+    const dateMatch = extractExperienceDateMatch(cleanLine);
+    let date = dateMatch ? dateMatch.date : '';
     let withoutDate = dateMatch
         ? cleanLine
-            .replace(dateMatch[0], '')
+            .replace(dateMatch.matchedText, dateMatch.replacement || '')
             .replace(/\s*[–-]\s*(?=•|$)/g, ' ')
             .replace(/\s+,/g, ',')
+            .replace(/\s*•\s*•\s*/g, ' • ')
             .trim()
         : cleanLine;
 
     if (!date) {
         const singleDateBeforeBulletRegex = new RegExp(
-            `\\s*[|,–-]\\s*((?:${monthNamesPattern})\\.?\\s*\\d{4}|\\d{4})\\s*(?=•)`,
+            `\\s*[|,–-]\\s*(${cvDatedTokenPattern})\\s*(?=•)`,
             'i'
         );
         const singleDateBeforeBulletMatch = cleanLine.match(singleDateBeforeBulletRegex);
@@ -3404,25 +4395,34 @@ const parseExperienceEntry = (line) => {
         .map((part) => part.trim())
         .filter(Boolean);
     const header = bulletParts.shift() || cleanLine;
+    const importedFirstDetailMeta = dateMatch?.scope === 'first-detail'
+        && dateMatch.preserveFirstDetailMeta
+        && bulletParts.length
+        ? bulletParts.shift()
+        : '';
     const headerParts = header.split(/\s+[–-]\s+/).map((part) => part.trim()).filter(Boolean);
     const firstTwoPartsAreDigitalTitle =
         headerParts.length >= 2 &&
         /^d[ée]veloppement web$/i.test(headerParts[0]) &&
-        /^projets? autodidactes?$/i.test(headerParts[1]);
+        /^projets? (?:autodidactes?|personnels?)$/i.test(headerParts[1]);
     const secondPartIsTitleComplement =
         headerParts.length >= 3 &&
         /^(?:receveur|client[eè]le|commerciale?|vendeuse|adjoint[e]?|assistant[e]?)\b/i.test(headerParts[1]) &&
-        /[,/]|(?:ratp|ceidf|cama[ïi]eu|american express|air france|entreprise|soci[ée]t[ée])/i.test(headerParts.slice(2).join(' '));
+        /[,/]|(?:entreprise|soci[ée]t[ée]|organisation|company|corporation|groupe|group)/i.test(headerParts.slice(2).join(' '));
     const title = firstTwoPartsAreDigitalTitle
         ? `${headerParts[0]} – ${headerParts[1]}`.replace(/\s{2,}/g, ' ').trim()
         : secondPartIsTitleComplement
         ? `${headerParts[0]}-${headerParts[1]}`.replace(/\s{2,}/g, ' ').trim()
         : headerParts[0] || header;
-    const meta = firstTwoPartsAreDigitalTitle
+    const headerMeta = firstTwoPartsAreDigitalTitle
         ? headerParts.slice(2).join(' - ')
         : secondPartIsTitleComplement
         ? headerParts.slice(2).join(' - ')
         : headerParts.slice(1).join(' - ');
+    const meta = [headerMeta, importedFirstDetailMeta]
+        .map((part) => String(part || '').trim())
+        .filter(Boolean)
+        .join(' - ');
 
     return {
         title: cleanCvText(title.replace(/^(?:(?:[•\-\u2022]|→)\s*)+/g, '')),
@@ -3550,9 +4550,6 @@ const lowerFrenchConnectorWords = (value = '') =>
 
 const restoreCvAcronyms = (value = '') =>
     String(value || '')
-        .replace(/\bratp\b/gi, 'RATP')
-        .replace(/\bceidf\b/gi, 'CEIDF')
-        .replace(/\bfdv\b/gi, 'FDV')
         .replace(/\bfimo\b/gi, 'FIMO')
         .replace(/\biobsp\b/gi, 'IOBSP')
         .replace(/\bhtml\b/gi, 'HTML')
@@ -3562,7 +4559,27 @@ const restoreCvAcronyms = (value = '') =>
         .replace(/\bword\b/gi, 'Word')
         .replace(/\bcv\b/gi, 'CV')
         .replace(/\bia\b/gi, 'IA')
-        .replace(/\bats\b/gi, 'ATS');
+        .replace(/\bats\b/gi, 'ATS')
+        .replace(/\bcrm\b/gi, 'CRM')
+        .replace(/\berp\b/gi, 'ERP')
+        .replace(/\brh\b/gi, 'RH')
+        .replace(/\bpme\b/gi, 'PME')
+        .replace(/\bbts\b/gi, 'BTS')
+        .replace(/\brgpd\b/gi, 'RGPD')
+        .replace(/\bqhse\b/gi, 'QHSE')
+        .replace(/\brse\b/gi, 'RSE')
+        .replace(/\bux\b/gi, 'UX')
+        .replace(/\bui\b/gi, 'UI')
+        .replace(/\bseo\b/gi, 'SEO')
+        .replace(/\bsea\b/gi, 'SEA')
+        .replace(/\bnlp\b/gi, 'NLP')
+        .replace(/\bapi\b/gi, 'API')
+        .replace(/\bsql\b/gi, 'SQL')
+        .replace(/\baws\b/gi, 'AWS')
+        .replace(/\bgcp\b/gi, 'GCP')
+        .replace(/\b(?:ci\s*\/\s*cd|cicd)\b/gi, 'CI/CD')
+        .replace(/\bsaas\b/gi, 'SaaS')
+        .replace(/\bdevops\b/gi, 'DevOps');
 
 const cvLowercaseTerms = new Set([
     'accompagnement',
@@ -3700,19 +4717,42 @@ const lowerCommonCvWordCase = (value = '') =>
         return startsSentence ? capitalizeFrenchWord(lower) : lower;
     });
 
-const normalizeCvSentenceText = (value = '') =>
-    restoreCvAcronyms(lowerCommonCvWordCase(fixInternalCvWordCase(lowerFrenchConnectorWords(correctCommonCvText(value)))))
+const shouldApplyFrenchCvNormalization = (value = '', locale = currentCvContentLocale) => {
+    if (locale === 'en') {
+        return false;
+    }
+
+    const source = normalizeForMatch(String(value || ''));
+    const englishSignals = (source.match(/\b(?:and|the|with|for|from|customer|manager|management|business|accounting|professional|education|skills|present|english)\b/g) || []).length;
+    const frenchSignals = (source.match(/\b(?:et|les|des|avec|pour|depuis|gestion|clientele|conseiller|conseillere|formation|competences|francais|aujourd hui)\b/g) || []).length;
+
+    return englishSignals <= frenchSignals;
+};
+
+const normalizeCvSentenceText = (value = '', locale = currentCvContentLocale) => {
+    const cleaned = cleanCvText(String(value || ''));
+    if (!shouldApplyFrenchCvNormalization(cleaned, locale)) {
+        return cleaned;
+    }
+
+    return restoreCvAcronyms(lowerCommonCvWordCase(lowerFrenchConnectorWords(correctCommonCvText(cleaned))))
         .replace(/\bD[’']/g, 'd’')
         .replace(/\bL[’']/g, 'l’')
         .replace(/\bJ[’']/g, 'j’')
         .replace(/\s{2,}/g, ' ')
         .trim();
+};
 
-const formatCvHeadline = (value = '') =>
-    restoreCvAcronyms(lowerCommonCvWordCase(fixInternalCvWordCase(lowerFrenchConnectorWords(correctCommonCvText(value)))))
+const formatCvHeadline = (value = '', locale = currentCvContentLocale) => {
+    const normalized = shouldApplyFrenchCvNormalization(value, locale)
+        ? restoreCvAcronyms(lowerCommonCvWordCase(lowerFrenchConnectorWords(correctCommonCvText(value))))
+        : cleanCvText(String(value || ''));
+
+    return normalized
         .replace(/\s*[–-]\s*/g, ' - ')
         .replace(/\s{2,}/g, ' ')
         .trim();
+};
 
 const normalizeCvMultilineText = (value = '') =>
     splitLines(value)
@@ -4094,22 +5134,11 @@ const setCvFieldIfDefault = (fieldName, value) => {
     field.value = value;
 };
 
-const getDefaultCvLanguagesValue = () => [
-    'Français : langue maternelle',
-    'Anglais : intermédiaire',
-].join('\n');
+const getDefaultCvLanguagesValue = () => '';
 
-const applyDefaultLanguagesIfMissing = () => {
-    const field = cvForm?.elements.languages;
-
-    if (!field || field.value.trim() || !hasMeaningfulCvContent()) {
-        return false;
-    }
-
-    field.value = getDefaultCvLanguagesValue();
-    clearEditableOverride('languages');
-    return true;
-};
+// Une langue et son niveau sont des faits personnels. KirbyCV les laisse vides
+// tant qu'ils ne figurent pas dans le document ou dans une demande explicite.
+const applyDefaultLanguagesIfMissing = () => false;
 
 const applyReadyCvBase = (message = '') => {
     if (!cvForm) {
@@ -4129,6 +5158,12 @@ const applyReadyCvBase = (message = '') => {
     }
 
     const context = getCvRoleContext(message);
+    if (!hasMeaningfulCvContent()) {
+        applyReadyCvLayout();
+        updateCvPreview();
+        return { mode: 'blank', context, experienceCount: 0 };
+    }
+
     const template = readyCvTemplates[context] || readyCvTemplates.general;
 
     setCvFieldIfDefault('fullName', 'Votre nom');
@@ -4174,6 +5209,7 @@ const applyReadyCvBase = (message = '') => {
     cleanupImportedExperienceField();
     cleanupImportedEducationField();
     harmonizeExperienceFieldStructure({ silent: true });
+    sortNewCvExperiencesNewestFirst();
     renderExperienceEditor();
     renderLanguageEditor();
     updateCvPreview();
@@ -4211,15 +5247,11 @@ const serializeExperienceEntry = (entry) => {
     return [header, ...bullets].filter(Boolean).join(' • ');
 };
 
-const improveMissionBullet = (bullet, context) => {
+const improveMissionBullet = (bullet) => {
     const cleanBullet = normalizeCvSentenceText(bullet || '').replace(/^(?:[•\-\u2022]|→)\s*/g, '');
 
     if (!cleanBullet) {
         return '';
-    }
-
-    if (cleanBullet.length < 18) {
-        return roleMissionSuggestions[context]?.[0] || cleanBullet;
     }
 
     return cleanBullet
@@ -4229,96 +5261,24 @@ const improveMissionBullet = (bullet, context) => {
 };
 
 const improveExperienceEntry = (entry) => {
-    const context = getCvRoleContext(`${entry.title || ''} ${entry.meta || ''} ${(entry.bullets || []).join(' ')}`);
-    const bullets = dedupeImportedItems((entry.bullets || []).map((bullet) => improveMissionBullet(bullet, context)).filter(Boolean));
-    const fallbackBullets = roleMissionSuggestions[context] || roleMissionSuggestions.general;
+    const bullets = dedupeImportedItems((entry.bullets || []).map(improveMissionBullet).filter(Boolean));
 
     return {
-        title: formatCvHeadline(entry.title || 'Poste occupé'),
+        title: formatCvHeadline(entry.title || ''),
         meta: normalizeCvSentenceText(entry.meta || ''),
         date: normalizeCvSentenceText(entry.date || ''),
-        bullets: (bullets.length ? bullets : fallbackBullets.slice(0, 2)).slice(0, 4),
-    };
-};
-
-const getKnownExperienceFallbackData = (entry = {}) => {
-    const source = normalizeForMatch(`${entry.title || ''} ${entry.meta || ''}`);
-
-    if (/\bmachiniste\b|\breceveur\b|\bratp\b/.test(source)) {
-        return {
-            strict: true,
-            meta: 'RATP, Nanterre',
-            bullets: [
-                'Accueil et information des voyageurs',
-                'Conduite en toute sécurité et respect des horaires',
-                'Gestion des situations imprévues et du service client',
-            ],
-        };
-    }
-
-    if (/\bceidf\b|\bconseillere commerciale\b|\bconseillère commerciale\b/.test(source)) {
-        return {
-            strict: true,
-            meta: 'CEIDF, Montigny-le-Bretonneux',
-            bullets: [
-                'Conseil à distance',
-                'Analyse des besoins',
-                'Proposition de solutions bancaires adaptées',
-            ],
-        };
-    }
-
-    if (/\bcama[ïi]eu\b|\bresponsable adjointe\b/.test(source)) {
-        return {
-            strict: true,
-            meta: 'Camaïeu, Rueil-Malmaison',
-            bullets: [
-                'Management de l’équipe',
-                'Développement du chiffre d’affaires',
-                'Gestion des stocks',
-                'Fidélisation de la clientèle',
-            ],
-        };
-    }
-
-    if (/\bamerican express\b|\bair france\b|\bchargee de clientele\b|\bchargée de clientèle\b|\bconseillere clientele\b|\bconseillère clientèle\b/.test(source)) {
-        return {
-            strict: true,
-            meta: 'American Express / Air France, Roissy',
-            bullets: [
-                'Conseil et accompagnement des voyageurs',
-                'Constitution et suivi des dossiers',
-                'Vente de produits et services financiers',
-                'Développement commercial et fidélisation',
-            ],
-        };
-    }
-
-    return {
-        strict: false,
-        meta: '',
-        bullets: roleMissionSuggestions[getCvRoleContext(source)] || roleMissionSuggestions.general,
+        bullets,
     };
 };
 
 const harmonizeExperienceEntryStructure = (entry = {}) => {
-    const baseEntry = improveExperienceEntry(entry);
-    const fallback = getKnownExperienceFallbackData(baseEntry);
-    const existingBullets = dedupeImportedItems((baseEntry.bullets || []).map(normalizeCvSentenceText).filter(Boolean));
-    const fallbackBullets = fallback.bullets.map(normalizeCvSentenceText);
-    const mergedBullets = fallback.strict
-        ? fallbackBullets
-        : dedupeImportedItems([...existingBullets, ...fallbackBullets]).slice(0, 4);
-    const targetBulletCount = fallback.strict
-        ? Math.min(Math.max(2, fallbackBullets.length), 4)
-        : existingBullets.length >= 3
-            ? Math.min(existingBullets.length, 4)
-            : Math.min(Math.max(2, fallbackBullets.length), 4);
-
     return {
-        ...baseEntry,
-        meta: normalizeCvSentenceText(baseEntry.meta || fallback.meta || ''),
-        bullets: mergedBullets.slice(0, targetBulletCount),
+        title: formatCvHeadline(entry.title || ''),
+        meta: normalizeCvSentenceText(entry.meta || ''),
+        date: normalizeCvSentenceText(entry.date || ''),
+        bullets: dedupeImportedItems(
+            (entry.bullets || []).map(normalizeCvSentenceText).filter(Boolean)
+        ),
     };
 };
 
@@ -4391,7 +5351,7 @@ const renderExperienceEditor = () => {
                 </label>
                 <label class="experience-card-wide">
                     <span>Entreprise / lieu</span>
-                    <input type="text" data-experience-field="meta" value="${escapeHtml(entry.meta || '')}" placeholder="Ex. Camaïeu, Rueil-Malmaison">
+                    <input type="text" data-experience-field="meta" value="${escapeHtml(entry.meta || '')}" placeholder="Ex. Entreprise, Paris">
                 </label>
             </div>
             <label>
@@ -4459,10 +5419,10 @@ const addExperienceCard = () => {
     hideKirbyCvProposal();
     const entries = collectExperienceEditorEntries();
     entries.push({
-        title: cvForm.elements.headline?.value || 'Poste occupé',
+        title: 'Nouvelle expérience',
         meta: '',
         date: '',
-        bullets: [roleMissionSuggestions[getCvRoleContext()]?.[0] || 'Mission principale clarifiée et orientée résultat'],
+        bullets: [],
     });
     field.value = entries.map(serializeExperienceEntry).join('\n');
     renderExperienceEditor();
@@ -4476,7 +5436,7 @@ const getLanguageField = () => cvForm?.elements.languages || null;
 
 const normalizeLanguageLevel = (value = '') => {
     const normalized = normalizeForMatch(value).replace(/\s+/g, ' ').trim();
-    const aliases = {
+    const frenchAliases = {
         'langue maternelle': 'Langue maternelle',
         maternelle: 'Langue maternelle',
         native: 'Langue maternelle',
@@ -4513,6 +5473,39 @@ const normalizeLanguageLevel = (value = '') => {
         'a preciser': '',
     };
 
+    const englishAliases = {
+        'langue maternelle': 'Native',
+        maternelle: 'Native',
+        native: 'Native',
+        'native speaker': 'Native',
+        courant: 'Fluent',
+        courante: 'Fluent',
+        fluent: 'Fluent',
+        bilingue: 'Bilingual',
+        bilingual: 'Bilingual',
+        basic: 'Basic',
+        'basic english': 'Basic',
+        'basic knowledge': 'Basic',
+        'basic proficiency': 'Basic',
+        notions: 'Basic',
+        notion: 'Basic',
+        beginner: 'Beginner',
+        debutant: 'Beginner',
+        elementary: 'Elementary',
+        'elementary level': 'Elementary',
+        'bases solides': 'Elementary',
+        intermediate: 'Intermediate',
+        intermediaire: 'Intermediate',
+        'niveau intermediaire': 'Intermediate',
+        professionnel: 'Professional working proficiency',
+        professionnelle: 'Professional working proficiency',
+        'niveau professionnel': 'Professional working proficiency',
+        'professional working proficiency': 'Professional working proficiency',
+        'working proficiency': 'Professional working proficiency',
+        'a preciser': '',
+    };
+    const aliases = currentCvContentLocale === 'en' ? englishAliases : frenchAliases;
+
     return aliases[normalized] ?? normalizeCvSentenceText(value);
 };
 
@@ -4543,10 +5536,17 @@ const splitMergedLanguageItems = (items = []) => {
         'Italien',
         'Allemand',
         'Portugais',
+        'French',
+        'English',
+        'Arabic',
+        'Spanish',
+        'Italian',
+        'German',
+        'Portuguese',
     ].join('|');
     const languageLookaheadPattern = `(?=(?:${languageNames})\\s*[:–—-])`;
     const levelBeforeLanguage = new RegExp(
-        `\\b(Langue maternelle|Bilingue|Courant|Courante|intermédiaire|intermediaire|Débutant|Debutant|Notions|Bases solides|Niveau professionnel)\\s*${languageLookaheadPattern}`,
+        `\\b(Langue maternelle|Bilingue|Courant|Courante|intermédiaire|intermediaire|Débutant|Debutant|Notions|Bases solides|Niveau professionnel|Native|Bilingual|Fluent|Intermediate|Beginner|Elementary|Basic|Professional working proficiency)\\s*${languageLookaheadPattern}`,
         'gi'
     );
 
@@ -4689,7 +5689,9 @@ const reorderPreviewSections = () => {
     }
 
     const layoutTheme = cvForm?.elements.layoutTheme?.value;
-    const isStructuredLayout = (layoutTheme === 'modern' || layoutTheme === 'holographic') && modernPreviewSidebar && modernPreviewMain;
+    const isStructuredLayout = usesStructuredCvLayout(layoutTheme)
+        && modernPreviewSidebar
+        && modernPreviewMain;
 
     if (isStructuredLayout) {
         const sidebarKeys = layoutTheme === 'holographic'
@@ -4728,9 +5730,10 @@ const syncModernPreviewStructure = (layoutTheme = '') => {
         return;
     }
 
-    if (layoutTheme === 'modern' || layoutTheme === 'holographic') {
+    if (usesStructuredCvLayout(layoutTheme)) {
         modernPreviewLayout.hidden = false;
         modernPreviewLayout.setAttribute('aria-hidden', 'false');
+        movePreviewNode(modernPreviewSidebar, cvProfilePhotoNode);
         movePreviewNode(modernPreviewSidebar, previewNodes.meta);
         movePreviewNode(modernPreviewMain, previewNodes.fullName);
         movePreviewNode(modernPreviewMain, previewNodes.headline);
@@ -4743,6 +5746,7 @@ const syncModernPreviewStructure = (layoutTheme = '') => {
     if (previewHeaderLabel) {
         movePreviewNode(previewHeader, previewHeaderLabel);
     }
+    movePreviewNode(previewHeader, cvProfilePhotoNode);
     movePreviewNode(previewHeader, previewNodes.fullName);
     movePreviewNode(previewHeader, previewNodes.meta);
     movePreviewNode(previewHeader, previewNodes.headline);
@@ -4762,8 +5766,11 @@ const renderEditableOverride = (target, node) => {
         return false;
     }
 
-    node.innerHTML = override.html;
-    applyEditableNodeStyleState(node, override.style || {});
+    const html = sanitizeCvEditableHtml(target, override.html);
+    const style = normalizeStyleState(override.style);
+    cvEditableContent[target] = { html, style };
+    node.innerHTML = html;
+    applyEditableNodeStyleState(node, style);
     return true;
 };
 
@@ -4783,7 +5790,7 @@ const renderEditableTextNode = (node, target, text) => {
 };
 
 // Récupère les anciennes coordonnées quand une édition directe les a collées
-// dans le champ Ville (ex. « VilleRueil…Tél…E-mail…Permis… »).
+// dans le champ Ville (ex. « VilleParis…Tél…E-mail…Permis… »).
 const recoverMergedContactValues = (values = {}) => {
     const rawLocation = String(values.location || '').replace(/\s+/g, ' ').trim();
     const needsRecovery = /(?:t[ée]l(?:[ée]phone)?|e[- ]?mail|permis)/i.test(rawLocation)
@@ -4835,7 +5842,7 @@ const renderEditableContactNode = (node, values) => {
         .replace(/\s{2,}/g, ' ')
         .trim();
     const cleanLocationValue = (value = '') => cleanContactValue(value)
-        // Empêche les imports du type « Ville VilleRueil-Malmaison » sans
+        // Empêche les imports du type « Ville VilleParis » sans
         // supprimer le libellé vide « Ville / code postal » du formulaire.
         .replace(/^\s*(?:ville\s*)+(?=[A-ZÀ-ÖØ-Ý])/i, '')
         .trim();
@@ -4863,11 +5870,12 @@ const renderEditableContactNode = (node, values) => {
     const shouldShowPermit =
         contactValues.permit &&
         !normalizeForMatch(values.headline || '').includes(normalizeForMatch(contactValues.permit));
+    const documentLabels = localizedCvDocumentLabels[currentCvContentLocale] || localizedCvDocumentLabels.fr;
     const contactParts = [
-        { type: 'location', label: 'Ville', value: contactValues.location },
-        { type: 'phone', label: 'Tél.', value: contactValues.phone },
-        { type: 'email', label: 'E-mail', value: contactValues.email },
-        { type: 'permit', label: 'Permis', value: shouldShowPermit ? contactValues.permit : '' },
+        { type: 'location', label: documentLabels.location, value: contactValues.location },
+        { type: 'phone', label: documentLabels.phone, value: contactValues.phone },
+        { type: 'email', label: documentLabels.email, value: contactValues.email },
+        { type: 'permit', label: documentLabels.permit, value: shouldShowPermit ? contactValues.permit : '' },
     ].filter((item) => item.value);
 
     node.hidden = contactParts.length === 0;
@@ -4931,12 +5939,6 @@ const renderEditableListNode = (node, target, renderFallback) => {
 };
 
 const repairPreviewExperienceItems = (items) => {
-    const hasStructuredExperience = items.some((item) => /\s[–-]\s.+\s[–-]\s.+(?:\s•\s|$)/.test(item || ''));
-    const rebuiltKnownExperiences = hasStructuredExperience ? [] : rebuildKnownFragmentedExperiences(items);
-    if (rebuiltKnownExperiences.length) {
-        return rebuiltKnownExperiences;
-    }
-
     const repaired = [];
     const clean = (line) =>
         (line || '')
@@ -4969,7 +5971,7 @@ const repairPreviewExperienceItems = (items) => {
             continue;
         }
 
-        if (/^(?:\d{4}|(?:janv|févr|fevr|mars|avr|mai|juin|juil|août|aout|sept|oct|nov|déc|dec)\.?\s*\d{4})\s*[–-]/i.test(item) && repaired.length) {
+        if (new RegExp(`^${cvDatedTokenPattern}\\s*[–-]`, 'i').test(item) && repaired.length) {
             repaired[repaired.length - 1] = `${repaired[repaired.length - 1]} - ${nextMonth ? `${nextMonth} ` : ''}${item}`.trim();
             if (nextMonth) {
                 index += 1;
@@ -4977,7 +5979,7 @@ const repairPreviewExperienceItems = (items) => {
             continue;
         }
 
-        if (/^(?:janv|févr|fevr|mars|avr|mai|juin|juil|août|aout|sept|oct|nov|déc|dec)\.?\s*\d{4}$/i.test(item) && repaired.length) {
+        if (new RegExp(`^${cvMonthYearPattern}$`, 'i').test(item) && repaired.length) {
             repaired[repaired.length - 1] = `${repaired[repaired.length - 1]} - ${item}`.trim();
             continue;
         }
@@ -4999,12 +6001,7 @@ const repairPreviewExperienceItems = (items) => {
         repaired.push(item);
     }
 
-    const repairedItems = dedupeImportedItems(repaired);
-    if (hasStructuredExperience) {
-        return repairedItems;
-    }
-
-    return mergeKnownExperienceRebuilds([...items, ...repairedItems], repairedItems);
+    return dedupeImportedItems(repaired);
 };
 
 const normalizeTimelineMatch = (value = '') =>
@@ -5013,20 +6010,158 @@ const normalizeTimelineMatch = (value = '') =>
         .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase();
 
-const getTimelineEntrySortValue = (line = '') => {
-    const entry = parseExperienceEntry(line);
-    const source = `${entry.date || ''} ${line || ''}`;
-    const years = [...source.matchAll(/\b(?:19|20)\d{2}\b/g)].map((match) => Number(match[0]));
-    const hasOngoingMarker = /\b(aujourd'hui|aujourd’hui|present|présent|actuel|maintenant)\b/i.test(source);
+const timelineMonthNumbers = {
+    jan: 1,
+    janv: 1,
+    janvier: 1,
+    january: 1,
+    feb: 2,
+    fev: 2,
+    fevr: 2,
+    fevrier: 2,
+    february: 2,
+    mar: 3,
+    mars: 3,
+    march: 3,
+    apr: 4,
+    avr: 4,
+    avril: 4,
+    april: 4,
+    may: 5,
+    mai: 5,
+    jun: 6,
+    juin: 6,
+    june: 6,
+    jul: 7,
+    juil: 7,
+    juill: 7,
+    juillet: 7,
+    july: 7,
+    aug: 8,
+    aout: 8,
+    august: 8,
+    sep: 9,
+    sept: 9,
+    septembre: 9,
+    september: 9,
+    oct: 10,
+    octobre: 10,
+    october: 10,
+    nov: 11,
+    novembre: 11,
+    november: 11,
+    dec: 12,
+    decembre: 12,
+    december: 12,
+};
 
-    if (!years.length) {
-        return { end: 0, start: 0, hasDate: false };
+const expandCvTwoDigitYear = (value) => {
+    const source = String(value || '').trim();
+    if (!/^\d{2}$/.test(source)) {
+        return Number(source);
     }
 
+    const shortYear = Number(source);
+    const futureTolerance = 5;
+    const pivot = (new Date().getFullYear() + futureTolerance) % 100;
+    return shortYear <= pivot ? 2000 + shortYear : 1900 + shortYear;
+};
+
+const getTimelineDatePoints = (value = '') => {
+    const source = normalizeTimelineMatch(value)
+        .replace(/([a-z])\./g, '$1')
+        .replace(/[–—]/g, '-');
+    const points = [];
+    const occupiedRanges = [];
+    const addPoint = (year, month, index, length) => {
+        const numericYear = expandCvTwoDigitYear(year);
+        const numericMonth = Number(month || 0);
+        if (numericYear < 1900 || numericYear > new Date().getFullYear() + 5) {
+            return;
+        }
+        if (occupiedRanges.some((range) => index >= range.start && index < range.end)) {
+            return;
+        }
+        occupiedRanges.push({ start: index, end: index + length });
+        points.push({ year: numericYear, month: numericMonth, index });
+    };
+
+    for (const match of source.matchAll(/\b(0?[1-9]|1[0-2])\s*[-/.]\s*(\d{2}|(?:19|20)\d{2})\b/g)) {
+        addPoint(match[2], match[1], match.index, match[0].length);
+    }
+    for (const match of source.matchAll(/\b([a-z]+)\s*,?\s*(\d{2}|(?:19|20)\d{2})\b/g)) {
+        const month = timelineMonthNumbers[match[1]];
+        if (month) {
+            addPoint(match[2], month, match.index, match[0].length);
+        }
+    }
+    for (const match of source.matchAll(/\b((?:19|20)\d{2})\b/g)) {
+        addPoint(match[1], 0, match.index, match[0].length);
+    }
+
+    return points.sort((left, right) => left.index - right.index);
+};
+
+const getTimelineEntrySortValue = (line = '') => {
+    const entry = parseExperienceEntry(line);
+    const headerParts = String(line || '').split(/\s+•\s+/);
+    // Un PDF peut placer la période dans le premier fragment précédé d'une
+    // puce (« Poste • de novembre 2022 à janvier 2023 • mission »). On lit le
+    // titre et ce fragment, sans parcourir les missions suivantes.
+    const fallbackDateSource = headerParts.slice(0, 2).join(' ').trim();
+    const dateSource = entry.date || fallbackDateSource;
+    const ongoingMarkerPattern = /\b(aujourd'hui|aujourd’hui|present|présent|actuel|maintenant|current|now)\b/i;
+    const points = getTimelineDatePoints(dateSource);
+    const hasOngoingMarker = entry.date
+        ? ongoingMarkerPattern.test(entry.date)
+        : /\b(aujourd'hui|aujourd’hui|present|présent|actuel|maintenant|current|now)\b\s*$/i.test(dateSource);
+
+    const currentDate = new Date();
+
+    if (!points.length) {
+        if (hasOngoingMarker) {
+            const currentMonth = currentDate.getMonth() + 1;
+            const currentKey = currentDate.getFullYear() * 12 + currentMonth;
+            return {
+                end: currentDate.getFullYear(),
+                start: currentDate.getFullYear(),
+                endMonth: currentMonth,
+                startMonth: currentMonth,
+                endKey: currentKey,
+                startKey: currentKey,
+                hasDate: true,
+                ongoing: true,
+            };
+        }
+
+        return {
+            end: 0,
+            start: 0,
+            endMonth: 0,
+            startMonth: 0,
+            endKey: 0,
+            startKey: 0,
+            hasDate: false,
+            ongoing: false,
+        };
+    }
+
+    const first = points[0];
+    const last = hasOngoingMarker
+        ? { year: currentDate.getFullYear(), month: currentDate.getMonth() + 1 }
+        : points[points.length - 1];
+    const startMonth = first.month || 1;
+    const endMonth = last.month || 12;
+
     return {
-        end: hasOngoingMarker ? new Date().getFullYear() : Math.max(...years),
-        start: Math.min(...years),
+        end: last.year,
+        start: first.year,
+        endMonth,
+        startMonth,
+        endKey: last.year * 12 + endMonth,
+        startKey: first.year * 12 + startMonth,
         hasDate: true,
+        ongoing: hasOngoingMarker,
     };
 };
 
@@ -5039,7 +6174,7 @@ const isDigitalProjectExperienceLine = (line = '') => {
 const isEducationTimelineLine = (line = '') => {
     const source = normalizeTimelineMatch(line);
 
-    return /\b(?:ecole 42|piscine|simplon|formation|certification|iobsp|fimo|permis|niveau|diplome)\b/.test(source);
+    return /\b(?:ecole|universite|formation|certification|permis|niveau|diplome|licence|master|bts|bac)\b/.test(source);
 };
 
 const getTimelineDedupeKey = (line = '') => {
@@ -5099,13 +6234,31 @@ const sortTimelineEntriesNewestFirst = (entries = [], addedEntries = []) => {
         }))
         .sort((left, right) =>
             Number(right.sort.hasDate) - Number(left.sort.hasDate) ||
-            right.sort.end - left.sort.end ||
-            right.sort.start - left.sort.start ||
+            Number(right.sort.ongoing) - Number(left.sort.ongoing) ||
+            right.sort.endKey - left.sort.endKey ||
+            right.sort.startKey - left.sort.startKey ||
             Number(right.added) - Number(left.added) ||
             left.index - right.index
         )
         .map((item) => item.line);
 };
+
+const sortTimelineEntriesOldestFirst = (entries = []) =>
+    entries
+        .filter(Boolean)
+        .map((line, index) => ({
+            line,
+            index,
+            sort: getTimelineEntrySortValue(line),
+        }))
+        .sort((left, right) =>
+            Number(right.sort.hasDate) - Number(left.sort.hasDate) ||
+            Number(left.sort.ongoing) - Number(right.sort.ongoing) ||
+            left.sort.startKey - right.sort.startKey ||
+            left.sort.endKey - right.sort.endKey ||
+            left.index - right.index
+        )
+        .map((item) => item.line);
 
 const normalizeDigitalProjectTimelinePeriods = (entries = []) => {
     const currentYear = new Date().getFullYear();
@@ -5141,7 +6294,7 @@ const normalizeDigitalProjectTimelinePeriods = (entries = []) => {
     });
 };
 
-const sortExperienceFieldNewestFirst = () => {
+const sortExperienceFieldByDate = ({ oldestFirst = false } = {}) => {
     const field = getExperienceField();
     const lines = field ? splitLines(field.value) : [];
 
@@ -5149,7 +6302,9 @@ const sortExperienceFieldNewestFirst = () => {
         return false;
     }
 
-    const sorted = sortTimelineEntriesNewestFirst(lines);
+    const sorted = oldestFirst
+        ? sortTimelineEntriesOldestFirst(lines)
+        : sortTimelineEntriesNewestFirst(lines);
     const value = sorted.join('\n');
     if (!value || value === lines.join('\n')) {
         return false;
@@ -5160,7 +6315,20 @@ const sortExperienceFieldNewestFirst = () => {
     return true;
 };
 
-const applyReadyCvLayout = () => {
+const sortExperienceFieldNewestFirst = () => sortExperienceFieldByDate();
+
+const sortNewCvExperiencesNewestFirst = ({ refresh = false } = {}) => {
+    const changed = sortExperienceFieldNewestFirst();
+
+    if (changed && refresh) {
+        updateCvPreview();
+        renderExperienceEditor();
+    }
+
+    return changed;
+};
+
+const applyReadyCvLayout = ({ force = false } = {}) => {
     if (!cvForm) {
         return false;
     }
@@ -5177,9 +6345,13 @@ const applyReadyCvLayout = () => {
         accentColor: '#24324a',
         paperColor: '#ffffff',
         frameColor: '#d8dee8',
+        sidebarColor: '#f4f6f8',
+        headingColor: '#24324a',
+        pageFrame: 'soft',
+        sectionBorders: 'soft',
     };
     let changed = false;
-    const preserveExistingStyle = hasMeaningfulCvContent();
+    const preserveExistingStyle = !force && hasMeaningfulCvContent();
 
     Object.entries(layoutDefaults).forEach(([fieldName, value]) => {
         const field = cvForm.elements[fieldName];
@@ -5255,6 +6427,153 @@ const applyCvAutopilotLocalCleanup = ({ readyLayout = false, fromImport = false,
     return [...new Set(changes)];
 };
 
+const getExperienceOrderDirection = (message = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(message)).replace(/\s+/g, ' ').trim();
+    return /\b(?:oldest first|oldest to newest|ascending|chronological ascending|plus ancien(?:ne)?(?:s)? (?:d abord|en premier)|du plus ancien au plus recent|ordre chronologique croissant)\b/.test(source)
+        ? 'oldest-first'
+        : 'newest-first';
+};
+
+const reorderCvSkillItems = (items = [], requestedOrder = [], options = {}) => {
+    const sourceItems = items.map((item) => String(item || '').trim()).filter(Boolean);
+    if (sourceItems.length < 2) {
+        return sourceItems;
+    }
+
+    if (options.relativeMove && typeof options.relativeMove === 'object') {
+        const normalizeSkill = (item = '') => normalizeForMatch(item).replace(/\s+/g, ' ').trim();
+        const findSkillIndex = (reference = '', list = sourceItems) => {
+            const target = normalizeSkill(reference);
+            if (!target) return -1;
+            const exactMatches = list
+                .map((item, index) => ({ index, value: normalizeSkill(item) }))
+                .filter(({ value }) => value === target);
+            if (exactMatches.length === 1) return exactMatches[0].index;
+            const partialMatches = list
+                .map((item, index) => ({ index, value: normalizeSkill(item) }))
+                .filter(({ value }) => target.length >= 4 && (value.includes(target) || target.includes(value)));
+            return partialMatches.length === 1 ? partialMatches[0].index : -1;
+        };
+        const movedIndex = findSkillIndex(options.relativeMove.item);
+        const referenceIndex = findSkillIndex(options.relativeMove.reference);
+
+        if (movedIndex >= 0 && referenceIndex >= 0 && movedIndex !== referenceIndex) {
+            const reordered = [...sourceItems];
+            const [movedItem] = reordered.splice(movedIndex, 1);
+            const referenceAfterRemoval = findSkillIndex(options.relativeMove.reference, reordered);
+            const insertionIndex = options.relativeMove.direction === 'after'
+                ? referenceAfterRemoval + 1
+                : referenceAfterRemoval;
+            reordered.splice(insertionIndex, 0, movedItem);
+            return reordered;
+        }
+    }
+
+    if (options.alphabetical) {
+        return sourceItems
+            .map((item, index) => ({ item, index }))
+            .sort((left, right) => {
+                const comparison = left.item.localeCompare(right.item, undefined, { sensitivity: 'base' });
+                return (options.descending ? -comparison : comparison) || left.index - right.index;
+            })
+            .map(({ item }) => item);
+    }
+
+    const normalizedTargets = requestedOrder
+        .map((item) => normalizeForMatch(String(item || '')).replace(/\s+/g, ' ').trim())
+        .filter(Boolean);
+    if (!normalizedTargets.length) {
+        return sourceItems;
+    }
+
+    const getRank = (item = '') => {
+        const normalizedItem = normalizeForMatch(item).replace(/\s+/g, ' ').trim();
+        const rank = normalizedTargets.findIndex((target) =>
+            normalizedItem === target ||
+            (target.length >= 4 && normalizedItem.includes(target))
+        );
+        return rank === -1 ? Number.MAX_SAFE_INTEGER : rank;
+    };
+
+    return sourceItems
+        .map((item, index) => ({ item, index, rank: getRank(item) }))
+        .sort((left, right) => left.rank - right.rank || left.index - right.index)
+        .map(({ item }) => item);
+};
+
+const hasExplicitSkillOrderCommand = (message = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(message)).replace(/\s+/g, ' ').trim();
+    const skillTerm = '(?:competences?|skills?|core expertise|expertise)';
+    return [
+        new RegExp(`\\b(?:range|ranger|trie|trier|classe|classer|ordonne|ordonner|organise|organiser|reorganise|reorganiser|sort|reorder|order|organize|prioritize|prioritise)\\s+(?:les\\s+|mes\\s+|my\\s+|the\\s+)?${skillTerm}\\b`),
+        new RegExp(`\\b${skillTerm}\\b.*\\b(?:ordre|order|alphabetique|alphabetical|a\\s*[-–>]\\s*z|z\\s*[-–>]\\s*a|priorite|priority|avant|apres|before|after)\\b`),
+        new RegExp(`\\b(?:ordre|order|alphabetique|alphabetical|priorite|priority)\\b.*\\b${skillTerm}\\b`),
+        new RegExp(`\\b(?:deplace|deplacer|move)\\b(?=.*\\b${skillTerm}\\b)(?=.*\\b(?:avant|apres|before|after)\\b)`),
+    ].some((pattern) => pattern.test(source));
+};
+
+const hasNegatedSkillOrderCommand = (message = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(message))
+        .replace(/[’']/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    const orderVerb = '(?:range|ranger|trie|trier|classe|classer|organise|organiser|reorganise|reorganiser|ordonne|ordonner|sort|reorder|order|organize|prioritize|prioritise)';
+
+    return new RegExp(`\\b(?:ne|n)\\s+(?:me\\s+)?${orderVerb}\\s+(?:pas|plus|jamais)\\b`).test(source)
+        || new RegExp(`\\bpas(?:\\s+[a-z0-9-]+){0,7}\\s+${orderVerb}\\b`).test(source)
+        || new RegExp(`\\b(?:do not|don t|dont|not|never|without)(?:\\s+[a-z0-9-]+){0,5}\\s+${orderVerb}\\b`).test(source);
+};
+
+const isSkillOrderCleanupIntent = (message = '') =>
+    hasExplicitSkillOrderCommand(message)
+    && !hasNegatedSkillOrderCommand(message)
+    && !hasExplicitDestructiveCvRemoval(message);
+
+const getRequestedSkillOrderFromInstruction = (message = '', items = []) => {
+    const source = normalizeForMatch(getKirbyUserInstruction(message)).replace(/\s+/g, ' ').trim();
+    const sourceItems = items.map((item) => String(item || '').trim()).filter(Boolean);
+    const alphabetical = /\b(?:alphabetique|alphabetical|alphabetically|a\s*[-–>]\s*z|z\s*[-–>]\s*a)\b/.test(source);
+    const descending = /\b(?:z\s*[-–>]\s*a|reverse alphabetical|alphabetique inverse|decroissant|descending)\b/.test(source);
+
+    for (const item of sourceItems) {
+        const itemKey = normalizeForMatch(item).replace(/\s+/g, ' ').trim();
+        for (const reference of sourceItems) {
+            if (reference === item) {
+                continue;
+            }
+            const referenceKey = normalizeForMatch(reference).replace(/\s+/g, ' ').trim();
+            if (source.includes(`${itemKey} apres ${referenceKey}`) || source.includes(`${itemKey} after ${referenceKey}`)) {
+                return {
+                    order: [],
+                    alphabetical: false,
+                    descending: false,
+                    relativeMove: { item, reference, direction: 'after' },
+                };
+            }
+            if (source.includes(`${itemKey} avant ${referenceKey}`) || source.includes(`${itemKey} before ${referenceKey}`)) {
+                return {
+                    order: [],
+                    alphabetical: false,
+                    descending: false,
+                    relativeMove: { item, reference, direction: 'before' },
+                };
+            }
+        }
+    }
+
+    const order = sourceItems
+        .map((item, index) => ({
+            item,
+            index,
+            position: source.indexOf(normalizeForMatch(item).replace(/\s+/g, ' ').trim()),
+        }))
+        .filter(({ position }) => position >= 0)
+        .sort((left, right) => left.position - right.position || left.index - right.index)
+        .map(({ item }) => item);
+
+    return { order, alphabetical, descending, relativeMove: null };
+};
+
 const hasExplicitExperienceOrderCommand = (message = '') => {
     const source = normalizeForMatch(getKirbyUserInstruction(message)).replace(/\s+/g, ' ').trim();
 
@@ -5266,13 +6585,28 @@ const hasExplicitExperienceOrderCommand = (message = '') => {
         /\b(?:organise|organiser|reorganise|reorganiser)\s+(?:les\s+|mes\s+)?(?:experience|experiences|parcours)\s+(?:par\s+date|par\s+dates|chronolog|dans\s+l\s*ordre)/,
         /\b(?:plus\s+recent|plus\s+recente|plus\s+ancien|plus\s+ancienne)\s+(?:a|vers|au|en\s+premier|en\s+dernier).*\b(?:experience|experiences|parcours)\b/,
         /\b(?:experience|experiences|parcours).*\b(?:plus\s+recent|plus\s+recente|plus\s+ancien|plus\s+ancienne)\b/,
-        /\b2023\b.*\b(?:mauvais|mauvaise|mal|pas\s+au\s+bon|en\s+bas|trop\s+bas|bas|endroits?|emdroits?|place|plac[eé]e?|position)\b/,
-        /\b(?:mauvais|mauvaise|mal|pas\s+au\s+bon|en\s+bas|trop\s+bas|bas|endroits?|emdroits?|place|plac[eé]e?|position)\b.*\b2023\b/,
+        /\b(?:sort|reorder|order|organize|organise)\s+(?:my\s+|the\s+)?(?:professional\s+experience|work\s+experience|employment\s+history|career\s+history|experience)\b/,
+        /\b(?:professional\s+experience|work\s+experience|employment\s+history|career\s+history|experience)\b.*\b(?:date|chronological|newest|most recent|oldest|ascending|descending)\b/,
+        /\b(?:dates?|chronolog(?:ique|ical)?)\b.*\b(?:experience|experiences|parcours|employment|career)\b/,
     ].some((pattern) => pattern.test(source));
 };
 
+const hasNegatedExperienceOrderCommand = (message = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(message))
+        .replace(/[’']/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    const orderVerb = '(?:range|ranger|trie|trier|classe|classer|organise|organiser|reorganise|reorganiser|ordonne|ordonner|sort|reorder|order|organize)';
+
+    return new RegExp(`\\b(?:ne|n)\\s+(?:me\\s+)?${orderVerb}\\s+(?:pas|plus|jamais)\\b`).test(source)
+        || new RegExp(`\\bpas(?:\\s+[a-z0-9-]+){0,7}\\s+${orderVerb}\\b`).test(source)
+        || new RegExp(`\\b(?:do not|don t|dont|not|never|without)(?:\\s+[a-z0-9-]+){0,5}\\s+${orderVerb}\\b`).test(source);
+};
+
 const isExperienceOrderCleanupIntent = (message = '') =>
-    hasExplicitExperienceOrderCommand(message) && !hasExplicitDestructiveCvRemoval(message);
+    hasExplicitExperienceOrderCommand(message)
+    && !hasNegatedExperienceOrderCommand(message)
+    && !hasExplicitDestructiveCvRemoval(message);
 
 const applyExperienceOrderCleanupFromKirby = async (message = '') => {
     if (!cvForm || !isExperienceOrderCleanupIntent(message)) {
@@ -5287,8 +6621,9 @@ const applyExperienceOrderCleanupFromKirby = async (message = '') => {
     const beforeState = getCvHistoryState();
     const changes = [];
 
-    if (sortExperienceFieldNewestFirst()) {
-        changes.push('expériences triées par date');
+    const oldestFirst = getExperienceOrderDirection(message) === 'oldest-first';
+    if (sortExperienceFieldByDate({ oldestFirst })) {
+        changes.push(oldestFirst ? 'expériences triées de la plus ancienne à la plus récente' : 'expériences triées par date');
     }
 
     clearEditableOverride('experience');
@@ -5298,7 +6633,9 @@ const applyExperienceOrderCleanupFromKirby = async (message = '') => {
 
     if (!changes.length) {
         setCvStatus('Expériences déjà rangées');
-        return 'Les expériences sont déjà rangées de la plus récente à la plus ancienne. Aucun contenu supprimé.';
+        return oldestFirst
+            ? 'Les expériences sont déjà rangées de la plus ancienne à la plus récente. Aucun contenu supprimé.'
+            : 'Les expériences sont déjà rangées de la plus récente à la plus ancienne. Aucun contenu supprimé.';
     }
 
     const persistence = await persistCvDraftImmediately();
@@ -5306,7 +6643,129 @@ const applyExperienceOrderCleanupFromKirby = async (message = '') => {
     return buildKirbyPersistenceReply(changes, persistence);
 };
 
-const updateCvPreview = () => {
+const applySkillOrderCleanupFromKirby = async (message = '') => {
+    if (!cvForm || !isSkillOrderCleanupIntent(message)) {
+        return '';
+    }
+
+    const field = cvForm.elements.skills;
+    const items = field ? splitLines(field.value) : [];
+    if (!field || !items.length) {
+        return "Je n'ai trouvé aucune compétence à ranger. Importez ou saisissez d'abord les compétences.";
+    }
+
+    const request = getRequestedSkillOrderFromInstruction(message, items);
+    if (!request.alphabetical && !request.order.length) {
+        return '';
+    }
+
+    const beforeState = getCvHistoryState();
+    const changed = reorderExistingSkills(request.order, request);
+    clearEditableOverride('skills');
+    updateCvPreview({ preserveDensity: true });
+    commitCvHistoryTransition(beforeState);
+
+    if (!changed) {
+        setCvStatus('Compétences déjà rangées');
+        return 'Les compétences sont déjà dans cet ordre. Aucun contenu supprimé.';
+    }
+
+    const persistence = await persistCvDraftImmediately();
+    setCvStatus('Compétences rangées');
+    return buildKirbyPersistenceReply(['ordre des compétences'], persistence);
+};
+
+const estimateCvContentDensity = (values = {}) => {
+    const listFields = ['skills', 'experience', 'projects', 'education', 'activities', 'languages'];
+    const listItems = listFields.flatMap((fieldName) => splitLines(String(values[fieldName] || '')));
+    const sourceText = [
+        values.fullName,
+        values.location,
+        values.phone,
+        values.email,
+        values.permit,
+        values.headline,
+        values.summary,
+        ...listItems,
+    ].filter(Boolean).join('\n');
+    const weightedVolume = sourceText.length + listItems.length * 42 + splitLines(String(values.experience || '')).length * 90;
+
+    if (weightedVolume <= 1450 && listItems.length <= 12) {
+        return 'short';
+    }
+    if (weightedVolume >= 3600 || listItems.length >= 28 || splitLines(String(values.experience || '')).length >= 7) {
+        return 'dense';
+    }
+    return 'standard';
+};
+
+const measureCvPreviewContentRatio = (preview = previewNodes.preview) => {
+    if (!preview || typeof preview.getBoundingClientRect !== 'function') {
+        return null;
+    }
+
+    const pageRect = preview.getBoundingClientRect();
+    if (!pageRect.width) {
+        return null;
+    }
+
+    const nominalPageHeight = pageRect.width * (297 / 210);
+    const safetyMargin = pageRect.width * (4 / 210);
+    const candidates = [
+        ...preview.querySelectorAll('.cv-header, .cv-body > section, .cv-modern-sidebar > section, .cv-modern-main > section'),
+    ].filter((node) => {
+        if (node.hidden || node.getAttribute('aria-hidden') === 'true') {
+            return false;
+        }
+        const styles = window.getComputedStyle(node);
+        return styles.display !== 'none' && styles.visibility !== 'hidden';
+    });
+    const deepestBottom = candidates.reduce(
+        (bottom, node) => Math.max(bottom, node.getBoundingClientRect().bottom),
+        pageRect.top
+    );
+    const usedHeight = Math.max(0, deepestBottom - pageRect.top);
+
+    return usedHeight / Math.max(1, nominalPageHeight - safetyMargin);
+};
+
+const applyMeasuredCvDensity = () => {
+    const preview = previewNodes.preview;
+    if (!preview) {
+        return;
+    }
+
+    preview.dataset.cvDensity = 'standard';
+    const standardRatio = measureCvPreviewContentRatio(preview);
+    if (!Number.isFinite(standardRatio)) {
+        return;
+    }
+
+    if (standardRatio <= 0.7) {
+        preview.dataset.cvDensity = 'short';
+        const shortRatio = measureCvPreviewContentRatio(preview);
+        if (!Number.isFinite(shortRatio) || shortRatio > 0.96) {
+            preview.dataset.cvDensity = 'standard';
+        }
+        updateCvPageMode();
+        return;
+    }
+
+    preview.dataset.cvDensity = standardRatio > 0.985 ? 'dense' : 'standard';
+    updateCvPageMode();
+};
+
+const scheduleCvDensityMeasurement = () => {
+    if (typeof window.requestAnimationFrame !== 'function') {
+        return;
+    }
+    window.cancelAnimationFrame(cvDensityMeasurementFrame);
+    cvDensityMeasurementFrame = window.requestAnimationFrame(() => {
+        cvDensityMeasurementFrame = window.requestAnimationFrame(applyMeasuredCvDensity);
+    });
+};
+
+const updateCvPreview = ({ preserveDensity = false } = {}) => {
     if (!cvForm || !previewNodes.preview) {
         return;
     }
@@ -5314,6 +6773,35 @@ const updateCvPreview = () => {
     const formData = new FormData(cvForm);
     const values = Object.fromEntries(formData.entries());
     normalizeCurrentLayoutTheme(values);
+    const preservedDensity = preserveDensity
+        ? previewNodes.preview.dataset.cvDensity || ''
+        : '';
+    if (!preservedDensity) {
+        previewNodes.preview.dataset.cvDensity = estimateCvContentDensity(values);
+    }
+    previewNodes.preview.dataset.cvLayout = usesStructuredCvLayout(values.layoutTheme)
+        ? 'structured'
+        : 'native';
+    const detectedContentLocale = detectImportedCvLocale([
+        values.headline,
+        values.summary,
+        values.skills,
+        values.experience,
+        values.projects,
+        values.education,
+        values.activities,
+        values.languages,
+    ].filter(Boolean).join('\n'), currentCvContentLocale);
+    const contentLocale = detectedContentLocale || currentCvContentLocale;
+    currentCvContentLocale = contentLocale;
+    const documentLabels = localizedCvDocumentLabels[contentLocale] || localizedCvDocumentLabels.fr;
+    const sectionLabels = localizedCvSectionLabels[contentLocale] || cvSectionLabels;
+    Object.entries(sectionLabels).forEach(([key, defaultLabel]) => {
+        const title = previewNodes.preview.querySelector(`[data-section-title="${key}"]`);
+        if (title) {
+            title.textContent = defaultLabel;
+        }
+    });
 
     const safeFullName = getSafeFullNameValue(values.fullName || '');
     if (values.fullName && !safeFullName && cvForm.elements.fullName) {
@@ -5321,26 +6809,24 @@ const updateCvPreview = () => {
     } else if (safeFullName && values.fullName !== safeFullName && cvForm.elements.fullName) {
         cvForm.elements.fullName.value = safeFullName;
     }
-    renderEditableTextNode(previewNodes.fullName, 'fullName', safeFullName || 'Votre nom');
+    renderEditableTextNode(previewNodes.fullName, 'fullName', safeFullName || documentLabels.name);
     syncModernPreviewStructure(values.layoutTheme || '');
+    syncCvProfilePhoto(safeFullName);
     renderEditableContactNode(previewNodes.meta, values);
-    renderEditableTextNode(previewNodes.headline, 'headline', values.headline || 'Intitule du metier');
+    renderEditableTextNode(previewNodes.headline, 'headline', values.headline || documentLabels.headline);
     if (previewNodes.summary) {
         renderEditableTextNode(previewNodes.summary, 'summary', values.summary || '');
     }
 
     const rawSkillItems = splitLines(values.skills || '');
-    const skillItems = dedupeCvSkillItems(rawSkillItems);
-    const isGlassPreviewTheme = values.layoutTheme === 'digital' || values.layoutTheme === 'holographic';
-    let previewSkillItems = isGlassPreviewTheme
-        ? prioritizeSkillsForA4(skillItems, { values, maxItems: 8 })
-        : skillItems;
+    const skillItems = dedupeImportedItems(rawSkillItems);
+    const previewSkillItems = skillItems;
     const rawExperienceSourceItems = splitLines(values.experience || '');
     const experienceItems = repairPreviewExperienceItems(rawExperienceSourceItems);
     const rawProjectItems = splitLines(values.projects || '');
     const projectItems = mergeStandaloneDateItems(dedupeImportedItems(rawProjectItems));
     const rawEducationItems = splitLines(values.education || '').filter((item) => !/^[-–—]?\s*\)?$/.test(item.trim()));
-    let educationItems = normalizeEducationItems(rawEducationItems);
+    const educationItems = normalizeImportedEducationItems(rawEducationItems);
     const rawLanguageItems = splitMergedLanguageItems(splitLines(values.languages || ''));
     const languageItems = dedupeImportedItems(rawLanguageItems);
     const rawActivityItems = splitLines(values.activities || '');
@@ -5348,14 +6834,9 @@ const updateCvPreview = () => {
 
     const qualityFixes = [];
 
-    let previewProjectItems = projectItems;
-    let previewLanguageItems = languageItems;
-    let previewActivityItems = activityItems;
-
-    if (values.layoutTheme === 'holographic') {
-        previewSkillItems = sanitizeCrystalGlassSkillItems(previewSkillItems);
-        educationItems = sanitizeCrystalGlassEducationItems(educationItems);
-    }
+    const previewProjectItems = projectItems;
+    const previewLanguageItems = languageItems;
+    const previewActivityItems = activityItems;
 
     const applyPreviewContent = () => applyPreviewSectionContent({
         values,
@@ -5417,41 +6898,35 @@ const updateCvPreview = () => {
     previewNodes.preview.classList.add(`spacing-${values.lineSpacing || 'normal'}`);
     previewNodes.preview.classList.add(templateThemeMap[values.layoutTheme] || 'template-classic');
 
-    if (values.accentColor) {
-        previewNodes.preview.style.setProperty('--cv-accent', values.accentColor);
-        previewNodes.preview.style.setProperty('--cv-soft', `${values.accentColor}14`);
-    }
+    const previewColors = {
+        accent: values.accentColor || '#2f3f7f',
+        paper: values.paperColor || '#ffffff',
+        frame: values.frameColor || '#d9deea',
+        side: values.sidebarColor || '#f1e9ed',
+        ink: values.headingColor || '#30282d',
+    };
 
-    previewNodes.preview.style.setProperty('--cv-paper', values.paperColor || '#ffffff');
-    previewNodes.preview.style.setProperty('--cv-frame', values.frameColor || '#d9deea');
-    previewNodes.preview.style.setProperty('--modern-side', values.sidebarColor || '#f1e9ed');
-    previewNodes.preview.style.setProperty('--modern-ink', values.headingColor || '#30282d');
-    previewNodes.preview.style.setProperty('--modern-rule', values.frameColor || '#ded2d7');
+    previewNodes.preview.style.setProperty('--cv-accent', previewColors.accent);
+    previewNodes.preview.style.setProperty('--cv-soft', `${previewColors.accent}14`);
+    previewNodes.preview.style.setProperty('--cv-paper', previewColors.paper);
+    previewNodes.preview.style.setProperty('--cv-frame', previewColors.frame);
+    previewNodes.preview.style.setProperty('--modern-side', previewColors.side);
+    previewNodes.preview.style.setProperty('--modern-ink', previewColors.ink);
+    previewNodes.preview.style.setProperty('--modern-rule', previewColors.frame);
+    Object.entries(previewColors).forEach(([role, color]) => {
+        previewNodes.preview.style.setProperty(`--cv-${role}-rgb`, getCvColorRgbChannels(color));
+    });
     previewNodes.preview.dataset.pageFrame = values.pageFrame || 'soft';
     previewNodes.preview.dataset.sectionBorders = values.sectionBorders || 'soft';
     applySectionTitleStyles();
-
-    if (currentPreviewMode === 'cv' && getRenderedCvPageCount() > 1) {
-        previewSkillItems = prioritizeSkillsForA4(skillItems, { values, maxItems: 8 });
-        previewActivityItems = activityItems.slice(0, 4);
-        previewLanguageItems = languageItems.slice(0, 2);
-        previewProjectItems = projectItems.slice(0, 1);
-        applyPreviewContent();
-
-        if (getRenderedCvPageCount() > 1 && previewActivityItems.length) {
-            previewActivityItems = activityItems.slice(0, 2);
-            applyPreviewContent();
+    if (preserveDensity) {
+        window.cancelAnimationFrame(cvDensityMeasurementFrame);
+        cvDensityMeasurementFrame = 0;
+        if (preservedDensity) {
+            previewNodes.preview.dataset.cvDensity = preservedDensity;
         }
-
-        if (getRenderedCvPageCount() > 1 && previewProjectItems.length) {
-            previewProjectItems = [];
-            applyPreviewContent();
-        }
-
-        if (getRenderedCvPageCount() > 1 && previewActivityItems.length) {
-            previewActivityItems = [];
-            applyPreviewContent();
-        }
+    } else {
+        scheduleCvDensityMeasurement();
     }
 
     setCvStatus(qualityFixes.length ? `CV vérifié : ${qualityFixes.join(', ')}` : 'CV vérifié');
@@ -6163,8 +7638,6 @@ const shouldCleanCvDraftCasing = () => {
 
 const normalizeImportedLineFragments = (line) =>
     (line || '')
-        .replace(/\bMontigny\s*[–—-]\s*le\s*[–—-]?\s*Bretonneux\b/gi, 'Montigny-le-Bretonneux')
-        .replace(/\bRueil\s*[–—-]\s*Malmaison\b/gi, 'Rueil-Malmaison')
         .replace(/\bLa\s*[–—-]\s*Defense\b/gi, 'La Defense')
         .replace(/\bconsei\s+ll([eè]re|er)\b/gi, 'conseill$1')
         .replace(/\bclient\s*[eè]\s*le\b/gi, 'clientèle')
@@ -6211,21 +7684,89 @@ const stripContactTokensFromLine = (line = '') =>
         .replace(/\s{2,}/g, ' ')
         .trim();
 
+// Les moteurs PDF peuvent détacher un suffixe ordinal ("th") ou coller une
+// mention de mise à jour au nom. Ces fragments appartiennent aux métadonnées
+// du document, pas au contenu du CV.
+const importedHeaderUpdateMarkerPattern = /\b(?:last\s+update(?:d)?(?:\s+(?:made|on))?|updated(?:\s+on)?|last\s+modified(?:\s+on)?|mise\s+[àa]\s+jour(?:\s+(?:effectu[ée]e?\s+)?(?:le|du))?|actualis[ée](?:\s+le)?)\b/i;
+
+const stripImportedHeaderUpdateSuffix = (line = '') =>
+    normalizeImportedLineFragments(line)
+        .replace(new RegExp(`\\s*(?:[-|,:]\\s*)?${importedHeaderUpdateMarkerPattern.source}[\\s\\S]*$`, 'i'), '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+
+// Certains PDF dessinent deux fois le même texte (calque gras, ombre ou
+// duplication d'accessibilité). PDF.js restitue alors des fragments accolés.
+// On retire seulement les répétitions strictement accolées : un vrai nom
+// répété avec un espace reste intact.
+const collapseOverprintedHeaderFragments = (value = '') => {
+    let output = String(value || '');
+
+    for (let pass = 0; pass < 4; pass += 1) {
+        const nextValue = output.replace(
+            /(\b[\p{L}’'’-]{3,}(?:\s+[\p{L}’'’-]{2,}){0,3})\1\b/giu,
+            (match, fragment) => fragment,
+        );
+        if (nextValue === output) {
+            break;
+        }
+        output = nextValue;
+    }
+
+    return output.replace(/\s{2,}/g, ' ').trim();
+};
+
+const looksLikeImportedHeaderNoise = (line = '') => {
+    const raw = normalizeImportedLineFragments(line);
+    const normalized = normalizeForMatch(raw)
+        .replace(/[.·•▪●◦|:_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    if (!normalized) {
+        return true;
+    }
+
+    const isFictitiousDocumentNotice = (
+        /\b(?:fictif|fictifs|fictive|fictives|fictitious|fictional)\b/.test(normalized)
+        && /\b(?:identite|identity|coordonnees|contact|employeurs|employers|etablissements|institutions|parcours|donnees|data|document|kirby)\b/.test(normalized)
+    ) || (
+        /\b(?:dummy|test)\b/.test(normalized)
+        && /\b(?:cv|resume|document|sample|kirby)\b/.test(normalized)
+    );
+
+    return importedHeaderUpdateMarkerPattern.test(raw) && !stripImportedHeaderUpdateSuffix(raw) ||
+        /^(?:curriculum\s+vitae?|cv|resume)(?:\s*[-:|]\s*.*)?$/.test(normalized) ||
+        /^(?:cv|resume)\s+(?:fictif|fictitious|fictional|test|sample)\b/.test(normalized) ||
+        isFictitiousDocumentNotice ||
+        /^(?:st|nd|rd|th)$/.test(normalized) ||
+        /^(?:page\s*)?\d+\s*(?:\/|of|sur)\s*\d+$/.test(normalized) ||
+        /^(?:page\s*)?\d+$/.test(normalized) ||
+        normalized.length <= 2;
+};
+
+const cleanImportedHeaderLine = (line = '') =>
+    collapseOverprintedHeaderFragments(
+        stripImportedHeaderUpdateSuffix(line)
+            .replace(/^\s*(?:full\s+name|name|nom(?:\s+et\s+pr[ée]nom)?|pr[ée]nom(?:\s+et\s+nom)?)\s*:\s*/i, '')
+    );
+
 const looksLikePersonNameLine = (line = '') => {
-    const candidate = stripContactTokensFromLine(line);
+    const candidate = cleanImportedHeaderLine(stripContactTokensFromLine(line));
     const normalized = normalizeForMatch(candidate);
 
     if (
         !candidate ||
         candidate.length < 5 ||
         candidate.length > 42 ||
+        looksLikeImportedHeaderNoise(line) ||
         looksLikeSectionHeading(candidate) ||
         looksLikeContactLine(line) && !candidate.includes(' ')
     ) {
         return false;
     }
 
-    if (/\b(?:conseill|responsable|developp|machiniste|receveur|vente|client|transport|banque|formation|certification|projet|experience|competence)\b/.test(normalized)) {
+    if (/\b(?:conseill|responsable|developp|machiniste|receveur|vente|client|transport|banque|formation|certification|projet|experience|competence|consultant|manager|management|analyst|auditor|engineer|developer|accountant|accounting|specialist|director|officer|assistant|professional)\b/.test(normalized)) {
         return false;
     }
 
@@ -6234,13 +7775,15 @@ const looksLikePersonNameLine = (line = '') => {
 };
 
 const getImportedNameCandidate = (lines = []) => {
-    const source = lines.find(looksLikePersonNameLine) || '';
-    return stripContactTokensFromLine(source);
+    const source = lines
+        .map((line) => cleanImportedHeaderLine(stripContactTokensFromLine(line)))
+        .find(looksLikePersonNameLine) || '';
+    return cleanImportedHeaderLine(source);
 };
 
 const getSafeFullNameValue = (value = '') => {
     const rawValue = stripDirectionalFormatting(value).replace(/\s{2,}/g, ' ').trim();
-    const cleanedCandidate = stripContactTokensFromLine(rawValue);
+    const cleanedCandidate = cleanImportedHeaderLine(stripContactTokensFromLine(rawValue));
 
     if (cleanedCandidate && looksLikePersonNameLine(cleanedCandidate)) {
         return cleanedCandidate;
@@ -6267,73 +7810,101 @@ const extractFullNameFromPersonalDetailsInstruction = (value = '') => {
     return getImportedNameCandidate(candidateLines);
 };
 
-const looksLikeSectionHeading = (line) => {
-    const normalized = normalizeForMatch(line);
-
-    if (!normalized || normalized.length > 40) {
-        return false;
-    }
-
-    return (
-        /^competences?(?:\s+(?:cles?|techniques?|professionnelles?))?$/.test(normalized) ||
-        /^experiences?(?:\s+professionnelles?)?$/.test(normalized) ||
-        /^formations?(?:\s*&\s*certifications?)?$/.test(normalized) ||
-        /^certifications?$/.test(normalized) ||
-        /^profil$/.test(normalized) ||
-        /^resume$/.test(normalized) ||
-        /^objectif$/.test(normalized) ||
-        /^langues?$/.test(normalized) ||
-        /^atouts?$/.test(normalized) ||
-        /^activites?(?:\s*(?:&|et)\s*interets?)?$/.test(normalized) ||
-        /^centres?\s+d['’]?\s*interets?$/.test(normalized)
-    );
+const importedCvSectionPatterns = {
+    summary: [
+        /^(?:profil|profile|professional profile|resume|summary|professional summary|career summary|objectif|objective|about me|a propos)$/,
+    ],
+    skills: [
+        /^(?:competences?(?: (?:cles?|techniques?|professionnelles?))?|skills?|key skills?|professional skills?|technical skills?|core expertise|areas? of expertise|expertise|atouts?|savoir(?: |-)?faire|outils?(?: et technologies?)?|tools?(?: and technologies?)?|tech(?:nical)? stack)$/,
+    ],
+    experience: [
+        /^(?:experiences?(?: professionnelles?)?|professional experience|work experience|employment history|work history|career history|experience|parcours professionnel|parcours pro|academic appointments?|professional appointments?)$/,
+    ],
+    education: [
+        /^(?:formations?(?: (?:&|et) certifications?)?|education(?: (?:&|and) certifications?)?|academic background|parcours academique|cursus|diplomes?|degrees?|diplomas?|qualifications?|certifications?|training(?: (?:&|and) certifications?)?)$/,
+    ],
+    projects: [
+        /^(?:projets?(?: professionnels?|personnels?)?|projects?|selected projects?|key projects?|research(?: experience| projects?)?|recherche(?: et developpement)?|publications?|selected publications?)$/,
+    ],
+    languagesActivities: [
+        /^(?:langues?\s*(?:&|et)\s*(?:centres? d['’]? ?interets?|activites?|loisirs?)|(?:centres? d['’]? ?interets?|activites?|loisirs?)\s*(?:&|et)\s*langues?|languages?\s*(?:&|and)\s*(?:activities|interests|hobbies)|(?:activities|interests|hobbies)\s*(?:&|and)\s*languages?)$/,
+    ],
+    languages: [
+        /^(?:langues?|languages?)$/,
+    ],
+    activities: [
+        /^(?:activites?(?: (?:&|et) interets?)?|centres? d['’]? ?interets?|activities(?: (?:&|and) interests?)?|interests?|hobbies(?: (?:&|and) interests?)?|extracurricular activities?)$/,
+    ],
 };
+
+const normalizeImportedSectionHeading = (line = '') =>
+    normalizeForMatch(line)
+        .replace(/^[\s#•▪●◦|:–—-]+|[\s:|–—-]+$/g, '')
+        // Certains PDF encodent la première lettre d'un titre dans un bloc
+        // séparé ("E ducation", "S kills", "E xperience"). Réparer uniquement
+        // ces libellés connus, sans recoller arbitrairement le contenu du CV.
+        .replace(/^e\s+ducation$/, 'education')
+        .replace(/^s\s+kills?$/, 'skills')
+        .replace(/\be\s+xperience\b/g, 'experience')
+        .replace(/^work\s*\/\s*projects?\s+experience$/, 'professional experience')
+        .replace(/\s+/g, ' ')
+        .trim();
 
 const getSectionKey = (line) => {
-    const normalized = normalizeForMatch(line);
+    const normalized = normalizeImportedSectionHeading(line);
 
-    if (/^competences?(?:\s+(?:cles?|techniques?|professionnelles?))?$/.test(normalized)) {
-        return 'skills';
+    if (!normalized || normalized.length > 64) {
+        return null;
     }
 
-    if (/^experiences?(?:\s+professionnelles?)?$/.test(normalized)) {
-        return 'experience';
-    }
-
-    if (/^formations?(?:\s*&\s*certifications?)?$/.test(normalized) || /^certifications?$/.test(normalized)) {
-        return 'education';
-    }
-
-    if (/^profil$/.test(normalized) || /^resume$/.test(normalized) || /^objectif$/.test(normalized)) {
-        return 'summary';
-    }
-
-    if (/^langues?$/.test(normalized)) {
-        return 'languages';
-    }
-
-    if (
-        /^atouts?$/.test(normalized) ||
-        /^activites?(?:\s*(?:&|et)\s*interets?)?$/.test(normalized) ||
-        /^centres?\s+d['’]?\s*interets?$/.test(normalized)
-    ) {
-        return 'activities';
-    }
-
-    return null;
+    return Object.entries(importedCvSectionPatterns)
+        .find(([, patterns]) => patterns.some((pattern) => pattern.test(normalized)))?.[0] || null;
 };
 
+const looksLikeSectionHeading = (line) => Boolean(getSectionKey(line));
+
+const IMPORTED_CV_INLINE_HEADING_PATTERN = /\b(LANGUES?\s*(?:&|ET)\s*(?:CENTRES?\s+D[’']?INT[ÉE]R[ÊE]TS?|ACTIVIT[ÉE]S?|LOISIRS?)|(?:CENTRES?\s+D[’']?INT[ÉE]R[ÊE]TS?|ACTIVIT[ÉE]S?|LOISIRS?)\s*(?:&|ET)\s*LANGUES?|LANGUAGES?\s*(?:&|AND)\s*(?:ACTIVITIES|INTERESTS|HOBBIES)|(?:ACTIVITIES|INTERESTS|HOBBIES)\s*(?:&|AND)\s*LANGUAGES?|COMP[ÉE]TENCES(?:\s+(?:CL[EÉ]S|TECHNIQUES?|PROFESSIONNELLES?))?|SAVOIR(?:-|\s)FAIRE|OUTILS?(?:\s+ET\s+TECHNOLOGIES?)?|TOOLS?(?:\s+AND\s+TECHNOLOGIES?)?|TECH(?:NICAL)?\s+STACK|CORE\s+EXPERTISE|KEY\s+SKILLS|PROFESSIONAL\s+SKILLS|TECHNICAL\s+SKILLS|SKILLS?|EXP[ÉE]RIENCES?(?:\s+PROFESSIONNELLES?)?|PARCOURS\s+PROFESSIONNEL|PARCOURS\s+PRO|ACADEMIC\s+APPOINTMENTS?|PROFESSIONAL\s+APPOINTMENTS?|PROFESSIONAL\s+EXPERIENCE|WORK\s+EXPERIENCE|EMPLOYMENT\s+HISTORY|WORK\s+HISTORY|CAREER\s+HISTORY|FORMATIONS?(?:\s*(?:&|ET)\s*CERTIFICATIONS?)?|DIPL[ÔO]MES?|DEGREES?|DIPLOMAS?|PARCOURS\s+ACAD[ÉE]MIQUE|CURSUS|EDUCATION(?:\s*(?:&|AND)\s*CERTIFICATIONS?)?|ACADEMIC\s+BACKGROUND|QUALIFICATIONS?|CERTIFICATIONS?|PROFIL|PROFILE|PROFESSIONAL\s+PROFILE|R[ÉE]SUM[ÉE]|SUMMARY|PROFESSIONAL\s+SUMMARY|CAREER\s+SUMMARY|OBJECTIF|OBJECTIVE|ABOUT\s+ME|PROJETS?|PROJECTS?|SELECTED\s+PROJECTS?|KEY\s+PROJECTS?|RESEARCH\s+(?:EXPERIENCE|PROJECTS?)|RECHERCHE\s+ET\s+D[ÉE]VELOPPEMENT|PUBLICATIONS?|SELECTED\s+PUBLICATIONS?|LANGUES?|LANGUAGES?|ATOUTS?|ACTIVIT[ÉE]S?(?:\s*(?:&|ET)\s*INT[ÉE]R[ÊE]TS)?|CENTRES?\s+D[’']?INT[ÉE]R[ÊE]TS?|ACTIVITIES(?:\s*(?:&|AND)\s*INTERESTS?)?|INTERESTS?|HOBBIES(?:\s*(?:&|AND)\s*INTERESTS?)?)\b/g;
+
 const preprocessImportedCvText = (text) =>
-    normalizeImportedText(text)
+    normalizeImportedText(text, { preservePipes: true })
+        .replace(IMPORTED_CV_INLINE_HEADING_PATTERN, '\n$1\n')
         .replace(
-            /\b(COMP[ÉE]TENCES(?:\s+(?:CL[EÉ]S|TECHNIQUES?|PROFESSIONNELLES?))?|EXP[ÉE]RIENCES(?:\s+PROFESSIONNELLES)?|EXP[ÉE]RIENCE\s+PROFESSIONNELLE|FORMATIONS?(?:\s*&\s*CERTIFICATIONS)?|CERTIFICATIONS|PROFIL|R[ÉE]SUM[ÉE]|OBJECTIF|LANGUES?|ATOUTS?|ACTIVIT[ÉE]S?(?:\s*(?:&|ET)\s*INT[ÉE]R[ÊE]TS)?|CENTRES?\s+D[’']?INT[ÉE]R[ÊE]TS?)\b/g,
-            '\n$1\n'
+            new RegExp(`(${cvDatedTokenPattern}\\s*[–-]\\s*${cvDateTokenPattern}(?:\\s*\\([^\\n)]*\\))?)`, 'gi'),
+            '\n$1\n',
         )
-        .replace(/((?:janv(?:ier)?|f[ée]vr(?:ier)?|mars|avr(?:il)?|mai|juin|juil(?:let)?|ao[uû]t|sept(?:embre)?|oct(?:obre)?|nov(?:embre)?|d[ée]c(?:embre)?|\d{4})\s*[–-]\s*(?:janv(?:ier)?|f[ée]vr(?:ier)?|mars|avr(?:il)?|mai|juin|juil(?:let)?|ao[uû]t|sept(?:embre)?|oct(?:obre)?|nov(?:embre)?|d[ée]c(?:embre)?|\d{4}|aujourd'hui|present|pr[ée]sent))/gi, '\n$1\n')
-        .replace(/\s+(•)\s+/g, '\n$1 ')
+        .replace(/\s+([•▪●◦])\s+/g, '\n$1 ')
         .replace(/[ \t]{2,}/g, ' ')
         .replace(/\n{3,}/g, '\n\n')
         .trim();
+
+const splitImportedCvSections = (lines = []) => {
+    const sections = {
+        preamble: [],
+        summary: [],
+        skills: [],
+        experience: [],
+        projects: [],
+        education: [],
+        languagesActivities: [],
+        languages: [],
+        activities: [],
+    };
+    let currentSection = 'preamble';
+
+    lines.forEach((line) => {
+        const sectionKey = getSectionKey(line);
+        if (sectionKey) {
+            currentSection = sectionKey;
+            return;
+        }
+
+        if (line) {
+            sections[currentSection].push(line);
+        }
+    });
+
+    return sections;
+};
 
 const extractSectionContent = (text, patterns, stopPatterns) => {
     for (const pattern of patterns) {
@@ -6367,59 +7938,34 @@ const trimImportedSection = (content, sectionKey) => {
         return '';
     }
 
-    const foreignHeadingsBySection = {
-        summary: [
-            /(?:^|\n)\s*COMP[ÉE]TENCES(?:\s+(?:CL[EÉ]S|TECHNIQUES?|PROFESSIONNELLES?))?\s*(?:\n|$)/i,
-            /(?:^|\n)\s*EXP[ÉE]RIENCES?(?:\s+PROFESSIONNELLES)?\s*(?:\n|$)/i,
-            /(?:^|\n)\s*FORMATIONS?(?:\s*&\s*CERTIFICATIONS)?\s*(?:\n|$)/i,
-            /(?:^|\n)\s*ACTIVIT[ÉE]S?(?:\s*(?:&|ET)\s*INT[ÉE]R[ÊE]TS)?\s*(?:\n|$)/i,
-            /(?:^|\n)\s*LANGUES?\s*(?:\n|$)/i,
-            /(?:^|\n)\s*ATOUTS?\s*(?:\n|$)/i,
-        ],
-        skills: [
-            /(?:^|\n)\s*EXP[ÉE]RIENCES?(?:\s+PROFESSIONNELLES)?\s*(?:\n|$)/i,
-            /(?:^|\n)\s*FORMATIONS?(?:\s*&\s*CERTIFICATIONS)?\s*(?:\n|$)/i,
-            /(?:^|\n)\s*ACTIVIT[ÉE]S?(?:\s*(?:&|ET)\s*INT[ÉE]R[ÊE]TS)?\s*(?:\n|$)/i,
-            /(?:^|\n)\s*LANGUES?\s*(?:\n|$)/i,
-            /(?:^|\n)\s*ATOUTS?\s*(?:\n|$)/i,
-        ],
-        experience: [
-            /(?:^|\n)\s*FORMATIONS?(?:\s*&\s*CERTIFICATIONS)?\s*(?:\n|$)/i,
-            /(?:^|\n)\s*ACTIVIT[ÉE]S?(?:\s*(?:&|ET)\s*INT[ÉE]R[ÊE]TS)?\s*(?:\n|$)/i,
-            /(?:^|\n)\s*LANGUES?\s*(?:\n|$)/i,
-            /(?:^|\n)\s*ATOUTS?\s*(?:\n|$)/i,
-        ],
-        education: [
-            /(?:^|\n)\s*ACTIVIT[ÉE]S?(?:\s*(?:&|ET)\s*INT[ÉE]R[ÊE]TS)?\s*(?:\n|$)/i,
-            /(?:^|\n)\s*LANGUES?\s*(?:\n|$)/i,
-            /(?:^|\n)\s*ATOUTS?\s*(?:\n|$)/i,
-        ],
-    };
-
-    let output = content.trim();
-    const foreignPatterns = foreignHeadingsBySection[sectionKey] || [];
-    let earliestIndex = -1;
-
-    foreignPatterns.forEach((pattern) => {
-        const matchIndex = output.search(pattern);
-        if (matchIndex !== -1 && (earliestIndex === -1 || matchIndex < earliestIndex)) {
-            earliestIndex = matchIndex;
+    const keptLines = [];
+    for (const line of String(content).split(/\n+/)) {
+        const headingKey = getSectionKey(line);
+        if (headingKey && headingKey !== sectionKey) {
+            break;
         }
-    });
-
-    if (earliestIndex !== -1) {
-        output = output.slice(0, earliestIndex).trim();
+        if (!headingKey && line.trim()) {
+            keptLines.push(line.trim());
+        }
     }
 
-    return output.replace(/\s{2,}/g, ' ').trim();
+    return keptLines.join('\n').trim();
 };
 
 const splitImportedItems = (text) =>
     text
         .split(/\n+/)
-        .flatMap((line) => line.split(/\s+•\s+/))
-        .flatMap((line) => line.split(/\s+-\s+(?=(?:Machiniste(?:-|\s)?Receveur|Conseill[èe]re commerciale|Responsable Adjointe|Charg[ée]e de client[èe]le)\b)/i))
-        .map(cleanImportedSectionLine)
+        .flatMap((line) => {
+            const sourceLine = String(line || '').replace(/^\s*[-*]\s+(?=\S)/, '• ');
+            const startsWithBullet = /^\s*[•▪●◦]\s*/.test(sourceLine);
+            const parts = sourceLine.split(/\s*[•▪●◦]\s*/).filter((part) => part.trim());
+
+            return parts.map((part, index) => {
+                const cleaned = cleanImportedSectionLine(part);
+                const isBullet = startsWithBullet || index > 0;
+                return isBullet && cleaned ? `• ${cleaned}` : cleaned;
+            });
+        })
         .filter(Boolean);
 
 const dedupeImportedItems = (items) => {
@@ -6487,19 +8033,19 @@ const dedupeCvSkillItems = (items = []) => {
 };
 
 const standaloneDateRegex = new RegExp(
-    `^(?:(?:${monthNamesPattern})\\.?\\s*\\d{4}|\\d{4})(?:\\s*[–-]\\s*(?:(?:${monthNamesPattern})\\.?\\s*\\d{4}|\\d{4}|aujourd'hui|present|pr[ée]sent))?$`,
+    `^${cvDatedTokenPattern}(?:\\s*[–-]\\s*${cvDateTokenPattern})?$`,
     'i'
 );
 
 const trailingSingleDateRegex = new RegExp(
-    `(?:^|\\s*[|,–-]\\s*)((?:${monthNamesPattern})\\.?\\s*\\d{4}|\\d{4})$`,
+    `(?:^|\\s*[|,–-]\\s*)(${cvDatedTokenPattern})$`,
     'i'
 );
 
 const extractTrailingStandaloneDate = (line) => {
     const match = line.match(
         new RegExp(
-            `(?:\\s*[|,–-]\\s*)(((?:(?:${monthNamesPattern})\\.?\\s*\\d{4}|\\d{4})(?:\\s*[–-]\\s*(?:(?:${monthNamesPattern})\\.?\\s*\\d{4}|\\d{4}|aujourd'hui|present|pr[ée]sent))?))$`,
+            `(?:\\s*[|,–-]\\s*)(${cvDatedTokenPattern}(?:\\s*[–-]\\s*${cvDateTokenPattern})?)$`,
             'i'
         )
     );
@@ -6687,7 +8233,7 @@ const extractPermitValue = (text) => {
 
 const extractLocationValue = (text) => {
     const cityWithPostalMatch = text.match(
-        /\b(?:Rueil(?:-|\s)Malmaison|Nanterre|Roissy|Paris|Montigny(?:-|\s)le(?:-|\s)Bretonneux|Boulogne(?:-|\s)Billancourt|La\s*Defense)(?:\s*\(\d{5}\))?/i
+        /\b[A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÖØ-öø-ÿ' -]{2,40}(?:\s*\(\d{5}\)|\s+\d{5})(?=\s|$|[|,;])/
     );
     if (cityWithPostalMatch) {
         return cityWithPostalMatch[0].trim();
@@ -6728,13 +8274,19 @@ const normalizeStructuredItems = (items, type) => {
     );
 };
 
+const looksLikeImportedExperienceRole = (line = '') => {
+    const compact = line.replace(/\s{2,}/g, ' ').trim();
+    return /\b(?:machiniste|receveur|conseill(?:er|[èe]re)|commerciale?|responsable|charg[ée]e|conduct(?:eur|rice)|d[ée]veloppeu(?:r|se)|assistante?|agents?|consultant|manager|analyst|auditor|engineer|developer|designer|photographer|photographe|accountant|specialist|director|officer|coordinator|coordinateur|coordinatrice|lead|advisor|associate|vendeur|vendeuse|technicien|technicienne|secr[ée]taire|administrateur|administratrice|architecte?|chef|directeur|directrice|op[ée]rateur|op[ée]ratrice|receptionist|r[ée]ceptionniste|representative|repr[ée]sentant|repr[ée]sentante|teacher|enseignant|enseignante|driver|chauffeur|recruiter|recruteur|recruteuse|controller|contr[oô]leur|contr[oô]leuse)\b/i.test(compact);
+};
+
 const isLikelyExperienceHeader = (line) => {
     const compact = line.replace(/\s{2,}/g, ' ').trim();
+    const hasRoleTitle = looksLikeImportedExperienceRole(compact);
 
     return (
         experienceDateRegex.test(compact) ||
-        /\b(?:ratp|cama[ïi]eu|american express|air france|ceidf|sncf|keolis|transdev)\b/i.test(compact) ||
-        /\b(?:machiniste|receveur|conseill[èe]re|commerciale|responsable|charg[ée]e|conductrice|developpeuse|développeuse|assistante|agent)\b/i.test(compact) && /\s-\s|,/.test(compact) ||
+        /\b(?:entreprise|soci[ée]t[ée]|company|corporation|groupe|group|inc|ltd|sarl|sas)\b/i.test(compact) ||
+        hasRoleTitle && compact.length < 150 ||
         /[–-].*,\s*(?:janv|f[ée]vr|mars|avr|mai|juin|juil|ao[uû]t|sept|oct|nov|d[ée]c|\d{4})/i.test(compact)
     );
 };
@@ -6746,33 +8298,92 @@ const normalizeSkillItems = (items) =>
             .filter(
                 (item) =>
                     item &&
-                    item.length < 140 &&
-                    !looksLikeSectionHeading(item) &&
-                    !isLikelyExperienceHeader(item) &&
-                    !/\b(?:logique algorithmique|résolution de problèmes|resolution de problemes|pair-to-pair|apprentissage par projet)\b/i.test(item) &&
-                    !/\b(?:formations?|certifications?|ratp|cama[ïi]eu|american express|air france|roissy|nanterre)\b/i.test(item)
+                    !looksLikeSectionHeading(item)
             )
     );
 
-const normalizeEducationDisplayItem = (item = '') => {
-    const source = normalizeForMatch(item);
-    const hasDigitalTrainingPeriod = /\b2025\s*[-–—]\s*2026\b/.test(item);
-    const digitalTrainingPeriod = hasDigitalTrainingPeriod ? ' - 2025 - 2026' : '';
+const normalizeImportedEducationItems = (items = []) => {
+    const organizationPattern = /\b(?:school|university|college|institute|academy|business school|école|ecole|universit[eé]|lyc[ée]e|institut|acad[ée]mie|campus|centre de formation)\b/i;
+    const organizationStartPattern = /^(?:centre de formation|training cent(?:er|re)|institut|institute|universit[eé]|university|[ée]cole|school|college|academy|acad[ée]mie|campus)\b/i;
+    const qualificationPattern = /\b(?:master|bachelor|licen[cs]e|degree|dipl[oô]me|certificat(?:ion)?|qualification|bac|bts|mba|msc|phd|doctorat|formation)\b/i;
+    const prepared = items
+        .flatMap((item) => String(item || '').split(/\s+(?=(?:19|20)\d{2}\s*[–-]\s*(?:formation|dipl[oô]me|certificat|bac|bts|master|licen[cs]e|mba|msc|phd|doctorat|degree|qualification)\b)/i))
+        .flatMap((rawItem) => {
+            const item = String(rawItem || '').trim();
+            const organizationMatch = item.match(/\s+(?=(?:centre de formation|training cent(?:er|re)|institut|institute|universit[eé]|university|[ée]cole|school|college|academy|acad[ée]mie|campus)\b)/i);
+            if (!organizationMatch || !qualificationPattern.test(item.slice(0, organizationMatch.index))) {
+                return [item];
+            }
+            return [
+                item.slice(0, organizationMatch.index).replace(/[\s|,;–—-]+$/g, '').trim(),
+                item.slice(organizationMatch.index).replace(/^[\s|,;–—-]+/g, '').trim(),
+            ];
+        })
+        .map((item) => cleanImportedSectionLine(item))
+        .filter((item) => item && !looksLikeSectionHeading(item));
+    const grouped = [];
+    let currentParts = [];
+    let currentDate = '';
 
-    if (/\b(?:ecole 42|42)\b/.test(source) && /\bpiscine\b/.test(source)) {
-        return `École 42 — Piscine informatique${digitalTrainingPeriod} • Bases de la programmation, logique algorithmique et travail par projets.`;
-    }
+    const flush = () => {
+        if (!currentParts.length && !currentDate) {
+            return;
+        }
+        const entry = [...currentParts, currentDate].filter(Boolean).join(' - ').replace(/\s{2,}/g, ' ').trim();
+        if (entry) {
+            grouped.push(entry);
+        }
+        currentParts = [];
+        currentDate = '';
+    };
 
-    if (/\bsimplon\b/.test(source)) {
-        return `Simplon — Formation numérique / développement web${digitalTrainingPeriod} • Développement web, intégration, outils numériques et méthodes de projet.`;
-    }
+    prepared.forEach((rawItem) => {
+        const leadingDateMatch = rawItem.match(/^((?:19|20)\d{2})\s*[–-]\s*(.+)$/);
+        const item = leadingDateMatch?.[2]?.trim() || rawItem;
 
-    return cleanCvText(item);
+        if (leadingDateMatch) {
+            flush();
+            currentDate = leadingDateMatch[1];
+        }
+
+        if (standaloneDateRegex.test(item)) {
+            if (currentDate && (currentParts.length || currentDate !== item)) {
+                flush();
+            }
+            currentDate = item;
+            return;
+        }
+
+        const isOrganization = organizationPattern.test(item);
+        const isOrganizationOnly = isOrganization && organizationStartPattern.test(item);
+        const isQualification = qualificationPattern.test(item) && !isOrganizationOnly;
+        const alreadyHasOrganization = currentParts.some((part) => organizationPattern.test(part));
+        const alreadyHasQualification = currentParts.some((part) => {
+            const partIsOrganization = organizationPattern.test(part) && organizationStartPattern.test(part);
+            return qualificationPattern.test(part) && !partIsOrganization;
+        });
+
+        if (!leadingDateMatch && currentParts.length && isQualification && alreadyHasQualification) {
+            flush();
+        }
+
+        if (isQualification && currentParts.length === 1 && organizationPattern.test(currentParts[0])) {
+            currentParts.unshift(item);
+            return;
+        }
+
+        currentParts.push(item);
+    });
+
+    flush();
+    return dedupeImportedItems(grouped);
 };
+
+const normalizeEducationDisplayItem = (item = '') => cleanCvText(item);
 
 const normalizeEducationItems = (items) =>
     (() => {
-        const educationEntryStartRegex = /\b(?:permis|dipl[oô]me|formation|certification|bac|bts|master|licence|niveau|ecole|école|universit[eé]|simplon|fimo|iobsp|42)\b/i;
+        const educationEntryStartRegex = /\b(?:permis|dipl[oô]me|formation|certification|bac|bts|master|licence|niveau|ecole|école|universit[eé])\b/i;
         const preparedItems = items
             .map((item) => item.replace(/^[-•]\s*/, '').replace(/\s{2,}/g, ' ').trim())
             .filter(
@@ -6827,7 +8438,7 @@ const normalizeEducationItems = (items) =>
     })();
 
 const yearLeadingRangeRegex = new RegExp(
-    `^\\d{4}\\s*[–-]\\s*(?:(?:${monthNamesPattern})\\.?\\s*\\d{4}|\\d{4}|aujourd'hui|present|pr[ée]sent)$`,
+    `^${cvFullYearPattern}\\s*[–-]\\s*${cvDateTokenPattern}$`,
     'i'
 );
 
@@ -6853,7 +8464,7 @@ const looksLikeExperienceDetailLine = (line) => {
         !standaloneDateRegex.test(item) &&
         !looksLikeSectionHeading(item) &&
         (
-            /\b(?:ratp|cama[ïi]eu|american express|air france|ceidf|sncf|keolis|transdev)\b/i.test(item) ||
+            /\b(?:entreprise|soci[ée]t[ée]|organisation|company|corporation|groupe|group|inc|ltd|sarl|sas)\b/i.test(item) ||
             /,\s*[A-ZÀ-ÖØ-Ý]/.test(item) ||
             /\s-\s/.test(item)
         )
@@ -6886,84 +8497,6 @@ const combineSplitExperienceHeader = (title, detail) => {
     return /^(?:receveur|client[eè]le|commerciale?)\b/i.test(cleanDetail)
         ? `${cleanTitle} ${cleanDetail}`.replace(/\s{2,}/g, ' ').trim()
         : `${cleanTitle} - ${cleanDetail}`.replace(/\s{2,}/g, ' ').trim();
-};
-
-const rebuildKnownFragmentedExperiences = (items) => {
-    const lines = items.map(cleanImportedSectionLine).filter(Boolean);
-    const text = lines.join('\n');
-
-    if (!/\b(?:ratp|ceidf|cama[ïi]eu|american express|air france)\b/i.test(text)) {
-        return [];
-    }
-
-    const entries = [];
-
-    if (/\bRATP\b/i.test(text) && /\b(?:Machiniste|Receveur)\b/i.test(text)) {
-        entries.push('Machiniste-Receveur - RATP, Nanterre - avr. 2024 - oct. 2024 • Sécurité, autonomie, gestion d’horaires et relation clientèle');
-    }
-
-    if (/\bCEIDF\b/i.test(text) && /Conseill[èe]re commerciale/i.test(text)) {
-        entries.push('Conseillère commerciale digitale - CEIDF, Montigny-le-Bretonneux - nov. 2022 • Conseil à distance • Analyse des besoins • Proposition de solutions bancaires adaptées');
-    }
-
-    if (/\bCama[ïi]eu\b/i.test(text) && /Responsable Adjointe/i.test(text)) {
-        entries.push('Responsable Adjointe - Camaïeu, Rueil-Malmaison - oct. 2021 - oct. 2022 • Management de l’équipe • Développement du chiffre d’affaires • Gestion des stocks • Fidélisation de la clientèle');
-    }
-
-    if (/American Express|Air France|\bAF\b/i.test(text) && /(?:Charg[ée]e\s+de|Conseill[èe]re(?:\s+de)?)\s+client[èe]le/i.test(text)) {
-        entries.push('Conseillère commerciale - American Express / Air France, Roissy - 2019 – 2021 • Conseil et accompagnement des voyageurs • Constitution et suivi des dossiers • Vente de produits et services financiers • Développement commercial et fidélisation');
-    }
-
-    return entries.length >= 2 ? dedupeImportedItems(entries) : [];
-};
-
-const getKnownExperienceSignature = (item = '') => {
-    const text = normalizeForMatch(item);
-
-    if (text.includes('american express') || text.includes('air france')) {
-        return 'american-air-france';
-    }
-
-    if (text.includes('ceidf')) {
-        return 'ceidf';
-    }
-
-    if (text.includes('camaieu')) {
-        return 'camaieu';
-    }
-
-    if (text.includes('ratp') || (text.includes('machiniste') && text.includes('receveur'))) {
-        return 'ratp';
-    }
-
-    return '';
-};
-
-const mergeKnownExperienceRebuilds = (rawItems, repairedItems) => {
-    const knownItems = rebuildKnownFragmentedExperiences(rawItems);
-
-    if (!knownItems.length) {
-        return repairedItems;
-    }
-
-    const knownSignatures = new Set(knownItems.map(getKnownExperienceSignature).filter(Boolean));
-    const supplementalItems = repairedItems.filter((item) => {
-        const signature = getKnownExperienceSignature(item);
-        return !signature || !knownSignatures.has(signature);
-    });
-    const firstKnownIndex = repairedItems.findIndex((item) => knownSignatures.has(getKnownExperienceSignature(item)));
-    const leadingSupplementalItems = firstKnownIndex > 0
-        ? repairedItems
-            .slice(0, firstKnownIndex)
-            .filter((item) => {
-                const signature = getKnownExperienceSignature(item);
-                return !signature || !knownSignatures.has(signature);
-            })
-        : [];
-    const leadingKeys = new Set(leadingSupplementalItems.map((item) => normalizeForMatch(item)));
-    const remainingSupplementalItems = supplementalItems.filter((item) => !leadingKeys.has(normalizeForMatch(item)));
-
-    return dedupeImportedItems([...leadingSupplementalItems, ...knownItems, ...remainingSupplementalItems]);
 };
 
 const normalizeExperienceImportItems = (items) => {
@@ -7014,7 +8547,270 @@ const normalizeExperienceImportItems = (items) => {
     return output;
 };
 
+const importedExperienceDateLineRegex = new RegExp(
+    `^${cvDatedTokenPattern}(?:\\s*[–-]\\s*${cvDateTokenPattern})?(?:\\s*\\([^)]*\\))?$`,
+    'i'
+);
+
+// Un CV peut présenter chaque poste dans n'importe quel ordre. Quand une date
+// ouvre clairement un bloc (début de rubrique, après une puce, ou après un
+// autre bloc date-first), les lignes suivantes sont interprétées par leur
+// position : employeur/métadonnées, puis intitulé, puis missions. Cette
+// segmentation ne dépend d'aucun nom de métier ni d'aucun secteur.
+const segmentImportedExperienceBlocks = (items = []) => {
+    const prepared = items
+        .map((rawItem) => ({
+            raw: String(rawItem || ''),
+            text: cleanImportedSectionLine(rawItem),
+            isBullet: /^\s*[•▪●◦]\s*/.test(String(rawItem || '')),
+        }))
+        .filter((item) => item.text && !looksLikeSectionHeading(item.text));
+    const output = [];
+    let index = 0;
+    let continuesDateFirstSequence = false;
+
+    while (index < prepared.length) {
+        const item = prepared[index];
+        const isDate = importedExperienceDateLineRegex.test(item.text);
+        const previousIsBullet = index > 0 && prepared[index - 1].isBullet;
+        const canOpenDateFirstBlock = isDate && (
+            index === 0 ||
+            previousIsBullet ||
+            continuesDateFirstSequence
+        );
+
+        if (!canOpenDateFirstBlock) {
+            output.push(item.raw);
+            continuesDateFirstSequence = false;
+            index += 1;
+            continue;
+        }
+
+        let cursor = index + 1;
+        const blockItems = [];
+        while (
+            cursor < prepared.length &&
+            !importedExperienceDateLineRegex.test(prepared[cursor].text)
+        ) {
+            blockItems.push(prepared[cursor]);
+            cursor += 1;
+        }
+
+        const headerItems = [];
+        const missionItems = [];
+        let missionsStarted = false;
+        blockItems.forEach((blockItem) => {
+            if (blockItem.isBullet) {
+                missionsStarted = true;
+                missionItems.push(blockItem.text);
+                return;
+            }
+            if (missionsStarted && missionItems.length) {
+                missionItems[missionItems.length - 1] = `${missionItems[missionItems.length - 1]} ${blockItem.text}`
+                    .replace(/\s{2,}/g, ' ')
+                    .trim();
+                return;
+            }
+            headerItems.push(blockItem.text);
+        });
+
+        // Sans puces, une phrase ponctuée après employeur + poste est une
+        // mission et non une troisième ligne d'en-tête.
+        while (
+            !missionItems.length &&
+            headerItems.length > 2 &&
+            /[.!?]$/.test(headerItems[headerItems.length - 1])
+        ) {
+            missionItems.unshift(headerItems.pop());
+        }
+
+        const title = headerItems[headerItems.length - 1] || '';
+        const titleIsUsable = title.length >= 2
+            && title.length <= 120
+            && !/[.!?]$/.test(title)
+            && !looksLikeContactLine(title)
+            && !importedExperienceDateLineRegex.test(title);
+
+        if (!titleIsUsable) {
+            output.push(item.raw);
+            continuesDateFirstSequence = false;
+            index += 1;
+            continue;
+        }
+
+        const metadata = headerItems.slice(0, -1).join(' | ');
+        const header = [title, metadata, item.text].filter(Boolean).join(' - ');
+        output.push([
+            header,
+            ...missionItems,
+        ].filter(Boolean).join(' • '));
+        continuesDateFirstSequence = cursor < prepared.length;
+        index = cursor;
+    }
+
+    return output;
+};
+
+const groupBulletMarkedImportedExperiences = (items = []) => {
+    const prepared = items
+        .map((rawItem) => ({
+            isBullet: /^\s*[•▪●◦]\s*/.test(String(rawItem || '')),
+            text: cleanImportedSectionLine(rawItem),
+        }))
+        .filter((item) => item.text && !looksLikeSectionHeading(item.text));
+    const groups = [];
+    let current = { title: '', meta: '', date: '', bullets: [] };
+    let pendingOrganization = '';
+    let previousWasBullet = false;
+
+    const flush = () => {
+        const header = [current.title, current.meta, current.date].filter(Boolean).join(' - ');
+        if (header || current.bullets.length) {
+            groups.push([header, ...current.bullets].filter(Boolean).join(' • '));
+        }
+        current = { title: '', meta: '', date: '', bullets: [] };
+        previousWasBullet = false;
+    };
+
+    const looksLikeMetadata = (value = '') =>
+        /\s[|]\s/.test(value)
+        || /\b(?:CDI|CDD|stage|alternance|int[ée]rim|freelance|ind[ée]pendant|apprentissage|internship|contract|full[- ]time|part[- ]time)\b/i.test(value)
+        || looksLikeExperienceDetailLine(value);
+
+    const looksLikeContextualTitle = (item, next) => Boolean(
+        item
+        && !item.isBullet
+        && item.text.length >= 3
+        && item.text.length <= 110
+        && !/[.!?]$/.test(item.text)
+        && !looksLikeContactLine(item.text)
+        && !looksLikeMetadata(item.text)
+        && next
+        && !next.isBullet
+        && (importedExperienceDateLineRegex.test(next.text) || looksLikeMetadata(next.text))
+    );
+
+    prepared.forEach((item, index) => {
+        const next = prepared[index + 1];
+        const afterNext = prepared[index + 2];
+        const nextIsRole = Boolean(
+            next
+            && !next.isBullet
+            && !importedExperienceDateLineRegex.test(next.text)
+            && looksLikeImportedExperienceRole(next.text)
+        );
+
+        if (item.isBullet) {
+            const bulletLooksLikeRoleHeader = Boolean(
+                looksLikeImportedExperienceRole(item.text)
+                && next
+                && !next.isBullet
+                && (
+                    looksLikeMetadata(next.text)
+                    || importedExperienceDateLineRegex.test(next.text)
+                    || (afterNext && !afterNext.isBullet && importedExperienceDateLineRegex.test(afterNext.text))
+                )
+            );
+            if (bulletLooksLikeRoleHeader) {
+                flush();
+                current.title = item.text;
+                pendingOrganization = '';
+                return;
+            }
+            if (!current.title && pendingOrganization) {
+                current.title = pendingOrganization;
+                pendingOrganization = '';
+            }
+            current.bullets.push(item.text);
+            previousWasBullet = true;
+            return;
+        }
+
+        if (importedExperienceDateLineRegex.test(item.text)) {
+            if (!current.title && pendingOrganization) {
+                current.title = pendingOrganization;
+                pendingOrganization = '';
+            }
+            current.date = item.text;
+            previousWasBullet = false;
+            return;
+        }
+
+        if (nextIsRole && !isLikelyExperienceHeader(item.text)) {
+            flush();
+            pendingOrganization = item.text;
+            return;
+        }
+
+        const isMetadataImmediatelyBeforeDate = Boolean(
+            current.title
+            && next
+            && !next.isBullet
+            && importedExperienceDateLineRegex.test(next.text)
+        );
+        if (
+            current.title
+            && !current.meta
+            && !current.bullets.length
+            && (looksLikeMetadata(item.text) || isMetadataImmediatelyBeforeDate)
+        ) {
+            current.meta = item.text;
+            previousWasBullet = false;
+            return;
+        }
+
+        if (isLikelyExperienceHeader(item.text) || looksLikeContextualTitle(item, next)) {
+            if (current.title || current.bullets.length || current.date) {
+                flush();
+            }
+            current.title = item.text;
+            current.meta = pendingOrganization;
+            pendingOrganization = '';
+            return;
+        }
+
+        if (!current.meta && !current.bullets.length && looksLikeMetadata(item.text)) {
+            current.meta = item.text;
+            previousWasBullet = false;
+            return;
+        }
+
+        if (!current.title) {
+            current.title = pendingOrganization || item.text;
+            if (pendingOrganization) current.meta = item.text;
+            pendingOrganization = '';
+            return;
+        }
+
+        if (current.bullets.length && (
+            previousWasBullet
+            && (/^[a-zà-ÿ]/.test(item.text) || !/[.!?)]$/.test(current.bullets[current.bullets.length - 1]))
+        )) {
+            current.bullets[current.bullets.length - 1] = `${current.bullets[current.bullets.length - 1]} ${item.text}`
+                .replace(/\s{2,}/g, ' ')
+                .trim();
+            previousWasBullet = true;
+            return;
+        }
+
+        current.bullets.push(item.text);
+        previousWasBullet = false;
+    });
+
+    if (pendingOrganization && !current.title) {
+        current.title = pendingOrganization;
+    }
+    flush();
+    return dedupeImportedItems(groups);
+};
+
 const groupImportedExperiences = (items) => {
+    const segmentedItems = segmentImportedExperienceBlocks(items);
+
+    if (segmentedItems.filter((item) => /^\s*[•▪●◦]\s*/.test(String(item || ''))).length >= 2) {
+        return groupBulletMarkedImportedExperiences(segmentedItems);
+    }
+
     const groups = [];
     let current = '';
     const appendDetail = (detail) => {
@@ -7036,15 +8832,28 @@ const groupImportedExperiences = (items) => {
             : `${current} • ${detail}`.replace(/\s{2,}/g, ' ').trim();
     };
 
-    normalizeExperienceImportItems(items).forEach((rawItem) => {
+    normalizeExperienceImportItems(segmentedItems).forEach((rawItem) => {
         const item = normalizeImportedLineFragments(rawItem).replace(/^[-•]\s*/, '').replace(/\s{2,}/g, ' ').trim();
 
-        if (!item || looksLikeSectionHeading(item) || /\b(?:comp[ée]tences?|formations?|certifications?)\b/i.test(item)) {
+        if (!item || looksLikeSectionHeading(item)) {
             return;
         }
 
         if (standaloneDateRegex.test(item) && current) {
             current = appendStandaloneDateToEntry(current, item);
+            return;
+        }
+
+        const trailingDate = current && !current.includes(' • ')
+            ? extractTrailingStandaloneDate(current)
+            : null;
+        const looksLikeOrganizationMeta = looksLikeExperienceDetailLine(item) || /\s[|]\s/.test(item);
+        if (trailingDate && looksLikeOrganizationMeta) {
+            const title = current
+                .slice(0, trailingDate.index)
+                .replace(/[\s|,–-]+$/g, '')
+                .trim();
+            current = `${title} - ${item} - ${trailingDate.value}`.replace(/\s{2,}/g, ' ').trim();
             return;
         }
 
@@ -7068,13 +8877,9 @@ const groupImportedExperiences = (items) => {
         groups.push(current.trim());
     }
 
-    const grouped = dedupeImportedItems(
-        groups
-            .map((item) => item.replace(/\s*•\s*•\s*/g, ' • ').trim())
-            .filter((item) => item.length < 420)
+    return dedupeImportedItems(
+        groups.map((item) => item.replace(/\s*•\s*•\s*/g, ' • ').trim())
     );
-
-    return mergeKnownExperienceRebuilds([...items, ...grouped], grouped);
 };
 
 const getOrphanMonthFragment = (value) => {
@@ -7093,12 +8898,6 @@ const getOrphanMonthFragment = (value) => {
 };
 
 const repairImportedExperienceItems = (items) => {
-    const hasStructuredExperience = items.some((item) => /\s[–-]\s.+\s[–-]\s.+(?:\s•\s|$)/.test(item || ''));
-    const rebuiltKnownExperiences = hasStructuredExperience ? [] : rebuildKnownFragmentedExperiences(items);
-    if (rebuiltKnownExperiences.length) {
-        return rebuiltKnownExperiences;
-    }
-
     const repaired = [];
     const preparedItems = normalizeExperienceImportItems(items);
 
@@ -7156,12 +8955,7 @@ const repairImportedExperienceItems = (items) => {
         repaired.push(item);
     }
 
-    const repairedItems = dedupeImportedItems(repaired);
-    if (hasStructuredExperience) {
-        return repairedItems;
-    }
-
-    return mergeKnownExperienceRebuilds([...items, ...repairedItems], repairedItems);
+    return dedupeImportedItems(repaired);
 };
 
 const cleanupImportedExperienceField = () => {
@@ -7195,7 +8989,7 @@ const CV_AUTOPILOT_IMPORT_INSTRUCTION = [
     "Nettoie la structure, harmonise les titres, les langues, les compétences et la rubrique Formations & certifications.",
     "Conserve strictement l'ordre des expériences tel qu'il apparaît dans le CV, sauf si l'utilisateur demande explicitement un rangement.",
     "Détecte les périodes vides sans réorganiser ni fusionner les expériences.",
-    "Valorise les projets numériques, l'autoformation et les formations/certifications réellement présentes ou explicitement demandées, comme École 42 ou Simplon, dans les bonnes rubriques.",
+    "Valorise les projets numériques, l'autoformation et les formations/certifications réellement présentes ou explicitement demandées, dans les bonnes rubriques.",
     "Propose les compétences utiles liées aux expériences générées. L'utilisateur validera les ajouts de fond avant insertion.",
 ].join(' ');
 
@@ -7216,249 +9010,677 @@ const buildCvAutopilotInstruction = (message = '') =>
         message,
     ].filter(Boolean).join('\n\n');
 
-const parseImportedCv = (text) => {
-    if (!cvForm || !text) {
-        return;
+const CV_IMPORT_LIST_FIELDS = ['skills', 'experiences', 'projects', 'education', 'activities', 'languages'];
+const CV_IMPORT_TEXT_FIELDS = ['fullName', 'location', 'phone', 'email', 'permit', 'headline', 'summary'];
+
+const detectImportedCvLocale = (text = '', fallbackLocale = 'fr') => {
+    const normalized = normalizeForMatch(text).replace(/[^a-z0-9'’\s]/g, ' ');
+    const englishHeadings = (normalized.match(/\b(?:profile|summary|skills|core expertise|professional experience|work experience|employment history|education|projects|languages|activities|interests)\b/g) || []).length;
+    const frenchHeadings = (normalized.match(/\b(?:profil|resume|competences|experience professionnelle|formation|projets|langues|activites|interets)\b/g) || []).length;
+    const englishWords = (normalized.match(/\b(?:the|and|with|for|from|at|present|professional|management|manager|business|customer|accounting|education|skills|profile|experience)\b/g) || []).length;
+    const frenchWords = (normalized.match(/\b(?:le|la|les|des|avec|pour|depuis|aujourd'hui|professionnel|gestion|formation|competences)\b/g) || []).length;
+
+    const englishScore = englishHeadings * 3 + englishWords;
+    const frenchScore = frenchHeadings * 3 + frenchWords;
+    if (englishScore === frenchScore) {
+        return fallbackLocale === 'en' ? 'en' : 'fr';
+    }
+    return englishScore > frenchScore ? 'en' : 'fr';
+};
+
+const getImportedListItems = (lines = []) => dedupeImportedItems(
+    lines
+        .flatMap((line) => String(line || '').split(/\s*[•▪●◦]\s*/))
+        .map(cleanImportedSectionLine)
+        .filter((item) => item && !looksLikeSectionHeading(item))
+);
+
+const getImportedWrappedListItems = (lines = []) => {
+    const splitItems = splitImportedItems(lines.join('\n'));
+    const hasBulletStructure = splitItems.some((item) => /^\s*•\s*/.test(item));
+
+    if (!hasBulletStructure) {
+        return getImportedListItems(lines);
     }
 
-    const roundTripPayload = getCvRoundTripPayloadFromText(text);
-    if (roundTripPayload && restoreCvPayloadToEditor(roundTripPayload)) {
-        setCvStatus('CV SA Création Web réimporté à l’identique.');
-        return;
-    }
-
-    const normalizedText = preprocessImportedCvText(text);
-    const lines = splitLines(normalizedText);
-    const cleanLines = lines.filter((line) => !/^%PDF-|^\/(Title|Parent|Dest|Next|Prev)\b/i.test(line));
-    const joinedText = cleanLines.join('\n');
-    const sectionStops = [
-        /(?:^|\n)\s*COMP[ÉE]TENCES(?:\s+(?:CL[EÉ]S|TECHNIQUES?|PROFESSIONNELLES?))?\s*(?:\n|$)/i,
-        /(?:^|\n)\s*EXP[ÉE]RIENCES?(?:\s+PROFESSIONNELLES)?\s*(?:\n|$)/i,
-        /(?:^|\n)\s*FORMATIONS?(?:\s*&\s*CERTIFICATIONS)?\s*(?:\n|$)/i,
-        /(?:^|\n)\s*CERTIFICATIONS?\s*(?:\n|$)/i,
-        /(?:^|\n)\s*PROFIL\s*(?:\n|$)/i,
-        /(?:^|\n)\s*R[ÉE]SUM[ÉE]\s*(?:\n|$)/i,
-        /(?:^|\n)\s*OBJECTIF\s*(?:\n|$)/i,
-        /(?:^|\n)\s*LANGUES?\s*(?:\n|$)/i,
-        /(?:^|\n)\s*ATOUTS?\s*(?:\n|$)/i,
-        /(?:^|\n)\s*ACTIVIT[ÉE]S?(?:\s*(?:&|ET)\s*INT[ÉE]R[ÊE]TS)?\s*(?:\n|$)/i,
-        /(?:^|\n)\s*CENTRES?\s+D[’']?INT[ÉE]R[ÊE]TS?\s*(?:\n|$)/i,
-    ];
-
-    cvForm.elements.summary.value = '';
-    cvForm.elements.skills.value = '';
-    cvForm.elements.experience.value = '';
-    cvForm.elements.education.value = '';
-    if (cvForm.elements.projects) {
-        cvForm.elements.projects.value = '';
-    }
-    cvForm.elements.headline.value = '';
-    cvForm.elements.permit.value = '';
-    if (cvForm.elements.activities) {
-        cvForm.elements.activities.value = '';
-    }
-    if (cvForm.elements.languages) {
-        cvForm.elements.languages.value = '';
-    }
-    cvSectionOrder = [...DEFAULT_CV_SECTION_ORDER];
-
-    const nameLine = getImportedNameCandidate(cleanLines);
-
-    if (nameLine) {
-        cvForm.elements.fullName.value = toTitleCase(getSafeFullNameValue(nameLine).toLowerCase());
-    }
-
-    const emailLine = cleanLines.find((line) => emailPattern.test(line));
-    if (emailLine) {
-        const match = emailLine.match(emailPattern);
-        if (match) {
-            cvForm.elements.email.value = match[0];
-        }
-    }
-
-    const phoneLine = cleanLines.find((line) => phonePattern.test(line));
-    if (phoneLine) {
-        const match = phoneLine.match(phonePattern);
-        if (match) {
-            cvForm.elements.phone.value = match[0];
-        }
-    }
-
-    const permitLine = cleanLines.find((line) => /permis/i.test(line)) || '';
-    const permitValue = extractPermitValue(permitLine);
-    if (permitValue) {
-        cvForm.elements.permit.value = permitValue;
-    }
-
-    const locationLine = cleanLines.find((line) =>
-        /\(\d{5}\)|\b\d{5}\b|france|malmaison|paris|nanterre|roissy/i.test(line) &&
-        !/(\+33|0)[\s.\-]?\d([\s.\-]?\d{2}){4}/.test(line)
-    );
-    if (locationLine) {
-        const extractedLocation = normalizeImportedLineFragments(extractLocationValue(locationLine) || locationLine);
-        cvForm.elements.location.value = extractedLocation
-            .replace(new RegExp((cvForm.elements.fullName.value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'), '')
-            .replace(emailPattern, '')
-            .replace(phonePattern, '')
-            .replace(/\s{2,}/g, ' ')
-            .trim();
-    }
-
-    const headlineLine =
-        cleanLines.find((line) =>
-            /d[ée]velopp|front|emploi|marketing|relation client|designer|ux|ui|conseill|responsable|charg[eé]e|conductr|machiniste|receveur|transport|vendeur|vendeuse|vente|lifestyle/i.test(line) &&
-            line.length < 120 &&
-            !/@|\d{2}\.\d{2}\.\d{2}|https?:|www\.|github|d[ée]monstration|portfolio/i.test(line)
-        ) || '';
-
-    if (headlineLine) {
-        cvForm.elements.headline.value = headlineLine;
-    }
-
-    const summarySection = trimImportedSection(extractSectionContent(
-        joinedText,
-        [
-            /(?:^|\n)\s*(?:PROFIL|R[ÉE]SUM[ÉE]|OBJECTIF)\s*(?:\n|$)([\s\S]+)$/i,
-        ],
-        sectionStops
-    ), 'summary');
-    const skillsSection = trimImportedSection(extractSectionContent(
-        joinedText,
-        [
-            /(?:^|\n)\s*COMP[ÉE]TENCES(?:\s+(?:CL[EÉ]S|TECHNIQUES?|PROFESSIONNELLES?))?\s*(?:\n|$)([\s\S]+)$/i,
-        ],
-        sectionStops
-    ), 'skills');
-    const experienceSection = trimImportedSection(extractSectionContent(
-        joinedText,
-        [
-            /(?:^|\n)\s*EXP[ÉE]RIENCES?(?:\s+PROFESSIONNELLES)?\s*(?:\n|$)([\s\S]+)$/i,
-        ],
-        sectionStops
-    ), 'experience');
-    const educationSection = trimImportedSection(extractSectionContent(
-        joinedText,
-        [
-            /(?:^|\n)\s*FORMATIONS?(?:\s*&\s*CERTIFICATIONS)?\s*(?:\n|$)([\s\S]+)$/i,
-            /(?:^|\n)\s*CERTIFICATIONS?\s*(?:\n|$)([\s\S]+)$/i,
-        ],
-        sectionStops
-    ), 'education');
-    const atoutsSection = trimImportedSection(extractSectionContent(
-        joinedText,
-        [
-            /(?:^|\n)\s*ATOUTS?\s*(?:\n|$)([\s\S]+)$/i,
-        ],
-        sectionStops
-    ), 'skills');
-
-    const fallbackSections = { summary: [], skills: [], experience: [], education: [], languages: [], activities: [] };
-    let currentSection = null;
-
-    cleanLines.forEach((line) => {
-        const nextSection = getSectionKey(line);
-        if (nextSection) {
-            currentSection = nextSection;
+    const grouped = [];
+    splitItems.forEach((rawItem) => {
+        const startsNewItem = /^\s*•\s*/.test(rawItem);
+        const item = cleanImportedSectionLine(rawItem);
+        if (!item || looksLikeSectionHeading(item)) {
             return;
         }
 
-        if (currentSection) {
-            fallbackSections[currentSection].push(line);
+        if (startsNewItem || !grouped.length) {
+            grouped.push(item);
+            return;
         }
-    });
 
-    const extractedProfile = extractHeadlineAndSummary({
-        cleanLines,
-        joinedText,
-        nameLine,
-        locationLine,
-        phoneLine,
-        emailLine: cvForm.elements.email.value,
-        permitLine,
-        headlineLine,
-    });
-
-    const summaryValue = finalizeImportedSummary(
-        (summarySection || extractedProfile.summary || getSummaryFallback(cleanLines, headlineLine))
-            .replace(/\bCOMP[ÉE]TENCES(?:\s+CL[EÉ]S)?\b[\s\S]*$/i, '')
-            .replace(/\bEXP[ÉE]RIENCES(?:\s+PROFESSIONNELLES)?\b[\s\S]*$/i, '')
-            .replace(/\bFORMATIONS(?:\s*&\s*CERTIFICATIONS)?\b[\s\S]*$/i, '')
-            .replace(/\bACTIVIT[ÉE]S?(?:\s*(?:&|ET)\s*INT[ÉE]R[ÊE]TS)?\b[\s\S]*$/i, '')
-            .replace(/\bCENTRES?\s+D[’']?INT[ÉE]R[ÊE]TS?\b[\s\S]*$/i, '')
-            .replace(/\n+/g, ' ')
-            .replace(/\s+([,.;:!?])/g, '$1')
-            .replace(/([.!?])(?=\S)/g, '$1 ')
+        // Dans les PDF, une puce longue est souvent coupée sur deux lignes.
+        // Une ligne sans nouveau marqueur continue donc la puce précédente.
+        grouped[grouped.length - 1] = `${grouped[grouped.length - 1]} ${item}`
             .replace(/\s{2,}/g, ' ')
-            .trim(),
-        extractedProfile.headline || headlineLine || cvForm.elements.headline.value
-    );
-    const skillsSource = [skillsSection || fallbackSections.skills.join('\n'), atoutsSection || '']
+            .trim();
+    });
+
+    return dedupeImportedItems(grouped);
+};
+
+const cleanImportedListItem = (value = '') => cleanImportedSectionLine(value)
+    .replace(/[.;]+$/g, '')
+    .trim();
+
+const getImportedSkillItems = (lines = []) => dedupeImportedItems(
+    getImportedWrappedListItems(lines)
+        .flatMap((item) => String(item || '').split(/\s*[;|]\s*/))
+        .map(cleanImportedListItem)
         .filter(Boolean)
-        .join('\n');
-    const skillsItems = normalizeSkillItems(
-        splitImportedItems(skillsSource)
-    ).filter((item) => !/^(permis\b|fatima sidi amar\b)/i.test(item));
-    const rawExperienceImportItems = splitImportedItems(experienceSection || fallbackSections.experience.join('\n'));
-    const repairedExperienceItems = repairImportedExperienceItems(
-        groupImportedExperiences(rawExperienceImportItems)
-    );
-    const experienceItems = dedupeExactTrimmedItems(repairedExperienceItems)
-        .filter((item) => !/^(permis\b|fatima sidi amar\b)/i.test(item));
-    const educationItems = normalizeEducationItems(
-        splitImportedItems(educationSection || fallbackSections.education.join('\n'))
-    ).filter((item) => !/^(fatima sidi amar\b|rueil|conseill[eè]re relation client\b)/i.test(item));
+);
 
-    cvForm.elements.headline.value = formatCvHeadline(extractedProfile.headline || headlineLine || cvForm.elements.headline.value);
+const importedLanguageNamePattern = '(?:fran[cç]ais|anglais|arabe|espagnol|italien|allemand|portugais|n[ée]erlandais|chinois|japonais|russe|polonais|ukrainien|turc|grec|roumain|su[ée]dois|norv[ée]gien|danois|finnois|hindi|ourdou|wolof|lingala|french|english|arabic|spanish|italian|german|portuguese|dutch|chinese|japanese|russian|polish|ukrainian|turkish|greek|romanian|swedish|norwegian|danish|finnish|hindi|urdu|wolof|lingala|mandarin)';
+const splitImportedCombinedListItems = (lines = []) => String(lines.join('\n') || '')
+    .replace(/([.!?])\s+(?=[A-ZÀ-ÖØ-Ý])/g, '$1\n')
+    .split(/\n+|\s*[;|]\s*|\s*[•▪●◦]\s*/)
+    .map(cleanImportedListItem)
+    .filter((item) => item && !/^(?:et|and|&)$/i.test(item));
 
-    if (!cvForm.elements.permit.value) {
-        const permitFromHeadline = extractPermitValue(cvForm.elements.headline.value || '');
-        if (permitFromHeadline) {
-            cvForm.elements.permit.value = permitFromHeadline;
+const looksLikeImportedLanguageItem = (value = '') => new RegExp(
+    `^${importedLanguageNamePattern}\\b(?:\\s*(?::|[–—-])\\s*|\\s*\\(\\s*|\\s+)(?:langue\\s+)?(?:maternelle|native|bilingue|bilingual|courant|fluent|conversationnel|conversational|niveau|level|[A-C][12]\\b|d[ée]butant|beginner|interm[ée]diaire|intermediate|professionnel|professional|avanc[ée]|advanced|working\\s+proficiency)`,
+    'i',
+).test(cleanImportedListItem(value)) || new RegExp(`^${importedLanguageNamePattern}$`, 'i').test(cleanImportedListItem(value));
+
+const getImportedLanguageItems = (lines = []) => dedupeImportedItems(
+    splitImportedCombinedListItems(lines).filter(looksLikeImportedLanguageItem)
+);
+
+const splitImportedActivityItem = (value = '') => {
+    const item = cleanImportedListItem(value);
+    if (!item || looksLikeImportedLanguageItem(item)) {
+        return [];
+    }
+    const isShortEnumeration = item.length <= 140
+        && !/:/.test(item)
+        && /,|\s+(?:et|and|&)\s+/i.test(item);
+    return (isShortEnumeration ? item.split(/\s*,\s*|\s+(?:et|and|&)\s+/i) : [item])
+        .map(cleanImportedListItem)
+        .filter((part) => part && !/^(?:et|and|&)$/i.test(part));
+};
+
+const getImportedActivityItems = (lines = []) => dedupeImportedItems(
+    splitImportedCombinedListItems(lines).flatMap(splitImportedActivityItem)
+);
+
+const partitionImportedLanguagesAndActivities = (lines = []) => {
+    const languages = [];
+    const activities = [];
+    splitImportedCombinedListItems(lines).forEach((item) => {
+        if (looksLikeImportedLanguageItem(item)) {
+            languages.push(item);
+            return;
+        }
+        activities.push(...splitImportedActivityItem(item));
+    });
+    return {
+        languages: dedupeImportedItems(languages),
+        activities: dedupeImportedItems(activities),
+    };
+};
+
+const extractImportedPhone = (lines = []) => {
+    for (const line of lines) {
+        const candidates = String(line || '').match(/(?:\+\d{1,3}[\s().-]*)?(?:\(?\d{2,4}\)?[\s.-]*){2,5}\d{2,4}/g) || [];
+        const phone = candidates.find((candidate) => {
+            const digitCount = candidate.replace(/\D/g, '').length;
+            return digitCount >= 8 && digitCount <= 15 && !/^\s*(?:19|20)\d{2}\s*[-–]\s*(?:19|20)\d{2}\s*$/.test(candidate);
+        });
+        if (phone) {
+            return phone.trim();
+        }
+    }
+    return '';
+};
+
+const importedStreetLinePattern = /^\s*\d{1,5}(?:\s*(?:bis|ter|quater))?\s*,?\s+[\p{L}][\p{L}'’.-]*(?:\s+[\p{L}][\p{L}'’.-]*)*\s+(?:rue|avenue|av\.?|boulevard|bd\.?|chemin|route|place|impasse|all[ée]e?|quai|cours|street|st\.?|road|rd\.?|lane|drive|way|square|strasse|stra[ßs]e)(?:\s|,|$)|^\s*\d{1,5}(?:\s*(?:bis|ter|quater))?\s*,?\s+(?:rue|avenue|av\.?|boulevard|bd\.?|chemin|route|place|impasse|all[ée]e?|quai|cours|street|st\.?|road|rd\.?|lane|drive|way|square|strasse|stra[ßs]e)\b/iu;
+const importedPostalCityLinePattern = /^\s*(?:(?:[A-Z]{1,3}\s*[-–]\s*)?(?:\d{2}\s?\d{3}|\d{4,6})|[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\s+[\p{L}][\p{L}'’.-]*(?:\s+[\p{L}][\p{L}'’.-]*)*(?:\s*,\s*[\p{L}][\p{L}'’.-]*(?:\s+[\p{L}][\p{L}'’.-]*)*)?\s*$/iu;
+
+const looksLikeImportedHeaderDateMetadata = (line = '') => {
+    const source = normalizeImportedLineFragments(line);
+    const normalized = normalizeForMatch(source);
+
+    return importedHeaderUpdateMarkerPattern.test(source) ||
+        /^(?:updated|update|actualise|mise a jour|last modified)\b/.test(normalized) ||
+        /^(?:(?:\d{1,2}\s+)?(?:jan(?:uary|vier)?|feb(?:ruary)?|fev(?:rier)?|mar(?:ch|s)?|apr(?:il)?|avr(?:il)?|may|mai|jun(?:e)?|juin|jul(?:y)?|juil(?:let)?|aug(?:ust)?|aout|sep(?:tember|tembre)?|oct(?:ober|obre)?|nov(?:ember|embre)?|dec(?:ember|embre)?)[a-z.]*\s+)?(?:19|20)\d{2}(?:\s*[-–]\s*(?:present|current|today|aujourd'hui|(?:19|20)\d{2}))?$/.test(normalized);
+};
+
+const cleanImportedLocationLine = (line = '', { name = '', email = '', phone = '' } = {}) => {
+    let output = normalizeImportedLineFragments(line);
+    const escapedName = String(name || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    if (escapedName) {
+        output = output.replace(new RegExp(escapedName, 'i'), ' ');
+    }
+    [email, phone].filter(Boolean).forEach((token) => {
+        output = output.replace(token, ' ');
+    });
+
+    return output
+        .replace(/^\s*(?:address|adresse|location|ville|city)\s*:?\s*/i, '')
+        .replace(/\s*[|,;]\s*(?:permis|driving licen[cs]e)\s*:?[A-Z0-9 ,/&-]*$/i, '')
+        // Si la ville partage sa ligne avec le titre du poste, ne jamais
+        // absorber ce titre dans le champ localisation.
+        .replace(/^(\s*[\p{L}][\p{L}'’.-]*(?:\s+[\p{L}][\p{L}'’.-]*)*\s*\(\d{2,5}\))\s*[|;].*$/iu, '$1')
+        // Les codes postaux français sont parfois séparés en deux blocs par le
+        // moteur PDF ("75 001"). On les rend à nouveau lisibles.
+        .replace(/\b(\d{2})\s+(\d{3})(?=\s+[\p{L}])/gu, '$1$2')
+        .replace(/^[,;|\s]+|[,;|\s]+$/g, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+};
+
+const looksLikeImportedLocationCandidate = (line = '') => {
+    const source = normalizeImportedLineFragments(line);
+
+    if (!source || looksLikeImportedHeaderDateMetadata(source) || looksLikeImportedHeaderNoise(source)) {
+        return false;
+    }
+
+    return importedStreetLinePattern.test(source) ||
+        importedPostalCityLinePattern.test(source) ||
+        // Les CV français emploient aussi bien un numéro de département
+        // (92) qu'un code postal complet (92500) après la ville.
+        /^\s*[\p{L}][\p{L}'’.-]*(?:\s+[\p{L}][\p{L}'’.-]*)*\s*\(\d{2,5}\)(?:\s*[|,;].*)?$/iu.test(source) ||
+        /^\s*(?:address|adresse|location|ville|city)\s*:/i.test(source) ||
+        /\b(?:france|paris|london|londres|new york|toronto|basel|bordeaux)\b/i.test(source);
+};
+
+const importedHeaderComparable = (value = '') =>
+    normalizeForMatch(value).replace(/[^a-z0-9]/g, '');
+
+const isImportedHeaderLocationFragment = (line = '', location = '') => {
+    const lineKey = importedHeaderComparable(line);
+    const locationKey = importedHeaderComparable(location);
+
+    return Boolean(lineKey && locationKey && (locationKey.includes(lineKey) || lineKey.includes(locationKey)));
+};
+
+const extractImportedLocation = ({ lines = [], name = '', email = '', phone = '' } = {}) => {
+    const preparedLines = lines.map((rawLine) => ({
+        raw: String(rawLine || ''),
+        clean: cleanImportedLocationLine(rawLine, { name, email, phone }),
+    }));
+
+    for (let index = 0; index < preparedLines.length; index += 1) {
+        const current = preparedLines[index];
+        if (!current.clean || looksLikeImportedHeaderDateMetadata(current.raw)) {
+            continue;
+        }
+
+        if (importedStreetLinePattern.test(current.clean)) {
+            const next = preparedLines[index + 1];
+            if (next?.clean && importedPostalCityLinePattern.test(next.clean)) {
+                return `${current.clean}, ${next.clean}`;
+            }
+            return current.clean;
+        }
+
+        if (importedPostalCityLinePattern.test(current.clean)) {
+            const previous = preparedLines[index - 1];
+            if (previous?.clean && importedStreetLinePattern.test(previous.clean)) {
+                return `${previous.clean}, ${current.clean}`;
+            }
+            return current.clean;
         }
     }
 
-    if (summaryValue) {
-        cvForm.elements.summary.value = summaryValue;
-    }
+    return preparedLines
+        .find(({ raw, clean }) => clean && looksLikeImportedLocationCandidate(raw))?.clean || '';
+};
 
-    if (skillsItems.length) {
-        cvForm.elements.skills.value = skillsItems.join('\n');
-    }
+const getImportedHeaderCandidates = ({ lines = [], fullName = '', location = '', email = '', phone = '', permitLine = '' } = {}) =>
+    lines
+        .map(cleanImportedHeaderLine)
+        .filter(Boolean)
+        .filter((line) => !looksLikeImportedHeaderNoise(line) && !looksLikeImportedHeaderDateMetadata(line))
+        .filter((line) => normalizeForMatch(line) !== normalizeForMatch(fullName))
+        .filter((line) => !looksLikeContactLine(line) && !emailPattern.test(line))
+        .filter((line) => !looksLikeImportedLocationCandidate(line) && !isImportedHeaderLocationFragment(line, location))
+        .filter((line) => !permitLine || normalizeForMatch(line) !== normalizeForMatch(permitLine));
 
-    if (experienceItems.length) {
-        cvForm.elements.experience.value = experienceItems.join('\n');
-        cleanupImportedExperienceField();
-    }
-
-    if (educationItems.length) {
-        cvForm.elements.education.value = educationItems.join('\n');
-        cleanupImportedEducationField();
-    }
-
-    const languageLines = dedupeImportedItems([
-        ...splitImportedItems(fallbackSections.languages.join('\n')),
-        ...cleanLines.filter((line) => /\b(français|francais|anglais|espagnol|arabe|italien|allemand|portugais)\b/i.test(line)),
-    ])
-        .map(cleanImportedSectionLine)
-        .map((line) => serializeLanguageEntry(parseLanguageEntry(line)))
+const buildLocalImportedCvExtraction = (text = '') => {
+    const normalizedText = preprocessImportedCvText(text);
+    const cleanLines = splitLines(normalizedText)
+        .filter((line) => !/^%PDF-|^\/(?:Title|Parent|Dest|Next|Prev)\b/i.test(line));
+    const sections = splitImportedCvSections(cleanLines);
+    const preamble = sections.preamble;
+    const preambleHeaderLines = preamble
+        .flatMap((line) => String(line || '').split(/\s*\|\s*/))
+        .map((line) => line.trim())
         .filter(Boolean);
-    if (languageLines.length && cvForm.elements.languages) {
-        cvForm.elements.languages.value = dedupeImportedItems(languageLines).join('\n');
-    } else if (cvForm.elements.languages) {
-        cvForm.elements.languages.value = getDefaultCvLanguagesValue();
+    const fullName = getImportedNameCandidate(preambleHeaderLines) || getImportedNameCandidate(cleanLines);
+    const email = cleanLines.map((line) => line.match(emailPattern)?.[0] || '').find(Boolean) || '';
+    const phone = extractImportedPhone(preamble.length ? preamble : cleanLines);
+    const permitLine = cleanLines.find((line) => /\b(?:permis|driving licen[cs]e)\b/i.test(line)) || '';
+    const permit = extractPermitValue(permitLine) || permitLine.replace(/^\s*(?:driving licen[cs]e|permis)\s*:?\s*/i, '').trim();
+    const location = extractImportedLocation({ lines: preamble, name: fullName, email, phone });
+    const headerCandidates = getImportedHeaderCandidates({
+        lines: preambleHeaderLines,
+        fullName,
+        location,
+        email,
+        phone,
+        permitLine: permit || permitLine,
+    });
+    // Ne pas aplatir les barres verticales avant d'identifier la ligne du
+    // titre. Une ligne comme « Conseil client | Accompagnement vers l'emploi »
+    // constitue un seul intitulé, tandis qu'une ligne de coordonnées doit être
+    // entièrement éliminée fragment par fragment.
+    const logicalPreambleLines = preamble.map((rawLine, index) => {
+        const candidates = getImportedHeaderCandidates({
+            lines: String(rawLine || '').split(/\s*\|\s*/),
+            fullName,
+            location,
+            email,
+            phone,
+            permitLine: permit || permitLine,
+        });
+        return {
+            index,
+            candidates,
+            value: candidates.join(' | ').trim(),
+        };
+    });
+    const headlineLine = logicalPreambleLines.find(({ value }) => value && value.length <= 180);
+    const headline = headlineLine?.value || headerCandidates.find((line) => line.length <= 180) || '';
+    const inferredSummaryLines = headlineLine
+        ? logicalPreambleLines
+            .filter(({ index, value }) => index > headlineLine.index && value)
+            .map(({ value }) => value)
+        : headerCandidates.filter((line) => line !== headline);
+    const summary = (sections.summary.length
+        ? sections.summary
+        : inferredSummaryLines)
+        .join(' ')
+        .replace(/\s+([,.;:!?])/g, '$1')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+    const rawExperienceItems = splitImportedItems(sections.experience.join('\n'));
+    const groupedExperiences = groupImportedExperiences(rawExperienceItems);
+    const combinedLanguagesAndActivities = partitionImportedLanguagesAndActivities(sections.languagesActivities);
+
+    return {
+        locale: detectImportedCvLocale(normalizedText),
+        extracted: {
+            fullName: getSafeFullNameValue(fullName),
+            location,
+            phone,
+            email,
+            permit,
+            headline,
+            summary,
+            skills: normalizeSkillItems(getImportedSkillItems(sections.skills)),
+            experiences: groupedExperiences.length ? groupedExperiences : dedupeImportedItems(rawExperienceItems),
+            projects: mergeStandaloneDateItems(getImportedListItems(sections.projects)),
+            education: normalizeImportedEducationItems(getImportedListItems(sections.education)),
+            activities: dedupeImportedItems([
+                ...getImportedActivityItems(sections.activities),
+                ...combinedLanguagesAndActivities.activities,
+            ]),
+            languages: dedupeImportedItems([
+                ...getImportedLanguageItems(sections.languages),
+                ...combinedLanguagesAndActivities.languages,
+            ]),
+        },
+    };
+};
+
+const getImportedExtractionList = (extracted = {}, fieldName = '') => {
+    const value = extracted?.[fieldName];
+    if (Array.isArray(value)) {
+        return value
+            .map((item) => fieldName === 'languages' && item && typeof item === 'object'
+                ? serializeLanguageEntry(item)
+                : normalizeCvSentenceText(String(item || '')))
+            .filter(Boolean);
+    }
+    return typeof value === 'string' ? splitLines(value) : [];
+};
+
+const getImportedCvExtractionStats = (extracted = {}) => ({
+    experiences: getImportedExtractionList(extracted, 'experiences').length,
+    skills: getImportedExtractionList(extracted, 'skills').length,
+    education: getImportedExtractionList(extracted, 'education').length,
+    projects: getImportedExtractionList(extracted, 'projects').length,
+    languages: getImportedExtractionList(extracted, 'languages').length,
+    hasName: Boolean(normalizeCvSentenceText(extracted?.fullName || '')),
+    hasContact: Boolean(normalizeCvSentenceText(extracted?.email || '') || normalizeCvSentenceText(extracted?.phone || '')),
+    hasHeadline: Boolean(normalizeCvSentenceText(extracted?.headline || '')),
+    hasSummary: Boolean(normalizeCvSentenceText(extracted?.summary || '')),
+});
+
+const hasMeaningfulImportedCvExtraction = (extracted = {}) => {
+    const stats = getImportedCvExtractionStats(extracted);
+    const listSections = [stats.experiences, stats.skills, stats.education, stats.projects, stats.languages]
+        .filter((count) => count > 0).length;
+    const contentScore = Math.min(stats.experiences, 2) * 2
+        + Math.min(stats.education, 1) * 2
+        + Math.min(stats.projects, 1) * 2
+        + Math.min(stats.skills, 2)
+        + Math.min(stats.languages, 1)
+        + Number(stats.hasHeadline)
+        + Number(stats.hasSummary);
+
+    // Accepter aussi un CV junior sans expérience, mais jamais un bloc de texte
+    // que le parseur n'a pas réellement réparti dans des champs exploitables.
+    return (stats.hasName && (stats.hasContact || contentScore >= 3))
+        || (stats.hasContact && listSections >= 2)
+        || contentScore >= 6;
+};
+
+const importedCvGroundingStopWords = new Set([
+    'the', 'and', 'for', 'with', 'from', 'this', 'that', 'dans', 'avec', 'pour', 'des', 'les', 'une', 'aux',
+    'sur', 'par', 'and', 'or', 'of', 'to', 'a', 'an', 'de', 'du', 'la', 'le', 'et', 'en', 'au', 'un', 'd', 'l',
+]);
+
+const getImportedGroundingTokens = (value = '') => normalizeForMatch(value)
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((token) => token.length > 1 && !importedCvGroundingStopWords.has(token));
+
+const isImportedValueGrounded = (value = '', sourceText = '') => {
+    const candidateTokens = getImportedGroundingTokens(value);
+    if (!candidateTokens.length) {
+        return false;
+    }
+    const sourceTokens = new Set(getImportedGroundingTokens(sourceText));
+    const coveredTokens = candidateTokens.filter((token) => sourceTokens.has(token)).length;
+    return coveredTokens / candidateTokens.length >= 0.82;
+};
+
+const isImportedExperienceGrounded = (value = '', sourceText = '') => {
+    if (!isImportedValueGrounded(value, sourceText)) {
+        return false;
     }
 
-    const activityItems = dedupeImportedItems(
-        splitImportedItems(fallbackSections.activities.join('\n'))
-            .flatMap((item) => item.split(/,\s+(?=(?:sport|lecture|veille|apprentissage|technologie|activit[ée]s? personnelles)\b)/i))
-            .map(cleanImportedSectionLine)
-            .filter((item) => !looksLikeSectionHeading(item))
-            .filter((item) => item.length < 80)
+    const candidateTokens = [...new Set(getImportedGroundingTokens(value))];
+    const candidateDateTokens = candidateTokens.filter((token) => /^(?:19|20)\d{2}$/.test(token) || /^(?:present|actuel|current)$/.test(token));
+    const candidateFactTokens = candidateTokens.filter((token) => token.length >= 4 && !candidateDateTokens.includes(token));
+    const sourceLines = String(sourceText || '')
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+    return sourceLines.some((line, index) => {
+        const lineTokens = new Set(getImportedGroundingTokens(line));
+        const datesCoLocated = candidateDateTokens.length === 0
+            || candidateDateTokens.every((token) => lineTokens.has(token));
+        const factAnchorCount = candidateFactTokens.filter((token) => lineTokens.has(token)).length;
+        if (!datesCoLocated || factAnchorCount < Math.min(2, candidateFactTokens.length)) {
+            return false;
+        }
+
+        const windowText = sourceLines.slice(Math.max(0, index - 1), index + 4).join(' ');
+        const windowTokens = new Set(getImportedGroundingTokens(windowText));
+        const covered = candidateTokens.filter((token) => windowTokens.has(token)).length;
+        return covered / Math.max(candidateTokens.length, 1) >= 0.72;
+    });
+};
+
+const importedItemsReferToSameFact = (left = '', right = '') => {
+    const leftTokens = new Set(getImportedGroundingTokens(left));
+    const rightTokens = getImportedGroundingTokens(right);
+    if (!leftTokens.size || !rightTokens.length) {
+        return normalizeForMatch(left) === normalizeForMatch(right);
+    }
+    const overlap = rightTokens.filter((token) => leftTokens.has(token)).length;
+    return overlap / Math.min(leftTokens.size, rightTokens.length) >= 0.72;
+};
+
+const isImportedMergeSectionLabel = (value = '') => /^(?:profile|profil|summary|resume|skills?|competences?|core expertise|savoir(?: |-)?faire|tech(?:nical)? stack|professional experience|experiences? professionnelles?|employment history|parcours professionnel|academic appointments?|professional appointments?|education|formations?(?: et certifications?)?|diplomes?|degrees?|parcours academique|projects?|projets?|research(?: experience| projects?)?|recherche(?: et developpement)?|publications?|selected publications?|languages?|langues?|langues? (?:et|&) (?:centres? d interet|activites?|loisirs?)|languages? (?:and|&) (?:interests?|activities?|hobbies?)|activities?(?: and interests?)?|activites?|centres? d interet|et|and)$/i
+    .test(normalizeForMatch(value).replace(/\s+/g, ' ').trim());
+
+const isImportedAssistantItemCompatible = (fieldName = '', item = '', localItemsByField = {}) => {
+    if (!item || isImportedMergeSectionLabel(item)) {
+        return false;
+    }
+
+    const canClassifyLanguage = typeof looksLikeImportedLanguageItem === 'function';
+    const isLanguage = canClassifyLanguage && looksLikeImportedLanguageItem(item);
+    if ((fieldName === 'skills' || fieldName === 'activities') && isLanguage) {
+        return false;
+    }
+
+    if (!['skills', 'languages', 'activities'].includes(fieldName)) {
+        return true;
+    }
+
+    const candidateTokens = getImportedGroundingTokens(item);
+    if (!candidateTokens.length) {
+        return false;
+    }
+
+    return !['skills', 'languages', 'activities']
+        .filter((otherField) => otherField !== fieldName)
+        .some((otherField) => {
+            const otherTokens = new Set(
+                (localItemsByField[otherField] || []).flatMap(getImportedGroundingTokens)
+            );
+            const coveredTokens = candidateTokens.filter((token) => otherTokens.has(token)).length;
+            return otherTokens.size > 0 && coveredTokens / candidateTokens.length >= 0.8;
+        });
+};
+
+const mergeImportedCvExtractions = (localExtraction = {}, assistantExtraction = {}, sourceText = '') => {
+    const merged = {};
+    const localItemsByField = Object.fromEntries(
+        CV_IMPORT_LIST_FIELDS.map((fieldName) => [fieldName, getImportedExtractionList(localExtraction, fieldName)])
     );
-    if (cvForm.elements.activities && activityItems.length) {
-        cvForm.elements.activities.value = activityItems.join('\n');
+
+    CV_IMPORT_TEXT_FIELDS.forEach((fieldName) => {
+        const localValue = normalizeCvSentenceText(localExtraction?.[fieldName] || '');
+        const assistantValue = normalizeCvSentenceText(assistantExtraction?.[fieldName] || '');
+        merged[fieldName] = localValue || (
+            assistantValue && isImportedValueGrounded(assistantValue, sourceText)
+                ? assistantValue
+                : ''
+        );
+    });
+
+    CV_IMPORT_LIST_FIELDS.forEach((fieldName) => {
+        const localItems = localItemsByField[fieldName];
+        const assistantItems = getImportedExtractionList(assistantExtraction, fieldName)
+            .filter((item) => fieldName === 'experiences'
+                ? isImportedExperienceGrounded(item, sourceText)
+                : isImportedValueGrounded(item, sourceText))
+            .filter((item) => isImportedAssistantItemCompatible(fieldName, item, localItemsByField));
+        const combined = [...localItems];
+        assistantItems.forEach((item) => {
+            if (!combined.some((candidate) => importedItemsReferToSameFact(candidate, item))) {
+                combined.push(item);
+            }
+        });
+        merged[fieldName] = fieldName === 'skills'
+            ? dedupeCvSkillItems(combined)
+            : dedupeImportedItems(combined);
+    });
+
+    return merged;
+};
+
+const splitImportedCvForKirby = (text = '', maxChunkLength = 24000) => {
+    const source = String(text || '').trim();
+    if (!source) {
+        return [];
     }
 
+    const chunks = [];
+    let remaining = source;
+    while (remaining.length > maxChunkLength) {
+        const candidate = remaining.slice(0, maxChunkLength);
+        const newlineIndex = candidate.lastIndexOf('\n');
+        const splitIndex = newlineIndex > Math.floor(maxChunkLength * 0.6) ? newlineIndex : maxChunkLength;
+        chunks.push(remaining.slice(0, splitIndex).trim());
+        remaining = remaining.slice(splitIndex).trim();
+    }
+    if (remaining) {
+        chunks.push(remaining);
+    }
+    return chunks;
+};
+
+const buildKirbyImportedCvInstruction = (index = 0, total = 1) => [
+    `Document CV brut à extraire, partie ${index + 1}/${total}.`,
+    'Restitue uniquement les faits explicitement présents dans cette partie dans extracted.',
+    "N'invente aucune langue, compétence, mission, date, formation ou expérience. Ne résume pas une liste et ne réorganise pas les expériences.",
+].join('\n\n');
+
+const combineKirbyImportedCvExtractions = (extractions = []) => {
+    const combined = {};
+    CV_IMPORT_TEXT_FIELDS.forEach((fieldName) => {
+        combined[fieldName] = extractions.map((item) => item?.[fieldName] || '').find(Boolean) || '';
+    });
+    CV_IMPORT_LIST_FIELDS.forEach((fieldName) => {
+        combined[fieldName] = dedupeImportedItems(
+            extractions.flatMap((item) => getImportedExtractionList(item, fieldName))
+        );
+    });
+    return combined;
+};
+
+const buildKirbyImportedCvOnePageInstruction = (locale = 'fr') => locale === 'en'
+    ? [
+        'Make this imported CV a professional, ready-to-use one-page document.',
+        'Keep every experience, skill, education or certification item, title, date, employer and contact detail in the current order.',
+        'For every experience that has duties, return one set_experience_bullets operation targeted by its exact index with the final complete duties condensed into one or two concise factual bullets.',
+        'Use the source vocabulary whenever possible. Combine redundant wording, but do not invent or remove a distinct fact. Do not return any remove, add or reorder operation.',
+        'Set layout.reflow, layout.compact and layout.singlePage to true.',
+    ].join(' ')
+    : [
+        "Mets ce CV importé en forme comme un document professionnel, prêt à l'emploi sur une seule page.",
+        'Conserve chaque expérience, compétence, formation ou certification, ainsi que tous les titres, dates, employeurs et coordonnées, dans leur ordre actuel.',
+        "Pour chaque expérience qui comporte des missions, retourne une opération set_experience_bullets ciblée par son index exact, avec la liste finale complète condensée en une ou deux puces factuelles et concises.",
+        "Réutilise autant que possible le vocabulaire source. Regroupe les formulations redondantes, mais n'invente et ne retire aucun fait distinct. Ne retourne aucune opération de suppression, ajout ou réordonnancement.",
+        'Mets layout.reflow, layout.compact et layout.singlePage à true.',
+    ].join(' ');
+
+const shouldRequestImportedCvOnePagePass = (cv = {}) => {
+    const experienceEntries = splitLines(String(cv?.experience || ''))
+        .map(parseExperienceEntry)
+        .filter((entry) => entry.bullets.length > 0);
+
+    return experienceEntries.length > 0 && estimateCvContentDensity(cv) === 'dense';
+};
+
+const getSafeImportedCvOnePageOperations = (result = {}, sourceExperience = '') => {
+    const sourceLines = splitLines(String(sourceExperience || ''));
+    const sourceEntries = sourceLines.map(parseExperienceEntry);
+    const missionIndexes = sourceEntries
+        .map((entry, index) => ({ entry, index }))
+        .filter(({ entry }) => entry.bullets.length > 0)
+        .map(({ index }) => index);
+    if (!missionIndexes.length) {
+        return [];
+    }
+
+    const safeByIndex = new Map();
+    const proposal = result?.cv && typeof result.cv === 'object' ? result.cv : result;
+    getKirbyCvArray(proposal?.operations).forEach((operation) => {
+        if (operation?.type !== 'set_experience_bullets') {
+            return;
+        }
+
+        const index = findExperienceIndexForOperation(sourceEntries, operation);
+        const description = getKirbyCvArray(operation?.experience?.description)
+            .map(normalizeCvSentenceText)
+            .filter(Boolean);
+        if (!missionIndexes.includes(index) || safeByIndex.has(index) || description.length < 1 || description.length > 2) {
+            return;
+        }
+
+        const sourceLine = sourceLines[index] || '';
+        if (!description.every((bullet) => isImportedValueGrounded(bullet, sourceLine))) {
+            return;
+        }
+
+        safeByIndex.set(index, {
+            ...operation,
+            target: { ...(operation.target || {}), index },
+            experience: { ...(operation.experience || {}), description },
+        });
+    });
+
+    if (safeByIndex.size !== missionIndexes.length) {
+        return [];
+    }
+
+    const sourceMissionLength = missionIndexes.reduce(
+        (total, index) => total + sourceEntries[index].bullets.join(' ').length,
+        0,
+    );
+    const condensedMissionLength = missionIndexes.reduce(
+        (total, index) => total + safeByIndex.get(index).experience.description.join(' ').length,
+        0,
+    );
+    if (!condensedMissionLength || condensedMissionLength >= sourceMissionLength) {
+        return [];
+    }
+
+    return missionIndexes.map((index) => safeByIndex.get(index));
+};
+
+const runImportedCvOnePagePass = async (locale = 'fr') => {
+    const sourceCv = getKirbyCvSource();
+    if (!shouldRequestImportedCvOnePagePass(sourceCv)) {
+        return { requested: false, applied: false };
+    }
+
+    const sourceSnapshot = getKirbyCvSnapshot();
+
+    const instruction = buildKirbyImportedCvOnePageInstruction(locale);
+    const result = await requestKirbyCvAssistant({
+        task: 'optimize',
+        instruction,
+        cv: sourceCv,
+        documentLanguage: locale,
+        jobOffer: '',
+        interaction: { importSource: true, onePagePass: true },
+        timeoutMs: 20000,
+    });
+    const operations = result?.source === 'openai'
+        ? getSafeImportedCvOnePageOperations(result, sourceCv.experience)
+        : [];
+    if (sourceSnapshot !== getKirbyCvSnapshot()) {
+        return { requested: true, applied: false, stale: true };
+    }
+    if (!operations.length) {
+        return { requested: true, applied: false };
+    }
+
+    const safeResult = {
+        ...result,
+        cv: {
+            documentLanguage: locale,
+            operations,
+            layout: {
+                reflow: true,
+                compact: true,
+                singlePage: true,
+                preserveAllContent: true,
+                removeSections: [],
+            },
+        },
+    };
+    await applyKirbyCvResult(safeResult, 'optimize', instruction, { applyMode: 'direct' });
+    return { requested: true, applied: true, operations: operations.length };
+};
+
+const renderImportedCv = ({ locale = 'fr', status = 'CV importé fidèlement. Vérifiez puis sauvegardez le brouillon.' } = {}) => {
+    currentCvContentLocale = locale === 'en' ? 'en' : 'fr';
+    preserveEmptyImportedLanguages = !String(cvForm?.elements.languages?.value || '').trim();
+    cvSectionOrder = [...DEFAULT_CV_SECTION_ORDER];
+    // Le contenu importé adopte la conception déjà choisie par l'utilisateur.
+    // Les valeurs par défaut ne sont appliquées que si aucun style n'existe.
+    applyReadyCvLayout();
+    sortNewCvExperiencesNewestFirst();
     clearEditableOverrides();
     updateCvPreview();
     renderExperienceEditor();
@@ -7466,8 +9688,262 @@ const parseImportedCv = (text) => {
     setPreviewMode('cv');
     currentPreviewPage = 1;
     scrollToPreviewPage(1);
+    setCvStatus(status);
+    scheduleCvDraftSave();
+};
 
-    setCvStatus('CV importé fidèlement. Vérifiez puis sauvegardez le brouillon.');
+const parseImportedCv = (text, { replace = true, render = true } = {}) => {
+    if (!cvForm || !text) {
+        return null;
+    }
+
+    const roundTripPayload = getCvRoundTripPayloadFromText(text);
+    if (roundTripPayload && restoreCvPayloadToEditor(roundTripPayload)) {
+        sortNewCvExperiencesNewestFirst({ refresh: true });
+        setCvStatus('CV SA Création Web réimporté à l’identique.');
+        return { restoredRoundTrip: true, locale: currentCvContentLocale, extracted: null };
+    }
+
+    const localImport = buildLocalImportedCvExtraction(text);
+    currentCvContentLocale = localImport.locale === 'en' ? 'en' : 'fr';
+    applyKirbyExtractedCv(localImport.extracted, { replace });
+    if (render) {
+        renderImportedCv({ locale: localImport.locale });
+    }
+    return { restoredRoundTrip: false, ...localImport };
+};
+
+const importCvTextWithKirby = async (
+    text = '',
+    { onProgress = null, onLocalReady = null, profilePhoto = null } = {},
+) => {
+    const reportProgress = (message) => {
+        if (typeof onProgress === 'function') {
+            onProgress(message);
+        }
+    };
+
+    reportProgress('Vérification du document');
+    const roundTripPayload = getCvRoundTripPayloadFromText(text);
+    if (roundTripPayload && restoreCvPayloadToEditor(roundTripPayload, { profilePhoto })) {
+        reportProgress('Document SA Création Web restauré');
+        sortNewCvExperiencesNewestFirst({ refresh: true });
+        setCvStatus('CV SA Création Web réimporté à l’identique.');
+        return { source: 'round-trip', restoredRoundTrip: true };
+    }
+
+    const localImport = buildLocalImportedCvExtraction(text);
+    currentCvContentLocale = localImport.locale === 'en' ? 'en' : 'fr';
+    const localExtractionReady = hasMeaningfulImportedCvExtraction(localImport.extracted);
+    const snapshotBeforeImport = getKirbyCvSnapshot();
+    let importSnapshot = snapshotBeforeImport;
+
+    // Afficher d'abord l'analyse déterministe. Un PDF ou un texte collé ne doit
+    // jamais laisser la feuille blanche pendant que le service IA répond (ou si
+    // la session / le réseau est momentanément indisponible). Kirby peut ensuite
+    // enrichir cette extraction, mais la source locale reste la référence.
+    if (localExtractionReady) {
+        reportProgress('Structure détectée, mise en page du CV');
+        applyKirbyExtractedCv(localImport.extracted, { replace: true });
+        setCvProfilePhoto(profilePhoto || null, { refresh: false });
+        renderImportedCv({
+            locale: localImport.locale,
+            status: 'CV structuré et affiché. Kirby vérifie maintenant chaque rubrique sans supprimer le contenu source.',
+        });
+        importSnapshot = getKirbyCvSnapshot();
+        if (typeof onLocalReady === 'function') {
+            await onLocalReady({ ...localImport, source: 'local' });
+        }
+    } else {
+        reportProgress('Kirby analyse la structure du document sans modifier le CV affiché');
+    }
+
+    const chunks = splitImportedCvForKirby(text);
+    let assistantExtraction = {};
+    let usedAssistant = false;
+    let usedOpenAiAssistant = false;
+
+    try {
+        const results = [];
+        for (let index = 0; index < chunks.length; index += 1) {
+            reportProgress(chunks.length > 1
+                ? `Kirby analyse le contenu (${index + 1}/${chunks.length})`
+                : 'Kirby analyse et structure le contenu');
+            const result = await requestKirbyCvAssistant({
+                task: 'autofill',
+                instruction: buildKirbyImportedCvInstruction(index, chunks.length),
+                documentText: chunks[index],
+                documentLanguage: localImport.locale,
+                cv: { documentLanguage: localImport.locale },
+                jobOffer: '',
+                interaction: { importSource: true },
+                timeoutMs: 25000,
+            });
+            const extracted = result?.cv?.extracted;
+            const hasStructuredExtraction = extracted && typeof extracted === 'object' && Object.entries(extracted)
+                .some(([fieldName, value]) => fieldName !== 'rawText' && (
+                    Array.isArray(value) ? value.length > 0 : String(value || '').trim().length > 0
+                ));
+            const isAssistantExtraction = result?.source === 'openai' || hasStructuredExtraction;
+            if (isAssistantExtraction && hasStructuredExtraction) {
+                results.push(result.cv.extracted);
+            }
+            if (result?.source === 'openai' && hasStructuredExtraction) {
+                usedOpenAiAssistant = true;
+            }
+        }
+        assistantExtraction = combineKirbyImportedCvExtractions(results);
+        usedAssistant = results.length > 0;
+    } catch (error) {
+        console.warn('Kirby CV import fallback local:', error);
+    }
+
+    const extracted = mergeImportedCvExtractions(localImport.extracted, assistantExtraction, text);
+    const mergedExtractionReady = hasMeaningfulImportedCvExtraction(extracted);
+    const sourceChangedDuringAnalysis = importSnapshot !== getKirbyCvSnapshot();
+
+    if (!mergedExtractionReady) {
+        throw new Error('Aucune structure de CV exploitable n’a été reconnue dans ce document.');
+    }
+
+    if (usedAssistant && !sourceChangedDuringAnalysis) {
+        reportProgress('Vérification terminée, finalisation du CV');
+        applyKirbyExtractedCv(extracted, { replace: true });
+        setCvProfilePhoto(profilePhoto || null, { refresh: false });
+        renderImportedCv({
+            locale: localImport.locale,
+            status: 'CV analysé et remis en forme par Kirby. Tous les éléments importés ont été conservés.',
+        });
+        importSnapshot = getKirbyCvSnapshot();
+    } else if (!localExtractionReady && !sourceChangedDuringAnalysis) {
+        applyKirbyExtractedCv(extracted, { replace: true });
+        setCvProfilePhoto(profilePhoto || null, { refresh: false });
+        renderImportedCv({
+            locale: localImport.locale,
+            status: 'CV analysé, structuré et prêt à utiliser. Tous les éléments reconnus ont été conservés.',
+        });
+        importSnapshot = getKirbyCvSnapshot();
+    } else if (sourceChangedDuringAnalysis) {
+        setCvStatus('Le CV a été modifié pendant la vérification : Kirby conserve votre version affichée.');
+    } else {
+        setCvStatus('CV structuré localement et prêt à utiliser. Aucun contenu source n’a été supprimé.');
+    }
+
+    let onePagePass = { requested: false, applied: false };
+    try {
+        const shouldRunOnePagePass = usedOpenAiAssistant
+            && !sourceChangedDuringAnalysis
+            && shouldRequestImportedCvOnePagePass(getKirbyCvSource());
+        if (shouldRunOnePagePass) {
+            reportProgress('Kirby ajuste la mise en page pour une lecture nette');
+            setCvStatus('Kirby condense les missions pour préparer une page lisible…');
+            onePagePass = await runImportedCvOnePagePass(localImport.locale);
+        }
+    } catch (error) {
+        console.warn('Kirby CV one-page import pass skipped:', error);
+        onePagePass = { requested: true, applied: false };
+    }
+
+    if (onePagePass.stale || sourceChangedDuringAnalysis) {
+        setCvStatus('CV prêt. Une modification effectuée pendant l’analyse a été conservée et la réponse obsolète de Kirby a été ignorée.');
+    } else if (onePagePass.applied) {
+        setCvStatus('CV importé, encadré et condensé factuellement pour une page. Tous les éléments sont conservés.');
+    } else if (onePagePass.requested) {
+        setCvStatus("CV importé sans perte. La condensation automatique n'a pas été appliquée ; l'export gardera plusieurs pages si nécessaire.");
+    }
+
+    const pageFitNotice = onePagePass.applied
+        ? 'Mise en page une page appliquée sans retirer de rubrique.'
+        : onePagePass.requested
+            ? 'Tout le contenu est conservé ; plusieurs pages seront utilisées si nécessaire.'
+            : '';
+
+    return {
+        source: usedAssistant ? 'kirby' : 'local',
+        restoredRoundTrip: false,
+        locale: localImport.locale,
+        extracted,
+        onePagePass,
+        pageFitNotice,
+        sourceChangedDuringAnalysis,
+    };
+};
+
+const getImportedCvReadySummary = (extracted = {}, locale = 'fr') => {
+    const experienceCount = getImportedExtractionList(extracted, 'experiences').length;
+    const skillCount = getImportedExtractionList(extracted, 'skills').length;
+    const educationCount = getImportedExtractionList(extracted, 'education').length;
+
+    if (locale === 'en') {
+        return `CV ready to use: ${experienceCount} experience${experienceCount === 1 ? '' : 's'}, ${skillCount} skill${skillCount === 1 ? '' : 's'} and ${educationCount} education item${educationCount === 1 ? '' : 's'} structured. The source content was preserved and the experiences were sorted by date.`;
+    }
+
+    return `CV prêt à l’emploi : ${experienceCount} expérience${experienceCount === 1 ? '' : 's'}, ${skillCount} compétence${skillCount === 1 ? '' : 's'} et ${educationCount} formation${educationCount === 1 ? '' : 's'} structurées. Le contenu source est conservé et les expériences sont classées par date.`;
+};
+
+const importPastedCvWithKirby = async (text = '') => {
+    const sourceText = String(text || '').trim();
+    if (!sourceText || !cvForm) {
+        return 'Collez le texte complet du CV pour que Kirby puisse le structurer.';
+    }
+
+    const historyBeforeImport = pendingNewCvRollbackState || getCvHistoryState();
+    supersedePendingCvDraftLoad();
+    isImportingCvPreview = true;
+    isReplacingCvDocument = true;
+    setKirbyCvRequestInFlight(true);
+    hideKirbyCvProposal();
+    setCvStatus('Kirby détecte les rubriques du CV collé sans effacer le document affiché…');
+
+    try {
+        const importResult = await importCvTextWithKirby(sourceText, {
+            onProgress: (message) => {
+                setCvStatus(message);
+                setAssistantActivity(message, true);
+            },
+            onLocalReady: async () => {
+                // Le résultat déterministe est déjà exploitable : le conserver
+                // immédiatement, sans attendre la vérification distante.
+                forceNextCvDraftLayoutPersistence = true;
+                await persistCvDraftImmediately();
+            },
+        });
+        commitCvHistoryTransition(historyBeforeImport);
+        pendingNewCvRollbackState = '';
+        if (activeKirbyMode === 'create') {
+            setKirbyMode('optimize');
+        }
+        forceNextCvDraftLayoutPersistence = true;
+        const persistence = await persistCvDraftImmediately();
+        const summary = importResult?.restoredRoundTrip
+            ? 'CV SA Création Web restauré à l’identique et prêt à utiliser.'
+            : getImportedCvReadySummary(importResult?.extracted, importResult?.locale);
+        const pageFitSuffix = importResult?.pageFitNotice ? ` ${importResult.pageFitNotice}` : '';
+        const persistenceSuffix = ` ${formatCvPersistenceDetail(persistence)}`;
+        setCvStatus(`${summary}${pageFitSuffix}`);
+        setAssistantActivity('CV construit et affiché.', false);
+        cvPreviewViewport?.scrollTo?.({ top: 0, behavior: 'smooth' });
+        return `${summary}${pageFitSuffix}${persistenceSuffix}`;
+    } catch (error) {
+        console.error('Import du CV collé impossible', error);
+        restoreCvHistorySnapshot(historyBeforeImport, 'Import du texte impossible : CV précédent restauré');
+        pendingNewCvRollbackState = '';
+        setAssistantActivity('Le texte n’a pas pu être importé. Le CV précédent a été restauré.', false);
+        return 'Je n’ai pas pu structurer ce texte. Le CV précédent a été restauré sans modification.';
+    } finally {
+        forceNextCvDraftLayoutPersistence = false;
+        isImportingCvPreview = false;
+        isReplacingCvDocument = false;
+        setKirbyCvRequestInFlight(false);
+
+        const queuedMessage = queuedAssistantPrompt;
+        queuedAssistantPrompt = '';
+        if (queuedMessage) {
+            window.setTimeout(() => {
+                void handleAssistantPrompt(queuedMessage, activeKirbyMode);
+            }, 0);
+        }
+    }
 };
 
 const normalizeExportHex = (value, fallback = '#2f3f7f') => {
@@ -7578,6 +10054,9 @@ const prepareCvForExport = () => {
 
 const getCvExportData = () => {
     const values = cvForm ? Object.fromEntries(new FormData(cvForm).entries()) : {};
+    const locale = currentCvContentLocale === 'en' ? 'en' : 'fr';
+    const labels = localizedCvSectionLabels[locale] || localizedCvSectionLabels.fr;
+    const documentLabels = localizedCvDocumentLabels[locale] || localizedCvDocumentLabels.fr;
     const accent = normalizeExportHex(values.accentColor, '#2f3f7f');
     const frame = normalizeExportHex(values.frameColor, '#d9deea');
     const paper = normalizeExportHex(values.paperColor, '#ffffff');
@@ -7587,11 +10066,14 @@ const getCvExportData = () => {
     const shouldShowPermit =
         permit &&
         !normalizeForMatch(headline).includes(normalizeForMatch(permit));
+    const profilePhoto = normalizeCvProfilePhoto(cvProfilePhoto);
 
     return {
         values,
-        fullName: cleanExportText(values.fullName || 'Votre nom'),
-        headline: headline || 'Titre du metier',
+        locale,
+        labels,
+        fullName: cleanExportText(values.fullName || documentLabels.name),
+        headline: headline || documentLabels.headline,
         metaParts: [
             cleanExportLocation(values.location || ''),
             cleanExportText(values.phone || ''),
@@ -7611,6 +10093,9 @@ const getCvExportData = () => {
         frame,
         template: values.layoutTheme || 'wordpro',
         fontFamily: exportFontFamilyMap[values.fontTheme] || exportFontFamilyMap.manrope,
+        sectionOrder: [...cvSectionOrder],
+        profilePhoto,
+        profilePhotoDataUrl: profilePhoto?.dataUrl || '',
     };
 };
 
@@ -7691,20 +10176,21 @@ const buildWordTimeline = (entries, data, options = {}) => {
 };
 
 const buildWordCvHtml = (data) => {
+    const labels = data.labels || localizedCvSectionLabels.fr;
     const meta = data.metaParts.join(' | ');
     const maybeProjects = data.projects.length
-        ? `${buildWordSectionTitle('Projets', data)}${buildWordTimeline(data.projects, data, { compact: true })}`
+        ? `${buildWordSectionTitle(labels.projects, data)}${buildWordTimeline(data.projects, data, { compact: true })}`
         : '';
     const maybeActivities = data.activities.length
-        ? `${buildWordSectionTitle('Activites', data)}${buildWordTwoColumnList(data.activities, data)}`
+        ? `${buildWordSectionTitle(labels.activities, data)}${buildWordTwoColumnList(data.activities, data)}`
         : '';
     const maybeLanguages = data.languages.length
-        ? `${buildWordSectionTitle('Langues', data)}${buildWordTwoColumnList(data.languages, data)}`
+        ? `${buildWordSectionTitle(labels.languages, data)}${buildWordTwoColumnList(data.languages, data)}`
         : '';
 
     return `
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="${data.locale === 'en' ? 'en' : 'fr'}">
 <head>
   <meta charset="UTF-8">
   <title>CV - ${escapeHtml(data.fullName)}</title>
@@ -7721,14 +10207,15 @@ const buildWordCvHtml = (data) => {
     ${meta ? `<p style="margin:0 0 4pt;font-size:10pt;font-weight:600;color:#5b6475;">${escapeHtml(meta)}</p>` : ''}
     <p style="margin:0 0 7pt;font-size:12.5pt;line-height:1.2;font-weight:800;color:${data.accent};">${escapeHtml(data.headline)}</p>
     <div style="border-top:1.5pt solid ${data.frame};height:1pt;margin:0 0 6pt;"></div>
-    ${data.summary ? `${buildWordSectionTitle('Profil', data)}<p style="font-size:10pt;line-height:1.28;color:#3d4658;margin:0 0 4pt;">${escapeHtml(data.summary)}</p>` : ''}
-    ${data.skills.length ? `${buildWordSectionTitle('Competences', data)}${buildWordTwoColumnList(data.skills, data)}` : ''}
-    ${data.experiences.length ? `${buildWordSectionTitle('Experiences professionnelles', data)}${buildWordTimeline(data.experiences, data)}` : ''}
+    ${data.summary ? `${buildWordSectionTitle(labels.summary, data)}<p style="font-size:10pt;line-height:1.28;color:#3d4658;margin:0 0 4pt;">${escapeHtml(data.summary)}</p>` : ''}
+    ${data.skills.length ? `${buildWordSectionTitle(labels.skills, data)}${buildWordTwoColumnList(data.skills, data)}` : ''}
+    ${data.experiences.length ? `${buildWordSectionTitle(labels.experience, data)}${buildWordTimeline(data.experiences, data)}` : ''}
     ${maybeProjects}
-    ${data.education.length ? `${buildWordSectionTitle('Formations & certifications', data)}${buildWordTimeline(data.education, data, { compact: true })}` : ''}
+    ${data.education.length ? `${buildWordSectionTitle(labels.education, data)}${buildWordTimeline(data.education, data, { compact: true })}` : ''}
     ${maybeLanguages}
     ${maybeActivities}
   </div>
+  ${buildCvRoundTripHtmlComment()}
 </body>
 </html>`;
 };
@@ -7788,8 +10275,180 @@ const copyComputedStylesForExport = (source, clone) => {
     });
 };
 
+const prepareStructuredExportCloneLayout = (clone) => {
+    if (!clone?.matches?.('[data-cv-layout="structured"]')) {
+        return false;
+    }
+
+    const setImportant = (node, styles) => {
+        if (!node) {
+            return;
+        }
+
+        Object.entries(styles).forEach(([property, value]) => {
+            node.style.setProperty(property, value, 'important');
+        });
+    };
+
+    const layoutTheme = clone.classList.contains('template-holographic')
+        ? 'holographic'
+        : clone.classList.contains('template-modern')
+            ? 'modern'
+            : '';
+    const isStructuredLayout = usesStructuredCvLayout(layoutTheme);
+    const isHolographicLayout = layoutTheme === 'holographic';
+
+    clone.dataset.cvLayout = isStructuredLayout ? 'structured' : 'native';
+
+    setImportant(clone, {
+        width: '210mm',
+        'min-width': '210mm',
+        'max-width': '210mm',
+        height: '297mm',
+        'min-height': '297mm',
+        'max-height': '297mm',
+        margin: '0',
+        overflow: 'hidden',
+        'box-sizing': 'border-box',
+    });
+
+    if (layoutTheme === 'modern') {
+        setImportant(clone, { padding: '0' });
+    }
+
+    const sidebar = clone.querySelector('.cv-modern-sidebar');
+    const main = clone.querySelector('.cv-modern-main');
+
+    if (isStructuredLayout) {
+        setImportant(clone.querySelector('.cv-modern-layout'), {
+            display: 'grid',
+            'grid-template-columns': isHolographicLayout
+                ? 'minmax(0, 34fr) minmax(0, 66fr)'
+                : 'minmax(0, 29%) minmax(0, 71%)',
+            gap: isHolographicLayout ? '2.5mm' : '0',
+            width: '100%',
+            'min-width': '0',
+            'max-width': '100%',
+            height: '100%',
+            'min-height': '100%',
+            'max-height': '100%',
+            padding: '0',
+            overflow: 'hidden',
+            'box-sizing': 'border-box',
+        });
+
+        const structuredContainerStyles = {
+            width: 'auto',
+            'min-width': '0',
+            'max-width': '100%',
+            'grid-template-columns': 'minmax(0, 1fr)',
+            'grid-template-rows': 'none',
+            'grid-auto-flow': 'row',
+            'grid-auto-rows': 'auto',
+            'align-content': 'start',
+            height: '100%',
+            'min-height': '0',
+            'max-height': '100%',
+            overflow: 'hidden',
+            'box-sizing': 'border-box',
+        };
+        setImportant(sidebar, structuredContainerStyles);
+        setImportant(main, structuredContainerStyles);
+
+        if (!isHolographicLayout) {
+            setImportant(sidebar, { padding: '30px 20px 24px' });
+            setImportant(main, { padding: '29px 27px 22px' });
+        }
+    }
+
+    // copyComputedStylesForExport resolves grid tracks to the editor's pixel
+    // width. Rebuild the one-column tracks so the A4 clone does not keep those
+    // wider, frozen values and overflow its structured main column.
+    clone
+        .querySelectorAll('.cv-modern-sidebar section, .cv-modern-main section, .cv-experience-list, .cv-experience-item, .cv-experience-bullets, .cv-list-compact')
+        .forEach((node) => setImportant(node, {
+            'grid-template-columns': 'minmax(0, 1fr)',
+        }));
+
+    clone
+        .querySelectorAll('.cv-modern-sidebar > :not(.cv-profile-photo), .cv-modern-main > *, .cv-modern-sidebar section > *, .cv-modern-main section > *, .cv-experience-list, .cv-experience-item, .cv-experience-head, .cv-experience-title, .cv-experience-meta, .cv-experience-bullets, .cv-experience-bullets li, .cv-list-compact, .cv-list-compact li')
+        .forEach((node) => setImportant(node, {
+            width: 'auto',
+            'inline-size': 'auto',
+            'min-width': '0',
+            'min-inline-size': '0',
+            'max-width': '100%',
+            'max-inline-size': '100%',
+            height: 'auto',
+            'block-size': 'auto',
+            'min-height': '0',
+            'min-block-size': '0',
+            'max-height': 'none',
+            'max-block-size': 'none',
+            'box-sizing': 'border-box',
+        }));
+
+    const profilePhoto = clone.querySelector('.cv-profile-photo:not([hidden])');
+    const compactPhoto = clone.classList.contains('size-compact');
+    setImportant(profilePhoto, {
+        width: compactPhoto ? '22mm' : '25mm',
+        height: compactPhoto ? '27mm' : '31mm',
+        'min-width': compactPhoto ? '22mm' : '25mm',
+        'max-width': compactPhoto ? '22mm' : '25mm',
+        'min-height': compactPhoto ? '27mm' : '31mm',
+        'max-height': compactPhoto ? '27mm' : '31mm',
+        'aspect-ratio': compactPhoto ? '22 / 27' : '25 / 31',
+        flex: '0 0 auto',
+        'justify-self': 'center',
+    });
+
+    clone.querySelectorAll('.cv-experience-head').forEach((node) => setImportant(node, {
+        display: 'grid',
+        'grid-template-columns': 'minmax(0, 1fr) auto',
+        gap: '3px 8px',
+        width: '100%',
+    }));
+
+    clone.querySelectorAll('.cv-experience-date').forEach((node) => setImportant(node, {
+        'max-width': 'none',
+        'justify-self': 'end',
+        'text-align': 'right',
+        'white-space': 'nowrap',
+        'overflow-wrap': 'normal',
+    }));
+
+    clone.querySelectorAll('.cv-modern-sidebar #preview-education .cv-experience-head').forEach((node) => setImportant(node, {
+        'grid-template-columns': 'minmax(0, 1fr)',
+    }));
+    clone.querySelectorAll('.cv-modern-sidebar #preview-education .cv-experience-date').forEach((node) => setImportant(node, {
+        'grid-column': '1',
+        'justify-self': 'start',
+        'text-align': 'left',
+        'white-space': 'normal',
+    }));
+
+    if (isStructuredLayout) {
+        clone.querySelectorAll('.cv-modern-sidebar .cv-list-compact').forEach((node) => setImportant(node, {
+            display: 'grid',
+            'grid-template-columns': 'minmax(0, 1fr)',
+            columns: 'auto',
+            'column-count': '1',
+            'column-width': 'auto',
+            width: '100%',
+            'min-width': '0',
+            'max-width': '100%',
+        }));
+    }
+
+    return true;
+};
+
 const unlockExportCloneLayout = (clone) => {
     if (!clone) {
+        return;
+    }
+
+    if (prepareStructuredExportCloneLayout(clone)) {
         return;
     }
 
@@ -7825,7 +10484,10 @@ const unlockExportCloneLayout = (clone) => {
         node.style.removeProperty('grid-auto-rows');
         node.style.setProperty('display', 'flex', 'important');
         node.style.setProperty('flex-direction', 'column', 'important');
+        node.style.setProperty('align-items', 'stretch', 'important');
+        node.style.setProperty('align-content', 'start', 'important');
         node.style.setProperty('height', 'auto', 'important');
+        node.style.setProperty('width', '100%', 'important');
         node.style.setProperty('min-height', '0', 'important');
         node.style.setProperty('max-height', 'none', 'important');
         node.style.setProperty('overflow', 'visible', 'important');
@@ -7841,6 +10503,8 @@ const unlockExportCloneLayout = (clone) => {
         node.style.setProperty('display', 'flex', 'important');
         node.style.setProperty('flex-direction', 'column', 'important');
         node.style.setProperty('align-items', 'stretch', 'important');
+        node.style.setProperty('align-self', 'stretch', 'important');
+        node.style.setProperty('width', '100%', 'important');
         node.style.setProperty('height', 'auto', 'important');
         node.style.setProperty('min-height', '0', 'important');
         node.style.setProperty('max-height', 'none', 'important');
@@ -7911,14 +10575,18 @@ const unlockExportCloneLayout = (clone) => {
         node.style.removeProperty('grid');
         node.style.removeProperty('grid-template');
         node.style.setProperty('display', 'grid', 'important');
-        node.style.setProperty('grid-template-columns', 'minmax(0, 1fr) max-content', 'important');
+        node.style.setProperty('grid-template-columns', 'minmax(0, 1fr) minmax(18mm, 34mm)', 'important');
+        node.style.setProperty('column-gap', '0.45rem', 'important');
         node.style.setProperty('width', '100%', 'important');
     });
 
     clone.querySelectorAll('.cv-experience-date').forEach((node) => {
         node.style.setProperty('justify-self', 'end', 'important');
+        node.style.setProperty('max-width', '34mm', 'important');
         node.style.setProperty('text-align', 'right', 'important');
-        node.style.setProperty('white-space', 'nowrap', 'important');
+        node.style.setProperty('white-space', 'normal', 'important');
+        node.style.setProperty('overflow-wrap', 'break-word', 'important');
+        node.style.setProperty('line-height', '1.08', 'important');
     });
 
     clone.querySelectorAll('.cv-list-compact li').forEach((node) => {
@@ -7951,7 +10619,7 @@ const fitStaticExportFlow = (root) => {
 
     for (let pass = 0; pass < 2; pass += 1) {
         root.querySelectorAll('.cv-list-compact, .cv-experience-bullets').forEach(fitNodeToContent);
-        root.querySelectorAll('.cv-body section, .cv-experience-item, .cv-body').forEach(fitNodeToContent);
+        root.querySelectorAll('.cv-body section, .cv-modern-sidebar section, .cv-modern-main section, .cv-experience-item, .cv-body').forEach(fitNodeToContent);
     }
 };
 
@@ -7971,6 +10639,7 @@ const applySinglePageCvExportDensity = (root, level = 1) => {
     const density = level >= 3
         ? {
             pagePadding: '6mm 8mm 7mm',
+            pageInset: '7mm',
             headerGap: '0.18rem',
             headerPadding: '0.42rem',
             bodyGap: '0.22rem',
@@ -7983,6 +10652,7 @@ const applySinglePageCvExportDensity = (root, level = 1) => {
         : level >= 2
             ? {
                 pagePadding: '6.5mm 8.5mm 7mm',
+                pageInset: '7.5mm',
                 headerGap: '0.22rem',
                 headerPadding: '0.48rem',
                 bodyGap: '0.28rem',
@@ -7994,6 +10664,7 @@ const applySinglePageCvExportDensity = (root, level = 1) => {
             }
             : {
                 pagePadding: '7mm 9mm 7.5mm',
+                pageInset: '8mm',
                 headerGap: '0.26rem',
                 headerPadding: '0.56rem',
                 bodyGap: '0.34rem',
@@ -8005,8 +10676,11 @@ const applySinglePageCvExportDensity = (root, level = 1) => {
             };
 
     setImportant('.cv-preview', {
-        padding: density.pagePadding,
+        '--cv-density-page-padding': density.pageInset,
         overflow: 'hidden',
+    });
+    setImportant('.cv-preview:not(.template-modern):not(.template-creative)', {
+        padding: density.pagePadding,
     });
     setImportant('.cv-header', {
         gap: density.headerGap,
@@ -8046,18 +10720,123 @@ const applySinglePageCvExportDensity = (root, level = 1) => {
         'line-height': level >= 3 ? '1.08' : '1.12',
         'margin-bottom': '0',
     });
+
+    // Digital and Creative deliberately use generous screen spacing. When the
+    // measured A4 clone overflows, preserve their cards, colour fields and
+    // reflections while tightening only the internal whitespace. This avoids
+    // a nearly empty second page without flattening the selected model.
+    const digitalDensity = level >= 3
+        ? {
+            headerHeight: '36.5mm',
+            headerPadding: '4.4mm 5.4mm 3.5mm',
+            bodyGap: '0.18rem',
+            bodyTop: '0.8mm',
+            sectionPadding: '0.25rem 0.44rem 0.28rem',
+            itemPadding: '0.2rem 0.42rem 0.23rem',
+            itemGap: '0.05rem',
+            summaryLineHeight: '1.22',
+        }
+        : level >= 2
+            ? {
+                headerHeight: '38mm',
+                headerPadding: '5mm 6mm 4mm',
+                bodyGap: '0.28rem',
+                bodyTop: '1mm',
+                sectionPadding: '0.32rem 0.5rem 0.36rem',
+                itemPadding: '0.26rem 0.46rem 0.3rem',
+                itemGap: '0.08rem',
+                summaryLineHeight: '1.27',
+            }
+            : {
+                headerHeight: '40mm',
+                headerPadding: '6mm 6.8mm 4.8mm',
+                bodyGap: '0.4rem',
+                bodyTop: '1.6mm',
+                sectionPadding: '0.42rem 0.56rem 0.46rem',
+                itemPadding: '0.34rem 0.5rem 0.38rem',
+                itemGap: '0.12rem',
+                summaryLineHeight: '1.32',
+            };
+
+    setImportant('.cv-preview.template-digital .cv-header', {
+        'min-height': digitalDensity.headerHeight,
+        padding: digitalDensity.headerPadding,
+        'padding-right': '33mm',
+    });
+    setImportant('.cv-preview.template-digital .cv-body', {
+        gap: digitalDensity.bodyGap,
+        'padding-top': digitalDensity.bodyTop,
+    });
+    setImportant('.cv-preview.template-digital .cv-body section', {
+        padding: digitalDensity.sectionPadding,
+    });
+    setImportant('.cv-preview.template-digital .cv-experience-list > .cv-experience-item', {
+        padding: digitalDensity.itemPadding,
+    });
+    setImportant('.cv-preview.template-digital .cv-experience-list > .cv-experience-item + .cv-experience-item', {
+        'margin-top': digitalDensity.itemGap,
+    });
+    setImportant('.cv-preview.template-digital #preview-summary', {
+        'line-height': digitalDensity.summaryLineHeight,
+    });
+    setImportant('.cv-preview.template-digital .cv-section-head', {
+        'margin-bottom': level >= 3 ? '0.04rem' : '0.08rem',
+    });
+
+    const creativeDensity = level >= 3
+        ? {
+            headerPadding: '0.72rem 1.05rem',
+            bodyPadding: '0.55rem 1.05rem 0.68rem',
+            listPadding: '0.05rem 0.4rem 0.05rem 0.76rem',
+        }
+        : level >= 2
+            ? {
+                headerPadding: '0.82rem 1.15rem',
+                bodyPadding: '0.68rem 1.15rem 0.8rem',
+                listPadding: '0.07rem 0.44rem 0.07rem 0.8rem',
+            }
+            : {
+                headerPadding: '0.95rem 1.25rem',
+                bodyPadding: '0.85rem 1.25rem 1rem',
+                listPadding: '0.1rem 0.48rem 0.1rem 0.84rem',
+            };
+
+    setImportant('.cv-preview.template-creative .cv-header', {
+        'min-height': '36mm',
+        padding: creativeDensity.headerPadding,
+        'padding-right': '33mm',
+    });
+    setImportant('.cv-preview.template-creative .cv-body', {
+        padding: creativeDensity.bodyPadding,
+    });
+    setImportant('.cv-preview.template-creative .cv-list-compact li', {
+        padding: creativeDensity.listPadding,
+    });
 };
 
-const scaleSinglePageCvExportTypography = (root, scale = 1) => {
-    if (!root || scale >= 0.995) {
+const captureSinglePageCvExportTypography = (root) => {
+    if (!root) {
+        return [];
+    }
+
+    // Read every computed value before writing any inline style. Otherwise a
+    // parent scaled first also shrinks each inheriting child a second time.
+    return [...root.querySelectorAll('.cv-preview, .cv-preview *')].map((node) => {
+        const computed = window.getComputedStyle(node);
+        return {
+            node,
+            fontSize: Number.parseFloat(computed.fontSize),
+            lineHeight: Number.parseFloat(computed.lineHeight),
+        };
+    });
+};
+
+const applySinglePageCvExportTypographyScale = (measurements, scale = 1) => {
+    if (!Array.isArray(measurements) || scale >= 0.995) {
         return;
     }
 
-    root.querySelectorAll('.cv-preview, .cv-preview *').forEach((node) => {
-        const computed = window.getComputedStyle(node);
-        const fontSize = Number.parseFloat(computed.fontSize);
-        const lineHeight = Number.parseFloat(computed.lineHeight);
-
+    measurements.forEach(({ node, fontSize, lineHeight }) => {
         if (Number.isFinite(fontSize) && fontSize > 0) {
             node.style.setProperty('font-size', `${Math.max(9.2, fontSize * scale).toFixed(2)}px`, 'important');
         }
@@ -8068,32 +10847,173 @@ const scaleSinglePageCvExportTypography = (root, scale = 1) => {
     });
 };
 
+const scaleSinglePageCvExportTypography = (root, scale = 1) => {
+    applySinglePageCvExportTypographyScale(captureSinglePageCvExportTypography(root), scale);
+};
+
+const hasStructuredExportOverflow = (page) => {
+    if (!page) {
+        return false;
+    }
+
+    // Grid tracks, borders and sub-pixel font metrics can leave a harmless
+    // 1-3 px difference between scrollHeight and clientHeight. Treating that
+    // rounding noise as real overflow made structured CVs shrink through every
+    // density step and sometimes report a needless multi-page export.
+    const overflowTolerance = 4;
+
+    const isStructuredLayout = page.dataset.cvLayout === 'structured'
+        || page.classList.contains('template-modern')
+        || page.classList.contains('template-holographic');
+    const activeContainers = isStructuredLayout
+        ? [
+            page.querySelector('.cv-modern-layout'),
+            page.querySelector('.cv-modern-sidebar'),
+            page.querySelector('.cv-modern-main'),
+        ]
+        : [
+            page.querySelector(':scope > .cv-header'),
+            page.querySelector(':scope > .cv-body'),
+        ];
+    const visibleContainers = activeContainers.filter((node) => node && node.getClientRects().length);
+    const containerOverflow = visibleContainers.some((node) => (
+        node.scrollWidth > node.clientWidth + overflowTolerance
+        || node.scrollHeight > node.clientHeight + overflowTolerance
+    ));
+
+    if (containerOverflow) {
+        return true;
+    }
+
+    const pageBounds = page.getBoundingClientRect();
+    const lastExperience = page.querySelector('#preview-experience .cv-experience-item:last-child');
+    const lastEducation = page.querySelector('#preview-education .cv-experience-item:last-child');
+    const lastSkill = page.querySelector('#preview-skills li:last-child');
+
+    return [...visibleContainers, lastExperience, lastEducation, lastSkill]
+        .filter((node) => node && node.getClientRects().length)
+        .some((node) => {
+            const bounds = node.getBoundingClientRect();
+            return bounds.left < pageBounds.left - overflowTolerance
+                || bounds.right > pageBounds.right + overflowTolerance
+                || bounds.top < pageBounds.top - overflowTolerance
+                || bounds.bottom > pageBounds.bottom + overflowTolerance;
+        });
+};
+
+const fitStructuredSinglePageExport = (root, page) => {
+    prepareStructuredExportCloneLayout(page);
+    fitStaticExportFlow(root);
+
+    const isStructuredLayout = page.dataset.cvLayout === 'structured';
+    const isHolographicLayout = page.classList.contains('template-holographic');
+    const primaryContainer = isStructuredLayout
+        ? page.querySelector('.cv-modern-main')
+        : page.querySelector(':scope > .cv-body');
+    const secondaryContainer = isStructuredLayout
+        ? page.querySelector('.cv-modern-sidebar')
+        : page.querySelector(':scope > .cv-header');
+    const baseTypography = captureSinglePageCvExportTypography(root);
+
+    const densitySteps = !isStructuredLayout
+        ? [
+            { scale: 0.985, mainGap: '3.5px', sidebarGap: '3px', headerGap: '2.5px', sectionGap: '2px', itemBottom: '3.5px', skillGap: '1px' },
+            { scale: 0.97, mainGap: '3px', sidebarGap: '2.5px', headerGap: '2px', sectionGap: '1.5px', itemBottom: '3px', skillGap: '0.8px' },
+            { scale: 0.955, mainGap: '2.5px', sidebarGap: '2px', headerGap: '1.5px', sectionGap: '1px', itemBottom: '2.5px', skillGap: '0.6px' },
+            { scale: 0.94, mainGap: '2px', sidebarGap: '1.5px', headerGap: '1px', sectionGap: '0.5px', itemBottom: '2px', skillGap: '0.4px' },
+        ]
+        : isHolographicLayout
+            ? [
+                { scale: 0.985, mainGap: '3.5px', sidebarGap: '4.5px', headerGap: '3px', sectionGap: '2px', itemBottom: '3.5px', skillGap: '1.8px' },
+                { scale: 0.97, mainGap: '3px', sidebarGap: '4px', headerGap: '2.5px', sectionGap: '1.5px', itemBottom: '3px', skillGap: '1.4px' },
+                { scale: 0.955, mainGap: '2.5px', sidebarGap: '3.5px', headerGap: '2px', sectionGap: '1px', itemBottom: '2.5px', skillGap: '1px' },
+                { scale: 0.94, mainGap: '2px', sidebarGap: '3px', headerGap: '1.5px', sectionGap: '0.5px', itemBottom: '2px', skillGap: '0.8px' },
+            ]
+            : [
+            { scale: 0.985, mainGap: '9px', sidebarGap: '14px', headerGap: '5.5px', sectionGap: '4.5px', itemBottom: '10px', skillGap: '3.5px' },
+            { scale: 0.97, mainGap: '8px', sidebarGap: '12.5px', headerGap: '5px', sectionGap: '4px', itemBottom: '8px', skillGap: '3px' },
+            { scale: 0.955, mainGap: '7px', sidebarGap: '11px', headerGap: '4.5px', sectionGap: '3.5px', itemBottom: '6px', skillGap: '2.5px' },
+            { scale: 0.94, mainGap: '6px', sidebarGap: '10px', headerGap: '4px', sectionGap: '3px', itemBottom: '5px', skillGap: '2px' },
+            ];
+
+    return densitySteps.some((step) => {
+        if (!hasStructuredExportOverflow(page)) {
+            return true;
+        }
+
+        // Each density step is relative to the untouched clone, not to the
+        // previous step. This keeps the one-page safeguard from making a CV
+        // progressively tiny and leaving a large empty band at the bottom.
+        applySinglePageCvExportTypographyScale(baseTypography, step.scale);
+        primaryContainer?.style.setProperty('gap', step.mainGap, 'important');
+        secondaryContainer?.style.setProperty(
+            'gap',
+            isStructuredLayout ? step.sidebarGap : step.headerGap,
+            'important',
+        );
+        if (!isStructuredLayout) {
+            page.querySelectorAll(':scope > .cv-body > section').forEach((node) => {
+                node.style.setProperty('gap', step.sectionGap, 'important');
+            });
+        }
+        page.querySelectorAll('#preview-experience .cv-experience-item').forEach((node) => {
+            node.style.setProperty('padding-bottom', step.itemBottom, 'important');
+        });
+        page.querySelector('#preview-skills .cv-list-compact')?.style.setProperty('gap', step.skillGap, 'important');
+        fitStaticExportFlow(root);
+        return !hasStructuredExportOverflow(page);
+    });
+};
+
 const fitSinglePageCvExport = (root) => {
     if (!root) {
-        return;
+        return false;
     }
 
     const page = root.querySelector('.cv-preview');
     if (!page) {
-        return;
+        return false;
     }
 
     root.classList.add('is-single-page-cv-export');
     page.classList.add('is-single-page-cv-export');
 
+    if (page.dataset.cvLayout === 'structured') {
+        // Preserve the selected model exactly when it already fits. Rebuilding
+        // the structured columns is only a last-resort overflow safeguard.
+        fitStaticExportFlow(root);
+        if (!hasStructuredExportOverflow(page)) {
+            return true;
+        }
+        return fitStructuredSinglePageExport(root, page);
+    }
+
     const getTargetHeight = () => {
         const bounds = root.getBoundingClientRect();
-        return Math.max(0, bounds.height - 6);
+        return Math.max(0, bounds.height);
     };
 
     const getContentHeight = () => Math.max(page.scrollHeight, page.getBoundingClientRect().height);
+    const fitsA4 = () => {
+        const targetHeight = getTargetHeight();
+        return targetHeight > 0
+            && getContentHeight() <= targetHeight + 2
+            && page.scrollWidth <= page.clientWidth + 2;
+    };
+
+    // A short or standard CV keeps the same rhythm as the on-screen preview.
+    // Density levels are only applied when content really overflows.
+    fitStaticExportFlow(root);
+    if (fitsA4()) {
+        return true;
+    }
 
     for (let level = 1; level <= 3; level += 1) {
         applySinglePageCvExportDensity(root, level);
         fitStaticExportFlow(root);
 
-        if (getContentHeight() <= getTargetHeight()) {
-            return;
+        if (fitsA4()) {
+            return true;
         }
     }
 
@@ -8105,6 +11025,8 @@ const fitSinglePageCvExport = (root) => {
         applySinglePageCvExportDensity(root, 3);
         fitStaticExportFlow(root);
     }
+
+    return fitsA4();
 };
 
 const getPreviewCloneForOfficeExport = () => {
@@ -8126,6 +11048,7 @@ const getPreviewCloneForOfficeExport = () => {
     clone.style.width = '210mm';
     clone.style.minHeight = '297mm';
     clone.style.margin = '0 auto';
+    clone.style.transform = 'none';
     clone.style.boxShadow = 'none';
     clone.style.aspectRatio = 'auto';
 
@@ -8133,42 +11056,62 @@ const getPreviewCloneForOfficeExport = () => {
 };
 
 const buildPreviewWordHtml = () => {
-    const clone = getPreviewCloneForOfficeExport();
-    const title = currentPreviewMode === 'letter' ? 'Lettre de motivation' : 'CV';
-
-    if (!clone) {
-        return currentPreviewMode === 'letter' ? buildLetterWordHtml() : buildWordCvHtml(getCvExportData());
-    }
-
-    return `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <title>${escapeHtml(title)}</title>
-  <style>
-    @page { size: A4; margin: 10mm; }
-    body { margin: 0; background: #ffffff; }
-    * { box-sizing: border-box; }
-    ul { margin-top: 0; margin-bottom: 0; }
-  </style>
-</head>
-<body>
-  ${clone.outerHTML}
-</body>
-</html>`;
+    const cvData = currentPreviewMode === 'cv' ? getCvExportData() : null;
+    return currentPreviewMode === 'letter' ? buildLetterWordHtml() : buildWordCvHtml(cvData);
 };
 
-const exportWord = () => {
+const getLetterWordExportData = () => ({
+    fullName: cleanExportText(cvForm?.elements.fullName?.value || 'Votre nom'),
+    headline: cleanExportText(cvForm?.elements.headline?.value || ''),
+    subject: cleanExportText(letterSubject?.textContent || letterSubjectPage?.textContent || 'Objet : Candidature'),
+    body: String(letterBody?.textContent || letterBodyPage?.textContent || '').trim(),
+    contactFooter: cleanExportText(letterContactFooter?.textContent || letterContactFooterPage?.textContent || getLetterContactFooterText()),
+    accent: normalizeExportHex(cvForm?.elements.accentColor?.value, '#2f3f7f'),
+    paper: normalizeExportHex(cvForm?.elements.paperColor?.value, '#ffffff'),
+    frame: normalizeExportHex(cvForm?.elements.frameColor?.value, '#d9deea'),
+    template: cvForm?.elements.layoutTheme?.value || 'wordpro',
+    fontFamily: exportFontFamilyMap[cvForm?.elements.fontTheme?.value] || exportFontFamilyMap.manrope,
+});
+
+const getWordExportFilename = (mode = currentPreviewMode) => {
+    const fullName = cleanExportText(cvForm?.elements.fullName?.value || '');
+    const namePart = normalizePdfFilenamePart(fullName);
+    if (mode === 'letter') {
+        return namePart ? `Lettre-motivation-${namePart}.docx` : 'Lettre-motivation.docx';
+    }
+    return namePart ? `CV-${namePart}.docx` : 'CV.docx';
+};
+
+const exportWord = (options = {}) => {
     if (!requireAuthenticatedCvAccess('Connectez-vous pour exporter votre CV en Word')) {
-        return;
+        return false;
     }
 
     persistAllEditableNodes({ refreshPreview: true });
     updateCvPreview();
-    const filename = currentPreviewMode === 'letter' ? 'lettre-motivation.doc' : 'cv-intelligent.doc';
-    downloadFile(filename, buildPreviewWordHtml(), 'application/msword');
-    setCvStatus('Word telecharge avec le rendu de l apercu');
+    const mode = options?.mode === 'letter' ? 'letter' : currentPreviewMode;
+    const docxTools = window.KirbyDocx;
+    if (!docxTools?.createCvDocxBlob || !docxTools?.createLetterDocxBlob) {
+        setCvStatus('Export DOCX indisponible : rechargez la page puis recommencez');
+        return false;
+    }
+
+    try {
+        const blob = mode === 'letter'
+            ? docxTools.createLetterDocxBlob(getLetterWordExportData())
+            : docxTools.createCvDocxBlob(getCvExportData(), buildCvRoundTripMarkerText({
+                includeProfilePhotoDataUrl: false,
+            }));
+        downloadBlob(getWordExportFilename(mode), blob);
+        setCvStatus(mode === 'letter'
+            ? 'Lettre Word éditable (.docx) téléchargée'
+            : 'CV Word éditable (.docx) téléchargé avec sa palette');
+        return true;
+    } catch (error) {
+        console.error(error);
+        setCvStatus('Échec de génération du document Word (.docx)');
+        return false;
+    }
 };
 
 const previewCurrentDocument = () => {
@@ -8176,32 +11119,13 @@ const previewCurrentDocument = () => {
         return;
     }
 
-    // Opening the tab synchronously keeps browsers from treating the PDF preview as a popup.
-    const previewWindow = window.open('', '_blank', 'popup=yes,width=980,height=1100');
-
-    if (previewWindow) {
-        try {
-            previewWindow.document.open();
-            previewWindow.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Preparation du PDF</title><style>body{font-family:Manrope,system-ui,sans-serif;margin:0;display:grid;place-items:center;min-height:100vh;background:#f6f7fb;color:#223047}main{padding:2rem 2.5rem;border:1px solid rgba(47,63,127,.12);border-radius:24px;background:#fff;box-shadow:0 24px 44px rgba(39,52,89,.08)}strong{display:block;font-size:1.05rem;margin-bottom:.4rem}</style></head><body><main><strong>Preparation de l apercu PDF</strong><span>Le CV est en cours de generation...</span></main></body></html>`);
-            previewWindow.document.close();
-        } catch (error) {
-            console.error(error);
-        }
-    }
-
-    exportPdf({ action: 'preview', previewWindow }).then((didOpen) => {
-        if (didOpen === false && previewWindow && !previewWindow.closed) {
-            previewWindow.close();
-        }
+    exportPdf({ action: 'preview' }).then((didOpen) => {
         if (didOpen !== false) {
-            setCvStatus('Aperçu PDF ouvert : téléchargez ou imprimez depuis la barre du PDF');
+            setCvStatus('Aperçu PDF affiché. Le téléchargement reste une action séparée.');
         }
     }).catch((error) => {
         console.error(error);
-        if (previewWindow && !previewWindow.closed) {
-            previewWindow.close();
-        }
-        setCvStatus('Aperçu indisponible : PDF téléchargé');
+        setCvStatus('Aperçu PDF indisponible. Aucun fichier n’a été téléchargé.');
     });
 };
 
@@ -8234,7 +11158,6 @@ const buildStaticExportNode = (mode = currentPreviewMode) => {
 
     const clone = sourcePreview.cloneNode(true);
     copyComputedStylesForExport(sourcePreview, clone);
-    unlockExportCloneLayout(clone);
     clone.classList.remove('is-hidden-preview');
     clone.removeAttribute('aria-hidden');
     clone.style.setProperty('animation', 'none', 'important');
@@ -8248,7 +11171,6 @@ const buildStaticExportNode = (mode = currentPreviewMode) => {
     clone.style.maxHeight = isPaginatedExport ? 'none' : '297mm';
     clone.style.aspectRatio = 'auto';
     clone.style.background = normalizeExportCssValue(window.getComputedStyle(sourcePreview).background || '#ffffff');
-    clone.style.borderRadius = '0';
     clone.style.overflow = isPaginatedExport ? 'visible' : 'hidden';
 
     clone.querySelectorAll('.cv-section-actions, .cv-page-guide, .cv-label').forEach((node) => node.remove());
@@ -8256,11 +11178,54 @@ const buildStaticExportNode = (mode = currentPreviewMode) => {
     clone.querySelectorAll('[spellcheck]').forEach((node) => node.removeAttribute('spellcheck'));
     clone.querySelectorAll('[hidden]').forEach((node) => node.remove());
 
+    // Computed styles copied from the responsive editor contain resolved grid
+    // track sizes.  Rebuild only those layout locks for the A4 clone so list
+    // items keep their own rows instead of being painted on top of each other.
+    // The selected template, palette, cards and reflections remain untouched.
+    unlockExportCloneLayout(clone);
+
     wrapper.appendChild(clone);
     document.body.appendChild(wrapper);
     fitStaticExportFlow(wrapper);
     if (!isLetterExport) {
-        fitSinglePageCvExport(wrapper);
+        const fitsSinglePage = fitSinglePageCvExport(wrapper);
+        wrapper.dataset.cvPagination = fitsSinglePage ? 'single' : 'multiple';
+
+        if (!fitsSinglePage) {
+            // A one-page CV is the preferred result, but never at the cost of
+            // silently clipping the last skills, roles or education entries.
+            // Keep the compact typography already attempted, then capture the
+            // complete natural flow so jsPDF can paginate it faithfully.
+            wrapper.classList.remove('is-single-page-cv-export');
+            wrapper.classList.add('is-paginated-export');
+            wrapper.style.height = 'auto';
+            wrapper.style.maxHeight = 'none';
+            wrapper.style.overflow = 'visible';
+            clone.classList.remove('is-single-page-cv-export');
+            clone.dataset.cvPagination = 'multiple';
+            clone.style.setProperty('height', 'auto', 'important');
+            clone.style.setProperty('min-height', '297mm', 'important');
+            clone.style.setProperty('max-height', 'none', 'important');
+            clone.style.setProperty('overflow', 'visible', 'important');
+
+            if (clone.dataset.cvLayout === 'structured') {
+                clone.querySelectorAll('.cv-modern-layout, .cv-modern-sidebar, .cv-modern-main').forEach((node) => {
+                    node.style.setProperty('height', 'auto', 'important');
+                    node.style.setProperty('block-size', 'auto', 'important');
+                    node.style.setProperty('min-height', node.classList.contains('cv-modern-layout') ? '297mm' : '0', 'important');
+                    node.style.setProperty('min-block-size', node.classList.contains('cv-modern-layout') ? '297mm' : '0', 'important');
+                    node.style.setProperty('max-height', 'none', 'important');
+                    node.style.setProperty('max-block-size', 'none', 'important');
+                    node.style.setProperty('overflow', 'visible', 'important');
+                });
+            }
+            fitStaticExportFlow(wrapper);
+
+            const naturalHeight = Math.max(clone.scrollHeight, clone.getBoundingClientRect().height);
+            if (naturalHeight > 0) {
+                wrapper.style.height = `${Math.ceil(naturalHeight)}px`;
+            }
+        }
     }
 
     return wrapper;
@@ -8340,38 +11305,228 @@ const trimCanvasBottomWhitespaceForPdf = (canvas) => {
     return trimmedCanvas;
 };
 
-const openPdfPreview = (doc, filename, previewWindow = null) => {
-    const pdfBlob = doc.output('blob');
-    const pdfUrl = URL.createObjectURL(pdfBlob);
-    const targetWindow = previewWindow || window.open('', '_blank', 'popup=yes,width=980,height=1100');
-
-    if (!targetWindow) {
-        URL.revokeObjectURL(pdfUrl);
-        doc.save(filename);
-        setCvStatus('Aperçu bloqué : PDF téléchargé');
-        return false;
+const getSafeCanvasPageSlices = (canvas, exportNode) => {
+    if (!canvas?.width || !canvas?.height) {
+        return [];
     }
 
+    const pageHeight = Math.round(canvas.width * (297 / 210));
+    if (canvas.height <= pageHeight + 2 || !exportNode) {
+        return [{ start: 0, end: canvas.height }];
+    }
+
+    const rootBounds = exportNode.getBoundingClientRect();
+    const scaleY = rootBounds.height > 0 ? canvas.height / rootBounds.height : 1;
+    const candidates = [...new Set(exportNode.querySelectorAll([
+        '.cv-header',
+        '[data-section-key]',
+        '.cv-modern-sidebar > *',
+        '.cv-modern-main > *',
+        '.cv-experience-item',
+        '.cv-experience-head',
+        '#preview-experience > li',
+        '#preview-projects > li',
+        '#preview-education > li',
+        '#preview-skills > li',
+        '#preview-skills li',
+        '#preview-languages > li',
+        '#preview-languages li',
+        '#preview-activities > li',
+        '#preview-activities li',
+    ].join(', ')))]
+        .map((node) => {
+            const bounds = node.getBoundingClientRect();
+            return {
+                top: Math.max(0, Math.round((bounds.top - rootBounds.top) * scaleY)),
+                bottom: Math.min(canvas.height, Math.round((bounds.bottom - rootBounds.top) * scaleY)),
+            };
+        })
+        .filter((item) => item.bottom > item.top)
+        .sort((left, right) => left.top - right.top || left.bottom - right.bottom);
+    const slices = [];
+    let start = 0;
+
+    while (start < canvas.height - 1) {
+        const naturalEnd = Math.min(canvas.height, start + pageHeight);
+        let end = naturalEnd;
+        const crossing = candidates
+            .filter((item) => item.top > start + pageHeight * 0.3 && item.top < naturalEnd && item.bottom > naturalEnd)
+            .sort((left, right) => right.top - left.top)[0];
+
+        if (crossing) {
+            end = Math.max(start + 1, crossing.top - 2);
+        }
+        if (end <= start + 1) {
+            end = naturalEnd;
+        }
+
+        slices.push({ start, end });
+        start = end;
+    }
+
+    return slices;
+};
+
+const createCanvasPageSlice = (canvas, slice) => {
+    const start = Math.max(0, Math.floor(slice?.start || 0));
+    const end = Math.min(canvas.height, Math.ceil(slice?.end || canvas.height));
+    const height = Math.max(1, end - start);
+    const pageCanvas = document.createElement('canvas');
+    pageCanvas.width = canvas.width;
+    pageCanvas.height = height;
+    const context = pageCanvas.getContext('2d');
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+    context.drawImage(canvas, 0, start, canvas.width, height, 0, 0, canvas.width, height);
+    return pageCanvas;
+};
+
+let activePdfPreviewUrl = '';
+let activePdfPreviewBlob = null;
+let activePdfPreviewFilename = 'CV.pdf';
+
+const closePdfPreview = () => {
+    const modal = document.querySelector('#cv-pdf-preview-modal');
+    const frame = modal?.querySelector('#cv-pdf-preview-frame');
+    const pages = modal?.querySelector('#cv-pdf-preview-pages');
+
+    if (frame) {
+        frame.removeAttribute('src');
+        frame.hidden = false;
+    }
+    if (pages) {
+        pages.replaceChildren();
+        pages.hidden = true;
+    }
+    modal?.classList.add('is-hidden');
+    modal?.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('has-cv-pdf-preview');
+
+    if (activePdfPreviewUrl) {
+        URL.revokeObjectURL(activePdfPreviewUrl);
+    }
+    activePdfPreviewUrl = '';
+    activePdfPreviewBlob = null;
+};
+
+const ensurePdfPreviewModal = () => {
+    const existing = document.querySelector('#cv-pdf-preview-modal');
+    if (existing) {
+        return existing;
+    }
+
+    const modal = document.createElement('section');
+    modal.id = 'cv-pdf-preview-modal';
+    modal.className = 'cv-pdf-preview-modal is-hidden';
+    modal.setAttribute('aria-hidden', 'true');
+    modal.innerHTML = `
+        <button class="cv-pdf-preview-backdrop" type="button" data-pdf-preview-close aria-label="Fermer l’aperçu PDF"></button>
+        <div class="cv-pdf-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="cv-pdf-preview-title">
+            <header class="cv-pdf-preview-header">
+                <div>
+                    <strong id="cv-pdf-preview-title">Aperçu PDF</strong>
+                    <span id="cv-pdf-preview-filename"></span>
+                </div>
+                <div class="cv-pdf-preview-actions">
+                    <button class="button button-secondary" id="cv-pdf-preview-download" type="button">Télécharger ce PDF</button>
+                    <button class="cv-pdf-preview-close" type="button" data-pdf-preview-close aria-label="Fermer">×</button>
+                </div>
+            </header>
+            <div class="cv-pdf-preview-pages" id="cv-pdf-preview-pages" hidden aria-label="Pages du PDF"></div>
+            <iframe id="cv-pdf-preview-frame" title="Aperçu du document PDF"></iframe>
+        </div>`;
+    document.body.appendChild(modal);
+
+    modal.querySelectorAll('[data-pdf-preview-close]').forEach((button) => {
+        button.addEventListener('click', closePdfPreview);
+    });
+    modal.querySelector('#cv-pdf-preview-download')?.addEventListener('click', () => {
+        if (!activePdfPreviewBlob) {
+            return;
+        }
+        downloadBlob(activePdfPreviewFilename, activePdfPreviewBlob);
+        setCvStatus('PDF téléchargé depuis l’aperçu');
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !modal.classList.contains('is-hidden')) {
+            closePdfPreview();
+        }
+    });
+
+    return modal;
+};
+
+const openPdfPreview = (doc, filename, { pageImages = [] } = {}) => {
+    const pdfBlob = doc.output('blob');
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+
     try {
-        targetWindow.location.assign(pdfUrl);
-        targetWindow.focus?.();
-        window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 120000);
-        setCvStatus('Aperçu PDF ouvert : utilisez Télécharger ou Imprimer dans le PDF');
+        const modal = ensurePdfPreviewModal();
+        const frame = modal.querySelector('#cv-pdf-preview-frame');
+        const pages = modal.querySelector('#cv-pdf-preview-pages');
+        const filenameNode = modal.querySelector('#cv-pdf-preview-filename');
+        if (!frame || !pages) {
+            throw new Error('pdf_preview_frame_unavailable');
+        }
+
+        closePdfPreview();
+        activePdfPreviewUrl = pdfUrl;
+        activePdfPreviewBlob = pdfBlob;
+        activePdfPreviewFilename = filename || 'CV.pdf';
+        if (filenameNode) {
+            filenameNode.textContent = activePdfPreviewFilename;
+        }
+        const safePageImages = Array.isArray(pageImages)
+            ? pageImages.filter((source) => /^data:image\/(?:png|jpe?g);base64,/i.test(String(source || '')))
+            : [];
+        if (safePageImages.length) {
+            const fragment = document.createDocumentFragment();
+            safePageImages.forEach((source, index) => {
+                const page = document.createElement('figure');
+                page.className = 'cv-pdf-preview-page';
+                const image = document.createElement('img');
+                image.src = source;
+                image.alt = `Page ${index + 1} du PDF`;
+                page.appendChild(image);
+                fragment.appendChild(page);
+            });
+            pages.appendChild(fragment);
+            pages.hidden = false;
+            frame.hidden = true;
+        } else {
+            pages.hidden = true;
+            frame.hidden = false;
+            frame.src = pdfUrl;
+        }
+        modal.classList.remove('is-hidden');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('has-cv-pdf-preview');
+        modal.querySelector('.cv-pdf-preview-close')?.focus({ preventScroll: true });
+        setCvStatus('Aperçu PDF affiché : aucun téléchargement automatique');
         return true;
     } catch (error) {
         console.error(error);
-        URL.revokeObjectURL(pdfUrl);
-        doc.save(filename);
-        setCvStatus('Aperçu indisponible : PDF téléchargé');
+        if (activePdfPreviewUrl === pdfUrl) {
+            closePdfPreview();
+        } else {
+            URL.revokeObjectURL(pdfUrl);
+        }
+        setCvStatus('Aperçu PDF indisponible. Utilisez Télécharger PDF si vous souhaitez le fichier.');
         return false;
     }
 };
 
-const finishPdfExport = (doc, filename, action, previewWindow = null) => {
-    embedCvRoundTripData(doc);
+const finishPdfExport = (doc, filename, action, previewWindow = null, {
+    addSemanticText = false,
+    mode = currentPreviewMode,
+    previewImages = [],
+} = {}) => {
+    if (addSemanticText) {
+        embedCvSemanticText(doc, mode);
+    }
 
     if (action === 'preview' || action === 'print') {
-        return openPdfPreview(doc, filename, previewWindow);
+        return openPdfPreview(doc, filename, { pageImages: previewImages });
     }
 
     doc.save(filename);
@@ -8429,7 +11584,6 @@ const exportPdf = async (options = {}) => {
             let exportNode = null;
 
             try {
-                document.body.classList.add('is-exporting-pdf');
                 await document.fonts?.ready;
                 updateCvPreview();
                 // html2canvas peut parfois rater un aperçu transformé, déplacé ou
@@ -8443,39 +11597,63 @@ const exportPdf = async (options = {}) => {
                     scrollX: 0,
                     scrollY: 0,
                 });
-                const canvas = trimCanvasBottomWhitespaceForPdf(capturedCanvas);
+                const doc = new JsPdf({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+                const pageWidth = 210;
+                const pageHeight = 297;
+                const preserveCreativeEffects = exportMode === 'cv'
+                    && domExportSource.matches('.template-digital, .template-holographic, .template-creative');
+                const imageFormat = preserveCreativeEffects ? 'PNG' : 'JPEG';
+                const isMultiPageCv = exportMode === 'cv'
+                    && exportNode?.dataset.cvPagination === 'multiple';
+                const shouldPaginateCanvas = exportMode !== 'cv' || isMultiPageCv;
+                const canvas = shouldPaginateCanvas
+                    ? trimCanvasBottomWhitespaceForPdf(capturedCanvas)
+                    : capturedCanvas;
 
                 if (!canvas.width || !canvas.height) {
                     throw new Error('empty_canvas');
                 }
 
-                const doc = new JsPdf({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-                const pageWidth = 210;
-                const pageHeight = 297;
-                const imageHeight = (canvas.height * pageWidth) / canvas.width;
-                const imageData = canvas.toDataURL('image/jpeg', 0.98);
-                const singlePageBottomMargin = 8;
-                const singlePageFitLimit = pageHeight + 60;
-                const renderHeight = exportMode === 'cv'
-                    ? pageHeight - singlePageBottomMargin
-                    : imageHeight <= singlePageFitLimit ? pageHeight - singlePageBottomMargin : imageHeight;
+                const slices = shouldPaginateCanvas
+                    ? getSafeCanvasPageSlices(canvas, exportNode)
+                    : [{ start: 0, end: canvas.height }];
+                const previewImages = [];
 
-                let positionY = 0;
-                let remainingHeight = renderHeight;
-                doc.addImage(imageData, 'JPEG', 0, positionY, pageWidth, renderHeight);
-
-                if (exportMode !== 'cv') {
-                    remainingHeight -= pageHeight;
-
-                    while (remainingHeight > 2) {
-                        positionY -= pageHeight;
-                        doc.addPage();
-                        doc.addImage(imageData, 'JPEG', 0, positionY, pageWidth, renderHeight);
-                        remainingHeight -= pageHeight;
+                slices.forEach((slice, pageIndex) => {
+                    const pageCanvas = createCanvasPageSlice(canvas, slice);
+                    const imageData = preserveCreativeEffects
+                        ? pageCanvas.toDataURL('image/png')
+                        : pageCanvas.toDataURL('image/jpeg', 0.98);
+                    if (action === 'preview' || action === 'print') {
+                        previewImages.push(imageData);
                     }
-                }
+                    const naturalHeight = (pageCanvas.height * pageWidth) / pageCanvas.width;
+                    const renderHeight = Math.min(pageHeight, naturalHeight);
+                    const renderWidth = naturalHeight > pageHeight
+                        ? (pageCanvas.width * pageHeight) / pageCanvas.height
+                        : pageWidth;
+                    const renderX = Math.max(0, (pageWidth - renderWidth) / 2);
 
-                return finishPdfExport(doc, filename, action, options?.previewWindow || options?.printWindow);
+                    if (pageIndex > 0) {
+                        doc.addPage();
+                    }
+                    const [backgroundR, backgroundG, backgroundB] = hexToRgb(pdfBackground, '#ffffff');
+                    doc.setFillColor(backgroundR, backgroundG, backgroundB);
+                    doc.rect(0, 0, pageWidth, pageHeight, 'F');
+                    doc.addImage(imageData, imageFormat, renderX, 0, renderWidth, renderHeight);
+                });
+
+                const didFinish = finishPdfExport(
+                    doc,
+                    filename,
+                    action,
+                    options?.previewWindow || options?.printWindow,
+                    { addSemanticText: true, mode: exportMode, previewImages },
+                );
+                if (isMultiPageCv && action === 'save') {
+                    setCvStatus('CV trop dense pour rester lisible sur une page : PDF complet créé sans aucune coupure');
+                }
+                return didFinish;
             } catch (error) {
                 console.error(error);
                 setCvStatus('Export apercu indisponible, generation PDF classique...');
@@ -8499,6 +11677,7 @@ const exportPdf = async (options = {}) => {
         }
 
         const data = currentPreviewMode === 'letter' ? null : getCvExportData();
+        const labels = data?.labels || localizedCvSectionLabels.fr;
         const accent = data?.accent || '#2f3f7f';
         const soft = data?.soft || '#eef2f8';
         const frame = data?.frame || '#d9deea';
@@ -8508,6 +11687,10 @@ const exportPdf = async (options = {}) => {
         const isModern = ['modern', 'creative'].includes(data?.template);
         const isExecutive = ['executive', 'premium'].includes(data?.template);
         const isMinimal = ['minimal', 'ats', 'elegant'].includes(data?.template);
+        const profilePhoto = data?.profilePhoto
+            && /^(?:image\/jpeg|image\/png)$/i.test(String(data.profilePhoto.mimeType || ''))
+            ? data.profilePhoto
+            : null;
         // Le mode de secours ecrit directement dans jsPDF. Il est legerement
         // plus dense pour garantir une page sans toucher au contenu du CV.
         const exportDensity = 1;
@@ -8528,6 +11711,13 @@ const exportPdf = async (options = {}) => {
             doc.setDrawColor(r, g, b);
         };
 
+        const paintPdfPageBackground = () => {
+            setFillColor(data?.paper || '#ffffff');
+            doc.rect(0, 0, pageWidth, pageHeight, 'F');
+        };
+
+        paintPdfPageBackground();
+
         const drawRoundedRect = (x, rectY, width, height, radius, style) => {
             if (typeof doc.roundedRect === 'function') {
                 doc.roundedRect(x, rectY, width, height, radius, radius, style);
@@ -8542,6 +11732,7 @@ const exportPdf = async (options = {}) => {
                 return;
             }
             doc.addPage();
+            paintPdfPageBackground();
             y = marginTop;
         };
 
@@ -8754,7 +11945,13 @@ const exportPdf = async (options = {}) => {
             return finishPdfExport(doc, getPdfExportFilename('letter'), action, options?.previewWindow || options?.printWindow);
         }
 
-        const headerHeight = dense(isModern ? 31 : isExecutive ? 29 : 27);
+        const profilePhotoFrameWidth = profilePhoto ? dense(22) : 0;
+        const profilePhotoFrameHeight = profilePhoto ? dense(25) : 0;
+        const profilePhotoGap = profilePhoto ? dense(5) : 0;
+        const headerHeight = Math.max(
+            dense(isModern ? 31 : isExecutive ? 29 : 27),
+            profilePhotoFrameHeight + dense(4),
+        );
         if (!isMinimal) {
             setFillColor(isModern ? data.soft : '#ffffff');
             setDrawColor(frame);
@@ -8764,8 +11961,36 @@ const exportPdf = async (options = {}) => {
         }
 
         const headerX = isMinimal ? marginX : marginX + 5;
-        const headerWidth = isMinimal ? contentWidth : contentWidth - 10;
+        const headerWidth = (isMinimal ? contentWidth : contentWidth - 10)
+            - profilePhotoFrameWidth
+            - profilePhotoGap;
         const metaLine = data.metaParts.join(' | ');
+
+        if (profilePhoto) {
+            const photoX = marginX + contentWidth - profilePhotoFrameWidth - (isMinimal ? 0 : 5);
+            const photoY = y - dense(0.5);
+            const didDrawPhoto = window.KirbyCvMedia?.drawJsPdfProfilePhoto?.(
+                doc,
+                profilePhoto,
+                {
+                    x: photoX,
+                    y: photoY,
+                    width: profilePhotoFrameWidth,
+                    height: profilePhotoFrameHeight,
+                    padding: dense(0.8),
+                    radius: dense(isModern ? 3 : 2),
+                },
+                {
+                    backgroundRgb: isModern ? [softR, softG, softB] : hexToRgb(data.paper, '#ffffff'),
+                    borderRgb: [frameR, frameG, frameB],
+                    lineWidth: dense(0.25),
+                    onError: (error) => console.warn('Kirby CV PDF profile photo skipped:', error),
+                },
+            );
+            if (!didDrawPhoto) {
+                console.warn('Kirby CV PDF profile photo could not be rendered');
+            }
+        }
 
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(dense(18.5));
@@ -8795,37 +12020,37 @@ const exportPdf = async (options = {}) => {
         }
 
         if (data.summary) {
-            writeSectionTitle('Profil');
+            writeSectionTitle(labels.summary);
             writeWrappedText(data.summary, { size: 9.9, lineHeight: 4.1, color: '#3d4658', after: 1.3 });
         }
 
         if (data.skills.length) {
-            writeSectionTitle('Competences');
+            writeSectionTitle(labels.skills);
             writeTwoColumnList(data.skills);
         }
 
         if (data.experiences.length) {
-            writeSectionTitle('Experiences professionnelles');
+            writeSectionTitle(labels.experience);
             writeTimelineCards(data.experiences);
         }
 
         if (data.projects.length) {
-            writeSectionTitle('Projets');
+            writeSectionTitle(labels.projects);
             writeTimelineCards(data.projects, { compact: true });
         }
 
         if (data.education.length) {
-            writeSectionTitle('Formations & certifications');
+            writeSectionTitle(labels.education);
             writeTimelineCards(data.education, { compact: true });
         }
 
         if (data.languages.length) {
-            writeSectionTitle('Langues');
+            writeSectionTitle(labels.languages);
             writeTwoColumnList(data.languages);
         }
 
         if (data.activities.length) {
-            writeSectionTitle('Activites');
+            writeSectionTitle(labels.activities);
             writeTwoColumnList(data.activities);
         }
 
@@ -8930,12 +12155,13 @@ const setAssistantActivity = (text = '', working = false) => {
     assistantChat?.classList.toggle('is-working', working);
     if (assistantSubmitButton) {
         assistantSubmitButton.disabled = working;
-        assistantSubmitButton.textContent = working ? 'Analyse…' : 'Analyser';
+        assistantSubmitButton.textContent = working ? 'Exécution…' : 'Exécuter';
     }
 };
 
 const setKirbyMode = (mode = 'optimize', { focus = false } = {}) => {
     activeKirbyMode = kirbyModeCopy[mode] ? mode : 'optimize';
+    assistantChat?.classList.toggle('is-new-cv', activeKirbyMode === 'create');
     kirbyModeButtons.forEach((button) => {
         const isActive = button.dataset.kirbyMode === activeKirbyMode;
         button.classList.toggle('is-active', isActive);
@@ -8965,6 +12191,7 @@ const openAssistant = (prompt = '', mode = '') => {
 
     assistantChat.classList.add('is-open');
     assistantToggle.setAttribute('aria-expanded', 'true');
+    assistantChat.classList.toggle('is-new-cv', mode === 'create');
 
     if (mode) {
         setKirbyMode(mode);
@@ -8982,6 +12209,7 @@ const closeAssistant = () => {
     }
 
     assistantChat.classList.remove('is-open');
+    assistantChat.classList.remove('is-new-cv');
     assistantToggle.setAttribute('aria-expanded', 'false');
 };
 
@@ -9017,6 +12245,7 @@ const appendAssistantMessage = (text, role) => {
     }
 
     assistantThread.scrollTop = assistantThread.scrollHeight;
+    return item;
 };
 
 const getKirbyCvSource = () => {
@@ -9043,11 +12272,37 @@ const getKirbyCvSource = () => {
     };
 };
 
-const getKirbyCvSnapshot = () => JSON.stringify({
-    cv: getKirbyCvSource(),
-    jobOffer: jobOfferField?.value || '',
-    letter: getKirbyLetterSource(),
-});
+const getKirbyCvSnapshot = () => {
+    const photoData = normalizeCvProfilePhoto(cvProfilePhoto)?.dataUrl || '';
+    const photoSignature = photoData
+        ? `${photoData.length}:${photoData.slice(0, 48)}:${photoData.slice(-48)}`
+        : '';
+    const presentationValues = cvForm
+        ? CV_STYLE_HISTORY_FIELDS.reduce((values, fieldName) => {
+            const field = cvForm.elements[fieldName];
+            if (field) {
+                values[fieldName] = field.type === 'checkbox' ? String(field.checked) : field.value;
+            }
+            return values;
+        }, {})
+        : {};
+
+    return JSON.stringify({
+        cv: getKirbyCvSource(),
+        jobOffer: jobOfferField?.value || '',
+        letter: getKirbyLetterSource(),
+        photoSignature,
+        presentation: {
+            values: presentationValues,
+            editableContent: cvEditableContent,
+            sectionTitleStyles: cvSectionTitleStyles,
+            sectionOrder: cvSectionOrder,
+            contentLocale: currentCvContentLocale,
+            preserveEmptyLanguages: preserveEmptyImportedLanguages,
+            density: previewNodes.preview?.dataset?.cvDensity || '',
+        },
+    });
+};
 
 const getActiveExperienceLine = () => {
     const entries = getExperienceField() ? repairPreviewExperienceItems(splitLines(getExperienceField().value)) : [];
@@ -9062,6 +12317,9 @@ const getKirbyCvInteractionContext = () => {
     const formatNode = getActiveFormatNode();
     const activeSection = formatNode?.dataset?.editTarget || formatNode?.dataset?.sectionTitle || '';
     const selectedExperienceIndex = getSelectedExperienceIndex();
+    const lastEdit = typeof getLastKirbyCvDateEditContext === 'function'
+        ? getLastKirbyCvDateEditContext()
+        : null;
 
     return {
         activeSection,
@@ -9069,11 +12327,21 @@ const getKirbyCvInteractionContext = () => {
         activeExperienceIndex: selectedExperienceIndex,
         activeExperience: getActiveExperienceLine(),
         pendingQuestion: pendingExperienceDateCorrectionIndex !== null ? 'date_experience' : '',
+        lastEdit: lastEdit ? {
+            kind: lastEdit.kind,
+            field: lastEdit.field,
+            target: { ...lastEdit.target },
+            boundary: lastEdit.boundary,
+            component: lastEdit.component,
+            before: lastEdit.before,
+            after: lastEdit.after,
+            recordIdentity: lastEdit.recordIdentity,
+        } : null,
         precisionPolicy: [
-            'Kirby agit comme un assistant de precision pour la mise en page du CV.',
-            'Il ne modifie pas les sections deja correctes.',
-            'Il propose une correction ciblee a la fois.',
-            'Il demande confirmation avant toute grosse modification de structure ou de repartition.',
+            'Kirby analyse le document entier avant d agir.',
+            'Il execute directement toutes les modifications compatibles demandees.',
+            'Il ne modifie pas les faits ni les sections non visees.',
+            'Il demande une precision uniquement si la cible ou une information factuelle manque.',
             'Il verifie le resultat avant d annoncer que le travail est termine.',
         ].join(' '),
     };
@@ -9097,22 +12365,69 @@ const getKirbyLetterSource = () => ({
     style: letterStyleField?.value || 'classic',
 });
 
-const requestKirbyCvAssistant = async ({ task, instruction = '' }) => {
-    const response = await fetch('/api/kirby-cv', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            mode: 'cv',
-            task,
-            cv: getKirbyCvSource(),
-            jobOffer: jobOfferField?.value || '',
-            instruction,
-            letter: getKirbyLetterSource(),
-            interaction: getKirbyCvInteractionContext(),
-        }),
-    });
+const requestKirbyCvAssistant = async ({
+    task,
+    instruction = '',
+    documentText = '',
+    documentLanguage = '',
+    cv = null,
+    jobOffer = null,
+    interaction = null,
+    timeoutMs = 0,
+} = {}) => {
+    const client = await initializeSupabaseClient();
+    const { data: sessionData, error: sessionError } = await client.auth.getSession();
+    if (sessionError) throw sessionError;
+
+    const accessToken = sessionData?.session?.access_token;
+    if (!accessToken) {
+        const authError = new Error('Connectez-vous pour utiliser KirbyCV.');
+        authError.code = 'kirby_cv_auth_required';
+        throw authError;
+    }
+
+    const requestTimeout = Number.isFinite(timeoutMs) ? Math.max(0, Math.round(timeoutMs)) : 0;
+    const controller = requestTimeout > 0 ? new AbortController() : null;
+    const timeoutHandle = controller
+        ? window.setTimeout(() => controller.abort(), requestTimeout)
+        : null;
+    let response;
+
+    try {
+        response = await fetch('/api/kirby-cv', {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                Authorization: `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                mode: 'cv',
+                task,
+                cv: cv && typeof cv === 'object' ? cv : getKirbyCvSource(),
+                jobOffer: typeof jobOffer === 'string' ? jobOffer : jobOfferField?.value || '',
+                instruction,
+                documentText: typeof documentText === 'string' ? documentText : '',
+                documentLanguage: documentLanguage === 'en' ? 'en' : documentLanguage === 'fr' ? 'fr' : '',
+                letter: getKirbyLetterSource(),
+                interaction: interaction && typeof interaction === 'object'
+                    ? { ...getKirbyCvInteractionContext(), ...interaction }
+                    : getKirbyCvInteractionContext(),
+            }),
+            ...(controller ? { signal: controller.signal } : {}),
+        });
+    } catch (error) {
+        if (error?.name === 'AbortError') {
+            const timeoutError = new Error('Kirby a dépassé le délai de vérification. Le CV structuré localement reste prêt à utiliser.');
+            timeoutError.code = 'kirby_cv_timeout';
+            throw timeoutError;
+        }
+        throw error;
+    } finally {
+        if (timeoutHandle !== null) {
+            window.clearTimeout(timeoutHandle);
+        }
+    }
 
     if (!response.ok) {
         let details = null;
@@ -9133,16 +12448,32 @@ const requestKirbyCvAssistant = async ({ task, instruction = '' }) => {
 
 const looksLikePastedCv = (message = '') => {
     const source = message.trim();
-    const hasContact = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i.test(source) || /(\+33|0)[\s.\-]?\d([\s.\-]?\d{2}){4}/.test(source);
-    const sectionCount = [
-        /\bexp[ée]riences?(?: professionnelles)?\b/i,
-        /\bformations?\b/i,
-        /\bcomp[ée]tences?\b/i,
-        /\blangues?\b/i,
-        /\bactivit[ée]s?|centres? d['’]int[ée]r[êe]ts?\b/i,
-    ].filter((pattern) => pattern.test(source)).length;
+    const hasContact = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i.test(source)
+        || Boolean(extractImportedPhone(splitLines(source)));
+    const preprocessedLines = splitLines(preprocessImportedCvText(source));
+    const sectionCount = new Set(preprocessedLines.map(getSectionKey).filter(Boolean)).size;
 
     return source.length > 220 && (hasContact || sectionCount >= 2) && sectionCount >= 2;
+};
+
+const looksLikeCvSourceText = (message = '') => {
+    const source = String(message || '').trim();
+    if (looksLikePastedCv(source)) {
+        return true;
+    }
+
+    const lines = splitLines(preprocessImportedCvText(source));
+    const hasContact = emailPattern.test(source) || Boolean(extractImportedPhone(lines));
+    const dateCount = (source.match(new RegExp(`${cvDatedTokenPattern}\\s*[–—-]\\s*${cvDateTokenPattern}`, 'gi')) || []).length;
+    const roleCount = lines.filter((line) => isLikelyExperienceHeader(line)).length;
+    const sectionCount = new Set(lines.map(getSectionKey).filter(Boolean)).size;
+
+    // Le mode Nouveau CV est explicite : un bloc long contenant des coordonnées
+    // et un parcours daté est un document source, même sans titres de rubriques.
+    return source.length > 180
+        && lines.length >= 6
+        && hasContact
+        && (sectionCount >= 1 || dateCount >= 1 || roleCount >= 2);
 };
 
 const looksLikeJobOffer = (message = '') => {
@@ -9182,13 +12513,22 @@ const getKirbyUserInstruction = (instruction = '') => {
         : String(instruction || '').slice(index + marker.length).trim();
 };
 
+const isCvSinglePageRequest = (message = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(message))
+        .replace(/[‐‑‒–—]/g, '-')
+        .replace(/\s+/g, ' ')
+        .trim();
+    return /\b(?:une page|une seule page|1 page|one page|single page|one-page|single-page)\b/.test(source)
+        || /\b(?:fit|fais tenir|faire tenir|mets?|mettre|refais|refaire|make)\b.{0,48}\b(?:page unique|une seule page|one page|single page)\b/.test(source);
+};
+
 const hasLanguageNameInInstruction = (message = '') =>
     /\b(francais|français|anglais|arabe|espagnol|italien|allemand|portugais|french|english|arabic|spanish|italian|german|portuguese)\b/i.test(message);
 
 const isLanguageFocusedInstruction = (message = '') => {
     const source = normalizeForMatch(getKirbyUserInstruction(message));
     const hasLanguageSignal = /\b(langue|langues|francais|anglais|arabe|espagnol|italien|allemand|portugais|french|english|arabic|spanish|italian|german|portuguese|native|basic|beginner|elementary|intermediate|fluent|notions?|courant|bilingue)\b/.test(source);
-    const hasOtherCvScope = /\b(experience|experiences|poste|mission|missions|formation|formations|certification|certifications|ecole 42|simplon|piscine|projet|projets|competence|competences|trou|periode|periode vide|autoformation|cv pret|pret a l emploi|pret a l'emploi)\b/.test(source);
+    const hasOtherCvScope = /\b(experience|experiences|poste|mission|missions|formation|formations|certification|certifications|ecole|universite|projet|projets|competence|competences|trou|periode|periode vide|autoformation|cv pret|pret a l emploi|pret a l'emploi)\b/.test(source);
 
     return hasLanguageSignal && !hasOtherCvScope;
 };
@@ -9196,8 +12536,8 @@ const isLanguageFocusedInstruction = (message = '') => {
 const looksLikeCvCreationInstruction = (message = '') => {
     const source = normalizeForMatch(getKirbyUserInstruction(message));
 
-    return /\b(genere|generer|cree|creer|construis|construire|prepare|preparer|remplis|remplir|reconstruis|reconstruire|refais|refaire|cv pret|pret a l emploi|pret a l'emploi|prend le cv|prends le cv|mets le cv|met le cv|fait le cv|fais le cv)\b/.test(source)
-        && /\bcv\b/.test(source);
+    return /\b(genere|generer|cree|creer|construis|construire|prepare|preparer|remplis|remplir|reconstruis|reconstruire|refais|refaire|generate|create|build|prepare|fill|rebuild|redo|make|cv pret|pret a l emploi|pret a l'emploi|prend le cv|prends le cv|mets le cv|met le cv|fait le cv|fais le cv)\b/.test(source)
+        && /\b(cv|resume)\b/.test(source);
 };
 
 const isExplicitKirbyApplyInstruction = (message = '') => {
@@ -9208,15 +12548,23 @@ const isExplicitKirbyApplyInstruction = (message = '') => {
         return false;
     }
 
-    return /\b(applique|appliquer|ajoute|ajouter|insere|inserer|integre|integrer|mets|mettre|met|bouche|boucher|comble|combler|complete|completer|remplis|remplir|range|ranger|trie|trier|corrige|corriger|optimise|optimiser|modifie|modifier|remplace|remplacer|supprime|supprimer|retire|retirer|enleve|enlever|reformule|reformuler|compacte|compacter)\b/.test(source);
+    if (hasNewExperienceAdditionIntent(message)) {
+        return true;
+    }
+
+    return /\b(applique|appliquer|fais|faire|prepare|preparer|adapte|adapter|redige|rediger|ecris|ecrire|reecris|reecrire|ameliore|ameliorer|ajoute|ajouter|insere|inserer|integre|integrer|mets|mettre|met|bouche|boucher|comble|combler|complete|completer|remplis|remplir|range|ranger|trie|trier|corrige|corriger|optimise|optimiser|modifie|modifier|remplace|remplacer|supprime|supprimer|retire|retirer|enleve|enlever|reformule|reformuler|compacte|compacter|apply|make|prepare|adapt|write|rewrite|improve|add|insert|put|fill|sort|reorder|move|correct|optimize|modify|update|change|replace|remove|delete|rephrase|compact)\b/.test(source);
 };
 
 const isContactDetailsInstruction = (message = '') => {
     const source = normalizeForMatch(getKirbyUserInstruction(message));
-    const hasContactTarget = /\b(coordonnees?|coordonees?|contact|telephone|tel|mobile|numero|email|e-mail|mail|adresse mail|courriel|ville|adresse|code postal|permis|nom|prenom)\b/.test(source);
+    const hasContactTarget = /\b(coordonnees?|coordonees?|contact|telephone|tel|mobile|numero|email|e-mail|mail|adresse mail|courriel|ville|adresse|code postal|nom|prenom)\b/.test(source);
+    const hasPermitTarget = /\bpermis\b/.test(source);
     const hasEditVerb = /\b(ajoute|ajouter|rajoute|rajouter|mets|mettre|met|renseigne|renseigner|complete|completer|modifie|modifier|corrige|corriger|remplace|remplacer)\b/.test(source);
+    const hasPermitEdit = /\b(ajoute|ajouter|rajoute|rajouter|mets|mettre|met|renseigne|renseigner|complete|completer|modifie|modifier|corrige|corriger|remplace|remplacer)\b.{0,20}\bpermis\b/.test(source)
+        || /\bpermis\s*:/.test(source)
+        || /^permis\s+[a-z](?:\s*(?:,|\/|et|&)\s*[a-z])*\s*$/.test(source);
 
-    return hasContactTarget && hasEditVerb;
+    return (hasContactTarget && hasEditVerb) || (hasPermitTarget && hasPermitEdit);
 };
 
 const extractContactDetailsFromInstruction = (message = '') => {
@@ -9326,7 +12674,7 @@ const applyQuickContactDetailsCorrection = (message = '') => {
         return 'Coordonnées déjà présentes avec ces valeurs.';
     }
 
-    updateCvPreview();
+    updateCvPreview({ preserveDensity: true });
     commitCvHistoryTransition(beforeState);
     scheduleCvDraftSave();
     setCvStatus('Coordonnées mises à jour');
@@ -9337,12 +12685,198 @@ const applyQuickContactDetailsCorrection = (message = '') => {
 const getNoCvMutationReply = () =>
     "Je n’ai appliqué aucune modification au CV. Votre message ressemble à une consigne ou à un signalement, pas à une correction précise du CV.";
 
+const cleanExplicitHeadlineCandidate = (value = '') => String(value || '')
+    .trim()
+    .replace(/^[\s:;,\-–—«»"“”']+|[\s.!?;,«»"“”']+$/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+// Un intitulé de CV n'appartient pas à un dictionnaire fini de métiers. Cette
+// validation ne cherche donc pas un mot comme « assistante » ou « vendeur » :
+// elle vérifie uniquement que le segment ressemble à un intitulé court et non
+// à une phrase de conversation ou à une seconde consigne.
+const isStructurallySafeHeadlineCandidate = (value = '') => {
+    const candidate = cleanExplicitHeadlineCandidate(value);
+    const source = normalizeForMatch(candidate).replace(/[’']/g, ' ');
+    if (!candidate
+        || candidate.length > 90
+        || candidate.split(/\s+/).length > 12
+        || !/[\p{L}]/u.test(candidate)
+        || /[\r\n.!?;:]/.test(candidate)) {
+        return false;
+    }
+    if (/^(?:le|la|les|mon|ma|mes|notre|nos|un|une|de|du|des|dans|sur|je|nous|on|tu|vous|i|we|my|our)\b/.test(source)
+        || /^j\s/.test(source)) {
+        return false;
+    }
+    if (/^(?:titre|intitule|poste|metier|change|modifie|remplace|mets|applique|deplace|ajoute|supprime|retire|enleve|title|job|role|change|modify|replace|set|apply|move|add|remove|delete)\b/.test(source)) {
+        return false;
+    }
+    if (/\b(?:deplace|deplacer|ajoute|ajouter|supprime|supprimer|retire|retirer|enleve|enlever|modifie|modifier|remplace|remplacer|mets|mettre|applique|appliquer|corrige|corriger|rectifie|rectifier|harmonise|harmoniser|normalise|normaliser|move|add|remove|delete|modify|replace|apply|correct|fix|normalize|standardize)\b/.test(source)) {
+        return false;
+    }
+    if (/\b(?:je|nous|on|tu|vous|i|we)\b/.test(source)
+        || /(?:^|\s)j\s/.test(source)
+        || /\b(?:suis|sommes|veux|voudrais|souhaite|cherche|recherche|postule|travaille|decris|explique|am|are|want|would|looking|apply|work|describe|explain)\b/.test(source)
+        || /\b(?:bonjour|salut|merci|svp|please)\b/.test(source)) {
+        return false;
+    }
+
+    return true;
+};
+
+const isProfessionalHeadlineCandidate = (value = '', { allowAnyExplicitValue = false } = {}) => {
+    const candidate = cleanExplicitHeadlineCandidate(value);
+    if (!isStructurallySafeHeadlineCandidate(candidate)) {
+        return false;
+    }
+
+    // Une syntaxe explicite (libellé, guillemets ou verbe de remplacement)
+    // accepte n'importe quel métier sûr. Pour un texte nu, une initiale de
+    // titre évite de transformer une remarque ordinaire en intitulé.
+    return allowAnyExplicitValue || /^[\p{Lu}\d]/u.test(candidate);
+};
+
+const hasExactHeadlineCaseInstruction = (message = '') => {
+    const source = normalizeForMatch(message);
+    return /\b(?:casse|capitalisation)\s+exacte\b/.test(source)
+        || /\bexactement\s+(?:cette|la)\s+(?:casse|capitalisation)\b/.test(source)
+        || /\b(?:exact|exactly)\b[\s\S]{0,24}\b(?:case|capitalization)\b/.test(source)
+        || /\b(?:respecte|respecter|conserve|conserver|garde|garder|preserve|keep|respect)\b[\s\S]{0,35}\b(?:casse|capitalisation|majuscules?|minuscules?|case|capitalization|uppercase|lowercase)\b/.test(source);
+};
+
+const isHeadlineCorrectionClause = (value = '') => {
+    const source = normalizeForMatch(value).replace(/[’']/g, ' ');
+    const hasAction = /\b(?:corrige|corriges|corrigez|corriger|rectifie|rectifies|rectifiez|rectifier|harmonise|harmonisez|harmoniser|normalise|normalisez|normaliser|mets|mettez|mettre|rends|rendez|rendre|correct|fix|rectify|normalize|standardize|capitaliz(?:e|es|ing)|format|clean)\b/.test(source);
+    const hasInstructionSignal = /\b(?:tu|vous|moi|me|titre|intitule|casse|capitalisation|majuscules?|minuscules?|correctement|propre|please|this|the|title|case|capitalization|uppercase|lowercase|properly|clean)\b/.test(source);
+    return hasAction && hasInstructionSignal && source.split(/\s+/).filter(Boolean).length <= 18;
+};
+
+const normalizeCorrectedCvHeadlineCase = (value = '', locale = currentCvContentLocale) => {
+    const cleaned = cleanExplicitHeadlineCandidate(value);
+    if (!cleaned) {
+        return '';
+    }
+
+    const source = normalizeForMatch(cleaned);
+    const detectedLocale = locale === 'en'
+        || ((source.match(/\b(?:and|of|the|for|with|manager|specialist|officer)\b/g) || []).length
+            > (source.match(/\b(?:et|de|des|pour|avec|assistante|commerciale|chargee)\b/g) || []).length)
+        ? 'en'
+        : 'fr';
+    const lowercase = cleaned.toLocaleLowerCase(detectedLocale === 'en' ? 'en-US' : 'fr-FR');
+    const englishSmallWords = new Set(['and', 'of', 'the', 'for', 'to', 'in', 'on', 'with', 'at', 'by']);
+    const recased = detectedLocale === 'en'
+        ? lowercase.replace(/(^|[\s/–—-]+)([\p{L}\p{N}][\p{L}\p{N}.'’+]*)/gu, (word, prefix, token, offset) => {
+            const tokenOffset = offset + prefix.length;
+            if (tokenOffset > 0 && englishSmallWords.has(token)) {
+                return `${prefix}${token}`;
+            }
+            return `${prefix}${token.replace(/^(\p{L})/u, (letter) => letter.toLocaleUpperCase('en-US'))}`;
+        })
+        : lowercase.replace(/^(\s*)(\p{L})/u, (_, spacing, letter) => `${spacing}${letter.toLocaleUpperCase('fr-FR')}`);
+
+    return restoreCvAcronyms(recased)
+        .replace(/\bcrm\b/gi, 'CRM')
+        .replace(/\berp\b/gi, 'ERP')
+        .replace(/\brh\b/gi, 'RH')
+        .replace(/\bpme\b/gi, 'PME')
+        .replace(/\bbts\b/gi, 'BTS')
+        .replace(/\brgpd\b/gi, 'RGPD')
+        .trim();
+};
+
+const getConversationalHeadlineCandidate = (instruction = '') => {
+    if (!instruction || hasExactHeadlineCaseInstruction(instruction)) {
+        return '';
+    }
+
+    const separators = [...String(instruction).matchAll(/\s*[,;:–—]\s*/g)];
+    for (let index = separators.length - 1; index >= 0; index -= 1) {
+        const separator = separators[index];
+        const candidate = cleanExplicitHeadlineCandidate(String(instruction).slice(0, separator.index));
+        const clause = String(instruction).slice((separator.index || 0) + separator[0].length);
+        if (isHeadlineCorrectionClause(clause) && isStructurallySafeHeadlineCandidate(candidate)) {
+            return normalizeCorrectedCvHeadlineCase(candidate);
+        }
+    }
+
+    return '';
+};
+
+const shouldNormalizeCurrentHeadlineCase = (message = '') => {
+    const source = normalizeForMatch(message);
+    return /\b(?:titre|intitule|poste|title|job title)\b/.test(source)
+        && /\b(?:casse|capitalisation|majuscules?|minuscules?|au propre|case|capitalization|uppercase|lowercase)\b/.test(source)
+        && /\b(?:corrige|corriger|rectifie|rectifier|harmonise|harmoniser|normalise|normaliser|mets|mettre|rends|rendre|correct|fix|rectify|normalize|standardize|clean)\b/.test(source)
+        && !hasExactHeadlineCaseInstruction(message);
+};
+
+const getExplicitHeadlineFromInstruction = (message = '') => {
+    const instruction = getKirbyUserInstruction(message).trim();
+    if (!instruction) {
+        return '';
+    }
+
+    const conversationalCandidate = getConversationalHeadlineCandidate(instruction);
+    if (conversationalCandidate) {
+        return conversationalCandidate;
+    }
+
+    const actionPrefix = '(?:(?:(?:je\\s+)?(?:veux|souhaite|voudrais)|i\\s+(?:want|would\\s+like))\\s+(?:to\\s+)?)?(?:(?:me|please)\\s+)?';
+    const editVerb = '(?:change|changer|modifie|modifier|remplace|remplacer|corrige|corriger|mets|mettre|met|applique|appliquer|modify|replace|correct|set|update)';
+    const headlineTarget = '(?:(?:le|mon|the|my)\\s+)?(?:titre|intitul[ée]|poste\\s+vis[ée]|headline|job\\s+title|target\\s+role)(?:\\s+(?:du|de\\s+mon|de\\s+ce)\\s+(?:m[ée]tier|poste|cv))?(?:\\s+(?:sous\\s+(?:mon|le)\\s+nom|under\\s+(?:my|the)\\s+name))?';
+    const hasHeadlineTarget = new RegExp(`\\b${headlineTarget}\\b`, 'i').test(instruction);
+
+    // Une valeur littérale citée est prioritaire. C'est la seule partie que
+    // l'utilisateur demande d'inscrire : les mots « sous mon nom » ou
+    // « avec cette casse exacte » restent des consignes, jamais du contenu.
+    if (hasHeadlineTarget) {
+        const quotedValues = [...instruction.matchAll(/«([^»]+)»|“([^”]+)”|"([^"]+)"/g)]
+            .map((match) => cleanExplicitHeadlineCandidate(match[1] || match[2] || match[3] || ''))
+            .filter((candidate) => isProfessionalHeadlineCandidate(candidate, { allowAnyExplicitValue: true }));
+        if (quotedValues.length) {
+            return quotedValues[quotedValues.length - 1];
+        }
+    }
+
+    const valueFirstMatch = instruction.match(new RegExp(`^${actionPrefix}${editVerb}\\s+(.+?)\\s+(?:comme|en)\\s+${headlineTarget}\\s*[.!?]*\\s*$`, 'i'));
+    const targetFirstMatch = instruction.match(new RegExp(`^${actionPrefix}${editVerb}\\s+${headlineTarget}\\s*(.*)$`, 'i'));
+    const labelMatch = instruction.match(/^(?:titre|intitul[ée]|poste\s+vis[ée]|headline|job\s+title|target\s+role)(?:\s+du\s+m[ée]tier)?\s*:\s*(.+)$/i);
+    const rawCandidate = valueFirstMatch?.[1] || targetFirstMatch?.[1] || labelMatch?.[1] || '';
+    const connectorCandidate = rawCandidate.match(/^(?:par|en|vers|pour)\s+(.+)$/i)?.[1]
+        || rawCandidate.match(/^de\s+.+\s+(?:par|en|vers)\s+(.+)$/i)?.[1]
+        || rawCandidate;
+    const candidate = cleanExplicitHeadlineCandidate(
+        connectorCandidate
+            .replace(/^(?:(?:sous\s+(?:mon|le)\s+nom|under\s+(?:my|the)\s+name)\s*)?(?:par|en|vers|pour|with|to|as|by|:)\s*/i, '')
+            .replace(/^(?:(?:du|de\s+mon|de\s+ce)\s+(?:m[ée]tier|poste|cv))\s*/i, '')
+            .replace(/\s*,?\s*(?:avec|en\s+gardant|tout\s+en\s+gardant|respecte|respecter)\s+(?:(?:exactement|strictement)\s+)?(?:cette|la)?\s*(?:casse|capitalisation|majuscule(?:s)?|minuscule(?:s)?)[\s\S]*$/i, '')
+            .replace(/\s*,\s*(?:pas|not|et\s+non|plut[oô]t\s+que)\b[\s\S]*$/i, '')
+    );
+
+    if (isProfessionalHeadlineCandidate(candidate, { allowAnyExplicitValue: true })) {
+        return candidate;
+    }
+
+    const standaloneCandidate = cleanExplicitHeadlineCandidate(instruction);
+    return isProfessionalHeadlineCandidate(standaloneCandidate) ? standaloneCandidate : '';
+};
+
 const hasConcreteKirbyCvEditIntent = (message = '') => {
     const instruction = getKirbyUserInstruction(message);
     const source = normalizeForMatch(instruction);
 
     if (!source) {
         return false;
+    }
+
+    if (isCvSinglePageRequest(instruction)) {
+        return true;
+    }
+
+    if (hasNewExperienceAdditionIntent(instruction)) {
+        return true;
     }
 
     if (looksLikePastedCv(instruction) || looksLikeCvCreationInstruction(instruction) || looksLikeJobOffer(instruction)) {
@@ -9353,7 +12887,11 @@ const hasConcreteKirbyCvEditIntent = (message = '') => {
         return true;
     }
 
-    if (hasExplicitExperienceOrderCommand(instruction)) {
+    if (isExperienceOrderCleanupIntent(instruction)) {
+        return true;
+    }
+
+    if (isSkillOrderCleanupIntent(instruction)) {
         return true;
     }
 
@@ -9361,17 +12899,41 @@ const hasConcreteKirbyCvEditIntent = (message = '') => {
         return true;
     }
 
-    const hasEditVerb = /\b(applique|appliquer|ajoute|ajouter|insere|inserer|integre|integrer|mets|mettre|met|modifie|modifier|change|changer|corrige|corriger|remplace|remplacer|supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|reformule|reformuler|raccourcis|raccourcir|range|ranger|trie|trier|classe|classer)\b/.test(source);
-    const hasCvTarget = /\b(nom|prenom|prénom|titre|intitule|intitulé|poste vise|poste visé|profil|accroche|resume|résumé|competence|competences|experience|experiences|mission|missions|puce|ligne|date|dates|periode|periodes|formation|formations|certification|certifications|langue|langues|coordonnees?|coordonees?|contact|telephone|tel|email|mail|ville|permis|activites|rubrique|faute|fautes|orthographe|grammaire)\b/.test(source);
-    const hasExplicitReplacementPair = /\bremplace\b.{1,80}\bpar\b.{1,80}/.test(source);
-    const hasReplacementValue = /(?:\bpar\b|\ben\b|\bavec\b|\bvers\b|:)\s*[^\s].{1,}/.test(source)
+    const hasEditVerb = /\b(applique|appliquer|ajoute|ajouter|insere|inserer|integre|integrer|mets|mettre|met|fais|faire|prepare|preparer|adapte|adapter|modifie|modifier|change|changer|corrige|corriger|remplace|remplacer|supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|redige|rediger|ecris|ecrire|reecris|reecrire|ameliore|ameliorer|optimise|optimiser|reformule|reformuler|raccourcis|raccourcir|range|ranger|trie|trier|classe|classer|deplace|deplacer|apply|add|insert|put|make|prepare|adapt|modify|update|change|correct|replace|remove|delete|write|rewrite|improve|optimize|rephrase|shorten|sort|reorder|order|move)\b/.test(source);
+    const hasCvTarget = /\b(cv|resume|document|texte|text|nom|name|prenom|prénom|first name|titre|title|intitule|intitulé|poste vise|poste visé|target role|job title|profil|profile|accroche|summary|competence|competences|skill|skills|core expertise|experience|experiences|work experience|professional experience|employment history|mission|missions|bullet|bullets|puce|ligne|line|date|dates|periode|periodes|period|periods|formation|formations|education|certification|certifications|langue|langues|language|languages|coordonnees?|coordonees?|contact details|contact|telephone|phone|tel|email|mail|ville|location|permis|permit|activities|activites|rubrique|section|faute|fautes|typo|spelling|grammar|orthographe|grammaire)\b/.test(source);
+    const hasExplicitReplacementPair = /\b(?:remplace|remplacer)\b.{1,80}\bpar\b.{1,80}|\b(?:replace|change|update)\b.{1,80}\b(?:with|by|to)\b.{1,80}/.test(source);
+    const hasExplicitRemovalTarget = /\b(supprime|retire|enleve|efface|remove|delete)\s+(?!(?:tout|ca|ça|ceci|cela|everything|this|that)\b).{3,}/.test(source);
+    const hasOpenEndedRewriteIntent = hasCvTarget
+        && /\b(corrige|corriger|redige|rediger|ecris|ecrire|reecris|reecrire|ameliore|ameliorer|optimise|optimiser|reformule|reformuler|raccourcis|raccourcir|adapte|adapter|correct|write|rewrite|improve|optimize|rephrase|shorten|adapt)\b/.test(source);
+    const hasReplacementValue = /(?:\bpar\b|\ben\b|\bavec\b|\bvers\b|\bto\b|\bwith\b|\bbefore\b|\bafter\b|\bavant\b|\bapres\b|:)\s*[^\s].{1,}/.test(source)
         || /[«"“”']([^«"“”']{2,})[»"“”']/.test(instruction);
-    const hasDateValue = /\b(?:19|20)\d{2}\b/.test(source) || /\b(?:janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre|janv|fevr|févr|avr|sept|oct|nov|dec|déc)\b/.test(source);
-    const hasKnownExperienceReference = /\b(caisse d epargne|caisse d’épargne|ceidf|camaieu|camaïeu|american express|air france|ratp|machiniste|receveur|developpement web|développement web|creatrice|créatrice|developpeuse|développeuse)\b/.test(source);
+    const hasDateValue = /\b(?:19|20)\d{2}\b/.test(source) || /\b(?:janvier|fevrier|février|mars|avril|mai|juin|juillet|aout|août|septembre|octobre|novembre|decembre|décembre|janv|fevr|févr|avr|sept|oct|nov|dec|déc|january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep)\b/.test(source);
+    const hasKnownExperienceReference = /\b(machiniste|receveur|developpement web|développement web|creatrice|créatrice|developpeuse|développeuse)\b/.test(source);
     const hasActiveSelection = Boolean(getKirbyCvInteractionContext().selectedText);
+    const hasExplicitHeadlineValue = Boolean(getExplicitHeadlineFromInstruction(instruction));
 
-    return (hasEditVerb && hasCvTarget && (hasReplacementValue || hasDateValue || hasKnownExperienceReference || hasActiveSelection || hasLanguageNameInInstruction(instruction)))
-        || hasExplicitReplacementPair;
+    return hasExplicitHeadlineValue
+        || (hasEditVerb && hasCvTarget && (hasReplacementValue || hasDateValue || hasKnownExperienceReference || hasActiveSelection || hasLanguageNameInInstruction(instruction) || looksLikeCvCreationInstruction(instruction)))
+        || hasExplicitReplacementPair
+        || hasExplicitRemovalTarget
+        || hasOpenEndedRewriteIntent;
+};
+
+const hasCompoundKirbyCvInstruction = (message = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(message));
+    const actionPatterns = [
+        /\b(ajoute|ajouter|insere|inserer|integre|integrer|add|insert)\b/,
+        /\b(supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|remove|delete)\b/,
+        /\b(remplace|remplacer|change|changer|modifie|modifier|replace|change|modify|update)\b/,
+        /\b(corrige|corriger|redige|rediger|ecris|ecrire|reecris|reecrire|ameliore|ameliorer|optimise|optimiser|reformule|reformuler|raccourcis|raccourcir|correct|write|rewrite|improve|optimize|rephrase|shorten)\b/,
+        /\b(range|ranger|trie|trier|classe|classer|reorganise|reorganiser|deplace|deplacer|sort|reorder|order|organize|move)\b|\bbon ordre\b/,
+        /\b(adapte|adapter|fais|faire|prepare|preparer|adapt|make|prepare)\b/,
+    ];
+    const groupCount = actionPatterns.filter((pattern) => pattern.test(source)).length;
+    const actionWords = source.match(/\b(ajoute|insere|integre|supprime|retire|enleve|efface|remplace|change|modifie|corrige|redige|ecris|reecris|ameliore|optimise|reformule|raccourcis|range|trie|classe|reorganise|deplace|adapte|fais|prepare|add|insert|remove|delete|replace|change|modify|update|correct|write|rewrite|improve|optimize|rephrase|shorten|sort|reorder|order|organize|move|adapt|make)\b/g) || [];
+    const hasConnector = /\b(et|puis|ensuite|ainsi que|and|then|as well as)\b|[,;]/.test(source);
+
+    return groupCount >= 2 || (hasConnector && new Set(actionWords).size >= 2);
 };
 
 const isKirbyCvTechnicalOrExplanatoryInstruction = (message = '') => {
@@ -9596,6 +13158,26 @@ const getAssistantTask = (message = '', mode = activeKirbyMode) => {
     if (mode === 'letter') {
         return 'letter';
     }
+    const source = normalizeForMatch(getKirbyUserInstruction(message));
+    const asksExistingCvForRole = hasMeaningfulCvContent()
+        && looksLikeCvCreationInstruction(message)
+        && /\bcv\s+(?:de|d[’']?|pour|au poste de|adapte a|adapte au)\s*[a-z]/.test(source);
+    if (asksExistingCvForRole) {
+        return 'adapt';
+    }
+    const targetsExistingCv = mode === 'create'
+        && hasMeaningfulCvContent()
+        && !looksLikePastedCv(message)
+        && !looksLikeCvCreationInstruction(message)
+        && (
+            hasConcreteKirbyCvEditIntent(message)
+            || Boolean(getSingleFieldEditIntent(message))
+            || Boolean(getImplicitKirbyCvActionTopic(message))
+            || isLanguageFocusedInstruction(message)
+        );
+    if (targetsExistingCv) {
+        return 'optimize';
+    }
     if (mode !== 'adapt' && (looksLikePastedCv(message) || looksLikeCvCreationInstruction(message))) {
         return looksLikePastedCv(message) ? 'autofill' : 'create';
     }
@@ -9698,7 +13280,7 @@ const applyQuickLanguageCorrections = (message = '') => {
 
     clearEditableOverride('languages');
     renderLanguageEditor();
-    updateCvPreview();
+    updateCvPreview({ preserveDensity: true });
     commitCvHistoryTransition(beforeState);
     scheduleCvDraftSave();
     setCvStatus('Kirby a mis à jour les langues');
@@ -9788,34 +13370,112 @@ const applyQuickTitleGenderCorrection = (message = '') => {
     }
 
     clearEditableOverride('headline');
-    updateCvPreview();
+    updateCvPreview({ preserveDensity: true });
     commitCvHistoryTransition(beforeState);
     scheduleCvDraftSave();
     setCvStatus('Kirby a mis à jour le titre');
     return `Titre appliqué : « ${nextHeadline} ». Vous pouvez revenir en arrière avec Retour.`;
 };
 
+const applyQuickExplicitHeadlineCorrection = (message = '') => {
+    const headlineField = cvForm?.elements.headline;
+    if (!headlineField) {
+        return '';
+    }
+
+    const explicitHeadline = getExplicitHeadlineFromInstruction(message);
+    const nextHeadline = explicitHeadline || (shouldNormalizeCurrentHeadlineCase(message)
+        ? normalizeCorrectedCvHeadlineCase(headlineField.value || '')
+        : '');
+    if (!nextHeadline) {
+        return '';
+    }
+
+    const jobTargetField = cvForm.elements.jobTarget;
+    if (headlineField.value.trim() === nextHeadline && (!jobTargetField || jobTargetField.value.trim() === nextHeadline)) {
+        return `Titre déjà affiché : « ${nextHeadline} ».`;
+    }
+
+    const beforeState = getCvHistoryState();
+    headlineField.value = nextHeadline;
+    if (jobTargetField) {
+        jobTargetField.value = nextHeadline;
+    }
+
+    clearEditableOverride('headline');
+    updateCvPreview({ preserveDensity: true });
+    commitCvHistoryTransition(beforeState);
+    scheduleCvDraftSave();
+    setCvStatus('Kirby a mis à jour le titre');
+    return `Titre mis à jour : « ${nextHeadline} ».`;
+};
+
+const getRequestedSummarySentenceCount = (message = '') => {
+    const source = normalizeForMatch(getAffirmativeKirbyInstruction(message));
+    if (!/\b(profil|accroche|resume|presentation)\b/.test(source)
+        || !/\b(raccourcis|raccourcir|condense|condenser|resume|resumer|shorten|condense)\b/.test(source)) {
+        return 0;
+    }
+
+    const match = source.match(/\b(?:a|en|to)\s+(une?|deux|trois|quatre|cinq|six|[1-6])\s+phrases?\b/);
+    const counts = { un: 1, une: 1, deux: 2, trois: 3, quatre: 4, cinq: 5, six: 6 };
+    return match ? Number(match[1]) || counts[match[1]] || 0 : 0;
+};
+
+const getCompleteCvSentences = (value = '') =>
+    (String(value || '').match(/[^.!?]+[.!?]+(?:[»”"])?/g) || [])
+        .map((sentence) => sentence.trim())
+        .filter(Boolean);
+
+const applyQuickSummarySentenceLimit = (message = '') => {
+    const sentenceCount = getRequestedSummarySentenceCount(message);
+    const field = cvForm?.elements.summary;
+    if (!sentenceCount || !field) {
+        return '';
+    }
+
+    const sentences = getCompleteCvSentences(field.value);
+    if (sentences.length < sentenceCount) {
+        // Laisser l'assistant reformuler lorsque le texte source ne contient
+        // pas assez de phrases complètes; le chemin local ne fabrique rien.
+        return '';
+    }
+    if (sentences.length === sentenceCount && sentences.join(' ') === field.value.trim()) {
+        return `Le profil comporte déjà ${sentenceCount} phrase${sentenceCount > 1 ? 's' : ''} complète${sentenceCount > 1 ? 's' : ''}. Aucune autre rubrique n’a été modifiée.`;
+    }
+
+    const beforeState = getCvHistoryState();
+    field.value = sentences.slice(0, sentenceCount).join(' ');
+    clearEditableOverride('summary');
+    updateCvPreview();
+    commitCvHistoryTransition(beforeState);
+    scheduleCvDraftSave();
+    setCvStatus('Profil raccourci');
+    return `Profil raccourci à ${sentenceCount} phrase${sentenceCount > 1 ? 's' : ''} complète${sentenceCount > 1 ? 's' : ''}.`;
+};
+
 const normalizeExperienceDateToken = (value = '') => {
     const monthReplacements = [
-        [/\bjanv(?:ier)?\.?\s*(\d{4})\b/gi, 'janv. $1'],
-        [/\bf[ée]vr(?:ier)?\.?\s*(\d{4})\b/gi, 'févr. $1'],
-        [/\bavr(?:il)?\.?\s*(\d{4})\b/gi, 'avr. $1'],
-        [/\bmars\.?\s*(\d{4})\b/gi, 'mars $1'],
-        [/\bmai\.?\s*(\d{4})\b/gi, 'mai $1'],
-        [/\bjuin\.?\s*(\d{4})\b/gi, 'juin $1'],
-        [/\bjuil(?:let)?\.?\s*(\d{4})\b/gi, 'juil. $1'],
-        [/\bao[uû]t\.?\s*(\d{4})\b/gi, 'août $1'],
-        [/\bsept(?:embre)?\.?\s*(\d{4})\b/gi, 'sept. $1'],
-        [/\boct(?:obre)?\.?\s*(\d{4})\b/gi, 'oct. $1'],
-        [/\bnov(?:embre)?\.?\s*(\d{4})\b/gi, 'nov. $1'],
-        [/\bd[ée]c(?:embre)?\.?\s*(\d{4})\b/gi, 'déc. $1'],
+        [/\bjanv(?:ier)?\.?\s*,?\s*(\d{2,4})\b/gi, 'janv. $1'],
+        [/\bf[ée]v(?:r(?:ier)?)?\.?\s*,?\s*(\d{2,4})\b/gi, 'févr. $1'],
+        [/\bavr(?:il)?\.?\s*,?\s*(\d{2,4})\b/gi, 'avr. $1'],
+        [/\bmars\.?\s*,?\s*(\d{2,4})\b/gi, 'mars $1'],
+        [/\bmai\.?\s*,?\s*(\d{2,4})\b/gi, 'mai $1'],
+        [/\bjuin\.?\s*,?\s*(\d{2,4})\b/gi, 'juin $1'],
+        [/\bjuil(?:l(?:et)?)?\.?\s*,?\s*(\d{2,4})\b/gi, 'juil. $1'],
+        [/\bao[uû]t\.?\s*,?\s*(\d{2,4})\b/gi, 'août $1'],
+        [/\bsept(?:embre)?\.?\s*,?\s*(\d{2,4})\b/gi, 'sept. $1'],
+        [/\boct(?:obre)?\.?\s*,?\s*(\d{2,4})\b/gi, 'oct. $1'],
+        [/\bnov(?:embre)?\.?\s*,?\s*(\d{2,4})\b/gi, 'nov. $1'],
+        [/\bd[ée]c(?:embre)?\.?\s*,?\s*(\d{2,4})\b/gi, 'déc. $1'],
     ];
+    const locale = typeof currentCvContentLocale === 'string' && currentCvContentLocale === 'en' ? 'en' : 'fr';
+    const ongoingLabel = locale === 'en' ? 'Present' : 'présent';
 
     return monthReplacements.reduce(
         (text, [pattern, replacement]) => text.replace(pattern, replacement),
         String(value || '')
-            .replace(/\bpresent\b/gi, 'présent')
-            .replace(/\bpr[ée]sent\b/gi, 'présent')
+            .replace(/\b(?:present|pr[ée]sent|current|now)\b/gi, ongoingLabel)
             .replace(/\s{2,}/g, ' ')
             .trim()
     );
@@ -9824,46 +13484,32 @@ const normalizeExperienceDateToken = (value = '') => {
 const getComparableExperienceDate = (value = '') => {
     const source = normalizeForMatch(value).replace(/\./g, '');
 
-    if (/\b(aujourd'hui|present)\b/.test(source)) {
+    if (/\b(aujourd'hui|present|current|now)\b/.test(source)) {
         return Number.POSITIVE_INFINITY;
     }
 
-    const yearMatch = source.match(/\b(\d{4})\b/);
-    if (!yearMatch) {
+    const point = getTimelineDatePoints(source)[0];
+    if (!point) {
         return null;
     }
 
-    const monthIndex = [
-        ['janv', 1],
-        ['janvier', 1],
-        ['fevr', 2],
-        ['fevrier', 2],
-        ['mars', 3],
-        ['avr', 4],
-        ['avril', 4],
-        ['mai', 5],
-        ['juin', 6],
-        ['juil', 7],
-        ['juillet', 7],
-        ['aout', 8],
-        ['sept', 9],
-        ['septembre', 9],
-        ['oct', 10],
-        ['octobre', 10],
-        ['nov', 11],
-        ['novembre', 11],
-        ['dec', 12],
-        ['decembre', 12],
-    ].find(([month]) => new RegExp(`\\b${month}\\b`).test(source))?.[1] || 1;
-
-    return (Number(yearMatch[1]) * 12) + monthIndex;
+    return (point.year * 12) + (point.month || 1);
 };
 
 const normalizeExperienceDateText = (value = '') => {
-    const cleanValue = String(value || '')
+    const numericHyphenDates = [];
+    const protectedValue = String(value || '').replace(
+        /\b(0?[1-9]|1[0-2])\s*-\s*(\d{2}|(?:19|20)\d{2})\b/g,
+        (_match, month, year) => {
+            const index = numericHyphenDates.push(month + '-' + year) - 1;
+            return 'cvnumerichyphendate' + index + 'token';
+        },
+    );
+    const cleanValue = protectedValue
         .replace(/\s*[–—]\s*/g, ' - ')
         .replace(/\s*-\s*/g, ' - ')
         .replace(/\s{2,}/g, ' ')
+        .replace(/cvnumerichyphendate(\d+)token/g, (_match, index) => numericHyphenDates[Number(index)] || '')
         .trim();
     const parts = cleanValue.split(/\s+-\s+/).filter(Boolean);
 
@@ -9883,11 +13529,34 @@ const normalizeExperienceDateText = (value = '') => {
     return normalizeExperienceDateToken(cleanValue);
 };
 
-const quickExperienceDateTokenPattern = `(?:${monthNamesPattern})\\.?\\s*\\d{4}|\\d{4}|aujourd'hui|present|pr[ée]sent`;
+const quickExperienceDateTokenPattern = cvDateTokenPattern;
 
 const getQuickExperienceDateValue = (message = '') => {
+    const source = normalizeForMatch(message);
+    const mentionedDateMatches = [...String(message || '').matchAll(new RegExp(quickExperienceDateTokenPattern, 'gi'))];
+    const mentionedDates = mentionedDateMatches.map((match) => match[0]).filter(Boolean);
+    const replacementConnector = mentionedDateMatches.length >= 2
+        ? normalizeForMatch(String(message || '').slice(
+            (mentionedDateMatches[0].index || 0) + mentionedDateMatches[0][0].length,
+            mentionedDateMatches[mentionedDateMatches.length - 1].index,
+        ))
+        : '';
+    const explicitlyReplacesDate = mentionedDates.length >= 2
+        && !/^(?:now|present|current|aujourd['’]?hui|pr[ée]sent)$/i.test(mentionedDates[0])
+        && !/\b(?:periode|period)\b/.test(source)
+        && /\b(?:a|par|en|vers|devient|to|by|with|becomes)\b/.test(replacementConnector)
+        && (
+            /\b(?:date|dates)\b/.test(source)
+            && /\b(?:modifie|modifier|change|changer|remplace|remplacer|corrige|corriger|modification|correction|update|replace|modify|change)\b/.test(source)
+            || /\b(?:devient|becomes)\b/.test(source)
+            || /\b(?:remplace|remplacer|replace)\b[\s\S]*\b(?:par|avec|en|to|by)\b/.test(source)
+        );
+    if (explicitlyReplacesDate) {
+        return normalizeExperienceDateText(mentionedDates[mentionedDates.length - 1]);
+    }
+
     const rangePattern = new RegExp(
-        `(${quickExperienceDateTokenPattern})\\s*[–-]\\s*(${quickExperienceDateTokenPattern})`,
+        `(?:\\bde\\s+)?(${quickExperienceDateTokenPattern})\\s*(?:[–-]|\\b(?:a|à|au|to)\\b)\\s*(${quickExperienceDateTokenPattern})`,
         'i'
     );
     const rangeMatch = message.match(rangePattern);
@@ -9897,16 +13566,81 @@ const getQuickExperienceDateValue = (message = '') => {
 
     const singlePattern = new RegExp(`(${quickExperienceDateTokenPattern})`, 'i');
     const singleMatch = message.match(singlePattern);
+    if (singleMatch) {
+        return normalizeExperienceDateText(singleMatch[1]);
+    }
 
-    return singleMatch ? normalizeExperienceDateText(singleMatch[1]) : '';
+    const hasContextualMonthEdit = /\b(?:modifie|modifier|change|changer|remplace|remplacer|mets|mettre|set|update|replace)\b/.test(source)
+        && (/\b(?:finalement|plutot|actually|instead)\b/.test(source)
+            || /\b(?:la|le|lui|ça|ca|it|that)\b/.test(source));
+    if (/\b(?:mois|month|date\s+de\s+(?:debut|fin)|start\s+month|end\s+month)\b/.test(source)
+        || hasContextualMonthEdit) {
+        const monthPattern = new RegExp(`(^|[^\\p{L}])(${monthNamesPattern})\\.?(?=$|[^\\p{L}])`, 'giu');
+        const monthMatches = [...String(message || '').matchAll(monthPattern)];
+        const month = monthMatches[monthMatches.length - 1]?.[2] || '';
+        if (month) {
+            return month.trim();
+        }
+    }
+
+    return '';
+};
+
+const isOngoingExperienceDateMarker = (value = '') =>
+    /^(?:now|present|current|aujourd['’]?hui|pr[ée]sent)$/i.test(String(value || '').trim());
+
+const getOngoingExperienceDateReplacementRequest = (message = '') => {
+    const pattern = new RegExp(
+        `\\b(?:remplace|remplacer|change|changer|modifie|modifier|replace|change|modify|update)\\s+[«»"'“”]?(${cvOngoingDatePattern})[«»"'“”]?\\s+(?:par|avec|en|with|by|to)\\s+(${cvDatedTokenPattern}(?:\\s*[–—-]\\s*${cvDatedTokenPattern})?)`,
+        'i',
+    );
+    const match = String(message || '').match(pattern);
+    if (!match) {
+        return null;
+    }
+
+    const replacement = normalizeExperienceDateText(match[2]);
+    return replacement
+        ? { marker: match[1], replacement }
+        : null;
+};
+
+const replaceOngoingExperienceDateEnd = (currentDate = '', replacement = '') => {
+    const currentValue = String(currentDate || '')
+        .replace(/\s*[–—]\s*/g, ' - ')
+        .replace(/\s*-\s*/g, ' - ')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+    const currentParts = currentValue.split(/\s+-\s+/).filter(Boolean);
+    if (currentParts.length < 2 || !isOngoingExperienceDateMarker(currentParts[currentParts.length - 1])) {
+        return '';
+    }
+
+    const normalizedReplacement = normalizeExperienceDateText(replacement);
+    const replacementParts = normalizedReplacement.split(/\s+-\s+/).filter(Boolean);
+    if (replacementParts.length >= 2) {
+        return normalizedReplacement;
+    }
+    const replacementEnd = replacementParts[replacementParts.length - 1] || '';
+    if (!replacementEnd || isOngoingExperienceDateMarker(replacementEnd)) {
+        return '';
+    }
+
+    return normalizeExperienceDateText(`${currentParts[0]} - ${replacementEnd}`);
 };
 
 const normalizeExperienceDateToYearsOnly = (value = '') => {
-    const years = [...String(value || '').matchAll(/\b(?:19|20)\d{2}\b/g)].map((match) => match[0]);
+    const source = String(value || '');
+    const years = getTimelineDatePoints(source).map((point) => String(point.year));
     const uniqueYears = [...new Set(years)];
 
     if (!uniqueYears.length) {
         return normalizeExperienceDateText(value);
+    }
+
+    const hasOngoingMarker = /\b(?:aujourd'hui|aujourd’hui|present|pr[ée]sent|current|now)\b/i.test(source);
+    if (hasOngoingMarker) {
+        return `${uniqueYears[0]} - ${normalizeExperienceDateToken('Present')}`;
     }
 
     return uniqueYears.length === 1 ? uniqueYears[0] : `${uniqueYears[0]} - ${uniqueYears[uniqueYears.length - 1]}`;
@@ -9918,7 +13652,8 @@ const removeExperienceDateMonths = () => {
         return false;
     }
 
-    const entries = repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
+    const lines = repairPreviewExperienceItems(splitLines(field.value));
+    const entries = lines.map(parseExperienceEntry);
     let changed = false;
     const nextEntries = entries.map((entry) => {
         const nextDate = normalizeExperienceDateToYearsOnly(entry.date || '');
@@ -9939,20 +13674,172 @@ const removeExperienceDateMonths = () => {
 };
 
 const shouldRemoveExperienceDateMonths = (message = '') => {
-    const source = normalizeForMatch(message);
-    return /\b(supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|masque|masquer)\b/.test(source)
-        && /\b(mois|dates?|periodes?|experiences?|cv)\b/.test(source)
-        && /\b(mois|avr|avril|janv|janvier|fevr|fevrier|mars|mai|juin|juil|juillet|aout|sept|septembre|oct|octobre|nov|novembre|dec|decembre)\b/.test(source);
+    const source = normalizeForMatch(message).replace(/[’']/g, ' ');
+    const removalIsNegated = /\b(ne|n)\s+(?:me\s+)?(?:supprime|retire|enleve|efface)\s+(?:pas|plus|jamais|rien)\b|\bpas(?:\s+[a-z0-9-]+){0,7}\s+(?:supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer)\b|sans\s+(?:me\s+)?(?:rien\s+)?(?:supprimer|retirer|enlever|effacer)|\b(?:do not|don t|dont|not|never|without)(?:\s+[a-z0-9-]+){0,7}\s+(?:remove|delete|hide)\b/.test(source);
+
+    return !removalIsNegated
+        && /\b(supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|masque|masquer|remove|delete|hide)\b/.test(source)
+        && /\b(mois|months?|dates?|periodes?|periods?|experiences?|work experience|cv|resume)\b/.test(source)
+        && /\b(mois|months?|avr|avril|janv|janvier|fevr|fevrier|mars|mai|juin|juil|juillet|aout|sept|septembre|oct|octobre|nov|novembre|dec|decembre|jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|september|october|november|december)\b/.test(source);
 };
 
 const hasNewExperienceAdditionIntent = (message = '') => {
     const source = normalizeForMatch(getKirbyUserInstruction(message));
-    const hasAddVerb = /\b(ajoute|ajouter|rajoute|rajouter|insere|inserer|integre|integrer|cree|creer)\b/.test(source);
-    const hasExperienceScope = /\b(experience|experiences|poste|activite|activites|projet|projets|creation|creatrice|createur|autoformation|benevolat|independant|freelance|numerique|developpement)\b/.test(source);
+    const hasAddVerb = /\b(ajoute|ajouter|rajoute|rajouter|insere|inserer|integre|integrer|cree|creer|add|insert|include|create)\b/.test(source);
+    const hasExperienceScope = /\b(experience|experiences|work experience|job|role|poste|activite|activites|activity|activities|projet|projets|project|projects|creation|creatrice|createur|autoformation|self training|volunteer|volunteering|benevolat|independant|independent|freelance|numerique|digital|web development|developpement)\b/.test(source);
     const hasPeriod = /\b(?:19|20)\d{2}\s*(?:-|–|—|a|au)\s*(?:19|20)\d{2}\b/.test(source);
-    const hasPersonalContext = /\b(projet personnel|autoformation|benevolat|independant|freelance|creation de projet|projets numeriques)\b/.test(source);
+    const hasPersonalContext = /\b(projet personnel|autoformation|benevolat|independant|freelance|creation de projet|projets numeriques|personal project|self training|volunteer|volunteering|independent project|digital projects)\b/.test(source);
 
-    return hasAddVerb && hasExperienceScope && (hasPeriod || hasPersonalContext);
+    let rangeCount = 0;
+    const rangePattern = /\b(?:[a-z]+\.?\s+)?(?:19|20)\d{2}\s*[–—-]\s*(?:[a-z]+\.?\s+)?(?:19|20)\d{2}\b/gi;
+    const sourceWithoutRanges = source.replace(rangePattern, () => {
+        rangeCount += 1;
+        return ' ';
+    });
+    const standaloneDates = sourceWithoutRanges.match(/\b(?:19|20)\d{2}\b/g) || [];
+    const hasSeveralDatedItems = rangeCount + standaloneDates.length >= 2;
+
+    return hasAddVerb && (
+        (hasExperienceScope && (hasPeriod || hasPersonalContext))
+        || hasSeveralDatedItems
+    );
+};
+
+// Le suivi de conversation conserve un delta, jamais une phrase libre. La
+// période actuellement affichée reste la source de vérité : ce contexte n'est
+// réutilisable que si la même expérience possède encore exactement la valeur
+// produite par la correction précédente.
+let lastKirbyCvDateEditContext = null;
+
+const getKirbyCvDateEditComponent = (value = '') => {
+    const tokens = getCvDateValueTokenMatches(value);
+    if (tokens.length >= 2) {
+        return 'period';
+    }
+
+    const parsed = parseCvDateEditToken(tokens[0]?.value || value);
+    if (!parsed) {
+        return '';
+    }
+    if (parsed.hasMonth && parsed.hasYear) {
+        return 'date';
+    }
+    if (parsed.hasMonth) {
+        return 'month';
+    }
+    if (parsed.hasYear) {
+        return 'year';
+    }
+    return parsed.ongoing ? 'date' : '';
+};
+
+const getKirbyCvDateEditBoundary = ({
+    currentDate = '',
+    instruction = '',
+    requestedDate = '',
+    operation = {},
+    fallback = '',
+} = {}) => {
+    const explicitBoundary = getCvDateBoundaryIntent(instruction, operation);
+    if (explicitBoundary) {
+        return explicitBoundary;
+    }
+
+    const currentTokens = getCvDateValueTokenMatches(currentDate);
+    if (currentTokens.length <= 1) {
+        return 'single';
+    }
+    if (getCvDateValueTokenMatches(requestedDate).length >= 2) {
+        return 'whole';
+    }
+
+    const explicitReplacement = getExplicitCvDateReplacement(instruction);
+    if (explicitReplacement) {
+        const matchingIndexes = currentTokens
+            .map((token, index) => ({ token, index }))
+            .filter(({ token }) => getEquivalentCvDateValueOccurrences(
+                token.value,
+                explicitReplacement.from,
+            ).length === 1)
+            .map(({ index }) => index);
+        if (matchingIndexes.length === 1) {
+            return matchingIndexes[0] === 0 ? 'start' : 'end';
+        }
+    }
+
+    return /^(?:start|end|whole|single|matched)$/.test(fallback) ? fallback : '';
+};
+
+const rememberKirbyCvDateEdit = ({
+    field = 'experience',
+    index = null,
+    entry = {},
+    before = '',
+    after = '',
+    boundary = '',
+    component = '',
+    line = '',
+} = {}) => {
+    const cleanBefore = String(before || '').trim();
+    const cleanAfter = String(after || '').trim();
+    if (!cleanAfter || !boundary) {
+        return;
+    }
+
+    const sourceLine = String(line || '');
+    const segment = getRawCvDateSegment(sourceLine);
+    const recordIdentity = normalizeForMatch(segment
+        ? `${sourceLine.slice(0, segment.start)} ${sourceLine.slice(segment.end)}`
+        : `${entry.title || ''} ${entry.meta || ''}`);
+
+    lastKirbyCvDateEditContext = {
+        kind: 'date',
+        field,
+        target: {
+            index: Number.isInteger(index) ? index : null,
+            title: String(entry.title || '').trim(),
+            organization: String(entry.meta || '').trim(),
+        },
+        boundary,
+        component: component || getKirbyCvDateEditComponent(cleanAfter),
+        before: cleanBefore,
+        after: cleanAfter,
+        recordIdentity,
+    };
+};
+
+const getLastKirbyCvDateEditContext = () => {
+    const context = lastKirbyCvDateEditContext;
+    return context?.kind === 'date' && context.after && context.boundary
+        ? context
+        : null;
+};
+
+const isKirbyCvDateFollowUpInstruction = (message = '', dateValue = '') => {
+    if (!dateValue || !getLastKirbyCvDateEditContext()) {
+        return false;
+    }
+
+    const source = normalizeForMatch(getKirbyUserInstruction(message));
+    const namesAnotherTarget = /\b(?:poste|experience|formation|diplome|certification|projet|entreprise|societe|company|role|job)\b/.test(source);
+    const explicitFollowUp = /\b(?:finalement|plutot|désormais|maintenant|actually|instead|rather)\b/.test(source)
+        || /\b(?:mets?|mettre|change|changer|modifie|modifier|set|change|update)\s*(?:-|\s)*(?:la|le|lui|ça|ca|it|that)\b/.test(source);
+    const compactTokens = source.split(/\s+/).filter(Boolean);
+    const shortContinuation = !namesAnotherTarget && compactTokens.length <= 6;
+
+    return !hasNewExperienceAdditionIntent(message) && (explicitFollowUp || shortContinuation);
+};
+
+const getKirbyCvRawFollowUpDateValue = (message = '') => {
+    const instruction = getKirbyUserInstruction(message);
+    const datedMatches = [...String(instruction || '').matchAll(new RegExp(cvDateTokenPattern, 'gi'))];
+    if (datedMatches.length) {
+        return String(datedMatches[datedMatches.length - 1][0] || '').trim();
+    }
+
+    const monthPattern = new RegExp(`(^|[^\\p{L}])(${monthNamesPattern})\\.?(?=$|[^\\p{L}])`, 'giu');
+    const monthMatches = [...String(instruction || '').matchAll(monthPattern)];
+    return String(monthMatches[monthMatches.length - 1]?.[2] || '').trim();
 };
 
 const hasQuickExperienceDateIntent = (message = '', dateValue = '') => {
@@ -9965,398 +13852,58 @@ const hasQuickExperienceDateIntent = (message = '', dateValue = '') => {
     }
 
     const source = normalizeForMatch(message);
-    const hasDateTopic = /\b(date|dates|periode|periodes)\b/.test(source);
-    const hasCorrectionVerb = /\b(modifie|modifier|change|changer|corrige|corriger|remplace|remplacer|mets|mettre|met)\b/.test(source);
+    const hasAdditionVerb = /\b(ajoute|ajouter|rajoute|rajouter|insere|inserer|integre|integrer|cree|creer|add|insert|include|create)\b/.test(source);
+    const hasDateTopic = /\b(date|dates|periode|periodes|period|periods|mois|month|months|annee|annees|year|years)\b/.test(source);
+    const hasCorrectionVerb = /\b(modifie|modifier|change|changer|corrige|corriger|remplace|remplacer|mets|mettre|met|modify|update|change|correct|replace|set)\b/.test(source);
     const answersPendingDateQuestion = Boolean(dateValue)
         && Number.isInteger(pendingExperienceDateCorrectionIndex)
-        && !/\b(cv|sauvegarde|sauvegarder|persistance|confirme|confirmer|verifie|verifier|vérifie|vérifier)\b/.test(source);
+        && !hasAdditionVerb
+        && !/\b(cv|resume|sauvegarde|sauvegarder|save|persistance|persist|confirme|confirmer|confirm|verifie|verifier|vérifie|vérifier|verify)\b/.test(source);
+    const continuesRecentDateEdit = isKirbyCvDateFollowUpInstruction(message, dateValue)
+        && !hasAdditionVerb;
 
-    return answersPendingDateQuestion || (hasDateTopic && hasCorrectionVerb) || (Boolean(dateValue) && hasCorrectionVerb);
-};
-
-const targetedDigitalCvKeywords = /\b(creatrice|createur|creation|projets? numeriques?|numerique|informatique|sites? web|developpeuse web|developpeur web|developpement web|backend|back\s*end|front\s*end|frontend|ecole 42|42|simplon|piscine|autoformation)\b/;
-
-const shouldApplyTargetedDigitalCvCompletion = (message = '') => {
-    const source = normalizeForMatch(getKirbyUserInstruction(message));
-    const explicitFullRewriteAuthorization = /\b(j autorise|j'autorise|autorise|autorisation)\b.{0,80}\b(reecriture complete|réécriture complète|reconstruction complete|reconstruction complète|correction complete du bloc web|correction complète du bloc web)\b/.test(source);
-    const asksToApply = /\b(ajoute|ajouter|rajoute|rajouter|integre|integrer|mets|mettre|met|complete|completer|comble|combler|valorise|valoriser|remets|remet)\b/.test(source);
-    const hasCvScope = /\b(cv|experience|experiences|formation|formations|certification|certifications|competence|competences|accroche|profil|commercial|trou|periode)\b/.test(source);
-    const containsCompletePersonalExperience = /\b(creatrice\s+de\s+sites?\s+web|developpeuse\s+web|creatrice\s+de\s+projets?\s+numeriques?)\b/.test(source)
-        && /\b2025\s*[-–—]\s*2026\b/.test(source)
-        && /\b(projet personnel|autoformation)\b/.test(source);
-
-    return explicitFullRewriteAuthorization && hasCvScope && targetedDigitalCvKeywords.test(source) && (asksToApply || containsCompletePersonalExperience);
-};
-
-const getDigitalCvCompletionExperience = () => ({
-    title: 'Créatrice de sites web / Développeuse web',
-    meta: 'Projet personnel / Autoformation',
-    date: '2025 - 2026',
-    bullets: [
-        'Conception et développement de sites vitrines et d’outils web',
-        'Création d’interfaces adaptées aux besoins des utilisateurs',
-    ],
-});
-
-const getDigitalCvCompletionPastExperience = () => ({
-    title: 'Développement web',
-    meta: 'Projets autodidactes - Paris',
-    date: '2023',
-    bullets: [
-        'Conception de pages web et d’interfaces en HTML, CSS et Javascript',
-        'Réalisation de projets personnels concrets pour développer mes compétences techniques',
-    ],
-});
-
-const getDigitalCvCompletionEducation = () => [
-    'École 42 — Piscine informatique - 2025 - 2026 • Bases de la programmation, logique algorithmique et travail par projets.',
-    'Simplon — Formation numérique / développement web - 2025 - 2026 • Développement web, intégration, outils numériques et méthodes de projet.',
-    'Autoformation en informatique - 2023 • Apprentissage autonome du développement web et des outils numériques. Réalisation de projets personnels et acquisition de nouvelles compétences.',
-];
-
-const getDigitalCvCompletionSkills = () => [
-    'Relation client',
-    'Conseil client',
-    'Analyse des besoins',
-    'Accompagnement et suivi des clients',
-    'Front-end : HTML, CSS, JavaScript',
-    'Back-end : bases serveur et API',
-    'Intégration web',
-    'Outils numériques et IA',
-    'Organisation du travail',
-    'Travail en autonomie et en équipe',
-];
-
-const getDigitalCvCompletionSummary = () =>
-    'Conseillère de vente orientée client, avec une expérience en accueil, conseil, banque, service premium et transport. J’allie sens commercial, écoute et organisation à une montée en compétences en développement web, pour accompagner les clients avec méthode et proposer des solutions adaptées.';
-
-const isDigitalCvCompletionExperience = (entry = {}) =>
-    /\bcreatrice\s+de\s+(?:sites?\s+web|projets?\s+numeriques?)\b/.test(normalizeForMatch(entry.title || ''))
-    || /\bdeveloppeuse\s+web\b/.test(normalizeForMatch(entry.title || ''))
-    || (
-        /\b2025\s*[-–—]\s*2026\b/.test(entry.date || '')
-        && targetedDigitalCvKeywords.test(normalizeForMatch(`${entry.title || ''} ${entry.meta || ''} ${(entry.bullets || []).join(' ')}`))
-    );
-
-const isDigitalCvCompletionPastExperience = (entry = {}) => {
-    const source = normalizeForMatch(`${entry.title || ''} ${entry.meta || ''} ${entry.date || ''} ${(entry.bullets || []).join(' ')}`);
-
-    return /\bdeveloppement web\b/.test(source)
-        && /\b2023\b/.test(source)
-        && /\b(projets autodidactes|autodidacte|html|css|javascript|interfaces?|pages? web)\b/.test(source);
-};
-
-const shouldRepairKnownDigitalDates = (message = '') => {
-    const source = normalizeForMatch(getKirbyUserInstruction(message));
-    const asksToApplyDate = /\b(ajoute|ajouter|rajoute|rajouter|remets?|remettre|mets?|mettre|corrige|corriger|complete|completer|renseigne|renseigner|date|dates)\b/.test(source);
-    const mentionsKnownDates = /\b2023\b/.test(source) || /\b2025\s*[-–—]\s*2026\b/.test(source);
-    const mentionsDigitalHint = targetedDigitalCvKeywords.test(source) || /\b(projet|projets|experience|experiences|formation|formations|cv)\b/.test(source);
-
-    return asksToApplyDate && mentionsKnownDates && (mentionsDigitalHint || /\b2023\b/.test(source) || /\b2025\s*[-–—]\s*2026\b/.test(source)) && !hasExplicitDestructiveCvRemoval(message);
-};
-
-const mergeDigitalCvCompletionExperience = () => {
-    const field = getExperienceField();
-    if (!field) {
-        return false;
-    }
-
-    const digitalExperience = getDigitalCvCompletionExperience();
-    const pastDigitalExperience = getDigitalCvCompletionPastExperience();
-    const digitalLine = serializeExperienceEntry(digitalExperience);
-    const pastDigitalLine = serializeExperienceEntry(pastDigitalExperience);
-    const existingEntries = repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
-    const retainedEntries = existingEntries.filter((entry) =>
-        !isDigitalCvCompletionExperience(entry) &&
-        !isDigitalCvCompletionPastExperience(entry)
-    );
-    const nextValue = normalizeCvTextareaValue(
-        'experience',
-        [
-            digitalLine,
-            pastDigitalLine,
-            ...retainedEntries.map(serializeExperienceEntry).filter(Boolean),
-        ].join('\n')
-    );
-
-    if (!nextValue || nextValue === field.value) {
-        return false;
-    }
-
-    field.value = nextValue;
-    clearEditableOverride('experience');
-    return true;
-};
-
-const mergeDigitalCvCompletionEducation = () => {
-    const field = cvForm?.elements.education;
-    if (!field) {
-        return false;
-    }
-
-    const additions = getDigitalCvCompletionEducation().map(normalizeEducationDisplayItem);
-    const existing = normalizeEducationItems(splitLines(field.value));
-    const retained = existing.filter((item) => {
-        const source = normalizeForMatch(item);
-        return !(/\b(?:ecole 42|42)\b/.test(source) && /\bpiscine\b/.test(source))
-            && !/\bsimplon\b/.test(source)
-            && !(/\bautoformation\b/.test(source) && /\binformatique\b/.test(source));
-    });
-    const nextValue = normalizeCvTextareaValue(
-        'education',
-        [...retained, ...additions].join('\n')
-    );
-
-    if (!nextValue || nextValue === field.value) {
-        return false;
-    }
-
-    field.value = nextValue;
-    clearEditableOverride('education');
-    return true;
-};
-
-const mergeDigitalCvCompletionSkills = () => {
-    const field = cvForm?.elements.skills;
-    if (!field) {
-        return false;
-    }
-
-    const blockedSkills = [
-        /logique algorithmique/i,
-        /r[ée]solution de probl[eè]mes/i,
-        /pair-to-pair/i,
-        /apprentissage par projet/i,
-    ];
-    const existing = splitLines(field.value)
-        .map(normalizeCvSentenceText)
-        .filter((skill) => skill && !blockedSkills.some((pattern) => pattern.test(skill)));
-    const nextValue = dedupeCvSkillItems([...getDigitalCvCompletionSkills(), ...existing]).join('\n');
-
-    if (!nextValue || nextValue === field.value) {
-        return false;
-    }
-
-    field.value = nextValue;
-    clearEditableOverride('skills');
-    return true;
-};
-
-const shouldApplyFinalExperienceTableCorrection = (message = '') => {
-    const source = normalizeForMatch(getKirbyUserInstruction(message));
-    const explicitFinalTableAuthorization = /\b(j autorise|j'autorise|autorise|autorisation)\b.{0,80}\b(reecriture complete des experiences|réécriture complète des expériences|correction finale complete des experiences|correction finale complète des expériences)\b/.test(source);
-
-    return explicitFinalTableAuthorization
-        && /\b(corrige directement|applique directement|ordre final obligatoire|american express|chargee de clientele|conseillere commerciale|developpement web)\b/.test(source)
-        && /\b(2025\s*[-–—]\s*2026|2023|2019\s*[-–—]\s*2021)\b/.test(source)
-        && /\b(experience|experiences|cv|tableau)\b/.test(source);
-};
-
-const findCvExperienceEntry = (entries = [], matcher) =>
-    entries.find((entry) => matcher(normalizeForMatch(`${entry.title || ''} ${entry.meta || ''} ${entry.date || ''} ${(entry.bullets || []).join(' ')}`))) || null;
-
-const getFinalExperienceTableEntries = (entries = []) => {
-    const currentDigital = findCvExperienceEntry(entries, (source) =>
-        /\b(creatrice|developpeuse web|sites? web|projets? numeriques?)\b/.test(source) &&
-        /\b2025\s*[-–—]\s*2026\b/.test(source)
-    );
-    const ratp = findCvExperienceEntry(entries, (source) =>
-        /\b(machiniste|receveur|ratp)\b/.test(source) &&
-        /\b2024\b/.test(source)
-    );
-    const currentWeb2023 = findCvExperienceEntry(entries, (source) =>
-        /\bdeveloppement web\b/.test(source) &&
-        /\b2023\b/.test(source)
-    );
-    const ceidf = findCvExperienceEntry(entries, (source) =>
-        /\b(ceidf|conseillere commerciale)\b/.test(source) &&
-        /\b2022\b/.test(source) &&
-        !/\bamerican express\b/.test(source)
-    );
-    const camaieu = findCvExperienceEntry(entries, (source) =>
-        /\b(camaieu|responsable adjointe)\b/.test(source) &&
-        /\b2021\b/.test(source) &&
-        /\b2022\b/.test(source)
-    );
-    const american = findCvExperienceEntry(entries, (source) =>
-        /\b(american express|air france|roissy|chargee de clientele|conseillere clientele)\b/.test(source) &&
-        /\b(2019|2020|2021)\b/.test(source)
-    );
-
-    return [
-        {
-            ...(currentDigital || getDigitalCvCompletionExperience()),
-            title: 'Créatrice de sites web / Développeuse web',
-            meta: 'Projet personnel / Autoformation',
-            date: '2025 - 2026',
-            bullets: [
-                'Conception et développement de sites vitrines et d’outils web',
-                'Création d’interfaces adaptées aux besoins des utilisateurs',
-            ],
-        },
-        ratp || {
-            title: 'Machiniste-Receveur',
-            meta: 'RATP, Nanterre',
-            date: 'avr. 2024 - oct. 2024',
-            bullets: ['Sécurité, autonomie, gestion d’horaires et relation clientèle'],
-        },
-        {
-            ...(currentWeb2023 || getDigitalCvCompletionPastExperience()),
-            title: 'Développement web – Projets autodidactes',
-            meta: 'Paris',
-            date: '2023',
-            bullets: [
-                'Conception de pages web et d’interfaces en HTML, CSS et JavaScript',
-                'Réalisation de projets personnels pour développer mes compétences techniques',
-            ],
-        },
-        {
-            ...(ceidf || {
-                meta: 'CEIDF, Montigny-le-Bretonneux',
-                date: 'nov. 2022',
-            }),
-            title: 'Conseillère commerciale digitale',
-            bullets: [
-                'Conseil à distance',
-                'Analyse des besoins',
-                'Proposition de solutions bancaires adaptées',
-            ],
-        },
-        {
-            ...(camaieu || {
-                meta: 'Camaïeu, Rueil-Malmaison',
-                date: 'oct. 2021 - oct. 2022',
-            }),
-            title: 'Responsable Adjointe',
-            bullets: [
-                'Management de l’équipe',
-                'Développement du chiffre d’affaires',
-                'Gestion des stocks',
-                'Fidélisation de la clientèle',
-            ],
-        },
-        {
-            ...(american || {
-                meta: 'American Express / Air France, Roissy',
-                date: '2019 – 2021',
-                bullets: [
-                    'Conseil et accompagnement des voyageurs',
-                    'Constitution et suivi des dossiers',
-                    'Vente de produits et services financiers',
-                    'Développement commercial et fidélisation',
-                ],
-            }),
-            title: 'Conseillère commerciale',
-            date: '2019 – 2021',
-            bullets: [
-                'Conseil et accompagnement des voyageurs',
-                'Constitution et suivi des dossiers',
-                'Vente de produits et services financiers',
-                'Développement commercial et fidélisation',
-            ],
-        },
-    ];
-};
-
-const applyFinalExperienceTableCorrection = async (message = '') => {
-    if (!cvForm || !shouldApplyFinalExperienceTableCorrection(message)) {
-        return '';
-    }
-
-    const field = getExperienceField();
-    if (!field) {
-        return "Le champ Expériences est indisponible.";
-    }
-
-    const beforeState = getCvHistoryState();
-    const entries = repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
-    const nextValue = getFinalExperienceTableEntries(entries).map(serializeExperienceEntry).filter(Boolean).join('\n');
-    if (!nextValue || nextValue === field.value.trim()) {
-        updateCvPreview();
-        renderExperienceEditor();
-        setCvStatus('Expériences déjà conformes');
-        return 'Les expériences sont déjà conformes à l’ordre et au contenu demandés.';
-    }
-
-    field.value = nextValue;
-    clearEditableOverride('experience');
-    updateCvPreview();
-    renderExperienceEditor();
-    commitCvHistoryTransition(beforeState);
-    const persistence = await persistCvDraftImmediately();
-    setCvStatus('Expériences corrigées et sauvegardées');
-
-    return buildKirbyPersistenceReply(['expériences corrigées', 'ordre final appliqué'], persistence);
-};
-
-const applyTargetedDigitalCvCompletion = (message = '') => {
-    if (!cvForm || !shouldApplyTargetedDigitalCvCompletion(message)) {
-        return '';
-    }
-
-    const beforeState = getCvHistoryState();
-    const changes = [];
-    const source = normalizeForMatch(message);
-    const wantsSalesTarget = /\b(cible\s+du\s+cv|conseillere\s+de\s+vente|conseiller\s+de\s+vente|vente)\b/.test(source);
-    const summaryField = cvForm.elements.summary;
-    const headlineField = cvForm.elements.headline;
-    const jobTargetField = cvForm.elements.jobTarget;
-    const wantsSummary = wantsSalesTarget || /\b(accroche|profil|commercial|commerciale|valeur|valorise|valoriser)\b/.test(source);
-
-    if (wantsSalesTarget) {
-        if (headlineField && headlineField.value !== 'Conseillère de vente') {
-            headlineField.value = 'Conseillère de vente';
-            clearEditableOverride('headline');
-            changes.push('titre Conseillère de vente');
-        }
-        if (jobTargetField && jobTargetField.value !== 'Conseillère de vente') {
-            jobTargetField.value = 'Conseillère de vente';
-        }
-    }
-
-    if (summaryField && wantsSummary) {
-        const nextSummary = normalizeCvSentenceText(getDigitalCvCompletionSummary());
-        if (nextSummary && nextSummary !== summaryField.value) {
-            summaryField.value = nextSummary;
-            clearEditableOverride('summary');
-            changes.push('accroche commerciale');
-        }
-    }
-
-    if (mergeDigitalCvCompletionExperience()) {
-        changes.push('expériences numériques 2025 - 2026 et 2023');
-    }
-
-    if (mergeDigitalCvCompletionEducation()) {
-        changes.push('École 42 et Simplon 2025 - 2026');
-    }
-
-    if (mergeDigitalCvCompletionSkills()) {
-        changes.push('compétences web');
-    }
-
-    if (!changes.length) {
-        return 'Le CV contient déjà les expériences numériques 2025 - 2026 et 2023, 42/Simplon et les compétences web demandées.';
-    }
-
-    updateCvPreview();
-    renderExperienceEditor();
-    renderLanguageEditor();
-    commitCvHistoryTransition(beforeState);
-    scheduleCvDraftSave();
-    setCvStatus(`Kirby a complété le CV : ${changes.join(', ')}`);
-
-    return `CV complété proprement : ${changes.join(', ')}. Aucune autre expérience n’a été modifiée.`;
+    return !hasAdditionVerb
+        && (answersPendingDateQuestion
+            || continuesRecentDateEdit
+            || (hasDateTopic && hasCorrectionVerb)
+            || (Boolean(dateValue) && hasCorrectionVerb));
 };
 
 const getQuickExperienceDateCorrection = (message = '') => {
-    const date = getQuickExperienceDateValue(message);
+    const source = normalizeForMatch(getKirbyUserInstruction(message));
+    const hasAdditionVerb = /\b(ajoute|ajouter|rajoute|rajouter|insere|inserer|integre|integrer|cree|creer|add|insert|include|create)\b/.test(source);
+    const canResolveExplicitTarget = typeof getExplicitCvDateTargetField === 'function';
+    const explicitTargetField = canResolveExplicitTarget ? getExplicitCvDateTargetField(message) : '';
+    const mentionsEducationOrProject = /\b(?:formation|formations|etude|etudes|scolarite|cursus|parcours academique|diplome|diplomes|bts|certificat|certificats|certification|certifications|education|qualification|qualifications|academic|studies|schooling|diploma|diplomas|certificate|certificates|degree|degrees|training|trainings|course|courses|projet|projets|project|projects|portfolio)\b/.test(source);
+    const mentionsExperience = /\b(?:experience|experiences|parcours professionnel|poste|postes|emploi|emplois|mission|missions|entreprise|employeur|role|roles|job|jobs|employment|employer|work experience|professional experience|work history|career)\b/.test(source);
+    const targetsAnotherCollection = explicitTargetField
+        ? explicitTargetField !== 'experience'
+        : mentionsEducationOrProject && !mentionsExperience;
+    const unresolvedCollectionScope = canResolveExplicitTarget
+        && !explicitTargetField
+        && mentionsEducationOrProject;
+    if (hasNewExperienceAdditionIntent(message) || hasAdditionVerb || targetsAnotherCollection || unresolvedCollectionScope) {
+        pendingExperienceDateCorrectionIndex = null;
+        return null;
+    }
+
+    let date = getQuickExperienceDateValue(message);
+    const ongoingEndReplacement = getOngoingExperienceDateReplacementRequest(message);
     if (!hasQuickExperienceDateIntent(message, date)) {
         return null;
     }
 
+    const recentContext = isKirbyCvDateFollowUpInstruction(message, date)
+        ? getLastKirbyCvDateEditContext()
+        : null;
+    if (recentContext) {
+        date = getKirbyCvRawFollowUpDateValue(message) || date;
+    }
+
     return {
         date,
+        ongoingEndReplacement,
+        recentContext,
         pendingIndex: Number.isInteger(pendingExperienceDateCorrectionIndex)
             ? pendingExperienceDateCorrectionIndex
             : null,
@@ -10407,12 +13954,18 @@ const getSelectedExperienceIndex = () => {
 };
 
 const findQuickExperienceDateTargetIndex = (entries = [], message = '', correction = {}) => {
+    const eligibleIndexes = correction.ongoingEndReplacement
+        ? entries
+            .map((entry, index) => ({ entry, index }))
+            .filter(({ entry }) => String(entry.date || '').split(/\s+[–—-]\s+/).some(isOngoingExperienceDateMarker))
+            .map(({ index }) => index)
+        : entries.map((_, index) => index);
     const scores = entries
         .map((entry, index) => ({
             index,
             score: getQuickExperienceDateTargetScore(entry, message),
         }))
-        .filter((item) => item.score > 0)
+        .filter((item) => eligibleIndexes.includes(item.index) && item.score > 0)
         .sort((left, right) => right.score - left.score);
 
     if (scores.length > 1 && scores[0].score === scores[1].score) {
@@ -10423,16 +13976,45 @@ const findQuickExperienceDateTargetIndex = (entries = [], message = '', correcti
         return scores[0].index;
     }
 
+    const recentContext = correction.recentContext;
+    if (recentContext?.kind === 'date' && recentContext.field === 'experience') {
+        const targetTitle = normalizeForMatch(recentContext.target?.title || '');
+        const targetOrganization = normalizeForMatch(recentContext.target?.organization || '');
+        const expectedCurrentDate = normalizeExperienceDateText(recentContext.after || '');
+        const contextualIndexes = entries
+            .map((entry, index) => ({ entry, index }))
+            .filter(({ entry }) => {
+                const title = normalizeForMatch(entry.title || '');
+                const organization = normalizeForMatch(entry.meta || '');
+                const date = normalizeExperienceDateText(entry.date || '');
+                return Boolean(expectedCurrentDate)
+                    && date === expectedCurrentDate
+                    && (!targetTitle || title === targetTitle)
+                    && (!targetOrganization || organization === targetOrganization);
+            })
+            .map(({ index }) => index);
+        if (contextualIndexes.length === 1) {
+            return contextualIndexes[0];
+        }
+        if (contextualIndexes.length > 1) {
+            return -2;
+        }
+    }
+
     const selectedIndex = getSelectedExperienceIndex();
-    if (selectedIndex !== null && entries[selectedIndex]) {
+    if (selectedIndex !== null && entries[selectedIndex] && eligibleIndexes.includes(selectedIndex)) {
         return selectedIndex;
     }
 
-    if (Number.isInteger(correction.pendingIndex) && entries[correction.pendingIndex]) {
+    if (Number.isInteger(correction.pendingIndex) && entries[correction.pendingIndex] && eligibleIndexes.includes(correction.pendingIndex)) {
         return correction.pendingIndex;
     }
 
-    return entries.length === 1 ? 0 : -1;
+    if (eligibleIndexes.length === 1) {
+        return eligibleIndexes[0];
+    }
+
+    return eligibleIndexes.length > 1 ? -2 : -1;
 };
 
 const applyQuickExperienceDateCorrection = (message = '') => {
@@ -10442,7 +14024,10 @@ const applyQuickExperienceDateCorrection = (message = '') => {
         return '';
     }
 
-    const entries = repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
+    // Une correction rapide de date ne réécrit que sa ligne cible. Les autres
+    // entrées restent exactement telles qu'elles ont été importées/saisies.
+    const lines = splitLines(field.value);
+    const entries = lines.map(parseExperienceEntry);
     const index = findQuickExperienceDateTargetIndex(entries, message, correction);
     if (index === -2) {
         pendingExperienceDateCorrectionIndex = null;
@@ -10459,29 +14044,1205 @@ const applyQuickExperienceDateCorrection = (message = '') => {
     }
 
     const title = entries[index].title || 'cette expérience';
-    if (!correction.date) {
+    const contextualOperation = correction.recentContext?.boundary
+        ? { target: { datePart: correction.recentContext.boundary } }
+        : {};
+    const resolvedDate = correction.ongoingEndReplacement
+        ? {
+            value: replaceOngoingExperienceDateEnd(
+                entries[index].date,
+                correction.ongoingEndReplacement.replacement,
+            ),
+            ambiguous: false,
+        }
+        : resolveCvDatePeriodEdit({
+            currentDate: entries[index].date,
+            requestedDate: correction.date,
+            instruction: message,
+            operation: contextualOperation,
+        });
+    if (resolvedDate.ambiguous) {
+        pendingExperienceDateCorrectionIndex = index;
+        return `La période de ${title} contient une date de début et une date de fin. Précisez laquelle modifier, ou indiquez la période complète.`;
+    }
+    const replacementDate = resolvedDate.value;
+    if (!replacementDate) {
         pendingExperienceDateCorrectionIndex = index;
         return `Quelle date dois-je appliquer à ${title} ?`;
     }
 
     pendingExperienceDateCorrectionIndex = null;
-    if (normalizeExperienceDateText(entries[index].date) === correction.date) {
-        return `La date ${correction.date} est déjà appliquée à ${title}.`;
+    if (normalizeExperienceDateText(entries[index].date) === normalizeExperienceDateText(replacementDate)) {
+        return `La date ${replacementDate} est déjà appliquée à ${title}.`;
+    }
+
+    const patch = patchRawCvDateAtLogicalLine({
+        fieldValue: field.value,
+        logicalIndex: index,
+        currentDate: entries[index].date,
+        replacementDate,
+    });
+    if (!patch) {
+        return `Je n’ai pas pu isoler cette date sans risque. Le CV est resté strictement inchangé.`;
     }
 
     const beforeState = getCvHistoryState();
-    entries[index] = {
-        ...entries[index],
-        date: correction.date,
-    };
-    field.value = entries.map(serializeExperienceEntry).filter(Boolean).join('\n');
-    clearEditableOverride('experience');
+    const previousDate = entries[index].date || '';
+    field.value = patch.nextValue;
+    syncKirbyDatePresentationOverride('experience', previousDate, replacementDate);
     renderExperienceEditor();
-    updateCvPreview();
+    updateCvPreview({ preserveDensity: true });
     commitCvHistoryTransition(beforeState);
     scheduleCvDraftSave();
+    if (typeof rememberKirbyCvDateEdit === 'function') {
+        const boundary = getKirbyCvDateEditBoundary({
+            currentDate: previousDate,
+            instruction: message,
+            requestedDate: correction.date,
+            operation: contextualOperation,
+            fallback: correction.ongoingEndReplacement ? 'end' : correction.recentContext?.boundary || '',
+        });
+        rememberKirbyCvDateEdit({
+            field: 'experience',
+            index,
+            entry: entries[index],
+            before: previousDate,
+            after: replacementDate,
+            boundary,
+            component: getKirbyCvDateEditComponent(correction.date),
+            line: patch.nextLine,
+        });
+    }
     setCvStatus(`Date mise à jour : ${title}`);
-    return `Date mise à jour pour ${title} : ${correction.date}.`;
+    return `Date mise à jour pour ${title} : ${replacementDate}.`;
+};
+
+const getExplicitCvDateReplacement = (message = '') => {
+    const instruction = getKirbyUserInstruction(message);
+    const source = normalizeForMatch(instruction);
+    const action = '(?:remplac(?:e|es|ez|er|ee|ees)|chang(?:e|es|ez|er|ee|ees)|modifi(?:e|es|ez|er|ee|ees)|corrig(?:e|es|ez|er|ee|ees)|met(?:s|tez|tre)?|modification|correction|replac(?:e|es|ed|ing)|modif(?:y|ies|ied|ying)|updat(?:e|es|ed|ing)|chang(?:e|es|ed|ing)|correct(?:s|ed|ing)?|fix(?:es|ed|ing)?|set(?:s|ting)?)';
+    const hasReplacementLanguage = new RegExp(
+        `\\b(?:${action}|devien(?:s|t|nent)|pass(?:e|es|ez|er)|becomes?)\\b`,
+        'i',
+    ).test(source);
+    if (!hasReplacementLanguage) {
+        return null;
+    }
+
+    const standaloneMonth = `(?:${monthNamesPattern})\\.?`;
+    const rangeConnector = "(?:[–—-]|[àa]|au|jusqu['’]?[àa]|to|until|through|till)";
+    const range = `(?:${cvDatedTokenPattern})\\s*${rangeConnector}\\s*(?:${cvDateTokenPattern})`;
+    const dateValue = `(?:${range}|${cvMonthYearPattern}|${cvFullYearPattern}|${standaloneMonth}|${cvOngoingDatePattern})`;
+    const cleanInstruction = String(instruction || '').replace(/[«»“”"]/g, ' ');
+    const replacementConnector = '(?:par|avec|en|vers|à|a|with|by|to)';
+    const patterns = [
+        new RegExp(`\\b${action}\\b[\\s\\S]{0,100}?(${dateValue})\\s+${replacementConnector}\\s+(${dateValue})`, 'i'),
+        new RegExp(`(${dateValue})\\s+(?:devien(?:s|t|nent)|becomes?|pass(?:e|es|ez)\\s+(?:à|a|en))\\s+(${dateValue})`, 'i'),
+    ];
+    const match = patterns.map((pattern) => cleanInstruction.match(pattern)).find(Boolean);
+    if (!match) {
+        return null;
+    }
+
+    const from = String(match[1] || '').trim();
+    const to = String(match[2] || '').trim();
+    return from && to && normalizeForMatch(from) !== normalizeForMatch(to)
+        ? { from, to }
+        : null;
+};
+
+const syncKirbyDatePresentationOverride = (target, currentValue = '', replacementValue = '') => {
+    if (typeof reconcileEditableDateOverride === 'function') {
+        reconcileEditableDateOverride(target, currentValue, replacementValue);
+        return;
+    }
+
+    clearEditableOverride(target);
+};
+
+const cvEquivalentMonthPatterns = [
+    'janv(?:ier)?|jan(?:uary)?',
+    'f[ée]v(?:r(?:ier)?)?|feb(?:ruary)?',
+    'mars|mar(?:ch)?',
+    'avr(?:il)?|apr(?:il)?',
+    'mai|may',
+    'juin|jun(?:e)?',
+    'juil(?:l(?:et)?)?|jul(?:y)?',
+    'ao[uû]t|aug(?:ust)?',
+    'sept(?:embre)?|sep(?:tember)?',
+    'oct(?:obre)?|oct(?:ober)?',
+    'nov(?:embre)?|nov(?:ember)?',
+    'd[ée]c(?:embre)?|dec(?:ember)?',
+];
+
+const parseCvDateEditToken = (value = '') => {
+    const raw = String(value || '')
+        .trim()
+        .replace(/^[«»“”"']+|[«»“”"',;.!?]+$/g, '')
+        .trim();
+    if (!raw) {
+        return null;
+    }
+
+    if (/^(?:aujourd['’]?hui|present|pr[ée]sent|current|now)$/i.test(raw)) {
+        return { raw, ongoing: true, hasMonth: false, hasYear: false, month: '', year: '' };
+    }
+
+    const numericMatch = raw.match(/^(0?[1-9]|1[0-2])\s*([-/.])\s*((?:19|20)\d{2}|\d{2})$/);
+    if (numericMatch) {
+        return {
+            raw,
+            ongoing: false,
+            hasMonth: true,
+            hasYear: true,
+            month: numericMatch[1],
+            year: numericMatch[3],
+            numericSeparator: numericMatch[2],
+        };
+    }
+
+    const monthMatch = raw.match(new RegExp(`^(${monthNamesPattern})\\.?(?:\\s*,?\\s*((?:19|20)?\\d{2}))?$`, 'i'));
+    if (monthMatch) {
+        return {
+            raw,
+            ongoing: false,
+            hasMonth: true,
+            hasYear: Boolean(monthMatch[2]),
+            month: monthMatch[1],
+            year: monthMatch[2] || '',
+        };
+    }
+
+    const yearMatch = raw.match(/^((?:19|20)\d{2})$/);
+    return yearMatch
+        ? { raw, ongoing: false, hasMonth: false, hasYear: true, month: '', year: yearMatch[1] }
+        : null;
+};
+
+const getCvDateBoundaryIntent = (message = '', operation = {}) => {
+    const explicitPart = normalizeForMatch(
+        operation?.target?.datePart || operation?.datePart || operation?.boundary || '',
+    );
+    if (/^(?:start|debut|beginning|from)$/.test(explicitPart)) {
+        return 'start';
+    }
+    if (/^(?:end|fin|ending|to)$/.test(explicitPart)) {
+        return 'end';
+    }
+
+    const source = normalizeForMatch(`${message || ''} ${operation?.reason || ''}`);
+    const starts = /\b(?:date|mois|annee|periode)?\s*(?:de|du|d)?\s*(?:debut|depart|commencement)\b|\b(?:debut|depart|commencement)\s+(?:de|du|d|pour)\s+(?:la\s+)?(?:date|periode|experience)\b|\b(?:start|starting|beginning|from)\s+(?:date|month|year|of\s+the\s+period)\b/.test(source);
+    const ends = /\b(?:date|mois|annee|periode)?\s*(?:de|du|d)?\s*(?:fin|termine|ending)\b|\bfin\s+(?:de|du|d|pour)\s+(?:la\s+)?(?:date|periode|experience)\b|\b(?:end|ending|until|through)\s+(?:date|month|year|of\s+the\s+period)\b/.test(source);
+
+    return starts !== ends ? (starts ? 'start' : 'end') : '';
+};
+
+const hasExplicitCvMonthRemovalIntent = (message = '') => {
+    const source = normalizeForMatch(message).replace(/[’']/g, ' ');
+    return /\b(?:sans|retire|retirer|supprime|supprimer|enleve|enlever|efface|effacer)\s+(?:le|les|ce|ces)?\s*mois\b|\b(?:annee|annees)\s+(?:seule|seules|uniquement|seulement)\b|\b(?:garde|conserve|mets|affiche)\s+(?:seulement|uniquement)\s+(?:l |les )?annee(?:s)?\b|\b(?:without|remove|delete|drop)\s+(?:the\s+)?months?\b|\byears?\s+only\b/.test(source);
+};
+
+const mergeCvDateTokenComponents = (currentValue = '', requestedValue = '', instruction = '') => {
+    const current = parseCvDateEditToken(currentValue);
+    const requested = parseCvDateEditToken(requestedValue);
+    if (!current || !requested || requested.ongoing || current.ongoing) {
+        return requested?.raw || '';
+    }
+
+    if (requested.hasYear && !requested.hasMonth && current.hasMonth && !hasExplicitCvMonthRemovalIntent(instruction)) {
+        const yearMatch = current.raw.match(/(?:19|20)\d{2}|\d{2}(?=\s*$)/);
+        return yearMatch
+            ? current.raw.slice(0, yearMatch.index) + requested.year + current.raw.slice(yearMatch.index + yearMatch[0].length)
+            : requested.raw;
+    }
+
+    if (requested.hasMonth && !requested.hasYear && current.hasYear) {
+        if (current.numericSeparator) {
+            return `${requested.raw} ${current.year}`;
+        }
+        const monthPrefix = current.raw.match(new RegExp(`^${monthNamesPattern}\\.?`, 'i'));
+        return monthPrefix
+            ? requested.raw + current.raw.slice(monthPrefix[0].length)
+            : `${requested.raw} ${current.year}`;
+    }
+
+    return requested.raw;
+};
+
+const getCvDateValueTokenMatches = (value = '') => {
+    const source = String(value || '');
+    const matches = [...source.matchAll(new RegExp(cvDateTokenPattern, 'gi'))]
+        .map((match) => ({
+            value: match[0]?.trim() || '',
+            start: match.index || 0,
+            end: (match.index || 0) + (match[0] || '').length,
+        }))
+        .filter((match) => Boolean(match.value));
+    if (matches.length) {
+        return matches;
+    }
+
+    const partial = parseCvDateEditToken(source);
+    return partial
+        ? [{ value: partial.raw, start: source.indexOf(partial.raw), end: source.indexOf(partial.raw) + partial.raw.length }]
+        : [];
+};
+
+const resolveCvDatePeriodEdit = ({
+    currentDate = '',
+    requestedDate = '',
+    instruction = '',
+    operation = {},
+} = {}) => {
+    const currentTokens = getCvDateValueTokenMatches(currentDate);
+    const requestedTokens = getCvDateValueTokenMatches(requestedDate);
+    const requestedPartial = requestedTokens.length ? null : parseCvDateEditToken(requestedDate);
+    const requestedCount = requestedTokens.length || (requestedPartial ? 1 : 0);
+    if (!currentTokens.length || !requestedCount) {
+        return { value: '', ambiguous: false };
+    }
+
+    if (requestedTokens.length >= 2) {
+        return { value: String(requestedDate || '').trim(), ambiguous: false };
+    }
+
+    const requestedToken = requestedTokens[0]?.value || requestedPartial?.raw || '';
+    if (currentTokens.length === 1) {
+        return {
+            value: mergeCvDateTokenComponents(currentTokens[0].value, requestedToken, instruction),
+            ambiguous: false,
+        };
+    }
+
+    let targetIndex = getCvDateBoundaryIntent(instruction, operation) === 'start'
+        ? 0
+        : getCvDateBoundaryIntent(instruction, operation) === 'end'
+            ? currentTokens.length - 1
+            : -1;
+    const explicitReplacement = getExplicitCvDateReplacement(instruction);
+    if (targetIndex < 0 && explicitReplacement) {
+        const matchingIndexes = currentTokens
+            .map((token, index) => ({ token, index }))
+            .filter(({ token }) => Boolean(getEquivalentCvDateTokenOccurrences(token.value, explicitReplacement.from).length))
+            .map(({ index }) => index);
+        if (matchingIndexes.length === 1) {
+            targetIndex = matchingIndexes[0];
+        }
+    }
+
+    const targetCurrentValue = String(operation?.target?.currentValue || '').trim();
+    if (targetIndex < 0 && targetCurrentValue && getCvDatedTokens(targetCurrentValue).length === 1) {
+        const matchingIndexes = currentTokens
+            .map((token, index) => ({ token, index }))
+            .filter(({ token }) => Boolean(getEquivalentCvDateTokenOccurrences(token.value, targetCurrentValue).length))
+            .map(({ index }) => index);
+        if (matchingIndexes.length === 1) {
+            targetIndex = matchingIndexes[0];
+        }
+    }
+
+    if (targetIndex < 0) {
+        return { value: '', ambiguous: true };
+    }
+
+    const target = currentTokens[targetIndex];
+    const merged = mergeCvDateTokenComponents(target.value, requestedToken, instruction);
+    return merged
+        ? {
+            value: String(currentDate).slice(0, target.start) + merged + String(currentDate).slice(target.end),
+            ambiguous: false,
+        }
+        : { value: '', ambiguous: false };
+};
+
+const getEquivalentCvDateTokenPattern = (value = '') => {
+    const source = String(value || '').trim();
+    const monthYearMatch = source.match(new RegExp(`^(${monthNamesPattern})\\.?\\s*,?\\s*(\\d{2,4})$`, 'i'));
+    if (monthYearMatch) {
+        const month = monthYearMatch[1].replace(/\.$/, '');
+        const monthPattern = cvEquivalentMonthPatterns.find((pattern) =>
+            new RegExp(`^(?:${pattern})$`, 'i').test(month)
+        );
+        if (monthPattern) {
+            return `(?:${monthPattern})\\.?\\s*,?\\s*${monthYearMatch[2]}`;
+        }
+    }
+
+    const monthOnlyMatch = source.match(new RegExp(`^(${monthNamesPattern})\\.?$`, 'i'));
+    if (monthOnlyMatch) {
+        const month = monthOnlyMatch[1].replace(/\.$/, '');
+        const monthPattern = cvEquivalentMonthPatterns.find((pattern) =>
+            new RegExp(`^(?:${pattern})$`, 'i').test(month)
+        );
+        if (monthPattern) {
+            return `(?:${monthPattern})\\.?`;
+        }
+    }
+
+    const numericMonthYearMatch = source.match(/^(0?[1-9]|1[0-2])\s*[-/.]\s*(\d{2,4})$/);
+    if (numericMonthYearMatch) {
+        return `0?${Number(numericMonthYearMatch[1])}\\s*[-/.]\\s*${numericMonthYearMatch[2]}`;
+    }
+
+    return /^(?:19|20)\d{2}$/.test(source)
+        ? source
+        : '';
+};
+
+const getEquivalentCvDateTokenRegex = (value = '') => {
+    const tokenPattern = getEquivalentCvDateTokenPattern(value);
+    return tokenPattern
+        ? new RegExp(`(^|[^\\p{L}\\p{N}])(${tokenPattern})(?=$|[^\\p{L}\\p{N}])`, 'iu')
+        : null;
+};
+
+const getRawCvLineRecords = (value = '') => {
+    const source = String(value || '');
+    const records = [];
+    const lineBreakPattern = /\r\n|\n|\r/g;
+    let start = 0;
+    let rawIndex = 0;
+    let logicalIndex = 0;
+
+    for (const match of source.matchAll(lineBreakPattern)) {
+        const text = source.slice(start, match.index);
+        const hasContent = Boolean(text.trim());
+        records.push({
+            text,
+            start,
+            end: match.index,
+            separator: match[0],
+            rawIndex,
+            logicalIndex: hasContent ? logicalIndex : null,
+        });
+        if (hasContent) {
+            logicalIndex += 1;
+        }
+        rawIndex += 1;
+        start = match.index + match[0].length;
+    }
+
+    const text = source.slice(start);
+    records.push({
+        text,
+        start,
+        end: source.length,
+        separator: '',
+        rawIndex,
+        logicalIndex: text.trim() ? logicalIndex : null,
+    });
+
+    return records;
+};
+
+const getCvDatedTokens = (value = '') =>
+    [...String(value || '').matchAll(new RegExp(cvDatedTokenPattern, 'gi'))]
+        .map((match) => match[0]?.trim())
+        .filter(Boolean);
+
+const getEquivalentCvDateTokenOccurrences = (value = '', token = '', range = null) => {
+    const tokenPattern = getEquivalentCvDateTokenPattern(token);
+    if (!tokenPattern) {
+        return [];
+    }
+
+    const source = String(value || '');
+    const pattern = new RegExp(
+        `(^|[^\\p{L}\\p{N}])(${tokenPattern})(?=$|[^\\p{L}\\p{N}])`,
+        'giu',
+    );
+    const startLimit = Number.isInteger(range?.start) ? Math.max(0, range.start) : 0;
+    const endLimit = Number.isInteger(range?.end) ? Math.min(source.length, range.end) : source.length;
+
+    return [...source.matchAll(pattern)]
+        .map((match) => {
+            const boundaryLength = (match[1] || '').length;
+            const start = (match.index || 0) + boundaryLength;
+            return {
+                start,
+                end: start + (match[2] || '').length,
+                value: match[2] || '',
+            };
+        })
+        .filter((match) => match.start >= startLimit && match.end <= endLimit);
+};
+
+const getEquivalentCvDateValueOccurrences = (value = '', dateValue = '', range = null) => {
+    const tokens = getCvDateValueTokenMatches(dateValue);
+    if (!tokens.length) {
+        return [];
+    }
+    if (tokens.length === 1) {
+        return getEquivalentCvDateTokenOccurrences(value, tokens[0].value, range)
+            .map((occurrence) => ({ ...occurrence, tokenCount: 1 }));
+    }
+
+    const source = String(value || '');
+    const startLimit = Number.isInteger(range?.start) ? Math.max(0, range.start) : 0;
+    const endLimit = Number.isInteger(range?.end) ? Math.min(source.length, range.end) : source.length;
+    const firstOccurrences = getEquivalentCvDateTokenOccurrences(source, tokens[0].value, range);
+    const results = [];
+
+    firstOccurrences.forEach((first) => {
+        let cursor = first.end;
+        let last = first;
+        for (let index = 1; index < tokens.length; index += 1) {
+            const next = getEquivalentCvDateTokenOccurrences(source, tokens[index].value, { start: cursor, end: endLimit })
+                .find((candidate) => {
+                    const connector = source.slice(cursor, candidate.start);
+                    return /^\s*(?:[–—-]|[àa]|au|jusqu['’]?[àa]|to|until|through|till)\s*$/i.test(connector);
+                });
+            if (!next) {
+                last = null;
+                break;
+            }
+            last = next;
+            cursor = next.end;
+        }
+        if (last && first.start >= startLimit && last.end <= endLimit) {
+            results.push({
+                start: first.start,
+                end: last.end,
+                value: source.slice(first.start, last.end),
+                tokenCount: tokens.length,
+            });
+        }
+    });
+
+    return results;
+};
+
+const replaceCvDateValuePreservingSeparators = (currentValue = '', requestedValue = '', instruction = '') => {
+    const source = String(currentValue || '');
+    const currentTokens = getCvDateValueTokenMatches(source);
+    const requestedTokens = getCvDateValueTokenMatches(requestedValue);
+    if (currentTokens.length === 1) {
+        return mergeCvDateTokenComponents(currentTokens[0].value, requestedValue, instruction);
+    }
+    if (currentTokens.length >= 2 && currentTokens.length === requestedTokens.length) {
+        return currentTokens
+            .map((token, index) => ({
+                ...token,
+                replacement: mergeCvDateTokenComponents(token.value, requestedTokens[index].value, instruction),
+            }))
+            .sort((left, right) => right.start - left.start)
+            .reduce(
+                (output, token) => output.slice(0, token.start) + token.replacement + output.slice(token.end),
+                source,
+            );
+    }
+
+    return String(requestedValue || '').trim();
+};
+
+const getRawCvDateSegment = (line = '') => {
+    const source = String(line || '');
+    const directMatch = extractExperienceDateMatch(source);
+    if (directMatch) {
+        return {
+            start: directMatch.index,
+            end: directMatch.index + directMatch.matchedText.length,
+            date: directMatch.date,
+            interleaved: Boolean(directMatch.replacement),
+        };
+    }
+
+    const parsed = parseExperienceEntry(source);
+    const tokens = getCvDatedTokens(parsed.date || '');
+    if (!tokens.length) {
+        return null;
+    }
+
+    const matches = [];
+    let cursor = 0;
+    for (const token of tokens) {
+        const occurrence = getEquivalentCvDateTokenOccurrences(source, token)
+            .find((candidate) => candidate.start >= cursor);
+        if (!occurrence) {
+            return null;
+        }
+        matches.push(occurrence);
+        cursor = occurrence.end;
+    }
+
+    return {
+        start: matches[0].start,
+        end: matches[matches.length - 1].end,
+        date: parsed.date,
+        interleaved: false,
+    };
+};
+
+const replaceRawCvDateTokens = (line = '', currentDate = '', replacementDate = '') => {
+    const source = String(line || '');
+    const nextDate = String(replacementDate || '').trim();
+    const segment = getRawCvDateSegment(source);
+    if (!source || !nextDate || !segment) {
+        return '';
+    }
+
+    const currentTokens = getCvDatedTokens(currentDate || segment.date);
+    const replacementTokens = getCvDatedTokens(nextDate);
+    const currentHasOngoing = /\b(?:aujourd['’]?hui|present|pr[ée]sent|current|now)\b/i.test(currentDate || segment.date || '');
+    const replacementHasOngoing = /\b(?:aujourd['’]?hui|present|pr[ée]sent|current|now)\b/i.test(nextDate);
+
+    if (
+        currentTokens.length > 0
+        && currentTokens.length === replacementTokens.length
+        && !currentHasOngoing
+        && !replacementHasOngoing
+    ) {
+        const replacements = [];
+        let cursor = segment.start;
+        for (let index = 0; index < currentTokens.length; index += 1) {
+            const occurrence = getEquivalentCvDateTokenOccurrences(source, currentTokens[index], segment)
+                .find((candidate) => candidate.start >= cursor);
+            if (!occurrence) {
+                return '';
+            }
+            replacements.push({ ...occurrence, value: replacementTokens[index] });
+            cursor = occurrence.end;
+        }
+
+        return replacements
+            .sort((left, right) => right.start - left.start)
+            .reduce(
+                (output, replacement) => output.slice(0, replacement.start) + replacement.value + output.slice(replacement.end),
+                source,
+            );
+    }
+
+    // Une période PDF dont l'employeur est intercalé entre le mois et l'année
+    // n'est jamais remplacée en bloc : cela pourrait supprimer l'employeur.
+    if (segment.interleaved) {
+        return '';
+    }
+
+    const rawSegment = source.slice(segment.start, segment.end);
+    const prefix = rawSegment.match(/^\s*((?:de|du|d['’]|from)\s+)/i)?.[1] || '';
+    const normalizedParts = normalizeExperienceDateText(nextDate).split(/\s+-\s+/).filter(Boolean);
+    let formattedReplacement = nextDate;
+    if (prefix && normalizedParts.length >= 2) {
+        const connector = /\s(?:à|au)\s/i.test(rawSegment)
+            ? ' à '
+            : /\sto\s/i.test(rawSegment)
+                ? ' to '
+                : ' - ';
+        formattedReplacement = `${prefix}${normalizedParts.join(connector)}`;
+    }
+
+    return source.slice(0, segment.start) + formattedReplacement + source.slice(segment.end);
+};
+
+const patchRawCvDateAtLogicalLine = ({
+    fieldValue = '',
+    logicalIndex = -1,
+    currentDate = '',
+    replacementDate = '',
+} = {}) => {
+    const source = String(fieldValue || '');
+    const record = getRawCvLineRecords(source)
+        .find((candidate) => candidate.logicalIndex === logicalIndex);
+    if (!record) {
+        return null;
+    }
+
+    const nextLine = replaceRawCvDateTokens(record.text, currentDate, replacementDate);
+    if (!nextLine || nextLine === record.text) {
+        return null;
+    }
+
+    return {
+        nextValue: source.slice(0, record.start) + nextLine + source.slice(record.end),
+        previousLine: record.text,
+        nextLine,
+        rawLineIndex: record.rawIndex,
+    };
+};
+
+const getExplicitCvDateTargetField = (message = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(message));
+    const definitions = [
+        ['education', /\b(?:formation|formations|etude|etudes|scolarite|cursus|parcours academique|diplome|diplomes|certificat|certificats|certification|certifications|education|qualification|qualifications|academic|studies|schooling|diploma|diplomas|certificate|certificates|degree|degrees|training|trainings|course|courses)\b/],
+        ['experience', /\b(?:experience|experiences|parcours professionnel|poste|postes|emploi|emplois|mission|missions|entreprise|employeur|role|roles|job|jobs|employment|employer|work experience|professional experience|work history|career)\b/],
+        ['projects', /\b(?:projet|projets|project|projects|portfolio)\b/],
+    ];
+    const targets = definitions.filter(([, pattern]) => pattern.test(source));
+
+    if (targets.length <= 1) {
+        return targets[0]?.[0] || '';
+    }
+
+    const coordinatedAt = source.search(/\b(?:et|ainsi que|and|as well as)\b/);
+    if (coordinatedAt >= 0) {
+        const left = source.slice(0, coordinatedAt);
+        const right = source.slice(coordinatedAt);
+        const leftFields = definitions.filter(([, pattern]) => pattern.test(left)).map(([field]) => field);
+        const rightFields = definitions.filter(([, pattern]) => pattern.test(right)).map(([field]) => field);
+        if (leftFields.length && rightFields.length && leftFields.some((field) => !rightFields.includes(field))) {
+            return '';
+        }
+    }
+
+    const getFieldMentions = (value = '') => definitions
+        .flatMap(([fieldName, pattern]) => [...value.matchAll(new RegExp(pattern.source, 'g'))]
+            .map((match) => ({ fieldName, index: match.index ?? Number.MAX_SAFE_INTEGER })))
+        .sort((left, right) => left.index - right.index);
+
+    // Ici le premier nom est la rubrique et ce qui suit décrit son domaine :
+    // « training in project management » et « course on work experience »
+    // restent donc des formations, même si leur intitulé contient un projet
+    // ou le mot experience.
+    if (/\b(?:in|for|within|under)\s+(?:(?:my|the)\s+)?(?:education|academic|studies|schooling|diploma|diplomas|certificate|certificates|degree|degrees|qualification|qualifications|training|trainings|course|courses)\s+(?:in|on|for|about)\b/.test(source)) {
+        return 'education';
+    }
+
+    // Dans un groupe nominal anglais, la tête se trouve généralement à la
+    // fin : « project management training » est une formation, tandis que
+    // « training project » est un projet.
+    const englishScopeMatches = [...source.matchAll(
+        /\b(?:in|for|within|under)\s+(?:(?:my|the)\s+)?([^,;.]{1,120})/g,
+    )]
+        .map((match) => getFieldMentions(match[1] || ''))
+        .filter((mentions) => mentions.length);
+    if (englishScopeMatches.length === 1) {
+        return englishScopeMatches[0][englishScopeMatches[0].length - 1].fieldName;
+    }
+
+    // Les intitulés peuvent eux-mêmes contenir « projet » ou « expérience »
+    // (ex. « formation de chef de projet », « UX experience training »).
+    // Une rubrique nommée avec un marqueur grammatical reste prioritaire sur
+    // ces mots présents à l'intérieur de l'intitulé.
+    const scopePrefix = '(?:rubrique|section|dans|pour|sur|concernant|a|au|aux|in|for|within|under)';
+    const determiners = '(?:(?:la|le|les|ma|mon|mes|du|de la|des|the|my)\\s+)?';
+    const explicitScopes = [
+        ['education', new RegExp(`\\b${scopePrefix}\\s+${determiners}(?:rubrique\\s+|section\\s+)?(?:formation|formations|etude|etudes|scolarite|cursus|parcours academique|diplome|diplomes|certificat|certificats|certification|certifications|education|qualification|qualifications|academic|studies|schooling|diploma|diplomas|certificate|certificates|degree|degrees|training|trainings|course|courses)\\b`)],
+        ['experience', new RegExp(`\\b${scopePrefix}\\s+${determiners}(?:rubrique\\s+|section\\s+)?(?:experience|experiences|parcours professionnel|poste|postes|emploi|emplois|mission|missions|entreprise|employeur|role|roles|job|jobs|employment|employer|work experience|professional experience|work history|career)\\b`)],
+        ['projects', new RegExp(`\\b${scopePrefix}\\s+${determiners}(?:rubrique\\s+|section\\s+)?(?:projet|projets|project|projects|portfolio)\\b`)],
+    ].filter(([, pattern]) => pattern.test(source));
+    if (explicitScopes.length === 1) {
+        return explicitScopes[0][0];
+    }
+
+    if (/\b(?:ux|user)\s+experience\s+(?:training|course|degree|certificate)\b/.test(source)) {
+        return 'education';
+    }
+
+    const firstMentions = targets
+        .map(([fieldName, pattern]) => {
+            const match = pattern.exec(source);
+            return { fieldName, index: match?.index ?? Number.MAX_SAFE_INTEGER };
+        })
+        .sort((left, right) => left.index - right.index);
+    return firstMentions[0]?.index < firstMentions[1]?.index
+        ? firstMentions[0].fieldName
+        : '';
+};
+
+const getCvDateTargetFieldLabel = (fieldName = '', message = '') => {
+    const useEnglish = /\b(?:education|academic|studies|schooling|diploma|certificate|certification|qualification|degree|training|course|experience|job|employment|project)\b/i.test(
+        getKirbyUserInstruction(message),
+    );
+    const labels = useEnglish
+        ? { education: 'Education', experience: 'Experience', projects: 'Projects' }
+        : { education: 'Formations', experience: 'Expériences', projects: 'Projets' };
+    return labels[fieldName] || fieldName;
+};
+
+const getCvDateReplacementTargetScore = (line = '', message = '', fieldName = '') => {
+    const source = normalizeForMatch(message);
+    const parsed = parseExperienceEntry(line);
+    const tokens = normalizeForMatch(`${parsed.title || ''} ${parsed.meta || ''}`)
+        .split(/[^a-z0-9]+/)
+        .filter((token) => token.length >= 4 && !/^(?:date|dates|annee|annees|periode|periodes)$/.test(token));
+    const fieldBoost = fieldName === 'education' && /\b(formation|formations|diplome|diplomes|bts|education|etudes|cursus|certification|certifications|qualification|qualifications|academic|degree|degrees|training|trainings|course|courses)\b/.test(source)
+        ? 2
+        : fieldName === 'experience' && /\b(experience|experiences|poste|postes|emploi|emplois|mission|missions|entreprise|employeur|role|roles|job|jobs|employment|employer|work experience|professional experience|work history)\b/.test(source)
+            ? 2
+            : fieldName === 'projects' && /\b(projet|projets|project|projects|portfolio)\b/.test(source)
+                ? 2
+                : 0;
+
+    return fieldBoost + [...new Set(tokens)].filter((token) => source.includes(token)).length;
+};
+
+const getCvDateMonthIdentity = (value = '') => {
+    const parsed = parseCvDateEditToken(value);
+    if (!parsed?.hasMonth) {
+        return -1;
+    }
+    const month = String(parsed.month || '').replace(/\.$/, '');
+    return cvEquivalentMonthPatterns.findIndex((pattern) =>
+        new RegExp(`^(?:${pattern})$`, 'i').test(month)
+    );
+};
+
+const getCvDateSegmentTokenCandidates = (line = '') => {
+    const segment = getRawCvDateSegment(line);
+    if (!segment) {
+        return { segment: null, tokens: [] };
+    }
+    const tokens = getCvDateValueTokenMatches(line.slice(segment.start, segment.end))
+        .map((token, index, allTokens) => ({
+            ...token,
+            start: token.start + segment.start,
+            end: token.end + segment.start,
+            role: allTokens.length === 1
+                ? 'single'
+                : index === 0
+                    ? 'start'
+                    : index === allTokens.length - 1
+                        ? 'end'
+                        : 'matched',
+        }));
+    return { segment, tokens };
+};
+
+const isCvDatePeriodChronologicallyValid = (value = '') => {
+    const tokens = getCvDateValueTokenMatches(value);
+    if (tokens.length < 2 || tokens.some((token) => isOngoingExperienceDateMarker(token.value))) {
+        return true;
+    }
+    const start = getTimelineDatePoints(tokens[0].value)[0];
+    const end = getTimelineDatePoints(tokens[tokens.length - 1].value)[0];
+    if (!start || !end) {
+        return true;
+    }
+    return (start.year * 12) + (start.month || 1) <= (end.year * 12) + (end.month || 12);
+};
+
+const getCurrentKirbyCvDateRecords = () => ['education', 'experience', 'projects']
+    .flatMap((fieldName) => {
+        const field = fieldName === 'experience' ? getExperienceField() : cvForm?.elements?.[fieldName];
+        return field
+            ? getRawCvLineRecords(field.value)
+                .filter((record) => record.logicalIndex !== null)
+                .map((record) => ({
+                    field,
+                    fieldName,
+                    record,
+                    line: record.text,
+                    entry: parseExperienceEntry(record.text),
+                    ...getCvDateSegmentTokenCandidates(record.text),
+                }))
+                .filter((candidate) => candidate.segment && candidate.tokens.length)
+            : [];
+    });
+
+const getRecentKirbyCvDateRebaseCandidate = (replacement = {}, message = '', targetFieldName = '') => {
+    const context = getLastKirbyCvDateEditContext();
+    if (!context || !replacement.from || !replacement.to) {
+        return null;
+    }
+    if (targetFieldName && context.field !== targetFieldName) {
+        return null;
+    }
+
+    // Une source ancienne n'est un suivi valable que si elle faisait partie de
+    // l'état « avant » mémorisé. Une simple ressemblance ne suffit jamais.
+    if (!getEquivalentCvDateValueOccurrences(context.before, replacement.from).length) {
+        return null;
+    }
+
+    const targetTitle = normalizeForMatch(context.target?.title || '');
+    const targetOrganization = normalizeForMatch(context.target?.organization || '');
+    const expectedCurrentDate = normalizeExperienceDateText(context.after || '');
+    const matches = getCurrentKirbyCvDateRecords()
+        .filter((candidate) => {
+            if (candidate.fieldName !== context.field) {
+                return false;
+            }
+            const title = normalizeForMatch(candidate.entry.title || '');
+            const organization = normalizeForMatch(candidate.entry.meta || '');
+            const date = normalizeExperienceDateText(candidate.entry.date || candidate.segment.date || '');
+            const identity = normalizeForMatch(
+                `${candidate.line.slice(0, candidate.segment.start)} ${candidate.line.slice(candidate.segment.end)}`,
+            );
+            return date === expectedCurrentDate
+                && (!targetTitle || title === targetTitle)
+                && (!targetOrganization || organization === targetOrganization)
+                && (!context.recordIdentity || identity === context.recordIdentity);
+        });
+
+    if (matches.length !== 1) {
+        return matches.length > 1 ? { ambiguous: true } : null;
+    }
+
+    const candidate = matches[0];
+    let occurrence = null;
+    if (context.boundary === 'whole') {
+        if (getCvDateValueTokenMatches(replacement.to).length < 2) {
+            return { ambiguous: true };
+        }
+        occurrence = {
+            start: candidate.segment.start,
+            end: candidate.segment.end,
+            value: candidate.line.slice(candidate.segment.start, candidate.segment.end),
+            tokenCount: candidate.tokens.length,
+        };
+    } else if (context.boundary === 'start') {
+        occurrence = candidate.tokens[0];
+    } else if (context.boundary === 'end') {
+        occurrence = candidate.tokens[candidate.tokens.length - 1];
+    } else if (candidate.tokens.length === 1) {
+        occurrence = candidate.tokens[0];
+    }
+
+    if (!occurrence) {
+        return { ambiguous: true };
+    }
+
+    return {
+        ...candidate,
+        occurrence,
+        role: context.boundary,
+        replacementValue: replaceCvDateValuePreservingSeparators(
+            occurrence.value,
+            replacement.to,
+            message,
+        ),
+        rebased: true,
+    };
+};
+
+const getSemanticStaleCvDateCandidate = (replacement = {}, message = '', targetFieldName = '') => {
+    const context = typeof getLastKirbyCvDateEditContext === 'function'
+        ? getLastKirbyCvDateEditContext()
+        : null;
+    if (
+        !context
+        || (targetFieldName && context.field !== targetFieldName)
+        || !getEquivalentCvDateValueOccurrences(context.before || '', replacement.from || '').length
+    ) {
+        return null;
+    }
+
+    const fromTokens = getCvDateValueTokenMatches(replacement.from);
+    const toTokens = getCvDateValueTokenMatches(replacement.to);
+    if (fromTokens.length !== 1 || toTokens.length !== 1) {
+        return null;
+    }
+
+    const sourceToken = parseCvDateEditToken(fromTokens[0].value);
+    const requestedToken = parseCvDateEditToken(toTokens[0].value);
+    if (!sourceToken || !requestedToken || sourceToken.ongoing || requestedToken.ongoing) {
+        return null;
+    }
+
+    const component = requestedToken.hasYear && !requestedToken.hasMonth
+        ? 'year'
+        : requestedToken.hasMonth && !requestedToken.hasYear
+            ? 'month'
+            : 'date';
+    const boundaryIntent = getCvDateBoundaryIntent(message);
+    const sourceMonth = getCvDateMonthIdentity(sourceToken.raw);
+    const semanticCandidates = [];
+
+    getCurrentKirbyCvDateRecords()
+        .filter((recordCandidate) => !targetFieldName || recordCandidate.fieldName === targetFieldName)
+        .forEach((recordCandidate) => {
+            const targetScore = getCvDateReplacementTargetScore(
+                recordCandidate.line,
+                message,
+                recordCandidate.fieldName,
+            );
+            recordCandidate.tokens.forEach((token) => {
+            if (boundaryIntent && token.role !== boundaryIntent && token.role !== 'single') {
+                return;
+            }
+            const currentToken = parseCvDateEditToken(token.value);
+            if (!currentToken || currentToken.ongoing) {
+                return;
+            }
+
+            const currentMonth = getCvDateMonthIdentity(currentToken.raw);
+            const sameMonth = sourceToken.hasMonth && currentToken.hasMonth
+                && sourceMonth >= 0 && sourceMonth === currentMonth;
+            const sameYear = sourceToken.hasYear && currentToken.hasYear
+                && String(sourceToken.year) === String(currentToken.year);
+            const mixedGranularityRepair = component === 'year'
+                && sourceToken.hasMonth
+                && !currentToken.hasMonth
+                && recordCandidate.tokens.some((other) => other !== token && parseCvDateEditToken(other.value)?.hasMonth);
+            const explicitlyTargetedBoundary = Boolean(boundaryIntent && targetScore > 0);
+            let evidence = 0;
+            let mergeBase = currentToken.raw;
+
+            if (component === 'year') {
+                if (sameMonth) {
+                    evidence = 6;
+                } else if (mixedGranularityRepair) {
+                    evidence = 5;
+                    mergeBase = sourceToken.raw;
+                } else if (explicitlyTargetedBoundary && !sourceToken.hasMonth) {
+                    evidence = 3;
+                }
+            } else if (component === 'month') {
+                if (sameYear) {
+                    evidence = 6;
+                } else if (explicitlyTargetedBoundary && !sourceToken.hasYear) {
+                    evidence = 3;
+                }
+            } else if (sameMonth && sameYear) {
+                evidence = 7;
+            } else if (sameMonth || sameYear) {
+                evidence = 5;
+            } else if (explicitlyTargetedBoundary) {
+                evidence = 3;
+            }
+
+            if (!evidence) {
+                return;
+            }
+
+            const sourceAtBoundary = recordCandidate.line.slice(0, token.start)
+                + sourceToken.raw
+                + recordCandidate.line.slice(token.end);
+            if (mixedGranularityRepair) {
+                const sourcePeriod = parseExperienceEntry(sourceAtBoundary).date || '';
+                if (!isCvDatePeriodChronologicallyValid(sourcePeriod)) {
+                    return;
+                }
+            }
+
+            const replacementValue = mergeCvDateTokenComponents(
+                mergeBase,
+                requestedToken.raw,
+                message,
+            );
+            const nextLine = recordCandidate.line.slice(0, token.start)
+                + replacementValue
+                + recordCandidate.line.slice(token.end);
+            const nextPeriod = parseExperienceEntry(nextLine).date || '';
+            if (!replacementValue || nextLine === recordCandidate.line || !isCvDatePeriodChronologicallyValid(nextPeriod)) {
+                return;
+            }
+
+            semanticCandidates.push({
+                ...recordCandidate,
+                occurrence: token,
+                role: token.role,
+                replacementValue,
+                score: (evidence * 100) + (targetScore * 10),
+                rebased: true,
+            });
+            });
+        });
+
+    const ranked = semanticCandidates.sort((left, right) => right.score - left.score);
+    if (!ranked.length) {
+        return null;
+    }
+    if (ranked.length > 1 && ranked[0].score === ranked[1].score) {
+        return { ambiguous: true };
+    }
+    return ranked[0];
+};
+
+const applyQuickCvDateCandidate = ({ candidate = {}, replacement = {}, message = '' } = {}) => {
+    const replacementValue = candidate.replacementValue || replaceCvDateValuePreservingSeparators(
+        candidate.occurrence?.value || '',
+        replacement.to,
+        message,
+    );
+    const nextLine = candidate.line.slice(0, candidate.occurrence.start)
+        + replacementValue
+        + candidate.line.slice(candidate.occurrence.end);
+    if (!replacementValue || nextLine === candidate.line) {
+        return `Je n’ai pas pu remplacer précisément « ${replacement.from} ». Aucune autre donnée du CV n’a été touchée.`;
+    }
+
+    const beforeState = getCvHistoryState();
+    const fieldSource = String(candidate.field.value || '');
+    const absoluteStart = candidate.record.start + candidate.occurrence.start;
+    const absoluteEnd = candidate.record.start + candidate.occurrence.end;
+    const previousEntry = candidate.entry || parseExperienceEntry(candidate.line);
+    const nextEntry = parseExperienceEntry(nextLine);
+    const previousDate = previousEntry.date || candidate.segment?.date || '';
+    const nextDate = nextEntry.date || '';
+    candidate.field.value = fieldSource.slice(0, absoluteStart)
+        + replacementValue
+        + fieldSource.slice(absoluteEnd);
+    syncKirbyDatePresentationOverride(
+        candidate.fieldName,
+        candidate.occurrence?.value || replacement.from,
+        replacementValue,
+    );
+    if (candidate.fieldName === 'experience') {
+        renderExperienceEditor();
+    }
+    updateCvPreview({ preserveDensity: true });
+    commitCvHistoryTransition(beforeState);
+    scheduleCvDraftSave();
+
+    const boundary = candidate.role === 'period'
+        ? 'whole'
+        : candidate.role || getKirbyCvDateEditBoundary({
+            currentDate: previousDate,
+            instruction: message,
+            requestedDate: replacement.to,
+        });
+    if (typeof rememberKirbyCvDateEdit === 'function') {
+        rememberKirbyCvDateEdit({
+            field: candidate.fieldName,
+            index: candidate.record.logicalIndex,
+            entry: nextEntry,
+            before: previousDate,
+            after: nextDate,
+            boundary,
+            component: getKirbyCvDateEditComponent(replacement.to),
+            line: nextLine,
+        });
+    }
+
+    const target = nextEntry.title || candidate.fieldName;
+    setCvStatus(`Date mise à jour : ${target}`);
+    const confirmedBefore = previousDate || replacement.from;
+    const confirmedAfter = nextDate || replacementValue;
+    return `Date mise à jour pour ${target} : « ${confirmedBefore} » devient « ${confirmedAfter} ».`;
+};
+
+const getKirbyCvDateContextSourceValue = (context = {}) => {
+    const tokens = getCvDateValueTokenMatches(context.before || '');
+    if (!tokens.length) {
+        return '';
+    }
+    if (context.boundary === 'whole') {
+        return String(context.before || '').trim();
+    }
+    if (context.boundary === 'start') {
+        return tokens[0].value;
+    }
+    if (context.boundary === 'end') {
+        return tokens[tokens.length - 1].value;
+    }
+    return tokens.length === 1 ? tokens[0].value : '';
+};
+
+const applyQuickRecentCvDateFollowUp = (message = '') => {
+    if (typeof getLastKirbyCvDateEditContext !== 'function') {
+        return '';
+    }
+    const context = getLastKirbyCvDateEditContext();
+    const normalizedValue = getQuickExperienceDateValue(message);
+    if (!context || !isKirbyCvDateFollowUpInstruction(message, normalizedValue)) {
+        return '';
+    }
+
+    const requestedValue = getKirbyCvRawFollowUpDateValue(message) || normalizedValue;
+    const previousSource = getKirbyCvDateContextSourceValue(context);
+    if (!requestedValue || !previousSource) {
+        return '';
+    }
+
+    const replacement = { from: previousSource, to: requestedValue };
+    const candidate = getRecentKirbyCvDateRebaseCandidate(replacement, message);
+    if (candidate?.ambiguous) {
+        return 'La correction précédente ne désigne plus une seule date. Précisez le poste et la borne de début ou de fin ; le CV reste inchangé.';
+    }
+    if (!candidate) {
+        return 'Le CV a changé depuis la correction précédente. Indiquez le poste et la date actuellement affichée pour éviter de modifier la mauvaise ligne.';
+    }
+
+    return applyQuickCvDateCandidate({ candidate, replacement, message });
+};
+
+const applyQuickExactDateReplacement = (message = '') => {
+    const replacement = getExplicitCvDateReplacement(message);
+    if (!replacement || !cvForm) {
+        return '';
+    }
+
+    if (!getCvDateValueTokenMatches(replacement.from).length) {
+        return '';
+    }
+
+    const boundaryIntent = getCvDateBoundaryIntent(message);
+    const targetFieldName = getExplicitCvDateTargetField(message);
+    const searchedFieldNames = targetFieldName
+        ? [targetFieldName]
+        : ['education', 'experience', 'projects'];
+
+    const candidates = searchedFieldNames
+        .flatMap((fieldName) => {
+            const field = fieldName === 'experience' ? getExperienceField() : cvForm.elements[fieldName];
+            return field
+                ? getRawCvLineRecords(field.value)
+                    .filter((record) => record.logicalIndex !== null)
+                    .flatMap((record) => {
+                        const line = record.text;
+                        const segment = getRawCvDateSegment(line);
+                        const occurrences = getEquivalentCvDateValueOccurrences(
+                            line,
+                            replacement.from,
+                            segment || undefined,
+                        );
+                        const segmentTokens = segment
+                            ? getCvDateValueTokenMatches(line.slice(segment.start, segment.end))
+                                .map((token) => ({
+                                    ...token,
+                                    start: token.start + segment.start,
+                                    end: token.end + segment.start,
+                                }))
+                            : [];
+                        return occurrences
+                            .map((occurrence) => {
+                                const matchingTokenIndex = occurrence.tokenCount === 1
+                                    ? segmentTokens.findIndex((token) =>
+                                        token.start <= occurrence.start && token.end >= occurrence.end
+                                    )
+                                    : -1;
+                                const role = occurrence.tokenCount > 1
+                                    ? 'period'
+                                    : matchingTokenIndex === 0
+                                        ? 'start'
+                                        : matchingTokenIndex === segmentTokens.length - 1
+                                            ? 'end'
+                                            : 'single';
+                                return {
+                                    field,
+                                    fieldName,
+                                    record,
+                                    line,
+                                    occurrence,
+                                    role,
+                                    score: getCvDateReplacementTargetScore(line, message, fieldName),
+                                };
+                            })
+                            .filter((candidate) => !boundaryIntent
+                                || candidate.role === boundaryIntent
+                                || candidate.role === 'period'
+                                || candidate.role === 'single');
+                    })
+                : [];
+        });
+
+    if (!candidates.length) {
+        const recentCandidate = getRecentKirbyCvDateRebaseCandidate(replacement, message, targetFieldName);
+        if (recentCandidate?.ambiguous) {
+            return `La date « ${replacement.from} » a déjà changé et plusieurs bornes restent possibles. Précisez le poste et s’il s’agit du début ou de la fin.`;
+        }
+        if (recentCandidate) {
+            return applyQuickCvDateCandidate({ candidate: recentCandidate, replacement, message });
+        }
+
+        if (targetFieldName) {
+            return `Je n’ai trouvé aucune date « ${replacement.from} » dans la rubrique ${getCvDateTargetFieldLabel(targetFieldName, message)}. Aucune modification n’a été appliquée.`;
+        }
+
+        return `La date « ${replacement.from} » n’est plus celle affichée dans le CV. Indiquez la rubrique ou la borne de début/fin pour appliquer ${replacement.to} sans toucher aux autres dates.`;
+    }
+
+    const ranked = [...candidates].sort((left, right) => right.score - left.score);
+    const best = ranked[0];
+    if (ranked.length > 1 && best.score === ranked[1].score) {
+        if (targetFieldName) {
+            return `J’ai trouvé plusieurs dates « ${replacement.from} » dans la rubrique ${getCvDateTargetFieldLabel(targetFieldName, message)}. Indiquez l’intitulé exact de la ligne à modifier.`;
+        }
+        return `J’ai trouvé plusieurs dates « ${replacement.from} ». Indiquez le poste, la formation ou le projet concerné pour appliquer ${replacement.to}.`;
+    }
+
+    return applyQuickCvDateCandidate({ candidate: best, replacement, message });
 };
 
 const applyQuickExperienceDateMonthRemoval = (message = '') => {
@@ -10525,7 +15286,7 @@ const persistCvFromKirbyInstruction = async () => {
 };
 
 const shouldQuickSortExperiences = (message = '') => {
-    return hasExplicitExperienceOrderCommand(message);
+    return isExperienceOrderCleanupIntent(message);
 };
 
 const applyQuickExperienceSortCorrection = (message = '') => {
@@ -10558,10 +15319,10 @@ const getQuickExperienceRemovalTokens = (message = '') =>
         ]).has(token));
 
 const getExperienceRemovalIntent = (message = '') => {
-    const source = normalizeForMatch(message);
+    const source = normalizeForMatch(message).replace(/[’']/g, ' ');
     return {
         duplicateOnly: /\b(doublon|doublons|duplicate|double)\b/.test(source),
-        wholeBlock: /\b(supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer)\b.{0,30}\b(cette experience|cette ligne|ce poste|ce bloc|le bloc|l experience|l experience complete|l experience entiere)\b/.test(source),
+        wholeBlock: /\b(supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer)\b\s+(?:(?:uniquement|seulement|juste|entierement|completement|definitivement)\s+){0,2}(cette experience|cette ligne|ce poste|ce bloc|le bloc|l experience(?: complete| entiere)?)\b/.test(source),
     };
 };
 
@@ -10634,7 +15395,10 @@ const applyQuickExperienceRemoval = (message = '') => {
         return '';
     }
 
-    const entries = repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
+    // Garde les lignes originales : une suppression ciblee ne doit pas
+    // reserialiser (et donc potentiellement reformater) les autres parcours.
+    const lines = splitLines(field.value);
+    const entries = lines.map(parseExperienceEntry);
     if (!entries.length) {
         return '';
     }
@@ -10668,10 +15432,22 @@ const applyQuickExperienceRemoval = (message = '') => {
             }
             return cleanupExperienceEntryFragments(entry, tokens) || entry;
         });
-        const fragmentChanged = updatedEntries.some((entry, index) => serializeExperienceEntry(entry) !== serializeExperienceEntry(entries[index]));
-        if (fragmentChanged) {
+        const changedIndexes = updatedEntries
+            .map((entry, index) => ({
+                index,
+                changed: serializeExperienceEntry(entry) !== serializeExperienceEntry(entries[index]),
+            }))
+            .filter((item) => item.changed)
+            .map((item) => item.index);
+        // Une mention ambigue presente dans plusieurs experiences n'est pas
+        // retiree automatiquement. Kirby demandera alors une cible precise.
+        if (changedIndexes.length === 1) {
             const beforeState = getCvHistoryState();
-            field.value = updatedEntries.map(serializeExperienceEntry).filter(Boolean).join('\n');
+            field.value = lines
+                .map((line, index) =>
+                    index === changedIndexes[0] ? serializeExperienceEntry(updatedEntries[index]) : line)
+                .filter(Boolean)
+                .join('\n');
             clearEditableOverride('experience');
             renderExperienceEditor();
             updateCvPreview();
@@ -10680,6 +15456,10 @@ const applyQuickExperienceRemoval = (message = '') => {
             setCvStatus('Mention supprimée dans l’expérience');
             return 'Mention supprimée dans l’expérience ciblée.';
         }
+
+        // Ne jamais convertir implicitement une demande de retrait de mission
+        // en suppression de l'experience entiere.
+        return '';
     }
 
     let indexesToRemove = [];
@@ -10687,11 +15467,12 @@ const applyQuickExperienceRemoval = (message = '') => {
         indexesToRemove = [selectedIndex];
     } else if (duplicateOnly && matchingIndexes.length > 1) {
         indexesToRemove = matchingIndexes.slice(1);
-    } else if (!duplicateOnly && matchingIndexes.length) {
-        indexesToRemove = matchingIndexes.filter((index) => {
-            const scoredEntry = scoredEntries.find((item) => item.index === index);
-            return scoredEntry && (scoredEntry.titleScore > 0 || scoredEntry.dateScore > 0);
-        });
+    } else if (wholeBlock && scoredEntries.length) {
+        const bestMatch = scoredEntries[0];
+        const hasTie = scoredEntries[1] && scoredEntries[1].score === bestMatch.score;
+        if (!hasTie && (bestMatch.titleScore > 0 || bestMatch.dateScore > 0)) {
+            indexesToRemove = [bestMatch.index];
+        }
     }
 
     indexesToRemove = [...new Set(indexesToRemove)].filter((index) => Number.isInteger(index) && entries[index]);
@@ -10700,8 +15481,7 @@ const applyQuickExperienceRemoval = (message = '') => {
     }
 
     const beforeState = getCvHistoryState();
-    const keptEntries = entries.filter((_, index) => !indexesToRemove.includes(index));
-    field.value = keptEntries.map(serializeExperienceEntry).filter(Boolean).join('\n');
+    field.value = lines.filter((_, index) => !indexesToRemove.includes(index)).join('\n');
     clearEditableOverride('experience');
     renderExperienceEditor();
     updateCvPreview();
@@ -10814,167 +15594,44 @@ const applyQuickCvTypographyAdjustment = (message = '') => {
     return 'Contenu principal réduit dans le CV.';
 };
 
-const applyQuickSalesRefocusCorrection = (message = '') => {
-    const source = normalizeForMatch(message);
-    const mentionsSalesTarget = /\b(camaieu|camaïeu|vente|vendeuse|vendeur|conseillere de vente|conseillère de vente|lifestyle|mode)\b/.test(source);
-    const mentionsRefocusNeed = /\b(dominant|dominance|plus importante|plus visible|experience principale|experience la plus importante|adapter au poste|poste de vente|trop dominant|trop dominante|second plan|plus secondaire|mets en avant|mettre en avant|mettre en valeur|plus d element|plus d'element|plus d’elements|plus d'elements)\b/.test(source);
-    const mentionsWebBlock = /\b(developpeuse web|développeuse web|full stack|web full stack|projet web|web)\b/.test(source);
-    const mentionsNoInvent = /\b(n ajoute pas|n'ajoute pas|sans rajouter|n invente pas|n'invente pas)\b/.test(source);
-    const wantsFeminineSalesTitle = /\b(fatima|feminin|féminin|vendeuse)\b/.test(source);
-    const refusesDateBasedReorder = /\b(pas remonter|pas par la date|pas avec les dates|sans changer l ordre|sans changer l'ordre|garde l ordre|garder l ordre|garder l'ordre)\b/.test(source);
-
-    if (!wantsFeminineSalesTitle && !(mentionsSalesTarget && (mentionsRefocusNeed || mentionsWebBlock || mentionsNoInvent))) {
-        return '';
-    }
-
-    const beforeState = getCvHistoryState();
-    let changed = false;
-    const headlineField = cvForm?.elements.headline;
-    const summaryField = cvForm?.elements.summary;
-    const skillsField = cvForm?.elements.skills;
-    const experienceField = getExperienceField();
-
-    if (headlineField) {
-        const currentHeadline = formatCvHeadline(headlineField.value || '');
-        const nextHeadline = /vendeur/i.test(currentHeadline) || mentionsSalesTarget
-            ? 'Conseillère de vente'
-            : currentHeadline;
-
-        if (nextHeadline && nextHeadline !== currentHeadline) {
-            headlineField.value = nextHeadline;
-            changed = true;
-        }
-    }
-
-    if (summaryField && (mentionsSalesTarget || mentionsRefocusNeed)) {
-        const nextSummary = normalizeCvSentenceText(
-            'Professionnelle de la vente et de la relation client, avec expérience en accueil, conseil, fidélisation et accompagnement personnalisé. À l’aise en point de vente, je contribue au chiffre d’affaires, à la gestion des stocks et à la bonne tenue du merchandising avec une approche orientée service et résultats.'
-        );
-
-        if (nextSummary && nextSummary !== summaryField.value) {
-            summaryField.value = nextSummary;
-            changed = true;
-        }
-    }
-
-    if (skillsField && (mentionsSalesTarget || mentionsNoInvent)) {
-        const existingSkills = splitLines(skillsField.value).map(normalizeCvSentenceText);
-        const blockedSkills = [
-            /developpement d[’']?applications?\s+web/i,
-            /\bux\/ui\b/i,
-            /\btests?\s+fonctionnels?\b/i,
-            /^\s*ia\s*$/i,
-            /communication digitale/i,
-            /logique algorithmique/i,
-            /culture numerique/i,
-            /apprentissage par projet/i,
-            /conception d[’']?interfaces?\s+utilisateur/i,
-            /gestion de bases de donnees/i,
-            /deploiement d[’']?applications/i,
-            /gestion de projet digital/i,
-        ];
-        const keptSkills = existingSkills.filter((skill) => !blockedSkills.some((pattern) => pattern.test(skill)));
-        const salesSkills = [
-            'Relation client',
-            'Accueil',
-            'Conseil client',
-            'Analyse des besoins',
-            'Fidélisation client',
-            'Développement du chiffre d’affaires',
-            'Gestion des stocks',
-            'Réassort',
-            'Merchandising',
-            'Organisation',
-            'Autonomie',
-            'Gestion d’équipe',
-        ];
-        const nextSkills = dedupeCvSkillItems([...salesSkills, ...keptSkills]).slice(0, 12).join('\n');
-
-        if (nextSkills && nextSkills !== skillsField.value) {
-            skillsField.value = nextSkills;
-            changed = true;
-        }
-    }
-
-    if (experienceField && (mentionsSalesTarget || mentionsRefocusNeed || mentionsWebBlock)) {
-        const entries = getExperienceSourceEntries();
-        if (entries.length) {
-            const camaieuIndex = entries.findIndex((entry) => /\bcama[ïi]eu\b/i.test(`${entry.title} ${entry.meta}`));
-            const reordered = [...entries];
-
-            if (camaieuIndex !== -1) {
-                const camaieuEntry = reordered[camaieuIndex];
-                const nextCamaieu = {
-                    ...camaieuEntry,
-                    title: formatCvHeadline(camaieuEntry.title || 'Responsable Adjointe'),
-                    meta: normalizeCvSentenceText(camaieuEntry.meta || 'Camaïeu, Rueil-Malmaison'),
-                    bullets: dedupeImportedItems([
-                        'Accueil, conseil et fidélisation de la clientèle en point de vente',
-                        'Contribution au développement du chiffre d’affaires et accompagnement à la vente',
-                        'Gestion des stocks, réassorts et bonne tenue de l’espace de vente',
-                        'Participation au merchandising et à la mise en valeur des produits',
-                        'Coordination de l’équipe au quotidien et suivi de l’activité magasin',
-                    ]),
-                };
-                reordered[camaieuIndex] = nextCamaieu;
-
-                if (!refusesDateBasedReorder && camaieuIndex > 0 && /\b(experience principale|experience la plus importante|place la en premier|place la en tete|mets la en premier)\b/.test(source)) {
-                    reordered.splice(camaieuIndex, 1);
-                    reordered.unshift(nextCamaieu);
-                }
-            }
-
-            const nextExperience = reordered.map(serializeExperienceEntry).filter(Boolean).join('\n');
-            if (nextExperience && nextExperience !== experienceField.value) {
-                experienceField.value = nextExperience;
-                changed = true;
-            }
-        }
-    }
-
-    if (!changed) {
-        return '';
-    }
-
-    clearEditableOverrides();
-    updateCvPreview();
-    renderExperienceEditor();
-    renderLanguageEditor();
-    commitCvHistoryTransition(beforeState);
-    scheduleCvDraftSave();
-    setCvStatus('CV recentré sur la vente');
-
-    return refusesDateBasedReorder
-        ? 'CV recentré sur la vente : Camaïeu renforcé par le contenu, sans remonter l’expérience par la date, bloc web réduit et compétences recentrées.'
-        : 'CV recentré sur la vente : titre féminisé, Camaïeu mis en avant, bloc web réduit et compétences recentrées sans ajout inventé.';
-};
-
 const applyQuickKirbyCorrection = (message = '') => {
-    const directCorrections = [
-        applyQuickContactDetailsCorrection(message),
-        applyTargetedDigitalCvCompletion(message),
-        applyQuickCvTypographyAdjustment(message),
-        getQuickEditorBugReport(message),
-        applyQuickTitleGenderCorrection(message),
-        applyQuickLanguageCorrections(message),
-        applyQuickExperienceDateMonthRemoval(message),
-        applyQuickExperienceDateCorrection(message),
-        applyQuickExperienceRemoval(message),
-    ].filter(Boolean);
+    const explicitHeadlineReply = applyQuickExplicitHeadlineCorrection(message);
+    if (explicitHeadlineReply) {
+        return explicitHeadlineReply;
+    }
 
-    if (directCorrections.length) {
-        return directCorrections.join(' ');
+    const directCorrectionHandlers = [
+        applyQuickContactDetailsCorrection,
+        applyQuickCvTypographyAdjustment,
+        getQuickEditorBugReport,
+        applyQuickTitleGenderCorrection,
+        applyQuickSummarySentenceLimit,
+        applyQuickLanguageCorrections,
+        applyQuickExperienceDateMonthRemoval,
+        applyQuickRecentCvDateFollowUp,
+        applyQuickExactDateReplacement,
+        applyQuickExperienceDateCorrection,
+        applyQuickExperienceRemoval,
+    ];
+
+    // Chaque correcteur est atomique : dès qu'une intention précise a été
+    // comprise, aucun autre correcteur ne doit modifier le CV en parallèle.
+    for (const handler of directCorrectionHandlers) {
+        const reply = handler(message);
+        if (reply) {
+            return reply;
+        }
     }
 
     return applyQuickExperienceSortCorrection(message);
 };
 
 const isQuickKirbyMutationReply = (reply = '') =>
-    /^(CV complété|Coordonnées mises à jour|Langues mises à jour|Titre appliqué|Date mise à jour|Mois retirés|Expériences rangées|Mention supprimée|Doublons supprimés|Expérience supprimée|CV recentré)/i.test(String(reply || '').trim());
+    /^(CV corrigé|CV complété|Coordonnées mises à jour|Langues mises à jour|Titre appliqué|Titre mis à jour|Profil raccourci|Date mise à jour|Mois retirés|Expériences rangées|Mention supprimée|Doublons supprimés|Expérience supprimée|CV recentré)/i.test(String(reply || '').trim());
 
 const reorderExistingExperiences = (order = []) => {
     const field = getExperienceField();
-    const lines = field ? repairPreviewExperienceItems(splitLines(field.value)) : [];
+    const lines = field ? splitLines(field.value) : [];
 
     if (!field || !lines.length || !Array.isArray(order) || !order.length) {
         return false;
@@ -11021,6 +15678,24 @@ const reorderExistingExperiences = (order = []) => {
 
     field.value = reordered.join('\n');
     clearEditableOverride('experience');
+    return true;
+};
+
+const reorderExistingSkills = (order = [], options = {}) => {
+    const field = cvForm?.elements.skills;
+    const items = field ? splitLines(field.value) : [];
+    if (!field || items.length < 2) {
+        return false;
+    }
+
+    const reordered = reorderCvSkillItems(items, Array.isArray(order) ? order : [], options);
+    const nextValue = reordered.join('\n');
+    if (!nextValue || nextValue === items.join('\n')) {
+        return false;
+    }
+
+    field.value = nextValue;
+    clearEditableOverride('skills');
     return true;
 };
 
@@ -11270,14 +15945,15 @@ const kirbySectionActions = [
 
 const hasExplicitDestructiveCvRemoval = (instruction = '') => {
     const source = normalizeForMatch(String(instruction || '')).replace(/[’']/g, ' ');
-    const asksRemoval = /\b(supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|masque|masquer)\b|pas besoin de/.test(source);
-    const negatesRemoval = /\b(ne|n)\s+(?:me\s+)?(?:supprime|retire|enleve|efface)\s+pas\b|sans\s+(?:me\s+)?(?:supprimer|retirer|enlever|effacer)|ne touche pas|garde|conserve/.test(source);
+    const asksRemoval = /\b(supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|masque|masquer|remove|delete|hide)\b|pas besoin de/.test(source);
+    const negatesRemoval = /\b(ne|n)\s+(?:me\s+)?(?:supprime|retire|enleve|efface)\s+(?:pas|plus|jamais|rien)\b|\b(?:ne|n)\s+(?:rien\s+)?(?:a\s+)?(?:supprimer|retirer|enlever|effacer)\b|\bpas(?:\s+[a-z0-9-]+){0,7}\s+(?:supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer)\b|sans\s+(?:me\s+)?(?:rien\s+)?(?:supprimer|retirer|enlever|effacer)|\b(?:do not|don t|dont|not|never|without)(?:\s+[a-z0-9-]+){0,7}\s+(?:remove|delete|hide)\b|ne touche pas|garde|conserve|keep|preserve/.test(source);
 
     return asksRemoval && !negatesRemoval;
 };
 
 const getKirbyLayoutIntent = (instruction = '', layout = {}) => {
     const source = normalizeForMatch(String(instruction || '')).replace(/[’']/g, ' ');
+    const singlePageAsked = isCvSinglePageRequest(instruction);
     const removalAsked = hasExplicitDestructiveCvRemoval(instruction);
     const duplicateCleanupAsked = /\b(doublon|doublons|repetition|repetitions)\b/.test(source);
     const sectionRemovalAsked = removalAsked && !duplicateCleanupAsked;
@@ -11298,7 +15974,30 @@ const getKirbyLayoutIntent = (instruction = '', layout = {}) => {
         })
         : [];
     const reflowAsked = /\b(trou|espace vide|vide sous|mise en page|equilibr|reequilibr|remonter|reorganis|aeration)\b/.test(source);
-    const compactAsked = /\b(compact|compacter|une page|trop long)\b/.test(source);
+    const compactAsked = /\b(compact|compacter|trop long)\b/.test(source) || singlePageAsked;
+    const requestedTemplate = [
+        ['holographic', /\b(?:glass )?holograph(?:ique|ic)\b/],
+        ['digital', /\b(?:glass )?digital\b/],
+        ['creative', /\bcreati(?:f|ve)\b/],
+        ['premium', /\bpremium\b/],
+        ['elegant', /\belegant\b/],
+        ['wordpro', /\bword pro\b/],
+        ['ats', /\b(?:classique )?ats\b/],
+        ['modern', /\bmoderne?\b|\bmodern\b/],
+    ].find(([, pattern]) => pattern.test(source))?.[0] || '';
+    const requestedPalette = [
+        ['indigo', /\bindigo\b/],
+        ['emerald', /\b(?:emerald|emeraude)\b/],
+        ['rose', /\brose\b|\bpink\b/],
+        ['graphite', /\bgraphite\b/],
+    ].find(([, pattern]) => pattern.test(source))?.[0] || '';
+    const template = requestedTemplate || (layout?.template && layout.template !== 'auto' ? layout.template : '');
+    const palette = requestedPalette || (layout?.palette && layout.palette !== 'auto' ? layout.palette : '');
+    const density = compactAsked
+        ? 'compact'
+        : layout?.density && layout.density !== 'auto'
+            ? layout.density
+            : '';
     const reflow = reflowAsked && Boolean(layout?.reflow || reflowAsked);
     const compact = compactAsked && Boolean(layout?.compact || compactAsked);
 
@@ -11307,7 +16006,11 @@ const getKirbyLayoutIntent = (instruction = '', layout = {}) => {
         namedSkillRemovals,
         replaceSkills: removeSections.includes('skills') || namedSkillRemovals.length > 0,
         reflow,
-        compact,
+        compact: compact || density === 'compact' || layout?.singlePage === true,
+        template,
+        palette,
+        density,
+        singlePage: layout?.singlePage === true || singlePageAsked,
     };
 };
 
@@ -11317,6 +16020,20 @@ const applyKirbyLayoutIntent = (intent = {}) => {
     }
 
     const changes = [];
+
+    if (intent.template && cvForm.elements.layoutTheme && cvForm.elements.layoutTheme.value !== intent.template) {
+        cvForm.elements.layoutTheme.value = intent.template;
+        changes.push(`modèle ${intent.template}`);
+    }
+
+    if (intent.palette && cvForm.elements.colorTheme) {
+        const palette = modernColorPalettes[intent.palette];
+        const paletteNeedsApplication = cvForm.elements.colorTheme.value !== intent.palette
+            || Object.entries(palette || {}).some(([name, value]) => cvForm.elements[name]?.value !== value);
+        cvForm.elements.colorTheme.value = intent.palette;
+        applyModernColorPalette(intent.palette);
+        if (paletteNeedsApplication) changes.push(`palette ${intent.palette}`);
+    }
     (intent.removeSections || []).forEach((key) => {
         const field = cvForm.elements[key];
         const section = kirbySectionActions.find((item) => item.key === key);
@@ -11331,10 +16048,20 @@ const applyKirbyLayoutIntent = (intent = {}) => {
     });
 
     if (intent.compact) {
+        const changed = cvForm.elements.fontSize?.value !== 'compact' || cvForm.elements.lineSpacing?.value !== 'tight';
+        if (cvForm.elements.fontSize) cvForm.elements.fontSize.value = 'compact';
+        if (cvForm.elements.lineSpacing) cvForm.elements.lineSpacing.value = 'tight';
+        if (changed) changes.push(intent.singlePage ? 'composition compacte sur une page' : 'mise en page compacte');
+    } else if (intent.density === 'airy') {
+        const changed = cvForm.elements.fontSize?.value !== 'normal' || cvForm.elements.lineSpacing?.value !== 'airy';
+        if (cvForm.elements.fontSize) cvForm.elements.fontSize.value = 'normal';
+        if (cvForm.elements.lineSpacing) cvForm.elements.lineSpacing.value = 'airy';
+        if (changed) changes.push('mise en page aérée');
+    } else if (intent.density === 'normal') {
         const changed = cvForm.elements.fontSize?.value !== 'normal' || cvForm.elements.lineSpacing?.value !== 'normal';
         if (cvForm.elements.fontSize) cvForm.elements.fontSize.value = 'normal';
         if (cvForm.elements.lineSpacing) cvForm.elements.lineSpacing.value = 'normal';
-        if (changed) changes.push('mise en page lisible');
+        if (changed) changes.push('densité normale');
     } else if (intent.reflow) {
         let changed = false;
         if (cvForm.elements.fontSize?.value === 'large') {
@@ -11351,9 +16078,67 @@ const applyKirbyLayoutIntent = (intent = {}) => {
     return changes;
 };
 
-const applyKirbyExtractedCv = (extracted = {}) => {
+const applyKirbyExtractedCv = (extracted = {}, { replace = false } = {}) => {
     if (!cvForm || !extracted || typeof extracted !== 'object') {
         return [];
+    }
+
+    if (replace) {
+        const fieldMap = {
+            fullName: extracted.fullName,
+            location: extracted.location,
+            phone: extracted.phone,
+            email: extracted.email,
+            permit: extracted.permit,
+            headline: extracted.headline,
+            summary: extracted.summary,
+            skills: getImportedExtractionList(extracted, 'skills').join('\n'),
+            experience: getImportedExtractionList(
+                { experiences: extracted.experiences ?? extracted.experience },
+                'experiences'
+            ).join('\n'),
+            projects: getImportedExtractionList(extracted, 'projects').join('\n'),
+            education: getImportedExtractionList(extracted, 'education').join('\n'),
+            activities: getImportedExtractionList(extracted, 'activities').join('\n'),
+            languages: getImportedExtractionList(extracted, 'languages').join('\n'),
+        };
+        const nextValues = Object.entries(fieldMap).reduce((output, [name, value]) => {
+            const rawValue = String(value || '');
+            output[name] = name === 'fullName'
+                ? getSafeFullNameValue(rawValue)
+                : ['phone', 'email'].includes(name)
+                    ? rawValue.trim()
+                    : ['skills', 'experience', 'projects', 'education', 'activities', 'languages'].includes(name)
+                        ? normalizeCvTextareaValue(name, rawValue)
+                        : normalizeCvSentenceText(rawValue);
+            return output;
+        }, {});
+        const previousValues = {};
+        const changes = [];
+
+        try {
+            Object.entries(nextValues).forEach(([name, value]) => {
+                const field = cvForm.elements[name];
+                if (!field) {
+                    return;
+                }
+                previousValues[name] = field.value;
+                if (field.value !== value) {
+                    field.value = value;
+                    changes.push(name);
+                }
+            });
+        } catch (error) {
+            Object.entries(previousValues).forEach(([name, value]) => {
+                if (cvForm.elements[name]) {
+                    cvForm.elements[name].value = value;
+                }
+            });
+            throw error;
+        }
+
+        clearEditableOverrides();
+        return changes;
     }
 
     const changes = [];
@@ -11516,8 +16301,88 @@ const getOperationTargetScore = (entry = {}, operation = {}) => {
 
 const findExperienceIndexForOperation = (entries = [], operation = {}) => {
     const targetIndex = Number.isInteger(operation.target?.index) ? operation.target.index : null;
+    const targetTitle = normalizeForMatch(operation.target?.title || '');
+    const targetOrganization = normalizeForMatch(operation.target?.organization || '');
+    const targetCurrentValue = String(operation.target?.currentValue || '').trim();
+    const targetDateTokens = getCvDatedTokens(targetCurrentValue);
+    const isDateUpdate = operation.type === 'update_experience_date';
+    const entryMatchesStableTarget = (entry = {}) => {
+        const title = normalizeForMatch(entry.title || '');
+        const organization = normalizeForMatch(entry.meta || '');
+        return (!targetTitle || title.includes(targetTitle) || targetTitle.includes(title))
+            && (!targetOrganization
+                || organization.includes(targetOrganization)
+                || targetOrganization.includes(organization));
+    };
+    const entryMatchesCurrentValue = (entry = {}) => !targetCurrentValue
+        || normalizeForMatch(entry.date || '').includes(normalizeForMatch(targetCurrentValue))
+        || (targetDateTokens.length > 0 && targetDateTokens.every((token) =>
+            getEquivalentCvDateTokenOccurrences(entry.date || '', token).length === 1
+        ));
+
+    if (isDateUpdate) {
+        const hasStableIdentity = Boolean(targetTitle || targetOrganization);
+        if (targetIndex !== null && entries[targetIndex]) {
+            // Pour un suivi, currentValue peut légitimement être l'état du tour
+            // précédent. Un index n'est accepté que si les identifiants stables
+            // fournis (poste/entreprise) confirment encore la même ligne.
+            if (hasStableIdentity && entryMatchesStableTarget(entries[targetIndex])) {
+                return targetIndex;
+            }
+            if (!hasStableIdentity && entryMatchesCurrentValue(entries[targetIndex])) {
+                return targetIndex;
+            }
+            return -1;
+        }
+
+        if (hasStableIdentity) {
+            const stableMatches = entries
+                .map((entry, index) => ({ entry, index }))
+                .filter(({ entry }) => entryMatchesStableTarget(entry))
+                .map(({ index }) => index);
+            if (stableMatches.length === 1) {
+                return stableMatches[0];
+            }
+            if (stableMatches.length > 1) {
+                // Une ancienne date qui existe encore sur une autre ligne ne
+                // doit jamais détourner le suivi vers cette autre expérience.
+                return -2;
+            }
+            return -1;
+        }
+
+        const selectedIndex = getSelectedExperienceIndex();
+        const targetText = getOperationTargetText(operation);
+        if (selectedIndex !== null && entries[selectedIndex] && (!targetText || /cette|selection|sélection/i.test(targetText))) {
+            return selectedIndex;
+        }
+
+        const currentValueMatches = entries
+            .map((entry, index) => ({ entry, index }))
+            .filter(({ entry }) => entryMatchesCurrentValue(entry))
+            .map(({ index }) => index);
+        if (currentValueMatches.length === 1) {
+            return currentValueMatches[0];
+        }
+        if (currentValueMatches.length > 1) {
+            return -2;
+        }
+        return entries.length === 1 ? 0 : -1;
+    }
+
     if (targetIndex !== null && entries[targetIndex]) {
-        return targetIndex;
+        const indexedEntry = entries[targetIndex];
+        const indexedText = normalizeForMatch(`${indexedEntry.title || ''} ${indexedEntry.meta || ''} ${indexedEntry.date || ''}`);
+        const titleMatches = !targetTitle || indexedText.includes(targetTitle);
+        const organizationMatches = !targetOrganization || indexedText.includes(targetOrganization);
+        const currentValueMatches = entryMatchesCurrentValue(indexedEntry);
+
+        // Un index produit par le modèle n'est qu'un indice. Dès qu'un autre
+        // identifiant est fourni, il doit confirmer la même expérience.
+        if (titleMatches && organizationMatches && currentValueMatches) {
+            return targetIndex;
+        }
+        return -1;
     }
 
     const selectedIndex = getSelectedExperienceIndex();
@@ -11595,7 +16460,10 @@ const getReorderPosition = (operation = {}) => {
 
 const moveExperienceForOperation = (operation = {}) => {
     const field = getExperienceField();
-    const lines = field ? repairPreviewExperienceItems(splitLines(field.value)) : [];
+    // Un déplacement ne doit jamais normaliser le contenu des autres lignes.
+    // On travaille donc sur les lignes stockées telles quelles et on ne change
+    // que leur position.
+    const lines = field ? splitLines(field.value) : [];
     const entries = lines.map(parseExperienceEntry);
     const position = getReorderPosition(operation);
 
@@ -11699,7 +16567,336 @@ const removeExperienceBulletForOperation = (entries = [], operation = {}) => {
     return changed ? nextEntries : null;
 };
 
-const applyKirbyOperation = (operation = {}, context = {}) => {
+const KIRBY_TEXT_MUTATION_FIELDS = [
+    'headline',
+    'summary',
+    'skills',
+    'experience',
+    'projects',
+    'education',
+    'activities',
+    'languages',
+    'permit',
+    'location',
+    'phone',
+    'email',
+    'fullName',
+];
+
+const escapeKirbyTextPattern = (value = '') =>
+    String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const cleanupKirbyMutatedFieldValue = (fieldName = '', value = '') => {
+    const source = String(value || '')
+        .replace(/\s+•\s+•\s+/g, ' • ')
+        .replace(/\s+•\s*(?=\n|$)/g, '')
+        .replace(/[ \t]{2,}/g, ' ')
+        .trim();
+
+    if (['skills', 'experience', 'projects', 'education', 'activities', 'languages'].includes(fieldName)) {
+        return source
+            .split(/\r?\n/)
+            .map((line) => line.replace(/^[\s•|,;–—-]+|[\s•|,;–—-]+$/g, '').trim())
+            .filter(Boolean)
+            .join('\n');
+    }
+
+    return source.replace(/\s+([,.;:!?])/g, '$1');
+};
+
+const applyKirbyOngoingDateTextReplacement = (operation = {}) => {
+    const field = getExperienceField();
+    const targetMarker = String(operation.target?.currentValue || operation.target?.label || '').trim();
+    const replacement = getQuickExperienceDateValue(operation.value || '');
+    if (!field || !isOngoingExperienceDateMarker(targetMarker) || !replacement) {
+        return false;
+    }
+
+    const lines = splitLines(field.value);
+    const entries = lines.map(parseExperienceEntry);
+    const explicitIndex = Number.isInteger(operation.target?.index) && entries[operation.target.index]
+        ? operation.target.index
+        : null;
+    const matchingIndexes = entries
+        .map((entry, index) => ({ entry, index }))
+        .filter(({ entry }) => String(entry.date || '').split(/\s+[–—-]\s+/).some(isOngoingExperienceDateMarker))
+        .map(({ index }) => index);
+    const targetIndex = explicitIndex !== null && matchingIndexes.includes(explicitIndex)
+        ? explicitIndex
+        : matchingIndexes.length === 1
+            ? matchingIndexes[0]
+            : -1;
+    if (targetIndex < 0) {
+        return false;
+    }
+
+    const nextDate = replaceOngoingExperienceDateEnd(entries[targetIndex].date, replacement);
+    if (!nextDate || normalizeExperienceDateText(entries[targetIndex].date) === nextDate) {
+        return false;
+    }
+
+    const patch = patchRawCvDateAtLogicalLine({
+        fieldValue: field.value,
+        logicalIndex: targetIndex,
+        currentDate: entries[targetIndex].date,
+        replacementDate: nextDate,
+    });
+    if (!patch) {
+        return false;
+    }
+
+    field.value = patch.nextValue;
+    syncKirbyDatePresentationOverride('experience', entries[targetIndex].date, nextDate);
+    return true;
+};
+
+const applyKirbyCollectionDateTextReplacement = (operation = {}) => {
+    const fieldName = ['education', 'projects'].includes(operation.field) ? operation.field : '';
+    const field = fieldName && cvForm?.elements[fieldName];
+    const currentValue = String(operation.target?.currentValue || '').trim();
+    const requestedValue = String(operation.value || '').trim();
+    const targetTitle = normalizeForMatch(
+        operation.target?.title || operation.target?.label || operation.target?.organization || '',
+    );
+    if (
+        operation.type !== 'replace_text'
+        || !field
+        || !currentValue
+        || !requestedValue
+        || !getCvDateValueTokenMatches(currentValue).length
+        || !getCvDateValueTokenMatches(requestedValue).length
+    ) {
+        return false;
+    }
+
+    const candidates = getRawCvLineRecords(field.value)
+        .filter((record) => record.logicalIndex !== null)
+        .filter((record) => !targetTitle || normalizeForMatch(record.text).includes(targetTitle))
+        .flatMap((record) => {
+            const segment = getRawCvDateSegment(record.text);
+            if (!segment) {
+                return [];
+            }
+            return getEquivalentCvDateValueOccurrences(record.text, currentValue, segment)
+                .map((occurrence) => ({ record, occurrence }));
+        });
+    if (candidates.length !== 1) {
+        return false;
+    }
+
+    const { record, occurrence } = candidates[0];
+    const replacement = replaceCvDateValuePreservingSeparators(
+        occurrence.value,
+        requestedValue,
+        operation.reason || '',
+    );
+    if (!replacement || replacement === occurrence.value) {
+        return false;
+    }
+
+    const absoluteStart = record.start + occurrence.start;
+    const absoluteEnd = record.start + occurrence.end;
+    const source = String(field.value || '');
+    field.value = source.slice(0, absoluteStart) + replacement + source.slice(absoluteEnd);
+    syncKirbyDatePresentationOverride(fieldName, occurrence.value, replacement);
+    return true;
+};
+
+const applyKirbyTextMutationOperation = (operation = {}) => {
+    const currentValue = String(
+        operation.target?.currentValue ||
+        operation.target?.label ||
+        operation.target?.title ||
+        ''
+    ).trim();
+    if (!currentValue || !cvForm) {
+        return false;
+    }
+
+    const requestedField = KIRBY_TEXT_MUTATION_FIELDS.includes(operation.field) ? operation.field : '';
+    const isOngoingDateReplacement = operation.type === 'replace_text'
+        && (!requestedField || requestedField === 'experience')
+        && isOngoingExperienceDateMarker(currentValue)
+        && Boolean(getQuickExperienceDateValue(operation.value || ''));
+    if (isOngoingDateReplacement) {
+        return applyKirbyOngoingDateTextReplacement(operation);
+    }
+
+    // Les dates d'expérience utilisent leur opération structurée dédiée. Une
+    // date de formation ou de projet peut passer par replace_text uniquement
+    // dans sa rubrique et seulement si une ligne unique correspond.
+    const containsDateToken = getCvDatedTokens(currentValue).length > 0
+        || isOngoingExperienceDateMarker(currentValue);
+    if (containsDateToken) {
+        return applyKirbyCollectionDateTextReplacement(operation);
+    }
+
+    const fieldNames = requestedField ? [requestedField] : KIRBY_TEXT_MUTATION_FIELDS;
+    const replacement = operation.type === 'remove_text' ? '' : String(operation.value || '');
+    const pattern = new RegExp(escapeKirbyTextPattern(currentValue), 'gi');
+    let changed = false;
+
+    fieldNames.forEach((fieldName) => {
+        const field = cvForm.elements[fieldName];
+        if (!field || !pattern.test(field.value || '')) {
+            pattern.lastIndex = 0;
+            return;
+        }
+        pattern.lastIndex = 0;
+        const nextValue = cleanupKirbyMutatedFieldValue(
+            fieldName,
+            String(field.value || '').replace(pattern, replacement)
+        );
+        pattern.lastIndex = 0;
+        if (nextValue === field.value) {
+            return;
+        }
+        field.value = nextValue;
+        clearContactEditableOverride(fieldName);
+        changed = true;
+    });
+
+    return changed;
+};
+
+const getExperienceMutationLines = (value = '') =>
+    splitLines(String(value || '')).map((line) => line.trim()).filter(Boolean);
+
+const getExperienceMutationMultiset = (lines = []) => {
+    const counts = new Map();
+    lines.forEach((line) => {
+        const key = String(line || '').trim();
+        counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    return counts;
+};
+
+const experienceMutationMultisetsEqual = (left = [], right = []) => {
+    if (left.length !== right.length) {
+        return false;
+    }
+    const leftCounts = getExperienceMutationMultiset(left);
+    const rightCounts = getExperienceMutationMultiset(right);
+    if (leftCounts.size !== rightCounts.size) {
+        return false;
+    }
+    return [...leftCounts].every(([key, count]) => rightCounts.get(key) === count);
+};
+
+const experienceMutationContainsEveryLine = (container = [], expected = []) => {
+    const available = getExperienceMutationMultiset(container);
+    return expected.every((line) => {
+        const key = String(line || '').trim();
+        const count = available.get(key) || 0;
+        if (!count) {
+            return false;
+        }
+        available.set(key, count - 1);
+        return true;
+    });
+};
+
+const experienceMutationLineArraysEqual = (left = [], right = []) =>
+    left.length === right.length && left.every((line, index) => line === right[index]);
+
+const getExperienceMutationFacts = (entry = {}) => ({
+    title: normalizeForMatch(entry.title || ''),
+    meta: normalizeForMatch(entry.meta || ''),
+    date: normalizeExperienceDateText(entry.date || ''),
+    bullets: (entry.bullets || []).map(normalizeForMatch),
+});
+
+const getExperienceMutationTargetIndex = (lines = [], operation = {}) => {
+    const entries = lines.map(parseExperienceEntry);
+    if (operation.type === 'replace_text' && isOngoingExperienceDateMarker(
+        operation.target?.currentValue || operation.target?.label || ''
+    )) {
+        const matching = entries
+            .map((entry, index) => ({ entry, index }))
+            .filter(({ entry }) => String(entry.date || '').split(/\s+[–—-]\s+/).some(isOngoingExperienceDateMarker));
+        return matching.length === 1 ? matching[0].index : -1;
+    }
+    return findExperienceIndexForOperation(entries, operation);
+};
+
+const isKirbyExperienceMutationNonDestructive = ({ beforeValue = '', afterValue = '', operation = {}, targetIndex = -1 } = {}) => {
+    const beforeLines = getExperienceMutationLines(beforeValue);
+    const afterLines = getExperienceMutationLines(afterValue);
+
+    if (['sort_experiences', 'reorder_experiences'].includes(operation.type)) {
+        return experienceMutationMultisetsEqual(beforeLines, afterLines);
+    }
+
+    if (operation.type === 'add_experience') {
+        return afterLines.length === beforeLines.length + 1
+            && experienceMutationLineArraysEqual(afterLines.slice(0, beforeLines.length), beforeLines);
+    }
+
+    if (operation.type === 'remove_experience') {
+        return targetIndex >= 0
+            && beforeLines.length === afterLines.length + 1
+            && experienceMutationLineArraysEqual(
+                afterLines,
+                beforeLines.filter((_, index) => index !== targetIndex),
+            );
+    }
+
+    const isDateUpdate = operation.type === 'update_experience_date'
+        || (operation.type === 'replace_text'
+            && isOngoingExperienceDateMarker(operation.target?.currentValue || operation.target?.label || ''));
+    const isTargetedUpdate = isDateUpdate || [
+        'update_experience_title',
+        'set_experience_bullets',
+        'remove_experience_bullet',
+    ].includes(operation.type) || (
+        ['replace_text', 'remove_text'].includes(operation.type)
+        && operation.field === 'experience'
+    );
+    if (!isTargetedUpdate) {
+        return true;
+    }
+
+    if (targetIndex < 0 || beforeLines.length !== afterLines.length || !beforeLines[targetIndex] || !afterLines[targetIndex]) {
+        return false;
+    }
+
+    const beforeOtherLines = beforeLines.filter((_, index) => index !== targetIndex);
+    const afterOtherLines = afterLines.filter((_, index) => index !== targetIndex);
+    if (!experienceMutationLineArraysEqual(beforeOtherLines, afterOtherLines)) {
+        return false;
+    }
+
+    const beforeTarget = getExperienceMutationFacts(parseExperienceEntry(beforeLines[targetIndex]));
+    const afterTarget = getExperienceMutationFacts(parseExperienceEntry(afterLines[targetIndex]));
+    const sameTitle = beforeTarget.title === afterTarget.title;
+    const sameMeta = beforeTarget.meta === afterTarget.meta;
+    const sameDate = beforeTarget.date === afterTarget.date;
+    const sameBullets = experienceMutationLineArraysEqual(beforeTarget.bullets, afterTarget.bullets);
+
+    if (isDateUpdate) {
+        return sameTitle && sameMeta && sameBullets && Boolean(afterTarget.date);
+    }
+    if (operation.type === 'update_experience_title') {
+        return sameMeta && sameDate && sameBullets && Boolean(afterTarget.title);
+    }
+    if (operation.type === 'set_experience_bullets') {
+        return sameTitle && sameMeta && sameDate && afterTarget.bullets.length > 0;
+    }
+    if (operation.type === 'remove_experience_bullet') {
+        return sameTitle
+            && sameMeta
+            && sameDate
+            && beforeTarget.bullets.length === afterTarget.bullets.length + 1
+            && experienceMutationContainsEveryLine(beforeTarget.bullets, afterTarget.bullets);
+    }
+
+    // Un remplacement textuel dans experience reste autorisé uniquement s'il
+    // touche une seule ligne ciblée. Toutes les autres restent strictement
+    // identiques, ce qui empêche un remplacement global accidentel.
+    return beforeLines[targetIndex] !== afterLines[targetIndex] && Boolean(afterLines[targetIndex]);
+};
+
+const applyKirbyOperationUnsafe = (operation = {}, context = {}) => {
     if (!operation?.type) {
         return '';
     }
@@ -11711,7 +16908,7 @@ const applyKirbyOperation = (operation = {}, context = {}) => {
             return '';
         }
 
-        const existing = repairPreviewExperienceItems(splitLines(field.value));
+        const existing = splitLines(field.value);
         const existingKeys = new Set(existing.map((item) => normalizeForMatch(item)));
         if (existingKeys.has(normalizeForMatch(line))) {
             return '';
@@ -11729,7 +16926,8 @@ const applyKirbyOperation = (operation = {}, context = {}) => {
             return '';
         }
 
-        const entries = repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
+        const lines = splitLines(field.value);
+        const entries = lines.map(parseExperienceEntry);
         const index = findExperienceIndexForOperation(entries, operation);
         if (index < 0 || !entries[index]) {
             return '';
@@ -11740,34 +16938,105 @@ const applyKirbyOperation = (operation = {}, context = {}) => {
             return 'intitulé déjà correct';
         }
 
-        entries[index] = { ...entries[index], title };
-        field.value = entries.map(serializeExperienceEntry).filter(Boolean).join('\n');
+        lines[index] = serializeExperienceEntry({ ...entries[index], title });
+        field.value = lines.filter(Boolean).join('\n');
         clearEditableOverride('experience');
         return `intitulé ${title}`;
     }
 
     if (operation.type === 'update_experience_date') {
         const field = getExperienceField();
-        const date = normalizeExperienceDateText(operation.value || '');
-        if (!field || !date) {
+        const requestedDate = String(operation.value || '').trim();
+        if (!field || !requestedDate) {
             return '';
         }
 
-        const entries = repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
+        const lines = splitLines(field.value);
+        const entries = lines.map(parseExperienceEntry);
         const index = findExperienceIndexForOperation(entries, operation);
         if (index < 0 || !entries[index]) {
             return '';
         }
 
         const previous = entries[index].date || '';
-        if (normalizeExperienceDateText(previous) === date) {
+        const resolution = resolveCvDatePeriodEdit({
+            currentDate: previous,
+            requestedDate,
+            instruction: context.instruction || operation.reason || '',
+            operation,
+        });
+        const date = resolution.value;
+        if (resolution.ambiguous || !date) {
+            return '';
+        }
+        if (normalizeExperienceDateText(previous) === normalizeExperienceDateText(date)) {
             return 'date déjà correcte';
         }
 
-        entries[index] = { ...entries[index], date };
-        field.value = entries.map(serializeExperienceEntry).filter(Boolean).join('\n');
-        clearEditableOverride('experience');
+        const patch = patchRawCvDateAtLogicalLine({
+            fieldValue: field.value,
+            logicalIndex: index,
+            currentDate: previous,
+            replacementDate: date,
+        });
+        if (!patch) {
+            return '';
+        }
+
+        field.value = patch.nextValue;
+        syncKirbyDatePresentationOverride('experience', previous, date);
+        if (typeof rememberKirbyCvDateEdit === 'function') {
+            rememberKirbyCvDateEdit({
+                field: 'experience',
+                index,
+                entry: entries[index],
+                before: previous,
+                after: date,
+                boundary: getKirbyCvDateEditBoundary({
+                    currentDate: previous,
+                    instruction: context.instruction || operation.reason || '',
+                    requestedDate,
+                    operation,
+                    fallback: operation.target?.datePart || '',
+                }),
+                component: getKirbyCvDateEditComponent(requestedDate),
+                line: patch.nextLine,
+            });
+        }
         return `date ${entries[index].title || 'expérience'}`;
+    }
+
+    if (operation.type === 'set_experience_bullets') {
+        const field = getExperienceField();
+        if (!field) {
+            return '';
+        }
+
+        const lines = splitLines(field.value);
+        const entries = lines.map(parseExperienceEntry);
+        const index = findExperienceIndexForOperation(entries, operation);
+        const description = getKirbyCvArray(operation.experience?.description)
+            .map(normalizeCvSentenceText)
+            .filter(Boolean);
+        const valueBullets = String(operation.value || '')
+            .split(/\r?\n|\s+•\s+/)
+            .map(normalizeCvSentenceText)
+            .filter(Boolean);
+        const bullets = dedupeImportedItems(description.length ? description : valueBullets);
+        if (index < 0 || !entries[index] || !bullets.length) {
+            return '';
+        }
+
+        const previous = (entries[index].bullets || []).map(normalizeForMatch).join('|');
+        const next = bullets.map(normalizeForMatch).join('|');
+        if (previous === next) {
+            return 'missions déjà correctes';
+        }
+
+        lines[index] = serializeExperienceEntry({ ...entries[index], bullets });
+        field.value = lines.filter(Boolean).join('\n');
+        clearEditableOverride('experience');
+        return `missions ${entries[index].title || 'expérience'}`;
     }
 
     if (operation.type === 'normalize_experience_dates') {
@@ -11787,13 +17056,22 @@ const applyKirbyOperation = (operation = {}, context = {}) => {
             return '';
         }
 
-        const entries = repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
-        const nextEntries = removeExperienceBulletForOperation(entries, operation);
+        const lines = splitLines(field.value);
+        const entries = lines.map(parseExperienceEntry);
+        const index = findExperienceIndexForOperation(entries, operation);
+        if (index < 0 || !entries[index]) {
+            return '';
+        }
+        const nextEntries = removeExperienceBulletForOperation(entries, {
+            ...operation,
+            target: { ...(operation.target || {}), index },
+        });
         if (!nextEntries) {
             return '';
         }
 
-        field.value = nextEntries.map(serializeExperienceEntry).filter(Boolean).join('\n');
+        lines[index] = serializeExperienceEntry(nextEntries[index]);
+        field.value = lines.filter(Boolean).join('\n');
         clearEditableOverride('experience');
         return 'puce supprimée';
     }
@@ -11810,6 +17088,8 @@ const applyKirbyOperation = (operation = {}, context = {}) => {
         const value = String(operation.value || '').trim();
         const nextValue = fieldName === 'fullName'
             ? getSafeFullNameValue(value)
+            : fieldName === 'headline'
+                ? cleanExplicitHeadlineCandidate(value)
             : ['skills', 'education', 'activities', 'projects', 'languages'].includes(fieldName)
                 ? normalizeCvTextareaValue(fieldName, value)
                 : ['email', 'phone'].includes(fieldName)
@@ -11819,8 +17099,19 @@ const applyKirbyOperation = (operation = {}, context = {}) => {
             return '';
         }
         field.value = nextValue;
+        if (fieldName === 'headline' && cvForm.elements.jobTarget) {
+            cvForm.elements.jobTarget.value = nextValue;
+        }
         clearContactEditableOverride(fieldName);
         return fieldName;
+    }
+
+    if (operation.type === 'replace_text' || operation.type === 'remove_text') {
+        const changed = applyKirbyTextMutationOperation(operation);
+        if (!changed) {
+            return '';
+        }
+        return operation.type === 'remove_text' ? 'texte supprimé' : 'texte remplacé';
     }
 
     if (operation.type === 'remove_section') {
@@ -11834,19 +17125,41 @@ const applyKirbyOperation = (operation = {}, context = {}) => {
             return '';
         }
 
-        const entries = repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
+        const lines = splitLines(field.value);
+        const entries = lines.map(parseExperienceEntry);
         const index = findExperienceIndexForOperation(entries, operation);
         if (index < 0 || !entries[index]) {
             return '';
         }
 
-        field.value = entries
-            .filter((_, entryIndex) => entryIndex !== index)
-            .map(serializeExperienceEntry)
-            .filter(Boolean)
-            .join('\n');
+        field.value = lines.filter((_, entryIndex) => entryIndex !== index).join('\n');
         clearEditableOverride('experience');
         return 'expérience retirée';
+    }
+
+    if (operation.type === 'reorder_skills') {
+        const operationItems = getKirbyCvArray(operation.items);
+        const operationOrder = getKirbyCvArray(operation.order);
+        const valueOrder = Array.isArray(operation.value)
+            ? operation.value
+            : String(operation.value || '')
+                .split(/\r?\n|\s*[•▪●◦]\s*/)
+                .map((item) => item.trim())
+                .filter(Boolean);
+        const requestedOrder = operationItems.length
+            ? operationItems
+            : operationOrder.length
+                ? operationOrder
+                : context.skillOrder?.length
+                    ? context.skillOrder
+                    : valueOrder;
+        const normalizedValue = normalizeForMatch(String(operation.value || operation.reason || ''));
+        const options = {
+            alphabetical: /alphabet|a\s*[-–>]\s*z|z\s*[-–>]\s*a/.test(normalizedValue),
+            descending: /z\s*[-–>]\s*a|reverse|inverse|descending|decroissant/.test(normalizedValue),
+        };
+
+        return reorderExistingSkills(requestedOrder, options) ? 'ordre des compétences' : 'ordre déjà correct';
     }
 
     if (operation.type === 'reorder_experiences') {
@@ -11866,13 +17179,109 @@ const applyKirbyOperation = (operation = {}, context = {}) => {
         return '';
     }
 
+    if (operation.type === 'sort_experiences') {
+        const oldestFirst = /oldest|ascending|plus ancien|croissant/.test(normalizeForMatch(String(operation.value || operation.reason || '')));
+        return sortExperienceFieldByDate({ oldestFirst }) ? 'ordre chronologique des expériences' : 'ordre déjà correct';
+    }
+
+    return '';
+};
+
+const applyKirbyOperation = (operation = {}, context = {}) => {
+    const field = getExperienceField();
+    const instruction = context.instruction || '';
+    if (
+        ['reorder_experiences', 'sort_experiences'].includes(operation?.type)
+        && hasNegatedExperienceOrderCommand(instruction)
+    ) {
+        return '';
+    }
+    if (operation?.type === 'reorder_skills' && hasNegatedSkillOrderCommand(instruction)) {
+        return '';
+    }
+    const guardsExperienceContent = field && [
+        'add_experience',
+        'update_experience_title',
+        'update_experience_date',
+        'set_experience_bullets',
+        'remove_experience_bullet',
+        'remove_experience',
+        'reorder_experiences',
+        'sort_experiences',
+    ].includes(operation?.type) || (
+        field
+        && ['replace_text', 'remove_text'].includes(operation?.type)
+        && (
+            operation.field === 'experience'
+            || isOngoingExperienceDateMarker(operation.target?.currentValue || operation.target?.label || '')
+        )
+    );
+
+    // Une expérience est une collection structurée et ne peut pas être
+    // remplacée en bloc par set_field : cette réponse de modèle risquerait de
+    // supprimer silencieusement toutes les lignes qui ne figurent pas dans sa
+    // valeur. Les ajouts/corrections passent par les opérations dédiées.
+    if (operation?.type === 'set_field' && operation?.field === 'experience') {
+        return '';
+    }
+
+    if (!guardsExperienceContent) {
+        return applyKirbyOperationUnsafe(operation, context);
+    }
+
+    const beforeValue = field.value;
+    const hadEditableOverride = Object.prototype.hasOwnProperty.call(cvEditableContent, 'experience');
+    const beforeEditableOverride = hadEditableOverride
+        ? JSON.stringify(cvEditableContent.experience)
+        : '';
+    const beforeLines = getExperienceMutationLines(beforeValue);
+    const targetIndex = getExperienceMutationTargetIndex(beforeLines, operation);
+    const result = applyKirbyOperationUnsafe(operation, context);
+    if (!result) {
+        return '';
+    }
+
+    if (isKirbyExperienceMutationNonDestructive({
+        beforeValue,
+        afterValue: field.value,
+        operation,
+        targetIndex,
+    })) {
+        return result;
+    }
+
+    field.value = beforeValue;
+    if (hadEditableOverride) {
+        cvEditableContent.experience = JSON.parse(beforeEditableOverride);
+    } else {
+        delete cvEditableContent.experience;
+    }
+    console.warn('Kirby CV mutation annulée : protection des expériences et des dates', operation.type);
     return '';
 };
 
 const applyKirbyOperations = (operations = [], context = {}) => {
-    const applied = getKirbyCvArray(operations).slice(0, 8)
-        .map((operation) => applyKirbyOperation(operation, context))
-        .filter(Boolean);
+    const requested = getKirbyCvArray(operations);
+    if (!requested.length) {
+        return [];
+    }
+
+    const beforeState = getCvHistoryState();
+    const applied = [];
+    for (const operation of requested) {
+        const result = applyKirbyOperation(operation, context);
+        if (!result) {
+            // Une consigne composée est indivisible : si une seule opération
+            // est ambiguë ou invalide, les précédentes sont annulées aussi.
+            if (beforeState && getCvHistoryState() !== beforeState) {
+                restoreCvHistorySnapshot(beforeState, 'Modification Kirby annulée : CV restauré');
+            }
+            const rejected = [];
+            rejected.failed = true;
+            return rejected;
+        }
+        applied.push(result);
+    }
 
     return [...new Set(applied)];
 };
@@ -11885,6 +17294,27 @@ const getKirbyApplyFailureReply = (result = {}, instruction = '') => {
     const operationType = operation.type || '';
     const target = getOperationTargetText(operation);
 
+    if (result?.cv?.operationSafety?.filteredAll === true) {
+        setCvStatus('Précision nécessaire : CV inchangé');
+        const source = normalizeForMatch(getKirbyUserInstruction(instruction));
+        const explicitReplacement = getExplicitCvDateReplacement(instruction);
+        const dateTargetField = getExplicitCvDateTargetField(instruction);
+        if (explicitReplacement) {
+            if (dateTargetField) {
+                const sectionLabel = getCvDateTargetFieldLabel(dateTargetField, instruction);
+                return `Je n’ai rien modifié pour protéger le CV. Je n’ai pas pu appliquer « ${explicitReplacement.from} » → « ${explicitReplacement.to} » dans la rubrique ${sectionLabel}. Indiquez l’intitulé exact de la ligne si plusieurs correspondent.`;
+            }
+            return `Je n’ai rien modifié pour protéger le CV. Je n’ai pas pu appliquer « ${explicitReplacement.from} » → « ${explicitReplacement.to} ». Indiquez la rubrique ou l’intitulé exact de la ligne à modifier.`;
+        }
+        const suppliedDates = source.match(/\b(?:19|20)\d{2}(?:\s*[–—-]\s*(?:19|20)\d{2})?\b/g) || [];
+        if (suppliedDates.length) {
+            return suppliedDates.length > 1
+                ? `Je n’ai rien modifié pour protéger le CV. Je ne peux pas associer ces dates à une ligne unique : ${[...new Set(suppliedDates)].join(', ')}. Indiquez la rubrique et l’intitulé exact à modifier.`
+                : `Je n’ai rien modifié pour protéger le CV. Indiquez la rubrique et l’intitulé exact de la ligne qui contient ${suppliedDates[0]}.`;
+        }
+        return 'Je n’ai rien modifié : la cible demandée n’est pas assez précise. Indiquez le poste, l’entreprise ou le texte exact à modifier.';
+    }
+
     if (operationType === 'reorder_experiences') {
         setCvStatus('Précision nécessaire pour déplacer l’expérience');
         const position = getReorderPosition(operation);
@@ -11894,11 +17324,23 @@ const getKirbyApplyFailureReply = (result = {}, instruction = '') => {
             : 'Où souhaitez-vous placer cette expérience : avant ou après quelle autre expérience ?';
     }
 
-    if (['update_experience_title', 'update_experience_date', 'remove_experience', 'remove_experience_bullet'].includes(operationType)) {
+    if (operationType === 'reorder_skills') {
+        setCvStatus('Précision nécessaire pour ranger les compétences');
+        return 'Je n’ai pas pu identifier sans risque l’ordre demandé. Citez les compétences dans l’ordre souhaité, ou demandez un tri alphabétique.';
+    }
+
+    if (['update_experience_title', 'update_experience_date', 'set_experience_bullets', 'remove_experience', 'remove_experience_bullet'].includes(operationType)) {
         setCvStatus('Précision nécessaire pour modifier le CV');
         return target
             ? `Je n’ai pas pu identifier une seule expérience correspondant à « ${target} ». Précisez le poste, l’entreprise ou la date.`
             : 'Quelle expérience souhaitez-vous modifier ? Précisez le poste, l’entreprise ou la date.';
+    }
+
+    if (operationType === 'replace_text' || operationType === 'remove_text') {
+        setCvStatus('Texte introuvable dans le CV');
+        return target
+            ? `Je n’ai pas trouvé exactement « ${target} » dans le CV affiché. Indiquez la phrase telle qu’elle apparaît dans le document.`
+            : 'Indiquez le texte exact à remplacer ou à supprimer.';
     }
 
     const report = saveKirbyBugReport({
@@ -11924,19 +17366,50 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
     }
 
     const userInstruction = getKirbyUserInstruction(instruction);
+    const explicitHeadline = getExplicitHeadlineFromInstruction(userInstruction);
     const languageOnlyIntent = isLanguageFocusedInstruction(userInstruction) && !looksLikePastedCv(userInstruction);
     const singleFieldIntent = getSingleFieldEditIntent(userInstruction);
-    const hasOperationIntent = getKirbyCvArray(proposal.operations).length > 0;
-    const hasDateUpdateOperation = getKirbyCvArray(proposal.operations).some((operation) => operation?.type === 'update_experience_date');
-    const changes = ['autofill', 'create'].includes(task) ? applyKirbyExtractedCv(proposal.extracted) : [];
-    const operationChanges = applyKirbyOperations(proposal.operations, { experienceOrder: proposal.experienceOrder });
+    const implicitTopicIntent = getImplicitKirbyCvActionTopic(userInstruction);
+    const hasOperationIntent = getKirbyCvArray(proposal.operations).length > 0
+        || proposal?.operationSafety?.targetedRequest === true;
+    const explicitlyBuildsDocument = looksLikePastedCv(userInstruction)
+        || looksLikeCvCreationInstruction(userInstruction);
+    const targetedRequest = !explicitlyBuildsDocument && Boolean(
+        hasOperationIntent
+        || singleFieldIntent
+        || languageOnlyIntent
+        || implicitTopicIntent
+    );
+    const shouldApplyExtractedCv = ['autofill', 'create'].includes(task) && !targetedRequest;
+    const extractionChanges = shouldApplyExtractedCv
+        ? applyKirbyExtractedCv(proposal.extracted)
+        : [];
+    const changes = [...extractionChanges];
+    const operationChanges = applyKirbyOperations(proposal.operations, {
+        instruction: userInstruction,
+        experienceOrder: proposal.experienceOrder,
+        skillOrder: proposal.skillOrder || proposal.skillsOrder,
+    });
+    if (operationChanges.failed === true) {
+        throw new Error('kirby_cv_operation_transaction_failed');
+    }
     changes.push(...operationChanges);
-    const applyMode = options?.applyMode === 'proposal' ? 'proposal' : 'direct';
-    const targetedUpdate = hasOperationIntent || operationChanges.length || singleFieldIntent || languageOnlyIntent;
-    const directTargetedUpdate = applyMode === 'direct' && targetedUpdate;
+    const hasExplicitExperienceOrderOperation = getKirbyCvArray(proposal.operations)
+        .some((operation) => ['reorder_experiences', 'sort_experiences'].includes(operation?.type));
+    const hasExperienceAdditionOperation = getKirbyCvArray(proposal.operations)
+        .some((operation) => operation?.type === 'add_experience');
+    if (
+        (shouldApplyExtractedCv || hasExperienceAdditionOperation) &&
+        !hasNegatedExperienceOrderCommand(userInstruction) &&
+        !hasExplicitExperienceOrderOperation &&
+        sortNewCvExperiencesNewestFirst()
+    ) {
+        changes.push('expériences triées par date');
+    }
+    const targetedUpdate = targetedRequest || (!shouldApplyExtractedCv && operationChanges.length > 0);
     const allowGlobalCvRewrite = !targetedUpdate;
 
-    if (languageOnlyIntent && !['autofill', 'create'].includes(task)) {
+    if (languageOnlyIntent && !shouldApplyExtractedCv) {
         if (!operationChanges.length && mergeKirbyLanguages(proposal.languages)) {
             changes.push('langues');
         }
@@ -11957,6 +17430,7 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
     const summaryField = cvForm.elements.summary;
     const skillsField = cvForm.elements.skills;
     const layoutIntent = getKirbyLayoutIntent(instruction, proposal.layout);
+    const singlePageAsked = isCvSinglePageRequest(userInstruction);
     const headlineCorrectionAsked = /\b(titre|intitule|poste vise|vendeur|vendeuse|conseiller|conseillere|charge|chargee)\b/.test(normalizeForMatch(instruction));
 
     if (allowGlobalCvRewrite && !singleFieldIntent && proposal.jobTarget && cvForm.elements.jobTarget) {
@@ -11965,14 +17439,19 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
 
     if (proposal.headline && headlineField && (
         singleFieldIntent === 'headline' ||
+        implicitTopicIntent === 'headline' ||
         (allowGlobalCvRewrite && !singleFieldIntent && (task === 'adapt' || headlineCorrectionAsked || !headlineField.value || /intitule du poste vise/i.test(headlineField.value)))
     )) {
-        headlineField.value = formatCvHeadline(proposal.headline);
+        headlineField.value = explicitHeadline || formatCvHeadline(proposal.headline);
+        if (explicitHeadline && cvForm.elements.jobTarget) {
+            cvForm.elements.jobTarget.value = explicitHeadline;
+        }
         changes.push('titre');
     }
 
     if (proposal.summary && summaryField && (
         singleFieldIntent === 'summary' ||
+        implicitTopicIntent === 'summary' ||
         (allowGlobalCvRewrite && !singleFieldIntent)
     )) {
         const summary = normalizeCvSentenceText(proposal.summary);
@@ -11982,7 +17461,7 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
         }
     }
 
-    if (allowGlobalCvRewrite && !singleFieldIntent && skillsField && ((Array.isArray(proposal.skills) && proposal.skills.length) || layoutIntent.namedSkillRemovals.length)) {
+    if ((allowGlobalCvRewrite || implicitTopicIntent === 'skills') && !singleFieldIntent && skillsField && ((Array.isArray(proposal.skills) && proposal.skills.length) || layoutIntent.namedSkillRemovals.length)) {
         const existing = splitLines(skillsField.value).map(normalizeCvSentenceText);
         const proposed = Array.isArray(proposal.skills) ? proposal.skills.map(normalizeCvSentenceText) : [];
         const allowSkillRemoval = hasExplicitDestructiveCvRemoval(instruction);
@@ -11990,9 +17469,11 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
         const retainedExisting = allowSkillRemoval
             ? existing.filter((skill) => !removedSkills.has(normalizeForMatch(skill)))
             : existing;
-        const candidates = layoutIntent.replaceSkills && allowSkillRemoval
-            ? [...proposed, ...retainedExisting]
-            : [...proposed, ...existing];
+        const candidates = implicitTopicIntent === 'skills'
+            ? proposed
+            : layoutIntent.replaceSkills && allowSkillRemoval
+                ? [...proposed, ...retainedExisting]
+                : [...proposed, ...existing];
         const value = dedupeCvSkillItems(candidates.filter((skill) => !removedSkills.has(normalizeForMatch(skill)))).join('\n');
         if (value && value !== skillsField.value) {
             skillsField.value = value;
@@ -12000,23 +17481,9 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
         }
     }
 
-    const generatedExperienceCount = allowGlobalCvRewrite && !singleFieldIntent
-        ? mergeKirbyGeneratedExperiences(proposal.generatedExperiences, instruction)
-        : 0;
-    if (generatedExperienceCount) {
-        changes.push(`${generatedExperienceCount} expérience(s) proposée(s)`);
-    }
-
-    const educationSuggestionCount = allowGlobalCvRewrite && !singleFieldIntent
-        ? mergeKirbyEducationSuggestions(proposal.educationSuggestions)
-        : 0;
-    if (educationSuggestionCount) {
-        changes.push(`${educationSuggestionCount} formation(s) / certification(s)`);
-    }
-
-    if (allowGlobalCvRewrite && !singleFieldIntent && mergeKirbySuggestedSkills(proposal)) {
-        changes.push('compétences suggérées');
-    }
+    // Les éléments marqués « à valider » restent dans la proposition et ne
+    // deviennent jamais des faits du CV. Un ajout explicite passe par une
+    // opération applicative (add_experience/set_field) fondée sur la demande.
 
     const explicitExperienceReorderAsked = isExperienceOrderCleanupIntent(instruction)
         || getKirbyCvArray(proposal.operations).some((operation) => operation?.type === 'reorder_experiences');
@@ -12032,7 +17499,7 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
         changes.push('langues');
     }
 
-    if (allowGlobalCvRewrite && !singleFieldIntent) {
+    if ((allowGlobalCvRewrite || singlePageAsked) && !singleFieldIntent) {
         changes.push(...applyKirbyLayoutIntent(layoutIntent));
     }
 
@@ -12042,10 +17509,16 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
         changes.push('lettre de motivation');
     }
 
-    if (allowGlobalCvRewrite && !singleFieldIntent) {
+    if ((allowGlobalCvRewrite || singlePageAsked) && !singleFieldIntent) {
         clearEditableOverrides();
     }
-    updateCvPreview();
+    const explicitlyChangesLayout = singlePageAsked
+        || layoutIntent.removeSections.length > 0
+        || layoutIntent.namedSkillRemovals.length > 0
+        || layoutIntent.reflow
+        || layoutIntent.compact
+        || Boolean(layoutIntent.template || layoutIntent.palette || layoutIntent.density);
+    updateCvPreview({ preserveDensity: targetedUpdate && !explicitlyChangesLayout });
     renderExperienceEditor();
     renderLanguageEditor();
 
@@ -12059,6 +17532,9 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
     }
 
     const persistence = await persistCvDraftImmediately();
+    if (shouldApplyExtractedCv && extractionChanges.length > 0 && activeKirbyMode === 'create') {
+        setKirbyMode('optimize');
+    }
     return buildKirbyPersistenceReply(changes, persistence);
 };
 
@@ -12066,8 +17542,8 @@ const shouldApplyKirbyResultDirectly = ({ task = '', instruction = '' } = {}) =>
     const userInstruction = getKirbyUserInstruction(instruction);
     const source = normalizeForMatch(userInstruction);
     const precisionSensitive = /\b(mise en page|aeration|aération|align|alignement|hierarchie|hiérarchie|lisibilite|lisibilité|espace|espacement|marge|padding|colonne|colonnes|section|titre|titres|pdf|a4|export|equilibr|equilibre|equilibree|equilibree|repart|repartition|descend|monte|remonte|decale|decalage|largeur|hauteur|respiration|glass|crystal)\b/.test(source);
-    const actionableCvEdit = /\b(cv|experience|experiences|mission|missions|puce|puces|ligne|lignes|date|dates|periode|periodes|mois|profil|accroche|competence|competences|formation|formations|rubrique|rubriques)\b/.test(source)
-        && /\b(ajoute|ajouter|rajoute|rajouter|insere|inserer|integre|integrer|supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|modifie|modifier|change|changer|corrige|corriger|remplace|remplacer|deplace|deplacer|monte|descend|range|ranger|reorganise|reorganiser|reformule|reformuler|raccourcis|raccourcir|harmonise|harmoniser|sauvegarde|sauvegarder|applique|appliquer)\b/.test(source);
+    const actionableCvEdit = /\b(cv|document|texte|experience|experiences|mission|missions|puce|puces|ligne|lignes|date|dates|periode|periodes|mois|profil|accroche|competence|competences|formation|formations|rubrique|rubriques)\b/.test(source)
+        && /\b(fais|faire|prepare|preparer|adapte|adapter|redige|rediger|ecris|ecrire|reecris|reecrire|ameliore|ameliorer|optimise|optimiser|ajoute|ajouter|rajoute|rajouter|insere|inserer|integre|integrer|supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|modifie|modifier|change|changer|corrige|corriger|remplace|remplacer|deplace|deplacer|monte|descend|range|ranger|reorganise|reorganiser|reformule|reformuler|raccourcis|raccourcir|harmonise|harmoniser|sauvegarde|sauvegarder|applique|appliquer)\b/.test(source);
 
     if (isLanguageFocusedInstruction(userInstruction)) {
         return true;
@@ -12077,7 +17553,7 @@ const shouldApplyKirbyResultDirectly = ({ task = '', instruction = '' } = {}) =>
         return true;
     }
 
-    if (shouldApplyTargetedDigitalCvCompletion(userInstruction)) {
+    if (getImplicitKirbyCvActionTopic(userInstruction)) {
         return true;
     }
 
@@ -12097,7 +17573,7 @@ const shouldApplyKirbyResultDirectly = ({ task = '', instruction = '' } = {}) =>
         return false;
     }
 
-    if (/\b(trou|periode|période|vide|combler|valoriser|autoformation|autodidacte|projet personnel|entrepreneur|creatrice|créatrice|formation|certification|certificat|atelier|simplon|ecole 42|école 42|piscine|benevolat|bénévolat|mission ponctuelle|recherche active)\b/.test(source)
+    if (/\b(trou|periode|période|vide|combler|valoriser|autoformation|autodidacte|projet personnel|entrepreneur|creatrice|créatrice|formation|certification|certificat|atelier|ecole|universite|benevolat|bénévolat|mission ponctuelle|recherche active)\b/.test(source)
         && !isExplicitKirbyApplyInstruction(userInstruction)) {
         return false;
     }
@@ -12107,11 +17583,29 @@ const shouldApplyKirbyResultDirectly = ({ task = '', instruction = '' } = {}) =>
         && !looksLikeJobOffer(userInstruction);
 };
 
-const hasKirbyOperations = (result = {}) => getKirbyCvArray(result?.cv?.operations).length > 0;
+const hasKirbyOperations = (result = {}) =>
+    getKirbyCvArray(result?.cv?.operations).length > 0
+    || result?.cv?.operationSafety?.filteredAll === true;
+
+const getAffirmativeKirbyInstruction = (instruction = '') => {
+    const source = getKirbyUserInstruction(instruction).trim();
+    if (!source) {
+        return '';
+    }
+
+    // Les compléments négatifs décrivent ce qui doit rester intact. Ils ne
+    // doivent donc pas ouvrir artificiellement d'autres rubriques : dans
+    // « raccourcis le profil, sans inventer d'expérience ni de compétence »,
+    // la seule cible modifiable est bien le profil.
+    return source
+        .split(/\b(?:sans|without)\b/i, 1)[0]
+        .replace(/\b(?:ne|n['’])\s+[\s\S]*?\s+(?:pas|plus|jamais)\b[\s\S]*$/i, '')
+        .trim();
+};
 
 const getSingleFieldEditIntent = (instruction = '') => {
-    const source = normalizeForMatch(getKirbyUserInstruction(instruction));
-    const hasEditVerb = /\b(ajoute|ajouter|mets|mettre|met|modifie|modifier|change|changer|corrige|corriger|remplace|remplacer|retire|retirer|supprime|supprimer)\b/.test(source);
+    const source = normalizeForMatch(getAffirmativeKirbyInstruction(instruction));
+    const hasEditVerb = /\b(ajoute|ajouter|mets|mettre|met|modifie|modifier|change|changer|corrige|corriger|remplace|remplacer|retire|retirer|supprime|supprimer|reformule|reformuler|raccourcis|raccourcir|condense|condenser|reecris|reecrire|ameliore|ameliorer|optimise|optimiser|rewrite|rephrase|shorten|condense|improve|optimize)\b/.test(source);
 
     if (!hasEditVerb) {
         return '';
@@ -12135,6 +17629,34 @@ const getSingleFieldEditIntent = (instruction = '') => {
 
 const isSingleFieldEditIntent = (instruction = '') => Boolean(getSingleFieldEditIntent(instruction));
 
+const getImplicitKirbyCvActionTopic = (instruction = '') => {
+    const userInstruction = getAffirmativeKirbyInstruction(instruction);
+    const source = normalizeForMatch(userInstruction);
+
+    if (!source) {
+        return '';
+    }
+
+    const asksForInformation = /^(?:comment|pourquoi|quel|quelle|quels|quelles|ou|où|est ce que|peux tu|peut tu)\b/.test(source);
+    if (asksForInformation && !isExplicitKirbyApplyInstruction(userInstruction)) {
+        return '';
+    }
+
+    const topics = [
+        ['headline', /\b(titre|intitule|poste vise|metier)\b/],
+        ['summary', /\b(profil|accroche|resume|presentation)\b/],
+        ['skills', /\b(competence|competences|atout|atouts|savoir faire|qualite|qualites)\b/],
+        ['experience', /\b(experience|experiences|mission|missions|parcours)\b/],
+        ['education', /\b(formation|formations|certification|certifications|diplome|diplomes)\b/],
+        ['languages', /\b(langue|langues)\b/],
+        ['projects', /\b(projet|projets)\b/],
+        ['proofread', /\b(faute|fautes|orthographe|grammaire|accent|accents)\b/],
+    ];
+    const matches = topics.filter(([, pattern]) => pattern.test(source));
+
+    return matches.length === 1 ? matches[0][0] : '';
+};
+
 const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}) => {
     if (!cvForm) {
         return 'Le formulaire CV est indisponible.';
@@ -12150,14 +17672,17 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
         return 'Kirby analyse déjà le CV.';
     }
 
-    const finalExperienceReply = await applyFinalExperienceTableCorrection(instruction);
-    if (finalExperienceReply) {
-        return finalExperienceReply;
-    }
+    const compoundInstruction = hasCompoundKirbyCvInstruction(instruction);
+    if (!compoundInstruction) {
+        const localOrderReply = await applyExperienceOrderCleanupFromKirby(instruction);
+        if (localOrderReply) {
+            return localOrderReply;
+        }
 
-    const localOrderReply = await applyExperienceOrderCleanupFromKirby(instruction);
-    if (localOrderReply) {
-        return localOrderReply;
+        const localSkillOrderReply = await applySkillOrderCleanupFromKirby(instruction);
+        if (localSkillOrderReply) {
+            return localSkillOrderReply;
+        }
     }
 
     const layoutIntent = getKirbyLayoutIntent(instruction);
@@ -12185,6 +17710,7 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
         const runtimeLabel = getKirbyRuntimeLabel(result);
         const operationDriven = hasKirbyOperations(result);
         const singleFieldDriven = isSingleFieldEditIntent(instruction);
+        const implicitTopicDriven = Boolean(getImplicitKirbyCvActionTopic(instruction));
         const currentSnapshot = getKirbyCvSnapshot();
         const sourceChangedDuringRequest = snapshot !== currentSnapshot;
         const canApplyDirectly = (operationDriven || shouldApplyKirbyResultDirectly({ task, instruction }))
@@ -12198,6 +17724,8 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
         }
 
         if (canApplyDirectly) {
+            const beforeApplyState = (['create', 'autofill'].includes(task) && pendingNewCvRollbackState)
+                || getCvHistoryState();
             const beforeApplySnapshot = getKirbyCvSnapshot();
             isApplyingKirbyCvChange = true;
             let reply = '';
@@ -12205,17 +17733,35 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
             try {
                 reply = await applyKirbyCvResult(result, task, instruction, { applyMode: 'direct' });
                 afterApplySnapshot = getKirbyCvSnapshot();
+            } catch (error) {
+                if (beforeApplyState && getCvHistoryState() !== beforeApplyState) {
+                    try {
+                        restoreCvHistorySnapshot(beforeApplyState, 'Modification Kirby annulée : CV restauré');
+                    } catch (rollbackError) {
+                        console.error('Restauration de la modification Kirby impossible', rollbackError);
+                    }
+                }
+                throw error;
             } finally {
                 isApplyingKirbyCvChange = false;
             }
-            const operationFailed = (operationDriven || singleFieldDriven)
+            const operationFailed = (operationDriven || singleFieldDriven || implicitTopicDriven)
                 && beforeApplySnapshot === afterApplySnapshot
                 && !isKirbyNoopSuccessReply(reply);
             if (operationFailed) {
+                if (beforeApplyState && getCvHistoryState() !== beforeApplyState) {
+                    restoreCvHistorySnapshot(beforeApplyState, 'Modification Kirby refusée : CV restauré');
+                }
                 hideKirbyCvProposal();
                 return `${runtimeLabel} · ${getKirbyApplyFailureReply(result, instruction)}`;
             }
+            if (beforeApplyState && getCvHistoryState() !== beforeApplyState) {
+                commitCvHistoryTransition(beforeApplyState);
+            }
             hideKirbyCvProposal();
+            if (['create', 'autofill'].includes(task) && beforeApplySnapshot !== afterApplySnapshot) {
+                pendingNewCvRollbackState = '';
+            }
             setAssistantActivity(`${runtimeLabel} · Modification appliquée. Retour permet d’annuler.`, false);
             return reply;
         }
@@ -12228,7 +17774,9 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
         return 'Proposition prête. Vérifiez le résumé puis choisissez « Appliquer au CV ».';
     } catch (error) {
         console.error(error);
-        const message = error?.message || 'Kirby est momentanément indisponible. Le CV n’a pas été modifié.';
+        const message = error?.message === 'kirby_cv_operation_transaction_failed'
+            ? 'Je n’ai rien modifié : une partie de la demande était ambiguë. Le CV précédent a été restauré.'
+            : error?.message || 'Kirby est momentanément indisponible. Le CV n’a pas été modifié.';
         setCvStatus('Erreur Kirby : CV non modifié');
         setAssistantActivity(message, false);
         return message;
@@ -12247,6 +17795,13 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
                     return;
                 }
 
+                if (looksLikePastedCv(queuedMessage)
+                    || (activeKirbyMode === 'create' && looksLikeCvSourceText(queuedMessage))) {
+                    hideKirbyCvProposal();
+                    appendAssistantMessage(await importPastedCvWithKirby(queuedMessage), 'bot');
+                    return;
+                }
+
                 const languageFocused = isLanguageFocusedInstruction(queuedMessage);
                 if (languageFocused && !hasLanguageNameInInstruction(queuedMessage)) {
                     hideKirbyCvProposal();
@@ -12254,42 +17809,37 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
                     return;
                 }
 
-                const finalExperienceReply = await applyFinalExperienceTableCorrection(queuedMessage);
-                if (finalExperienceReply) {
-                    hideKirbyCvProposal();
-                    appendAssistantMessage(finalExperienceReply, 'bot');
-                    return;
-                }
+                const compoundInstruction = hasCompoundKirbyCvInstruction(queuedMessage);
+                if (!compoundInstruction) {
+                    const localOrderReply = await applyExperienceOrderCleanupFromKirby(queuedMessage);
+                    if (localOrderReply) {
+                        hideKirbyCvProposal();
+                        appendAssistantMessage(localOrderReply, 'bot');
+                        return;
+                    }
 
-                const localOrderReply = await applyExperienceOrderCleanupFromKirby(queuedMessage);
-                if (localOrderReply) {
-                    hideKirbyCvProposal();
-                    appendAssistantMessage(localOrderReply, 'bot');
-                    return;
-                }
+                    const localSkillOrderReply = await applySkillOrderCleanupFromKirby(queuedMessage);
+                    if (localSkillOrderReply) {
+                        hideKirbyCvProposal();
+                        appendAssistantMessage(localSkillOrderReply, 'bot');
+                        return;
+                    }
 
-                const quickReply = applyQuickKirbyCorrection(queuedMessage);
+                    const quickReply = applyQuickKirbyCorrection(queuedMessage);
                     if (quickReply) {
                         hideKirbyCvProposal();
                         if (isQuickKirbyMutationReply(quickReply)) {
-                            const persistence = await persistCvDraftImmediately();
-                            appendAssistantMessage(buildKirbyQuickPersistenceReply(quickReply, persistence), 'bot');
+                            appendQuickKirbyMutationReply(quickReply);
                             return;
                         }
                         appendAssistantMessage(quickReply, 'bot');
-                    return;
+                        return;
+                    }
                 }
 
                 if (isExplicitCvSaveInstruction(queuedMessage)) {
                     hideKirbyCvProposal();
                     appendAssistantMessage(await persistCvFromKirbyInstruction(), 'bot');
-                    return;
-                }
-
-                const queuedDigitalExperienceDiagnosticReply = getDigitalExperienceDiagnosticReply(queuedMessage);
-                if (queuedDigitalExperienceDiagnosticReply) {
-                    hideKirbyCvProposal();
-                    appendAssistantMessage(queuedDigitalExperienceDiagnosticReply, 'bot');
                     return;
                 }
 
@@ -12303,7 +17853,8 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
                     }
                 }
 
-                const messageIsOffer = setJobOfferFromAssistantMessage(queuedMessage);
+                const messageIsOffer = !['letter', 'create'].includes(activeKirbyMode)
+                    && setJobOfferFromAssistantMessage(queuedMessage);
                 hideKirbyCvProposal();
                 const assistantInstruction = autopilotMode ? buildCvAutopilotInstruction(queuedMessage) : queuedMessage;
                 const reply = await runKirbyCvAssistant({
@@ -12398,48 +17949,9 @@ const runAssistantAction = (action, message = '') => {
 
 const getAssistantReply = (message) => {
     const normalizedMessage = normalizeLooseCvText(message);
-    const hasExplicitAssistantTopic = /\b(accroche|profil|resume|presentation|experience|experiences|mission|missions|competence|competences|faute|fautes|orthographe|grammaire|projet|projets|offre|annonce|import|pdf|docx|cv)\b/.test(normalizedMessage);
-
-    if (!hasExplicitAssistantTopic && /\b(oui|ok|d accord|vas y|fait|fais|remplace|directement|applique|continue)\b/i.test(normalizedMessage)) {
-        return lastAssistantAction
-            ? runAssistantAction(lastAssistantAction.action, lastAssistantAction.message)
-            : "Choisissez d'abord une action : accroche, expériences, compétences, fautes ou offre.";
-    }
-
-    if (isExplicitKirbyApplyInstruction(message) && !hasConcreteKirbyCvEditIntent(message)) {
-        return getNoCvMutationReply();
-    }
 
     if (/\b(import|importe|ancien cv|pdf|docx)\b/.test(normalizedMessage)) {
         return runAssistantAction('import', message);
-    }
-
-    if (/\b(offre|annonce|adapter|adapte|mots cles|mot cle)\b/.test(normalizedMessage)) {
-        return runAssistantAction('offer', message);
-    }
-
-    if (/\b(accroche|profil|resume|presentation)\b/.test(normalizedMessage)) {
-        return runAssistantAction('summary', message);
-    }
-
-    if (/\b(experience|experiences|mission|missions)\b/.test(normalizedMessage)) {
-        return runAssistantAction('experience', message);
-    }
-
-    if (/\b(competence|competences|atout|atouts|savoir|qualite|qualites)\b/.test(normalizedMessage)) {
-        return runAssistantAction('skills', message);
-    }
-
-    if (/\b(faute|fautes|corrige|corriger|orthographe|grammaire|accent|accents)\b/.test(normalizedMessage)) {
-        return runAssistantAction('proofread', message);
-    }
-
-    if (/\b(projet|projets)\b/.test(normalizedMessage)) {
-        return runAssistantAction('projects', message);
-    }
-
-    if (/\b(cv|pret|preparer|prepare|remplir|formulaire|base|generer|creer|optimise|ameliorer|ameliore)\b/.test(normalizedMessage)) {
-        return runAssistantAction('ready', message);
     }
 
     const found = assistantAnswers.find((entry) => entry.test.test(message));
@@ -12448,7 +17960,7 @@ const getAssistantReply = (message) => {
         return found.reply;
     }
 
-    return "Action disponible : accroche, expériences, compétences, langues, fautes, projets, offre ou CV prêt.";
+    return getNoCvMutationReply();
 };
 
 const shouldUseKirbyCvAssistant = (message = '', mode = activeKirbyMode) => {
@@ -12462,11 +17974,18 @@ const shouldUseKirbyCvAssistant = (message = '', mode = activeKirbyMode) => {
         return /\b(lettre|motivation|redige|rédige|ecris|écris|candidature)\b/i.test(cleanMessage) || looksLikeJobOffer(cleanMessage);
     }
 
+    if (mode === 'create') {
+        return true;
+    }
+
     if (mode === 'adapt') {
-        return looksLikeJobOffer(cleanMessage) || hasConcreteKirbyCvEditIntent(cleanMessage);
+        return looksLikeJobOffer(cleanMessage)
+            || hasConcreteKirbyCvEditIntent(cleanMessage)
+            || Boolean(getImplicitKirbyCvActionTopic(cleanMessage));
     }
 
     return hasConcreteKirbyCvEditIntent(cleanMessage)
+        || Boolean(getImplicitKirbyCvActionTopic(cleanMessage))
         || looksLikePastedCv(cleanMessage)
         || looksLikeCvCreationInstruction(cleanMessage)
         || looksLikeJobOffer(cleanMessage);
@@ -12484,39 +18003,6 @@ const getCvDamageDiagnosticReply = (message = '') => {
     return "Je n'applique aucune modification automatique. Utilisez d'abord Annuler si disponible, ou réimportez le Word/PDF fiable. Ensuite je peux corriger une seule ligne à la fois.";
 };
 
-const getDigitalExperienceDiagnosticReply = (message = '') => {
-    if (shouldApplyTargetedDigitalCvCompletion(message)) {
-        return '';
-    }
-
-    const source = normalizeForMatch(message);
-    const asksWhereDigitalExperience = /\b(ou|où|est|passe|pass[ée]e|manque|disparu|disparue)\b/.test(source)
-        && /\b(experience|expérience|bloc|periode|période)\b/.test(source)
-        && /\b(numerique|numérique|web|creatrice|créatrice)\b/.test(source);
-
-    if (!asksWhereDigitalExperience) {
-        return '';
-    }
-
-    const experienceText = getExperienceField()?.value || '';
-    const hasDigitalExperience = (
-        /\bcr[eé]atrice\s+de\s+(?:sites?\s+web|projets?\s+num[eé]riques?)\b/i.test(experienceText)
-        || /\bd[eé]veloppeuse\s+web\b/i.test(experienceText)
-    ) && /\b2025\s*[-–]\s*2026\b/.test(experienceText);
-
-    if (hasDigitalExperience) {
-        return "L’expérience « Créatrice de sites web / Développeuse web — 2025 - 2026 » est bien présente dans la rubrique Expériences.";
-    }
-
-    return [
-        "L’expérience numérique n’est pas dans le CV affiché actuellement.",
-        "À remettre en haut des expériences, sans reconstruire le reste :",
-        "Créatrice de sites web / Développeuse web",
-        "2025 - 2026",
-        "Projet personnel / Autoformation",
-    ].join('\n');
-};
-
 const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
     const cleanMessage = message.trim();
 
@@ -12532,19 +18018,23 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
         return;
     }
 
-    const finalExperienceReply = await applyFinalExperienceTableCorrection(cleanMessage);
-    if (finalExperienceReply) {
+    // Un CV complet collé dans Kirby emprunte exactement le même pipeline que
+    // l'import PDF / Word. Il est structuré localement et affiché tout de suite,
+    // puis vérifié par l'IA, au lieu d'être traité comme une simple question.
+    if (looksLikePastedCv(cleanMessage) || (mode === 'create' && looksLikeCvSourceText(cleanMessage))) {
+        if (isKirbyCvRequestInFlight) {
+            queuedAssistantPrompt = cleanMessage;
+            setAssistantActivity('CV collé enregistré : Kirby le traitera après l’analyse en cours.', true);
+            return;
+        }
+
         hideKirbyCvProposal();
-        appendAssistantMessage(finalExperienceReply, 'bot');
+        const reply = await importPastedCvWithKirby(cleanMessage);
+        appendAssistantMessage(reply, 'bot');
         return;
     }
 
-    const targetedDigitalReply = applyTargetedDigitalCvCompletion(cleanMessage);
-    if (targetedDigitalReply) {
-        hideKirbyCvProposal();
-        appendAssistantMessage(targetedDigitalReply, 'bot');
-        return;
-    }
+    const compoundInstruction = hasCompoundKirbyCvInstruction(cleanMessage);
 
     if (isKirbyCvRequestInFlight) {
         queuedAssistantPrompt = cleanMessage;
@@ -12566,30 +18056,31 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
         return;
     }
 
-    const digitalExperienceDiagnosticReply = getDigitalExperienceDiagnosticReply(cleanMessage);
-    if (digitalExperienceDiagnosticReply) {
-        hideKirbyCvProposal();
-        appendAssistantMessage(digitalExperienceDiagnosticReply, 'bot');
-        return;
-    }
-
-    const localOrderReply = await applyExperienceOrderCleanupFromKirby(cleanMessage);
-    if (localOrderReply) {
-        hideKirbyCvProposal();
-        appendAssistantMessage(localOrderReply, 'bot');
-        return;
-    }
-
-    const quickReply = applyQuickKirbyCorrection(cleanMessage);
-    if (quickReply) {
-        hideKirbyCvProposal();
-        if (isQuickKirbyMutationReply(quickReply)) {
-            const persistence = await persistCvDraftImmediately();
-            appendAssistantMessage(buildKirbyQuickPersistenceReply(quickReply, persistence), 'bot');
+    if (!compoundInstruction) {
+        const localOrderReply = await applyExperienceOrderCleanupFromKirby(cleanMessage);
+        if (localOrderReply) {
+            hideKirbyCvProposal();
+            appendAssistantMessage(localOrderReply, 'bot');
             return;
         }
-        appendAssistantMessage(quickReply, 'bot');
-        return;
+
+        const localSkillOrderReply = await applySkillOrderCleanupFromKirby(cleanMessage);
+        if (localSkillOrderReply) {
+            hideKirbyCvProposal();
+            appendAssistantMessage(localSkillOrderReply, 'bot');
+            return;
+        }
+
+        const quickReply = applyQuickKirbyCorrection(cleanMessage);
+        if (quickReply) {
+            hideKirbyCvProposal();
+            if (isQuickKirbyMutationReply(quickReply)) {
+                appendQuickKirbyMutationReply(quickReply);
+                return;
+            }
+            appendAssistantMessage(quickReply, 'bot');
+            return;
+        }
     }
 
     if (isExplicitCvSaveInstruction(cleanMessage)) {
@@ -12608,7 +18099,7 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
         }
     }
 
-    const messageIsOffer = mode !== 'letter' && setJobOfferFromAssistantMessage(cleanMessage);
+    const messageIsOffer = !['letter', 'create'].includes(mode) && setJobOfferFromAssistantMessage(cleanMessage);
     hideKirbyCvProposal();
     const assistantInstruction = autopilotMode ? buildCvAutopilotInstruction(cleanMessage) : cleanMessage;
     const reply = shouldUseKirbyCvAssistant(cleanMessage, mode)
@@ -13504,10 +18995,9 @@ if (experienceCards) {
         const missionsField = card.querySelector('[data-experience-field="bullets"]');
 
         if (action === 'add-mission' && missionsField) {
-            const context = getCvRoleContext(card.textContent || '');
-            const suggestion = roleMissionSuggestions[context]?.[0] || roleMissionSuggestions.general[0];
-            missionsField.value = [...splitLines(missionsField.value), suggestion].join('\n');
-            syncExperienceFieldFromEditor({ status: 'Mission ajoutee' });
+            missionsField.value = `${missionsField.value.replace(/\s+$/, '')}${missionsField.value.trim() ? '\n' : ''}`;
+            missionsField.focus();
+            syncExperienceFieldFromEditor({ status: 'Saisissez la nouvelle mission' });
             return;
         }
 
@@ -13941,7 +19431,16 @@ const syncPreviewEditableNode = (node, { refreshPreview = false, normalize = tru
             cvForm.elements.permit.value = parts[3] || '';
         }
     } else {
-        const items = splitLines(node.innerText || '');
+        // `innerText` is not a reliable list serializer once a template uses
+        // grid/flex columns: some browsers concatenate adjacent <li> values.
+        // Preserve each visible item explicitly so previewing/exporting never
+        // turns ten skills into one long line or removes unrelated content.
+        const listItems = node.matches('ul, ol')
+            ? [...node.querySelectorAll(':scope > li')]
+                .map((item) => stripDirectionalFormatting(item.innerText || item.textContent || '').trim())
+                .filter(Boolean)
+            : [];
+        const items = listItems.length ? listItems : splitLines(node.innerText || '');
         field.value = ['experience', 'projects', 'education'].includes(target)
             ? normalizeCvTextareaValue(target, items.join('\n'))
             : items.join('\n');
@@ -13957,9 +19456,19 @@ const syncPreviewEditableNode = (node, { refreshPreview = false, normalize = tru
 };
 
 const persistAllEditableNodes = ({ refreshPreview = false } = {}) => {
-    document.querySelectorAll('[contenteditable="true"]').forEach((node) => {
-        syncPreviewEditableNode(node, { refreshPreview });
+    // Persist only the canonical CV nodes. A structured template can contain
+    // responsive mirrors, and serialising every editable element allowed a
+    // hidden/stale mirror to overwrite the current fields during PDF preview.
+    const canonicalNodes = [...new Set(Object.values(editablePreviewNodeMap))]
+        .filter((node) => node?.isConnected && node.getAttribute('contenteditable') === 'true');
+
+    canonicalNodes.forEach((node) => {
+        syncPreviewEditableNode(node, { refreshPreview: false });
     });
+
+    if (refreshPreview) {
+        updateCvPreview();
+    }
 };
 
 const getPlainTextForCopiedNode = (node) => {
@@ -14181,7 +19690,7 @@ document.querySelectorAll('[contenteditable="true"]').forEach((node) => {
     }
 
     enforceEditableTextDirection(node);
-    node.setAttribute('lang', 'fr');
+    node.setAttribute('lang', currentCvContentLocale === 'en' ? 'en' : 'fr');
     node.setAttribute('translate', 'no');
     node.addEventListener('focus', () => {
         enforceEditableTextDirection(node);
@@ -14389,6 +19898,11 @@ templatePresetChips.forEach((chip) => {
             return;
         }
 
+        // A model card is the same explicit user choice as the advanced
+        // selector. Mark it before the silent save so ATS is not mistaken for
+        // an automatic fallback and replaced by the previously saved model.
+        lastUserLayoutThemeChangeAt = Date.now();
+
         Object.entries(preset).forEach(([key, value]) => {
             const field = cvForm.elements[key];
             if (field) {
@@ -14414,14 +19928,75 @@ previewModeTabs.forEach((tab) => {
     });
 });
 
-if (cvAutofillButton) {
-    cvAutofillButton.addEventListener('click', () => {
-        openAssistant();
-        setKirbyMode('create', { focus: true });
-        if (assistantInput) {
-            assistantInput.value = "Indiquez la modification ciblée à appliquer au CV, sans changer l'ordre des expériences.";
+const startNewCvCreation = async () => {
+    if (!requireAuthenticatedCvAccess('Reconnectez-vous pour commencer un nouveau CV avec Kirby.')) {
+        return false;
+    }
+
+    const previousState = getCvHistoryState();
+    const idleButtonLabel = cvAutofillButton?.textContent || 'Nouveau CV';
+
+    supersedePendingCvDraftLoad();
+    isReplacingCvDocument = true;
+    setCvImportProgress();
+
+    if (cvAutofillButton) {
+        cvAutofillButton.disabled = true;
+        cvAutofillButton.setAttribute('aria-busy', 'true');
+        cvAutofillButton.textContent = 'Ouverture…';
+    }
+
+    try {
+        pendingNewCvRollbackState = pendingNewCvRollbackState || previousState;
+        openBlankCvSheet({ persist: false });
+        if (cvImportInput) {
+            cvImportInput.value = '';
         }
-    });
+
+        assistantThread?.replaceChildren();
+        refreshCvModule();
+        openAssistant('', 'create');
+
+        if (!assistantChat?.classList.contains('is-open')) {
+            throw new Error('kirby_new_cv_assistant_not_open');
+        }
+
+        if (assistantInput) {
+            assistantInput.value = '';
+            assistantInput.focus({ preventScroll: true });
+        }
+
+        appendAssistantMessage('La feuille est vierge. Collez votre ancien CV ou décrivez votre parcours : je construis le nouveau CV avec vous.', 'bot');
+        setCvStatus('Nouveau CV vierge prêt. Kirby attend vos informations.');
+        cvPreviewShell?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        // Ne jamais remplacer le brouillon enregistré par une feuille vide.
+        // La première sauvegarde aura lieu après l'import ou l'application
+        // effective des informations fournies à Kirby.
+        return true;
+    } catch (error) {
+        console.error('Impossible de commencer un nouveau CV', error);
+        pendingNewCvRollbackState = '';
+        if (previousState) {
+            restoreCvHistorySnapshot(previousState);
+        }
+        setCvStatus('Le nouveau CV n’a pas pu être ouvert. Votre CV précédent a été conservé.');
+        openAssistant('', 'create');
+        appendAssistantMessage('Je n’ai pas pu ouvrir la feuille vierge. Votre CV précédent a été conservé : réessayez.', 'bot');
+        return false;
+    } finally {
+        forceNextCvDraftLayoutPersistence = false;
+        isReplacingCvDocument = false;
+        if (cvAutofillButton) {
+            cvAutofillButton.disabled = false;
+            cvAutofillButton.removeAttribute('aria-busy');
+            cvAutofillButton.textContent = idleButtonLabel;
+        }
+    }
+};
+
+if (cvAutofillButton) {
+    cvAutofillButton.addEventListener('click', startNewCvCreation);
 }
 
 if (cvSaveButton) {
@@ -14538,7 +20113,7 @@ if (cvExportPdfButton) {
 }
 
 if (cvDownloadPdfButton) {
-    cvDownloadPdfButton.addEventListener('click', exportPdf);
+    cvDownloadPdfButton.addEventListener('click', () => exportPdf({ action: 'save' }));
 }
 
 if (cvExportWordButton) {
@@ -14607,9 +20182,7 @@ if (letterGenerateButton) {
 }
 
 if (letterExportWordButton) {
-    letterExportWordButton.addEventListener('click', () => {
-        downloadFile('lettre-motivation.doc', `${letterSubject?.textContent || ''}\n\n${letterBody?.textContent || ''}`, 'application/msword');
-    });
+    letterExportWordButton.addEventListener('click', () => exportWord({ mode: 'letter' }));
 }
 
 if (letterEmailButton) {
@@ -14639,37 +20212,115 @@ if (cvLayoutToggle && cvLayout && cvEditorPanel) {
 
 setPreviewMode('cv');
 
+if (cvPhotoInput) {
+    cvPhotoInput.addEventListener('change', async (event) => {
+        const file = event.target.files?.[0];
+        if (!file) {
+            return;
+        }
+
+        const historyBeforePhoto = getCvHistoryState();
+        if (cvPhotoStatus) {
+            cvPhotoStatus.textContent = 'Préparation de la photo…';
+        }
+        cvPhotoInput.disabled = true;
+
+        try {
+            const photo = await createCvProfilePhotoFromFile(file);
+            if (!photo) {
+                throw new Error('profile_photo_unavailable');
+            }
+            setCvProfilePhoto(photo);
+            updateCvPreview();
+            commitCvHistoryTransition(historyBeforePhoto);
+            await persistCvDraftImmediately();
+            setCvStatus('Photo de profil ajoutée au CV et aux exports');
+        } catch (error) {
+            console.error(error);
+            setCvProfilePhoto(cvProfilePhoto);
+            if (cvPhotoStatus) {
+                cvPhotoStatus.textContent = 'Photo non prise en charge. Choisissez un fichier JPEG, PNG ou WebP.';
+            }
+            setCvStatus('Impossible d’ajouter cette photo');
+        } finally {
+            cvPhotoInput.disabled = false;
+            cvPhotoInput.value = '';
+        }
+    });
+}
+
+if (cvPhotoRemoveButton) {
+    cvPhotoRemoveButton.addEventListener('click', async () => {
+        if (!normalizeCvProfilePhoto(cvProfilePhoto)) {
+            return;
+        }
+
+        const historyBeforePhoto = getCvHistoryState();
+        setCvProfilePhoto(null);
+        updateCvPreview();
+        commitCvHistoryTransition(historyBeforePhoto);
+        await persistCvDraftImmediately();
+        setCvStatus('Photo de profil retirée du CV et des exports');
+    });
+}
+
 if (cvImportInput) {
     cvImportInput.addEventListener('click', (event) => {
         event.target.value = '';
-        setCvStatus('Choisissez un PDF, DOCX ou texte a importer');
+        setCvImportProgress();
+        setCvStatus('Choisissez un PDF, un document Word ou un texte à importer');
     });
 
     cvImportInput.addEventListener('change', async (event) => {
-        const historyBeforeImport = getCvHistoryState();
+        const historyBeforeImport = pendingNewCvRollbackState || getCvHistoryState();
         const file = event.target.files?.[0];
 
         if (!file) {
             return;
         }
 
-        try {
-            setCvStatus('Import en cours...');
+        const fileName = String(file.name || 'Nouveau CV').trim();
+        if (isKirbyCvRequestInFlight) {
+            setCvImportProgress({
+                fileName,
+                message: 'Kirby termine une demande en cours. Réessayez dès qu’elle est finie.',
+                state: 'error',
+            });
+            event.target.value = '';
+            return;
+        }
 
-            if (isLegacyWordDocument(file)) {
-                setCvStatus('Le format .doc ancien doit etre converti en .docx avant import');
-                event.target.value = '';
-                return;
-            }
+        const reportImportProgress = (message) => {
+            setCvImportProgress({ fileName, message, state: 'busy' });
+            setCvStatus(`${fileName} : ${message}`);
+        };
+
+        supersedePendingCvDraftLoad();
+        isImportingCvPreview = true;
+        isReplacingCvDocument = true;
+        setKirbyCvRequestInFlight(true);
+        setCvStatus(`${fileName} : lecture en cours. Le CV affiché reste intact jusqu’à ce que le nouveau soit prêt.`);
+
+        try {
+            reportImportProgress('Lecture du fichier en cours');
 
             let text = '';
+            let importedProfilePhoto;
 
             if (isPdfDocument(file)) {
-                text = await extractTextFromPdf(file);
+                const pdfContent = await extractCvContentFromPdf(file);
+                text = pdfContent.text;
+                importedProfilePhoto = pdfContent.profilePhoto;
             } else if (isDocxDocument(file)) {
-                text = await extractTextFromDocx(file);
+                const docxContent = await extractCvContentFromDocx(file);
+                text = docxContent.text;
+                importedProfilePhoto = docxContent.profilePhoto;
+            } else if (isLegacyWordDocument(file)) {
+                text = await extractTextFromLegacyWord(file);
             } else if (isBinaryDocument(file)) {
-                setCvStatus('Format non pris en charge pour l import automatique');
+                restoreCvHistorySnapshot(historyBeforeImport, 'Format non pris en charge : CV précédent restauré');
+                pendingNewCvRollbackState = '';
+                setCvImportProgress({ fileName, message: 'Format non pris en charge', state: 'error' });
                 event.target.value = '';
                 return;
             } else {
@@ -14677,31 +20328,80 @@ if (cvImportInput) {
             }
 
             if (!text.trim()) {
-                restoreCvHistorySnapshot(historyBeforeImport, 'Aucun texte exploitable detecte dans ce document : CV precedent restaure');
+                restoreCvHistorySnapshot(historyBeforeImport, 'Aucun texte exploitable détecté : CV précédent restauré');
+                pendingNewCvRollbackState = '';
+                setCvImportProgress({ fileName, message: 'Aucun texte exploitable détecté', state: 'error' });
                 event.target.value = '';
                 return;
             }
 
             if (isPdfDocument(file) && looksLikeBrokenPdfText(text)) {
                 restoreCvHistorySnapshot(historyBeforeImport, getUnreadablePdfImportMessage());
+                pendingNewCvRollbackState = '';
+                setCvImportProgress({ fileName, message: 'Texte du PDF illisible', state: 'error' });
                 event.target.value = '';
                 return;
             }
 
-            isImportingCvPreview = true;
-            try {
-                parseImportedCv(text);
-            } finally {
-                isImportingCvPreview = false;
-            }
+            reportImportProgress(importedProfilePhoto
+                ? 'Texte et photo extraits, préparation par Kirby'
+                : 'Texte extrait, préparation par Kirby');
+            const importResult = await importCvTextWithKirby(text, {
+                onProgress: reportImportProgress,
+                onLocalReady: async () => {
+                    forceNextCvDraftLayoutPersistence = true;
+                    await persistCvDraftImmediately();
+                },
+                profilePhoto: importedProfilePhoto,
+            });
             commitCvHistoryTransition(historyBeforeImport);
+            pendingNewCvRollbackState = '';
+            forceNextCvDraftLayoutPersistence = true;
+            let persistence;
+            try {
+                persistence = await persistCvDraftImmediately();
+            } finally {
+                forceNextCvDraftLayoutPersistence = false;
+            }
             if (cvPreviewViewport) {
                 cvPreviewViewport.scrollTop = 0;
             }
+            const readySummary = importResult?.restoredRoundTrip
+                ? 'CV SA Création Web restauré à l’identique et prêt à utiliser.'
+                : getImportedCvReadySummary(importResult?.extracted, importResult?.locale);
+            const photoNotice = importedProfilePhoto ? ' Photo conservée.' : '';
+            const pageFitNotice = importResult?.pageFitNotice ? ` ${importResult.pageFitNotice}` : '';
+            const persistenceNotice = ` ${formatCvPersistenceDetail(persistence)}`;
+            const persistenceFailed = ['failed', 'unauthenticated'].includes(persistence?.status);
+            const readyMessage = `${readySummary}${photoNotice}${pageFitNotice}${persistenceNotice}`.trim();
+            setCvImportProgress({
+                fileName,
+                message: readyMessage,
+                state: persistenceFailed ? 'error' : 'success',
+            });
+            setCvStatus(`${fileName} : ${readyMessage}`);
         } catch (error) {
             console.error(error);
-            restoreCvHistorySnapshot(historyBeforeImport, 'Import impossible : CV precedent restaure');
+            restoreCvHistorySnapshot(historyBeforeImport, 'Import impossible : CV précédent restauré');
+            pendingNewCvRollbackState = '';
+            setCvImportProgress({ fileName, message: 'Import impossible, ancien CV restauré', state: 'error' });
             event.target.value = '';
+        } finally {
+            forceNextCvDraftLayoutPersistence = false;
+            isImportingCvPreview = false;
+            isReplacingCvDocument = false;
+            setKirbyCvRequestInFlight(false);
+            cvImportBlock?.classList.remove('is-importing');
+            cvImportBlock?.setAttribute('aria-busy', 'false');
+            cvImportInput.disabled = false;
+
+            const queuedMessage = queuedAssistantPrompt;
+            queuedAssistantPrompt = '';
+            if (queuedMessage) {
+                window.setTimeout(() => {
+                    void handleAssistantPrompt(queuedMessage, activeKirbyMode);
+                }, 0);
+            }
         }
     });
 }
@@ -14736,11 +20436,8 @@ expandableCards.forEach((card) => {
 
 if (assistantToggle) {
     assistantToggle.addEventListener('click', () => {
-        if (assistantChat?.classList.contains('is-open')) {
-            closeAssistant();
-        } else {
-            openAssistant();
-        }
+        openAssistant();
+        assistantInput?.focus();
     });
 }
 
@@ -14772,10 +20469,13 @@ if (assistantApplyButton) {
         }
 
         const proposalState = pendingKirbyCvProposal;
+        const beforeApplyState = (['create', 'autofill'].includes(proposalState.task) && pendingNewCvRollbackState)
+            || getCvHistoryState();
         const beforeApplySnapshot = getKirbyCvSnapshot();
         isApplyingKirbyCvChange = true;
         let reply = '';
         let afterApplySnapshot = beforeApplySnapshot;
+        let applyError = null;
         try {
             reply = await applyKirbyCvResult(
                 proposalState.result,
@@ -14784,6 +20484,15 @@ if (assistantApplyButton) {
                 { applyMode: 'proposal' }
             );
             afterApplySnapshot = getKirbyCvSnapshot();
+        } catch (error) {
+            applyError = error;
+            if (beforeApplyState && getCvHistoryState() !== beforeApplyState) {
+                try {
+                    restoreCvHistorySnapshot(beforeApplyState, 'Modification Kirby annulée : CV restauré');
+                } catch (rollbackError) {
+                    console.error('Restauration de la proposition Kirby impossible', rollbackError);
+                }
+            }
         } finally {
             isApplyingKirbyCvChange = false;
         }
@@ -14792,9 +20501,26 @@ if (assistantApplyButton) {
         if (assistantInput) {
             assistantInput.value = '';
         }
+        if (applyError) {
+            const message = applyError?.message === 'kirby_cv_operation_transaction_failed'
+                ? 'Je n’ai rien modifié : une partie de la demande était ambiguë. Le CV précédent a été restauré.'
+                : applyError?.message || 'La proposition n’a pas pu être appliquée. Le CV précédent a été restauré.';
+            setCvStatus('Erreur Kirby : CV restauré');
+            appendAssistantMessage(message, 'bot');
+            return;
+        }
         if (operationDriven && beforeApplySnapshot === afterApplySnapshot) {
+            if (beforeApplyState && getCvHistoryState() !== beforeApplyState) {
+                restoreCvHistorySnapshot(beforeApplyState, 'Modification Kirby refusée : CV restauré');
+            }
             appendAssistantMessage(getKirbyApplyFailureReply(proposalState.result, proposalState.instruction), 'bot');
             return;
+        }
+        if (beforeApplyState && getCvHistoryState() !== beforeApplyState) {
+            commitCvHistoryTransition(beforeApplyState);
+        }
+        if (['create', 'autofill'].includes(proposalState.task) && beforeApplySnapshot !== afterApplySnapshot) {
+            pendingNewCvRollbackState = '';
         }
         appendAssistantMessage(reply, 'bot');
     });
@@ -14844,6 +20570,9 @@ if (assistantForm) {
             return;
         }
 
+        appendAssistantMessage(message, 'user');
+        assistantInput.value = '';
+
         if (isKirbyCvRequestInFlight) {
             queuedAssistantPrompt = message;
             setAssistantActivity('Demande enregistrée : Kirby la traitera après l’analyse en cours.', true);
@@ -14851,9 +20580,7 @@ if (assistantForm) {
         }
 
         hideKirbyCvProposal();
-        appendAssistantMessage(message, 'user');
         void handleAssistantPrompt(message);
-        assistantInput.value = '';
     });
 }
 
@@ -14869,7 +20596,7 @@ const normalizeKirbyFallbackText = (value = '') => String(value || '')
 const hasKirbyFoodServiceIntent = (value = '') => {
     const source = normalizeKirbyFallbackText(value);
     const explicitFoodPlace = /\b(restaurant|brasserie|bistrot|trattoria|pizzeria|cafe|bar a tapas|cantine|food truck|traiteur)\b/.test(source);
-    const foodOffer = /\b(menu du jour|carte des plats|carte restaurant|carte gastronomique|plats?|cuisine|chef|degustation|reservation table|reserver une table|salle de restaurant)\b/.test(source);
+    const foodOffer = /\b(menu du jour|carte des plats|carte restaurant|carte gastronomique|plats?|cuisine|chef|degustation|reservation table|reserver une table|salle de restaurant|patisserie|patissier|patissiere|boulanger|boulangerie|traiteur|gateaux?|cake design|layer cake|wedding cake|piece montee|desserts?|chocolatier|glacier)\b/.test(source);
 
     return explicitFoodPlace || foodOffer;
 };
@@ -15235,7 +20962,6 @@ const KIRBY_UNREQUESTED_UNIVERSE_PATTERNS = [
     /\bhotel\b/,
     /\bhôtellerie\b/,
     /\bhotellerie\b/,
-    /\bsuites?\b/,
     /\bspa\b/,
     /\brestaurant\b/,
     /\bsejour orbital\b/,
@@ -15251,7 +20977,24 @@ const KIRBY_UNREQUESTED_UNIVERSE_PATTERNS = [
 
 const getKirbyUnrequestedUniversePatterns = (brief = '') => {
     const positiveSource = normalizeKirbyFallbackText(getKirbyPositiveBriefText(brief));
-    return KIRBY_UNREQUESTED_UNIVERSE_PATTERNS.filter((pattern) => !pattern.test(positiveSource));
+    const semanticallyAllowedTerms = [];
+
+    if (hasKirbyFoodServiceIntent(positiveSource)) {
+        semanticallyAllowedTerms.push('restaurant');
+    }
+    if (/\b(hotel|hotellerie|hebergement|gite|chambre|suite)\b/.test(positiveSource)) {
+        semanticallyAllowedTerms.push('hotel', 'hotellerie', 'suite');
+    }
+    if (/\b(musee|galerie culturelle|exposition|archeologie|patrimoine)\b/.test(positiveSource)) {
+        semanticallyAllowedTerms.push('musee', 'exposition', 'archeologie', 'artefact');
+    }
+    if (/\b(tourisme spatial|sejour spatial|station spatiale|voyage orbital|orbite)\b/.test(positiveSource)) {
+        semanticallyAllowedTerms.push('sejour orbital', 'tourisme spatial', 'reservation orbitale', 'vue sur la terre');
+    }
+
+    return KIRBY_UNREQUESTED_UNIVERSE_PATTERNS.filter((pattern) =>
+        !pattern.test(positiveSource)
+        && !semanticallyAllowedTerms.some((term) => pattern.test(term)));
 };
 
 const removeKirbyUnrequestedUniverseText = (proposal = {}, brief = '') => {
@@ -18375,6 +24118,12 @@ const buildKirbyBriefFromForm = () => {
 
 let kirbyConceptNonce = 0;
 let kirbyRequestSerial = 0;
+let kirbySiteRequestInFlight = false;
+let kirbyProgressiveMediaSerial = 0;
+let kirbyActiveProposal = null;
+let kirbyActiveBrief = '';
+let kirbyActiveRuntime = {};
+let kirbyActiveSeed = 0;
 
 const beginKirbyRequest = () => {
     kirbyRequestSerial += 1;
@@ -18382,6 +24131,17 @@ const beginKirbyRequest = () => {
 };
 
 const isKirbyRequestCurrent = (requestId) => requestId === kirbyRequestSerial;
+
+const setKirbyRequestBusy = (busy = false) => {
+    kirbySiteRequestInFlight = Boolean(busy);
+    aiBriefForm?.setAttribute('aria-busy', busy ? 'true' : 'false');
+    aiBriefForm?.querySelectorAll('button[type="submit"]').forEach((button) => {
+        button.disabled = Boolean(busy);
+    });
+    kirbyAutopilotButtons.forEach((button) => {
+        button.disabled = Boolean(busy);
+    });
+};
 
 const getKirbyBusinessSector = (brief = '') => {
     const source = normalizeKirbyText(getKirbyPositiveBriefText(brief));
@@ -18439,7 +24199,7 @@ const getKirbyRevisionRebuildContext = (brief = '', revision = '') => {
     const hardRebuildAsked = isKirbyHardRebuildRequest(revision);
     const revisionSource = normalizeKirbyText(revision);
     const negatedSectorMention = /(?:ce\s+n['’ ]?est\s+pas|n['’ ]?est\s+pas|ne\s+.+\s+pas|pas\s+une?|pas\s+un|mauvais\s+metier|mauvais\s+métier|corrige\s+le\s+metier|corrige\s+le\s+métier|corriger\s+le\s+metier|corriger\s+le\s+métier).{0,90}(agence de voyage|voyage|travel|destination|recrutement|candidat|finance|compta|portfolio|reve|rêve|dream|portail|onirique|traversee|traversée)|(?:agence de voyage|voyage|travel|destination|recrutement|candidat|finance|compta|portfolio|reve|rêve|dream|portail|onirique|traversee|traversée).{0,90}(?:pas le bon|pas la bonne|incorrect|mauvais|a la place|à la place)/.test(revisionSource);
-    const sectorChanged = !negatedSectorMention && baseSector !== revisedSector;
+    const sectorChanged = !negatedSectorMention && revisedSector !== 'service' && baseSector !== revisedSector;
     const typeChanged = !negatedSectorMention && /(nouveau site|nouveau type|passe en|transforme en|deviens|devient|au lieu de)/.test(revisionSource);
 
     return {
@@ -18712,13 +24472,14 @@ const renderKirbyConceptExperience = ({
 
     if (pipelineIssues.length) {
         renderKirbyPipelineError('Génération arrêtée par le contrôle qualité', pipelineIssues);
-        return;
+        return false;
     }
 
     renderKirbyProposal(safeProposal, brief, {
         ...runtime,
         source: runtime?.source,
     });
+    return true;
 };
 
 const normalizeKirbyText = (value = '') => String(value || '')
@@ -18786,7 +24547,7 @@ const getKirbyBriefSignals = (brief = '') => {
     const isExplorerAcademy = hasKirbyExplorerAcademyIntent(source);
     const isDreamPortal = !isCrisisManagement && !isMedicalCenter && !isSportsRehab && hasKirbyDreamPortalIntent(source);
     const isClimateLab = hasKirbyClimateLabIntent(source);
-    const isCraft = !isEnergyRenovation && /plombier|artisan|travaux|chantier|renovation/.test(source);
+    const isCraft = !isEnergyRenovation && /plombier|plomberie|electricien|électricien|electricite|électricité|elec|artisan|travaux|chantier|renovation/.test(source);
     const isAccountingApp = !isFutureBank && !isRestaurantManagementSaas && hasKirbyAccountingIntent(source);
     const isEducationKids = !isAccountingApp && !isPrivateSchool && !isKidsFashion && isKirbyKidsEducationBrief(source);
     const isFutureExperience = hasKirbyLuminaIntent(source);
@@ -18828,7 +24589,7 @@ const getKirbyBriefSignals = (brief = '') => {
         isDigital: isFutureExperience || (!isSectorSpecific && /ia|digital/.test(source)) || isDigitalService,
         isHotel,
         isRestaurant,
-        isShop: isKidsFashion || (!isFuneralHome && !isBridal && !isBeauty && !isRestaurant && !isRestaurantManagementSaas && !isEnergyRenovation && !isHotel && /boutique|vendre|vente|commande|produit|panier|paiement|catalogue|mode|vetement/.test(source)),
+        isShop: isKidsFashion || (!isFuneralHome && !isBridal && !isBeauty && !isRestaurant && !isRestaurantManagementSaas && !isEnergyRenovation && !isHotel && /boutique|ecommerce|e-commerce|shop|concept store|pret a porter|prêt a porter|mode|vetement|vêtement|robe|jupe|pantalon|manteau|collection capsule|lookbook|essayage|accessoires de mode|bijoux|maroquinerie/.test(source)),
         isBeauty,
         isCraft,
     };
@@ -19231,6 +24992,16 @@ const getKirbyPipelineValidationIssues = (proposal = {}, brief = '', runtime = {
     const profile = getKirbyBriefProfile(brief);
     const narrativePlan = proposal?.narrativePlan;
     const visualPlan = proposal?.visualPlan;
+    const isRenderableOpenAiVision = runtime?.source === 'openai'
+        && proposal?.brandIdentity
+        && proposal?.experienceBlueprint
+        && proposal?.layoutBlueprint;
+
+    // Les plans historiques restent des diagnostics. Ils ne doivent plus masquer
+    // un SiteSpec V3 valide que l'API a déjà assaini et déclaré rendu possible.
+    if (isRenderableOpenAiVision) {
+        return [];
+    }
 
     if (!narrativePlan || typeof narrativePlan !== 'object') {
         issues.push('narrativePlan absent.');
@@ -20797,6 +26568,102 @@ const getKirbyPreviewStyle = (proposal = {}) => {
 };
 
 const getKirbyPreviewImageStyle = (proposal = {}, brief = '') => {
+    {
+        const signals = getKirbyBriefSignals(brief);
+        const visualConcept = getKirbyVisualConcept(proposal);
+        const source = normalizeKirbyText([
+            brief,
+            proposal.projectType,
+            proposal.siteName,
+            proposal.visualMood,
+            proposal.siteModel && proposal.siteModel.name,
+            proposal.styleGuide && proposal.styleGuide.direction,
+            proposal.styleGuide && proposal.styleGuide.colors,
+            visualConcept.ambience,
+            visualConcept.heroComposition,
+            visualConcept.layoutSignature,
+            getKirbyArray(visualConcept.imageKeywords, 8).join(' '),
+            getKirbyArray(proposal.pages, 6).map((page) => getKirbyItemTitle(page)).join(' '),
+        ].filter(Boolean).join(' '));
+        const index = getKirbyHash(`${brief} ${proposal.siteName} ${proposal.visualMood} ${source}`) % 9;
+        const reliableImageSets = [
+            {
+                test: () => /electricien|électricien|electricite|électricité|elec|tableau electrique|tableau électrique|disjoncteur|cablage|câblage|prise electrique|prise électrique/.test(source),
+                overlay: 'linear-gradient(135deg, rgba(16, 24, 22, 0.12), rgba(16, 24, 22, 0.02) 42%, rgba(16, 24, 22, 0.3))',
+                urls: [
+                    'https://images.unsplash.com/photo-1758101755915-462eddc23f57?auto=format&fit=crop&w=1200&q=84',
+                    'https://images.unsplash.com/photo-1780034766312-73825064806c?auto=format&fit=crop&w=1200&q=84',
+                ],
+            },
+            {
+                test: () => /plombier|plomberie|fuite|debouchage|débouchage|canalisation|chauffe eau|chauffe-eau|robinet|sanitaire/.test(source),
+                overlay: 'linear-gradient(135deg, rgba(12, 32, 38, 0.16), rgba(12, 32, 38, 0.02) 42%, rgba(12, 32, 38, 0.34))',
+                urls: [
+                    'https://images.unsplash.com/photo-1749532125405-70950966b0e5?auto=format&fit=crop&w=1200&q=84',
+                    'https://images.unsplash.com/photo-1676210134188-4c05dd172f89?auto=format&fit=crop&w=1200&q=84',
+                ],
+            },
+            {
+                test: () => signals.isCraft || /artisan|travaux|chantier|renovation|rénovation|depannage|dépannage|urgence/.test(source),
+                overlay: 'linear-gradient(135deg, rgba(12, 32, 38, 0.16), rgba(12, 32, 38, 0.02) 42%, rgba(12, 32, 38, 0.34))',
+                urls: [
+                    'https://images.unsplash.com/photo-1749532125405-70950966b0e5?auto=format&fit=crop&w=1200&q=84',
+                    'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=1200&q=84',
+                    'https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&w=1200&q=84',
+                ],
+            },
+            {
+                test: () => signals.isBeauty || /coiff|beaute|salon|institut|estheticien|estheticienne|esthetique|massage|soin|epilation|spa|bien etre|bien-etre/.test(source),
+                overlay: 'linear-gradient(135deg, rgba(55, 34, 34, 0.12), rgba(55, 34, 34, 0.02) 48%, rgba(55, 34, 34, 0.28))',
+                urls: [
+                    'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1200&q=84',
+                    'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=1200&q=84',
+                    'https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?auto=format&fit=crop&w=1200&q=84',
+                    'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=1200&q=84',
+                    'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1200&q=84',
+                ],
+            },
+            {
+                test: () => signals.isRestaurant || /restaurant|menu|carte|plat|cuisine|table|patisserie|pâtisserie|patissier|patissiere|boulanger|traiteur|gateau|gâteau|dessert|cake design|wedding cake|layer cake/.test(source),
+                overlay: 'linear-gradient(135deg, rgba(84, 38, 20, 0.18), rgba(84, 38, 20, 0.02) 44%, rgba(84, 38, 20, 0.32))',
+                urls: [
+                    'https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&w=1200&q=84',
+                    'https://images.unsplash.com/photo-1606890737304-57a1ca8a5b62?auto=format&fit=crop&w=1200&q=84',
+                    'https://images.unsplash.com/photo-1535141192574-5d4897c12636?auto=format&fit=crop&w=1200&q=84',
+                    'https://images.unsplash.com/photo-1464349095431-e9a21285b5f3?auto=format&fit=crop&w=1200&q=84',
+                    'https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=1200&q=84',
+                ],
+            },
+            {
+                test: () => !signals.isBridal && (signals.isShop || /boutique|mode|vetement|vêtement|pret a porter|prêt a porter|lookbook|essayage|accessoires de mode|maroquinerie/.test(source)),
+                overlay: 'linear-gradient(135deg, rgba(33, 26, 24, 0.12), rgba(33, 26, 24, 0.02) 48%, rgba(33, 26, 24, 0.28))',
+                urls: [
+                    'https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=1200&q=84',
+                    'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1200&q=84',
+                    'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=1200&q=84',
+                    'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1200&q=84',
+                    'https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=1200&q=84',
+                ],
+            },
+            {
+                test: () => signals.isHotel || /hotel|hôtel|chambre|suite|gite|gîte|hebergement|hébergement/.test(source),
+                overlay: 'linear-gradient(135deg, rgba(8, 28, 48, 0.2), rgba(8, 28, 48, 0.02) 45%, rgba(8, 28, 48, 0.34))',
+                urls: [
+                    'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=84',
+                    'https://images.unsplash.com/photo-1564501049412-61c2a3083791?auto=format&fit=crop&w=1200&q=84',
+                    'https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=1200&q=84',
+                    'https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?auto=format&fit=crop&w=1200&q=84',
+                ],
+            },
+        ];
+        const imageSet = reliableImageSets.find((set) => set.test());
+
+        if (imageSet) {
+            const url = imageSet.urls[index % imageSet.urls.length];
+            return `background-image: ${imageSet.overlay}, url('${url}');`;
+        }
+    }
+
     if (proposal.heroImageUrl) {
         return `background-image: linear-gradient(145deg, rgba(255, 255, 255, 0.04), rgba(15, 18, 29, 0.1)), url('${String(proposal.heroImageUrl).replace(/'/g, '%27')}');`;
     }
@@ -20810,7 +26677,7 @@ const getKirbyPreviewImageStyle = (proposal = {}, brief = '') => {
     ].filter(Boolean).join(','));
 
     if (heroQuery && heroQuery !== 'real%2Cdetail%2Cplace') {
-        return `background-image: linear-gradient(145deg, rgba(255, 255, 255, 0.04), rgba(15, 18, 29, 0.1)), url('https://source.unsplash.com/900x900/?${heroQuery}');`;
+        return `background-image: linear-gradient(145deg, rgba(255, 255, 255, 0.04), rgba(15, 18, 29, 0.1)), url('https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1200&q=82');`;
     }
 
     return 'background-image: radial-gradient(circle at 42% 32%, color-mix(in srgb, var(--surface-accent, #48e5ff) 22%, transparent), transparent 1.5rem), radial-gradient(circle at 68% 62%, color-mix(in srgb, var(--surface-accent-2, #fbbf24) 18%, transparent), transparent 2rem), linear-gradient(145deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04));';
@@ -21026,14 +26893,14 @@ const getKirbyPreviewImageStyle = (proposal = {}, brief = '') => {
             ],
         },
         {
-            test: () => signals.isRestaurant || /restaurant|menu|carte|plat|cuisine|table/.test(source),
+            test: () => signals.isRestaurant || /restaurant|menu|carte|plat|cuisine|table|patisserie|patissier|patissiere|boulanger|traiteur|gateau|dessert|cake design|wedding cake|layer cake/.test(source),
             urls: [
+                'https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1606890737304-57a1ca8a5b62?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1535141192574-5d4897c12636?auto=format&fit=crop&w=900&q=80',
                 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=900&q=80',
                 'https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=900&q=80',
-                'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=900&q=80',
-                'https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=900&q=80',
                 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=900&q=80',
-                'https://images.unsplash.com/photo-1544148103-0773bf10d330?auto=format&fit=crop&w=900&q=80',
             ],
         },
         {
@@ -21048,7 +26915,7 @@ const getKirbyPreviewImageStyle = (proposal = {}, brief = '') => {
             ],
         },
         {
-            test: () => !signals.isBridal && (signals.isShop || /boutique|mode|vetement|vetement|catalogue|panier|produit/.test(source)),
+            test: () => !signals.isBridal && (signals.isShop || /boutique|mode|vetement|vetement|pret a porter|lookbook|essayage|accessoires de mode|maroquinerie/.test(source)),
             urls: [
                 'https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=900&q=80',
                 'https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=900&q=80',
@@ -21070,9 +26937,23 @@ const getKirbyPreviewImageStyle = (proposal = {}, brief = '') => {
             ],
         },
         {
-            test: () => signals.isCraft || /plombier|artisan|travaux|chantier|renovation|rénovation/.test(source),
+            test: () => /electricien|électricien|electricite|électricité|elec|tableau electrique|tableau électrique|disjoncteur|cablage|câblage|prise electrique|prise électrique/.test(source),
             urls: [
-                'https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1758101755915-462eddc23f57?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1780034766312-73825064806c?auto=format&fit=crop&w=900&q=80',
+            ],
+        },
+        {
+            test: () => /plombier|plomberie|fuite|debouchage|débouchage|canalisation|chauffe eau|chauffe-eau|robinet|sanitaire/.test(source),
+            urls: [
+                'https://images.unsplash.com/photo-1749532125405-70950966b0e5?auto=format&fit=crop&w=900&q=80',
+                'https://images.unsplash.com/photo-1676210134188-4c05dd172f89?auto=format&fit=crop&w=900&q=80',
+            ],
+        },
+        {
+            test: () => signals.isCraft || /artisan|travaux|chantier|renovation|rénovation/.test(source),
+            urls: [
+                'https://images.unsplash.com/photo-1749532125405-70950966b0e5?auto=format&fit=crop&w=900&q=80',
                 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&w=900&q=80',
                 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=900&q=80',
                 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=900&q=80',
@@ -21101,13 +26982,78 @@ const getKirbyPreviewImageStyle = (proposal = {}, brief = '') => {
 };
 
 const getKirbyGalleryImageStyles = (proposal = {}, brief = '') => {
+    {
+        const signals = getKirbyBriefSignals(brief);
+        const source = normalizeKirbyText([
+            brief,
+            proposal.projectType,
+            proposal.siteName,
+            proposal.visualMood,
+            proposal.styleGuide && proposal.styleGuide.direction,
+            getKirbyArray(proposal.pages, 8).map((page) => getKirbyItemTitle(page)).join(' '),
+        ].filter(Boolean).join(' '));
+        const reliableGallerySets = [
+            {
+                test: () => /electricien|électricien|electricite|électricité|elec|tableau electrique|tableau électrique|disjoncteur|cablage|câblage|prise electrique|prise électrique/.test(source),
+                urls: [
+                    'https://images.unsplash.com/photo-1758101755915-462eddc23f57?auto=format&fit=crop&w=700&q=82',
+                    'https://images.unsplash.com/photo-1780034766312-73825064806c?auto=format&fit=crop&w=700&q=82',
+                ],
+            },
+            {
+                test: () => /plombier|plomberie|fuite|debouchage|débouchage|canalisation|chauffe eau|chauffe-eau|robinet|sanitaire/.test(source),
+                urls: [
+                    'https://images.unsplash.com/photo-1749532125405-70950966b0e5?auto=format&fit=crop&w=700&q=82',
+                    'https://images.unsplash.com/photo-1676210134188-4c05dd172f89?auto=format&fit=crop&w=700&q=82',
+                ],
+            },
+            {
+                test: () => signals.isCraft || /artisan|travaux|chantier|renovation|rénovation|depannage|dépannage|urgence/.test(source),
+                urls: [
+                    'https://images.unsplash.com/photo-1749532125405-70950966b0e5?auto=format&fit=crop&w=700&q=82',
+                    'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=700&q=82',
+                ],
+            },
+            {
+                test: () => signals.isBeauty || /coiff|beaute|salon|institut|estheticien|estheticienne|esthetique|massage|soin|epilation|spa|bien etre|bien-etre/.test(source),
+                urls: [
+                    'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=700&q=82',
+                    'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=700&q=82',
+                    'https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?auto=format&fit=crop&w=700&q=82',
+                ],
+            },
+            {
+                test: () => signals.isRestaurant || /restaurant|menu|carte|plat|cuisine|table|patisserie|pâtisserie|patissier|patissiere|boulanger|traiteur|gateau|gâteau|dessert|cake design|wedding cake|layer cake/.test(source),
+                urls: [
+                    'https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&w=700&q=82',
+                    'https://images.unsplash.com/photo-1606890737304-57a1ca8a5b62?auto=format&fit=crop&w=700&q=82',
+                    'https://images.unsplash.com/photo-1535141192574-5d4897c12636?auto=format&fit=crop&w=700&q=82',
+                ],
+            },
+            {
+                test: () => !signals.isBridal && (signals.isShop || /boutique|mode|vetement|vêtement|pret a porter|prêt a porter|lookbook|essayage|accessoires de mode|maroquinerie/.test(source)),
+                urls: [
+                    'https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=700&q=82',
+                    'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=700&q=82',
+                    'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=700&q=82',
+                    'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=700&q=82',
+                ],
+            },
+        ];
+        const imageSet = reliableGallerySets.find((set) => set.test());
+
+        if (imageSet) {
+            return imageSet.urls.map((url, index) => `background-image: linear-gradient(145deg, rgba(255,255,255,0.02), rgba(12,18,28,0.12)), url('${url}'); --i: ${index};`);
+        }
+    }
+
     const visualPlan = getKirbyVisualPlan(proposal, brief);
     const slots = getKirbyVisualPlanSlots(visualPlan).filter((slot) => slot !== visualPlan.hero).slice(0, 6);
 
     if (slots.length) {
         return slots.map((slot, index) => {
             const query = getKirbyVisualSlotQuery(slot, `${slot.subject || ''},${slot.purpose || ''}`);
-            return `background-image: linear-gradient(145deg, rgba(255,255,255,0.05), rgba(15,18,29,0.08)), url('https://source.unsplash.com/700x700/?${query}'); --i: ${index};`;
+            return `background-image: linear-gradient(145deg, rgba(255,255,255,0.05), rgba(15,18,29,0.08)), url('https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=700&q=80'); --i: ${index};`;
         });
     }
 
@@ -21292,16 +27238,16 @@ const getKirbyGalleryImageStyles = (proposal = {}, brief = '') => {
             'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=700&q=80',
             'https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?auto=format&fit=crop&w=700&q=80',
         ]
-        : signals.isRestaurant || /restaurant|menu|carte|plat|cuisine/.test(source)
+        : signals.isRestaurant || /restaurant|menu|carte|plat|cuisine|patisserie|patissier|patissiere|boulanger|traiteur|gateau|dessert|cake design|wedding cake|layer cake/.test(source)
             ? [
-                'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=700&q=80',
-                'https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=700&q=80',
-                'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=700&q=80',
+                'https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&w=700&q=80',
+                'https://images.unsplash.com/photo-1606890737304-57a1ca8a5b62?auto=format&fit=crop&w=700&q=80',
+                'https://images.unsplash.com/photo-1535141192574-5d4897c12636?auto=format&fit=crop&w=700&q=80',
                 'https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=700&q=80',
                 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=700&q=80',
                 'https://images.unsplash.com/photo-1544148103-0773bf10d330?auto=format&fit=crop&w=700&q=80',
             ]
-            : !signals.isBridal && (signals.isShop || /boutique|mode|vetement|catalogue|panier|produit/.test(source))
+            : !signals.isBridal && (signals.isShop || /boutique|mode|vetement|pret a porter|lookbook|essayage|accessoires de mode|maroquinerie/.test(source))
                 ? [
                     'https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=700&q=80',
                     'https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=700&q=80',
@@ -21319,9 +27265,19 @@ const getKirbyGalleryImageStyles = (proposal = {}, brief = '') => {
                         'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=700&q=80',
                         'https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=700&q=80',
                     ]
-                    : signals.isCraft || /plombier|artisan|travaux|chantier|renovation|rénovation/.test(source)
+                    : /electricien|électricien|electricite|électricité|elec|tableau electrique|tableau électrique|disjoncteur|cablage|câblage|prise electrique|prise électrique/.test(source)
                         ? [
-                            'https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?auto=format&fit=crop&w=700&q=80',
+                            'https://images.unsplash.com/photo-1758101755915-462eddc23f57?auto=format&fit=crop&w=700&q=80',
+                            'https://images.unsplash.com/photo-1780034766312-73825064806c?auto=format&fit=crop&w=700&q=80',
+                        ]
+                        : /plombier|plomberie|fuite|debouchage|débouchage|canalisation|chauffe eau|chauffe-eau|robinet|sanitaire/.test(source)
+                            ? [
+                                'https://images.unsplash.com/photo-1749532125405-70950966b0e5?auto=format&fit=crop&w=700&q=80',
+                                'https://images.unsplash.com/photo-1676210134188-4c05dd172f89?auto=format&fit=crop&w=700&q=80',
+                            ]
+                            : signals.isCraft || /artisan|travaux|chantier|renovation|rénovation/.test(source)
+                        ? [
+                            'https://images.unsplash.com/photo-1749532125405-70950966b0e5?auto=format&fit=crop&w=700&q=80',
                             'https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&w=700&q=80',
                             'https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=700&q=80',
                             'https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=700&q=80',
@@ -21423,31 +27379,169 @@ const copyTextToClipboard = async (text) => {
     return copied;
 };
 
-const requestKirbyProposal = async ({ brief, revision = '', currentProposal = null }) => {
-    const response = await fetch('/api/kirby', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ brief, revision, currentProposal }),
-    });
+const KIRBY_REVISION_OMITTED_FIELDS = [
+    'generatedMedia',
+    'heroImageUrl',
+    'debug',
+    '_debug',
+    'generationDebug',
+    'pipelineDebug',
+    'diagnostics',
+    'trace',
+    'rawResponse',
+];
 
-    if (!response.ok) {
-        let details = null;
-        try {
-            details = await response.json();
-        } catch (error) {
-            details = null;
-        }
-        const message = details?.error || 'kirby_request_failed';
-        const requestError = new Error(message);
-        requestError.details = details;
-        requestError.status = response.status;
-        throw requestError;
+const doesKirbyRevisionRequestMediaChange = (revision = '') => {
+    const source = normalizeKirbyText(revision);
+    const mediaNoun = '(?:image|photo|visuel|illustration|media|hero|banniere|arriere plan|fond visuel)';
+    const mediaAction = '(?:change|changer|modifie|modifier|remplace|remplacer|regenere|regenerer|refais|refaire|retire|retirer|supprime|supprimer|enleve|enlever|ajoute|ajouter|cree|creer)';
+    const article = '(?:l |la |le |les |une? |du |de la |des )?';
+
+    return new RegExp(`${mediaAction}\\s+(?:completement\\s+)?${article}${mediaNoun}`).test(source)
+        || new RegExp(`(?:nouvelle?|autre|sans)\\s+${mediaNoun}`).test(source)
+        || new RegExp(`${mediaNoun}.{0,28}(?:different|differente|nouveau|nouvelle|a changer|a remplacer|a regenerer|a supprimer)`).test(source);
+};
+
+const getKirbyRevisionTransportProposal = (currentProposal = null) => {
+    if (!currentProposal || typeof currentProposal !== 'object') {
+        return null;
     }
 
-    return response.json();
+    const transportProposal = cloneKirbyProposal(currentProposal);
+    KIRBY_REVISION_OMITTED_FIELDS.forEach((field) => {
+        delete transportProposal[field];
+    });
+    return transportProposal;
 };
+
+const mergeKirbyRevisionMedia = (nextProposal = {}, currentProposal = null, revision = '') => {
+    const mergedProposal = cloneKirbyProposal(nextProposal);
+    if (!currentProposal || typeof currentProposal !== 'object' || doesKirbyRevisionRequestMediaChange(revision)) {
+        return mergedProposal;
+    }
+
+    if (currentProposal.generatedMedia && typeof currentProposal.generatedMedia === 'object') {
+        mergedProposal.generatedMedia = cloneKirbyProposal(currentProposal.generatedMedia);
+    }
+
+    return mergedProposal;
+};
+
+const KIRBY_REQUEST_RETRYABLE_STATUS = new Set([408, 422, 429, 500, 502, 503, 504]);
+
+const waitForKirbyRetry = (delayMs = 700) => new Promise((resolve) => {
+    window.setTimeout(resolve, delayMs);
+});
+
+const requestKirbyJson = async ({ body, maxAttempts = 2 } = {}) => {
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        try {
+            const response = await fetch('/api/kirby', {
+                method: 'POST',
+                signal: typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
+                    ? AbortSignal.timeout(295000)
+                    : undefined,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(body || {}),
+            });
+
+            let details = null;
+            try {
+                details = await response.json();
+            } catch (error) {
+                details = null;
+            }
+
+            if (response.ok) {
+                return details || {};
+            }
+
+            const requestError = new Error(details?.error || 'kirby_request_failed');
+            requestError.details = details;
+            requestError.status = response.status;
+            throw requestError;
+        } catch (error) {
+            lastError = error;
+            const isAbort = error?.name === 'AbortError' || error?.name === 'TimeoutError';
+            const isRetryableNetworkError = error instanceof TypeError;
+            const isRetryableStatus = KIRBY_REQUEST_RETRYABLE_STATUS.has(Number(error?.status));
+
+            if (attempt >= maxAttempts || isAbort || (!isRetryableNetworkError && !isRetryableStatus)) {
+                throw error;
+            }
+
+            updateKirbyLoadingStatus('Kirby consolide la proposition automatiquement…');
+            await waitForKirbyRetry(650 * attempt);
+        }
+    }
+
+    throw lastError || new Error('kirby_request_failed');
+};
+
+const requestKirbyProposal = async ({ brief, revision = '', currentProposal = null }) => {
+    const transportProposal = getKirbyRevisionTransportProposal(currentProposal);
+    const preserveGeneratedMedia = Boolean(
+        currentProposal?.generatedMedia
+        && revision
+        && !doesKirbyRevisionRequestMediaChange(revision),
+    );
+
+    return requestKirbyJson({
+        body: {
+            brief,
+            revision,
+            currentProposal: transportProposal,
+            preserveGeneratedMedia,
+            deferGeneratedMedia: true,
+        },
+        maxAttempts: 2,
+    });
+};
+
+const getKirbyMediaTransportProposal = (proposal = {}) => {
+    const allowedFields = [
+        'sectorKey',
+        'projectType',
+        'siteName',
+        'slogan',
+        'valueProposition',
+        'projectAnalysis',
+        'productUnderstanding',
+        'positioning',
+        'brandIdentity',
+        'creativeDirection',
+        'experienceBlueprint',
+        'informationArchitecture',
+        'experienceSystem',
+        'layoutBlueprint',
+        'mediaPlan',
+    ];
+    const transportProposal = {};
+
+    allowedFields.forEach((field) => {
+        if (proposal && proposal[field] !== undefined) {
+            transportProposal[field] = cloneKirbyProposal(proposal[field]);
+        }
+    });
+
+    return transportProposal;
+};
+
+const requestKirbyMediaAsset = ({ brief, proposal, role = 'hero' } = {}) => requestKirbyJson({
+    body: {
+        mode: 'site-media',
+        role: role === 'secondary' ? 'secondary' : 'hero',
+        brief,
+        proposal: getKirbyMediaTransportProposal(proposal),
+    },
+    // Une image peut être facturée même si le navigateur perd la réponse : pas de
+    // seconde génération automatique pour ce chemin.
+    maxAttempts: 1,
+});
 
 const getKirbyPipelineErrorIssues = (error) => {
     const details = error?.details || {};
@@ -21468,8 +27562,8 @@ const assertKirbyPayloadProposal = (payload) => {
 };
 
 const getKirbyRuntimeLabel = (payload = {}) => {
-    if (payload?.source === 'openai' && payload.model) {
-        return `Kirby IA active · ${payload.model}`;
+    if (payload?.source === 'openai') {
+        return 'Kirby actif';
     }
 
     if (payload?.source === 'fallback') {
@@ -21713,6 +27807,1716 @@ const getKirbySectorExperienceModel = (proposal = {}, brief = '') => {
     };
 };
 
+const KIRBY_IDENTITY_COMPOSITIONS = ['artifact-led', 'split-flow', 'editorial-stack', 'product-canvas', 'immersive-sequence'];
+const KIRBY_IDENTITY_TYPE_MODES = ['modern-grotesk', 'editorial-serif', 'humanist', 'technical-mono', 'expressive-display'];
+const KIRBY_IDENTITY_DENSITIES = ['compact', 'balanced', 'airy'];
+const KIRBY_IDENTITY_SHAPES = ['precise', 'soft', 'framed', 'borderless'];
+const KIRBY_IDENTITY_ARTIFACTS = ['menu', 'workflow', 'dashboard', 'booking', 'catalog', 'timeline', 'comparison', 'story'];
+
+const normalizeKirbyIdentityToken = (value = '') => normalizeKirbyText(value)
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+const KIRBY_IDENTITY_FONT_STACKS = Object.freeze({
+    inter: '"Inter", Arial, sans-serif',
+    manrope: '"Manrope", "Inter", Arial, sans-serif',
+    'ibm-plex-sans': '"IBM Plex Sans", "Inter", Arial, sans-serif',
+    lato: '"Lato", "Inter", Arial, sans-serif',
+    roboto: '"Roboto", "Inter", Arial, sans-serif',
+    'playfair-display': '"Playfair Display", Georgia, serif',
+    'libre-baskerville': '"Libre Baskerville", Georgia, serif',
+});
+
+const getKirbyIdentityFontStack = (value = '', typeMode = 'modern-grotesk', role = 'body') => {
+    const token = normalizeKirbyIdentityToken(value);
+    const match = Object.keys(KIRBY_IDENTITY_FONT_STACKS).find((fontToken) =>
+        token === fontToken || token.startsWith(`${fontToken}-`) || token.endsWith(`-${fontToken}`));
+    if (match) {
+        return KIRBY_IDENTITY_FONT_STACKS[match];
+    }
+
+    const fallbacks = role === 'display'
+        ? {
+            'modern-grotesk': KIRBY_IDENTITY_FONT_STACKS.manrope,
+            'editorial-serif': KIRBY_IDENTITY_FONT_STACKS['playfair-display'],
+            humanist: KIRBY_IDENTITY_FONT_STACKS.lato,
+            'technical-mono': KIRBY_IDENTITY_FONT_STACKS['ibm-plex-sans'],
+            'expressive-display': KIRBY_IDENTITY_FONT_STACKS['playfair-display'],
+        }
+        : {
+            'modern-grotesk': KIRBY_IDENTITY_FONT_STACKS.inter,
+            'editorial-serif': KIRBY_IDENTITY_FONT_STACKS.inter,
+            humanist: KIRBY_IDENTITY_FONT_STACKS.lato,
+            'technical-mono': KIRBY_IDENTITY_FONT_STACKS['ibm-plex-sans'],
+            'expressive-display': KIRBY_IDENTITY_FONT_STACKS.manrope,
+        };
+
+    return fallbacks[typeMode] || KIRBY_IDENTITY_FONT_STACKS.inter;
+};
+
+const getKirbyIdentityColor = (value = '', fallback = '#111418') => {
+    const color = String(value || '').trim();
+    return /^#[0-9a-f]{6}$/i.test(color) ? color.toUpperCase() : fallback;
+};
+
+const getKirbyIdentityLuminance = (color = '#111418') => {
+    const channels = [1, 3, 5].map((offset) => parseInt(color.slice(offset, offset + 2), 16) / 255)
+        .map((value) => value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+    return (channels[0] * 0.2126) + (channels[1] * 0.7152) + (channels[2] * 0.0722);
+};
+
+const getKirbyIdentityContrast = (first = '#111418', second = '#FFFFFF') => {
+    const high = Math.max(getKirbyIdentityLuminance(first), getKirbyIdentityLuminance(second));
+    const low = Math.min(getKirbyIdentityLuminance(first), getKirbyIdentityLuminance(second));
+    return (high + 0.05) / (low + 0.05);
+};
+
+const getKirbyIdentityOnColor = (color = '#111418') =>
+    getKirbyIdentityContrast(color, '#FFFFFF') >= getKirbyIdentityContrast(color, '#000000') ? '#FFFFFF' : '#000000';
+
+const mixKirbyIdentityColor = (source = '#111418', target = '#FFFFFF', amount = 0) => {
+    const safeSource = getKirbyIdentityColor(source, '#111418');
+    const safeTarget = getKirbyIdentityColor(target, '#FFFFFF');
+    const ratio = Math.max(0, Math.min(1, Number(amount) || 0));
+    const channel = (offset) => Math.round(
+        parseInt(safeSource.slice(offset, offset + 2), 16) * (1 - ratio)
+        + parseInt(safeTarget.slice(offset, offset + 2), 16) * ratio,
+    ).toString(16).padStart(2, '0');
+
+    return `#${channel(1)}${channel(3)}${channel(5)}`.toUpperCase();
+};
+
+const getKirbyIdentityAccessibleColor = (background = '#FFFFFF', preferred = '#111418', minimumContrast = 4.5) => {
+    const safeBackground = getKirbyIdentityColor(background, '#FFFFFF');
+    const safePreferred = getKirbyIdentityColor(preferred, '#111418');
+    const darkest = '#000000';
+    const lightest = '#FFFFFF';
+    const target = getKirbyIdentityContrast(darkest, safeBackground) >= getKirbyIdentityContrast(lightest, safeBackground)
+        ? darkest
+        : lightest;
+    const candidates = [
+        safePreferred,
+        ...[0.12, 0.24, 0.36, 0.48, 0.6, 0.72, 0.84, 1]
+            .map((amount) => mixKirbyIdentityColor(safePreferred, target, amount)),
+        darkest,
+        lightest,
+    ]
+        .map((color) => getKirbyIdentityColor(color, '#111418'))
+        .filter((color, index, list) => list.indexOf(color) === index);
+    const preferredCandidate = candidates.find((color) => getKirbyIdentityContrast(color, safeBackground) >= minimumContrast);
+    return preferredCandidate || candidates.sort((first, second) =>
+        getKirbyIdentityContrast(second, safeBackground) - getKirbyIdentityContrast(first, safeBackground))[0];
+};
+
+const getKirbyIdentitySystem = (proposal = {}, brief = '') => {
+    const source = proposal.brandIdentity && typeof proposal.brandIdentity === 'object'
+        ? proposal.brandIdentity
+        : {};
+    const palette = source.palette && typeof source.palette === 'object' ? source.palette : {};
+    const typography = source.typography && typeof source.typography === 'object' ? source.typography : {};
+    const fallbackPalettes = [
+        { canvas: '#F2F5F1', surface: '#FFFFFF', ink: '#14201D', muted: '#60706B', accent: '#0F8B6D', accentAlt: '#D95D39' },
+        { canvas: '#F5F2EE', surface: '#FFFDFC', ink: '#1A1816', muted: '#746E68', accent: '#B33424', accentAlt: '#1D6F78' },
+        { canvas: '#F0F2F5', surface: '#FFFFFF', ink: '#111820', muted: '#64707C', accent: '#246BCE', accentAlt: '#E0A11A' },
+        { canvas: '#111310', surface: '#1A1D18', ink: '#F4F2E9', muted: '#B8BAAF', accent: '#C8F04A', accentAlt: '#F0794A' },
+        { canvas: '#F6F4F0', surface: '#FFFFFF', ink: '#1D1A24', muted: '#746E7E', accent: '#7856A8', accentAlt: '#D75E78' },
+    ];
+    const fallback = fallbackPalettes[getKirbyHash(`${brief}::${proposal.siteName || ''}::identity`) % fallbackPalettes.length];
+    const compositionToken = normalizeKirbyIdentityToken(source.composition);
+    const typeToken = normalizeKirbyIdentityToken(typography.mode);
+    const densityToken = normalizeKirbyIdentityToken(source.density);
+    const shapeToken = normalizeKirbyIdentityToken(source.shapeLanguage);
+    const composition = KIRBY_IDENTITY_COMPOSITIONS.includes(compositionToken)
+        ? compositionToken
+        : KIRBY_IDENTITY_COMPOSITIONS[getKirbyHash(`${brief}::composition`) % KIRBY_IDENTITY_COMPOSITIONS.length];
+    const typeMode = KIRBY_IDENTITY_TYPE_MODES.includes(typeToken) ? typeToken : 'modern-grotesk';
+    const fontDisplay = getKirbyIdentityFontStack(typography.display, typeMode, 'display');
+    const fontBody = getKirbyIdentityFontStack(typography.body, typeMode, 'body');
+    const density = KIRBY_IDENTITY_DENSITIES.includes(densityToken) ? densityToken : 'balanced';
+    const shape = KIRBY_IDENTITY_SHAPES.includes(shapeToken) ? shapeToken : 'precise';
+    const resolvedPalette = {
+        canvas: getKirbyIdentityColor(palette.canvas, fallback.canvas),
+        surface: getKirbyIdentityColor(palette.surface, fallback.surface),
+        ink: getKirbyIdentityColor(palette.ink, fallback.ink),
+        muted: getKirbyIdentityColor(palette.muted, fallback.muted),
+        accent: getKirbyIdentityColor(palette.accent, fallback.accent),
+        accentAlt: getKirbyIdentityColor(palette.accentAlt, fallback.accentAlt),
+    };
+    if (getKirbyIdentityContrast(resolvedPalette.ink, resolvedPalette.canvas) < 4.5) {
+        resolvedPalette.ink = getKirbyIdentityAccessibleColor(resolvedPalette.canvas, resolvedPalette.ink, 4.5);
+    }
+    if (getKirbyIdentityContrast(resolvedPalette.muted, resolvedPalette.canvas) < 4.5) {
+        resolvedPalette.muted = getKirbyIdentityAccessibleColor(
+            resolvedPalette.canvas,
+            resolvedPalette.muted,
+            4.5,
+        );
+    }
+    const onAccent = getKirbyIdentityOnColor(resolvedPalette.accent);
+    const onInk = getKirbyIdentityOnColor(resolvedPalette.ink);
+    const onCanvas = getKirbyIdentityAccessibleColor(resolvedPalette.canvas, resolvedPalette.ink, 4.5);
+    const mutedOnCanvas = getKirbyIdentityAccessibleColor(resolvedPalette.canvas, resolvedPalette.muted, 4.5);
+    const accentOnCanvas = getKirbyIdentityAccessibleColor(resolvedPalette.canvas, resolvedPalette.accent, 4.5);
+    const onSurface = getKirbyIdentityAccessibleColor(resolvedPalette.surface, resolvedPalette.ink, 4.5);
+    const mutedOnSurface = getKirbyIdentityAccessibleColor(resolvedPalette.surface, resolvedPalette.muted, 4.5);
+    const accentOnSurface = getKirbyIdentityAccessibleColor(resolvedPalette.surface, resolvedPalette.accent, 4.5);
+    const mutedOnInk = getKirbyIdentityAccessibleColor(resolvedPalette.ink, resolvedPalette.muted, 4.5);
+    const accentOnInk = getKirbyIdentityAccessibleColor(resolvedPalette.ink, resolvedPalette.accent, 4.5);
+    const style = [
+        `--identity-canvas: ${resolvedPalette.canvas}`,
+        `--identity-surface: ${resolvedPalette.surface}`,
+        `--identity-ink: ${resolvedPalette.ink}`,
+        `--identity-muted: ${resolvedPalette.muted}`,
+        `--identity-accent: ${resolvedPalette.accent}`,
+        `--identity-accent-alt: ${resolvedPalette.accentAlt}`,
+        `--identity-on-accent: ${onAccent}`,
+        `--identity-on-ink: ${onInk}`,
+        `--identity-on-canvas: ${onCanvas}`,
+        `--identity-muted-on-canvas: ${mutedOnCanvas}`,
+        `--identity-accent-on-canvas: ${accentOnCanvas}`,
+        '--identity-on-media: #FFFFFF',
+        '--identity-muted-on-media: #E7ECF3',
+        '--identity-media-scrim: rgba(5, 11, 22, 0.82)',
+        `--identity-on-surface: ${onSurface}`,
+        `--identity-muted-on-surface: ${mutedOnSurface}`,
+        `--identity-accent-on-surface: ${accentOnSurface}`,
+        `--identity-muted-on-ink: ${mutedOnInk}`,
+        `--identity-accent-on-ink: ${accentOnInk}`,
+        `--identity-font-display: ${fontDisplay}`,
+        `--identity-font-body: ${fontBody}`,
+    ].join('; ');
+
+    return {
+        ...source,
+        palette: resolvedPalette,
+        composition,
+        typeMode,
+        density,
+        shape,
+        fontDisplay,
+        fontBody,
+        onInk,
+        onCanvas,
+        mutedOnCanvas,
+        accentOnCanvas,
+        onSurface,
+        mutedOnSurface,
+        accentOnSurface,
+        mutedOnInk,
+        accentOnInk,
+        className: `identity-${composition} identity-type-${typeMode} identity-density-${density} identity-shape-${shape}`,
+        style,
+    };
+};
+
+const buildKirbyIdentityPreview = ({
+    proposal = {},
+    brief = '',
+    siteName = '',
+    domain = '',
+    pages = [],
+    sections = [],
+    services = [],
+    actionsMarkup = '',
+    footerMarkup = '',
+} = {}) => {
+    const identity = getKirbyIdentitySystem(proposal, brief);
+    const analysis = proposal.projectAnalysis && typeof proposal.projectAnalysis === 'object'
+        ? proposal.projectAnalysis
+        : {};
+    const blueprint = proposal.experienceBlueprint && typeof proposal.experienceBlueprint === 'object'
+        ? proposal.experienceBlueprint
+        : {};
+    const primaryArtifact = blueprint.primaryArtifact && typeof blueprint.primaryArtifact === 'object'
+        ? blueprint.primaryArtifact
+        : {};
+    const artifactTypeToken = normalizeKirbyIdentityToken(primaryArtifact.type);
+    const artifactType = KIRBY_IDENTITY_ARTIFACTS.includes(artifactTypeToken) ? artifactTypeToken : 'story';
+    const artifactFallbackItems = services.slice(0, 4).map((service, index) => ({
+        label: getKirbyItemTitle(service),
+        value: String(index + 1).padStart(2, '0'),
+        detail: getKirbyItemText(service),
+    }));
+    const artifactItems = getKirbyArray(primaryArtifact.items, 8)
+        .map((item = {}) => ({
+            label: item.label || item.name || item.title || '',
+            value: item.value || '',
+            detail: item.detail || item.description || item.text || '',
+        }))
+        .filter((item) => item.label || item.value || item.detail);
+    const visibleArtifactItems = (artifactItems.length ? artifactItems : artifactFallbackItems).slice(0, 6);
+    const proofFallback = sections.slice(0, 3).map((section) => ({
+        title: getKirbyItemTitle(section),
+        metric: '',
+        detail: getKirbyItemText(section),
+    }));
+    const proofModules = getKirbyArray(blueprint.proofModules, 5)
+        .map((item = {}) => ({
+            title: item.title || item.label || '',
+            metric: item.metric || item.value || '',
+            detail: item.detail || item.description || item.text || '',
+        }))
+        .filter((item) => item.title || item.metric || item.detail);
+    const flowFallback = getKirbyArray(proposal.narrativePlan?.journey, 6).map((item = {}) => ({
+        label: item.goal || item.stage || '',
+        detail: item.message || item.expectedAction || '',
+    }));
+    const flowItems = getKirbyArray(blueprint.flow, 8)
+        .map((item = {}) => ({
+            label: item.label || item.title || item.name || '',
+            detail: item.detail || item.description || item.text || '',
+        }))
+        .filter((item) => item.label || item.detail);
+    const visibleFlowItems = (flowItems.length ? flowItems : flowFallback).slice(0, 6);
+    const visibleProofs = (proofModules.length ? proofModules : proofFallback).slice(0, 4);
+    const activityLabel = analysis.activity || proposal.projectType || proposal.siteModel?.name || 'Expérience digitale';
+    const artifactLabel = primaryArtifact.label || activityLabel;
+    const artifactTitle = primaryArtifact.title || identity.promise || proposal.valueProposition || proposal.slogan;
+    const artifactStatus = primaryArtifact.status || 'Actif';
+    const openingText = blueprint.openingMove || proposal.valueProposition || proposal.slogan;
+    const signature = identity.signatureElement || proposal.visualConcept?.signatureMoment || artifactStatus;
+    const navItems = pages.map((page) => getKirbyItemTitle(page)).filter(Boolean).slice(0, 3);
+    const menuQrUrl = artifactType === 'menu'
+        ? `https://api.qrserver.com/v1/create-qr-code/?size=320x320&format=png&ecc=H&margin=12&qzone=2&data=${encodeURIComponent(`https://${domain}/menu`)}`
+        : '';
+    const artifactRows = visibleArtifactItems.map((item, index) => `
+        <article class="identity-artifact-item" style="--identity-order:${index}">
+            <span>${cleanHtml(item.label || `Étape ${index + 1}`)}</span>
+            ${item.value ? `<strong>${cleanHtml(item.value)}</strong>` : ''}
+            ${item.detail ? `<small>${cleanHtml(getKirbyShortText(item.detail, 72))}</small>` : ''}
+            <i aria-hidden="true"></i>
+        </article>
+    `).join('');
+    const artifactBody = artifactType === 'menu'
+        ? `
+            <div class="identity-menu-list">${artifactRows}</div>
+            <aside class="identity-menu-qr">
+                <img src="${cleanHtml(menuQrUrl)}" alt="QR code du menu numérique de ${cleanHtml(siteName)}" loading="eager">
+                <div><strong>Carte mobile</strong><span>Scanner pour ouvrir</span></div>
+            </aside>
+        `
+        : `<div class="identity-artifact-list">${artifactRows}</div>`;
+
+    return {
+        className: identity.className,
+        style: identity.style,
+        markup: `
+            <div class="kirby-identity-site ${identity.className}" style="${identity.style}" aria-label="Aperçu de l’identité ${cleanHtml(siteName)}">
+                <nav class="identity-nav">
+                    <strong>${cleanHtml(siteName)}</strong>
+                    <div>${navItems.map((item) => `<span>${cleanHtml(getKirbyShortText(item, 22))}</span>`).join('')}</div>
+                    <em>${cleanHtml(proposal.ctas?.[0] || 'Découvrir')}</em>
+                </nav>
+                <main>
+                    <section class="identity-opening">
+                        <div class="identity-opening-copy">
+                            <p class="signal-label">${cleanHtml(activityLabel)}</p>
+                            <h3>${cleanHtml(siteName)}</h3>
+                            <p>${cleanHtml(getKirbyShortText(openingText, 168))}</p>
+                            ${actionsMarkup}
+                            <div class="identity-personality">
+                                ${getKirbyArray(identity.personality, 3).map((item) => `<span>${cleanHtml(item)}</span>`).join('')}
+                            </div>
+                        </div>
+                        <section class="identity-artifact artifact-${artifactType}">
+                            <header>
+                                <div><small>${cleanHtml(artifactLabel)}</small><strong>${cleanHtml(artifactTitle)}</strong></div>
+                                <span><i aria-hidden="true"></i>${cleanHtml(artifactStatus)}</span>
+                            </header>
+                            <div class="identity-artifact-body">${artifactBody}</div>
+                            <footer><span>${cleanHtml(getKirbyShortText(signature, 74))}</span><b>${cleanHtml(String(visibleArtifactItems.length).padStart(2, '0'))}</b></footer>
+                        </section>
+                    </section>
+                    ${visibleProofs.length ? `
+                        <section class="identity-proof-grid">
+                            ${visibleProofs.map((item, index) => `
+                                <article style="--identity-order:${index}">
+                                    <em>${String(index + 1).padStart(2, '0')}</em>
+                                    ${item.metric ? `<b>${cleanHtml(item.metric)}</b>` : ''}
+                                    <strong>${cleanHtml(item.title)}</strong>
+                                    <span>${cleanHtml(getKirbyShortText(item.detail, 98))}</span>
+                                </article>
+                            `).join('')}
+                        </section>
+                    ` : ''}
+                    ${visibleFlowItems.length ? `
+                        <section class="identity-flow">
+                            <div><small>${cleanHtml(identity.concept || activityLabel)}</small><strong>${cleanHtml(blueprint.openingMove || proposal.positioning?.promise || proposal.slogan)}</strong></div>
+                            <ol>
+                                ${visibleFlowItems.map((item, index) => `<li style="--identity-order:${index}"><span>${index + 1}</span><div><strong>${cleanHtml(item.label)}</strong><small>${cleanHtml(getKirbyShortText(item.detail, 76))}</small></div></li>`).join('')}
+                            </ol>
+                        </section>
+                    ` : ''}
+                </main>
+                ${footerMarkup}
+            </div>
+        `,
+    };
+};
+
+const KIRBY_VISION_SECTION_KINDS = ['statement', 'artifact', 'proof', 'process', 'gallery', 'services', 'story', 'comparison', 'cta'];
+const KIRBY_VISION_SECTION_LAYOUTS = ['full-bleed', 'split', 'asymmetric', 'stack', 'rail', 'mosaic'];
+const KIRBY_VISION_SECTION_EMPHASIS = ['quiet', 'balanced', 'dominant'];
+const KIRBY_VISION_HERO_VARIANTS = ['artifact-stage', 'editorial-overlap', 'full-bleed-cinematic', 'product-theater', 'spatial-collage'];
+const KIRBY_VISION_HERO_ALIGNMENTS = ['left', 'center', 'right', 'asymmetric'];
+const KIRBY_VISION_SECTION_RHYTHMS = ['cinematic', 'editorial', 'kinetic', 'modular', 'progressive'];
+const KIRBY_VISION_IMAGE_STRATEGIES = ['product-proof', 'result-proof', 'service-proof', 'graphic-system'];
+const KIRBY_VISION_SCENES = ['product', 'human', 'place', 'result', 'system', 'editorial', 'abstract', 'none'];
+const KIRBY_VISION_ARTIFACT_ROLES = ['hero', 'support', 'none'];
+const KIRBY_VISION_NAVIGATION_MODES = ['single-page', 'compact-multipage', 'task-led', 'audience-led', 'service-led', 'product-led', 'editorial', 'utility-led'];
+const KIRBY_VISION_CLOSING_MODES = ['manifesto', 'direct', 'editorial', 'immersive'];
+const KIRBY_VISION_DATA_IMAGE_PATTERN = /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
+
+const getKirbyVisionEnum = (value = '', allowed = [], fallback = '') => {
+    const token = normalizeKirbyIdentityToken(value);
+    return allowed.includes(token) ? token : fallback;
+};
+
+const getKirbyVisionToken = (value = '', fallback = 'default', maxLength = 42) =>
+    normalizeKirbyIdentityToken(value).slice(0, maxLength) || fallback;
+
+const getKirbyVisionScene = (values = [], fallback = 'abstract') => {
+    const source = normalizeKirbyText(getKirbyArray(values, 12).filter(Boolean).join(' '));
+
+    if (/\b(?:none|aucun|aucune|sans media|sans image|no media|empty)\b/.test(source)) {
+        return 'none';
+    }
+    if (/\b(?:dashboard|interface|produit|product|app|application|logiciel|software|workflow|menu|catalogue|catalog|booking|reservation|device|ecran|screen|mockup|outil)\b/.test(source)) {
+        return 'product';
+    }
+    if (/\b(?:portrait|visage|personne|person|humain|human|equipe|team|fondateur|founder|artisan|client|patient|famille|family)\b/.test(source)) {
+        return 'human';
+    }
+    if (/\b(?:lieu|place|architecture|interieur|interior|facade|atelier|restaurant|hotel|boutique|cabinet|studio|paysage|landscape|ville|city|building|room)\b/.test(source)) {
+        return 'place';
+    }
+    if (/\b(?:resultat|result|avant apres|before after|transformation|preuve|proof|realisation|case study|impact)\b/.test(source)) {
+        return 'result';
+    }
+    if (/\b(?:systeme|system|reseau|network|data|donnee|process|flux|flow|timeline|carte|map|schema|diagram|node|connexion)\b/.test(source)) {
+        return 'system';
+    }
+    if (/\b(?:editorial|magazine|manifeste|manifesto|typograph|headline|texte|story|recit|quote|citation)\b/.test(source)) {
+        return 'editorial';
+    }
+
+    return KIRBY_VISION_SCENES.includes(fallback) ? fallback : 'abstract';
+};
+
+const getKirbyVisionArtifactRole = ({ explicitRole = '', identity = {}, hero = {}, creative = {}, media = {} } = {}) => {
+    const normalizedRole = getKirbyVisionToken(explicitRole, '');
+    if (normalizedRole === 'none') {
+        return 'none';
+    }
+    if (normalizedRole === 'support') {
+        return 'support';
+    }
+    if (normalizedRole === 'hero') {
+        return 'hero';
+    }
+
+    const source = normalizeKirbyText([
+        hero.mediaSlot,
+        hero.visualFocus,
+        creative.heroMode,
+        creative.thesis,
+        identity.imageStrategy,
+    ].filter(Boolean).join(' '));
+
+    if (/\b(?:sans artefact|sans artifact|sans interface|no artifact|image seule|photo seule|visual only|media only)\b/.test(source)) {
+        return 'none';
+    }
+
+    const productLed = identity.imageStrategy === 'product-proof'
+        || identity.composition === 'product-canvas'
+        || hero.variant === 'product-theater'
+        || hero.variant === 'artifact-stage'
+        || hero.scene === 'product'
+        || /\b(?:artifact|artefact|dashboard|interface|product|produit|app|application|logiciel|workflow|mockup)\b/.test(source);
+
+    if (productLed) {
+        return 'hero';
+    }
+
+    if (media.isGenerated && hero.variant === 'full-bleed-cinematic') {
+        return 'none';
+    }
+
+    return 'support';
+};
+
+const getKirbyVisionExperienceModes = (experienceSystem = {}) => {
+    const surfaceSource = normalizeKirbyText(experienceSystem.surfaceLanguage || '');
+    const depthSource = normalizeKirbyText(experienceSystem.depthStrategy || '');
+    const motionSource = normalizeKirbyText(experienceSystem.motionLanguage || '');
+    const surface = /\b(?:glass|verre|transparen|translucid|cristal|crystal)\b/.test(surfaceSource)
+        ? 'glass'
+        : /\b(?:mat|matte|tactile|matiere|material|textur)\b/.test(surfaceSource)
+            ? 'tactile'
+            : /\b(?:ink|encre|dark|sombre|contrast)\b/.test(surfaceSource)
+                ? 'ink'
+                : 'minimal';
+    const depth = /\b(?:4d|spatial|profondeur|depth|perspective|volume|immers)\b/.test(depthSource)
+        ? 'spatial'
+        : /\b(?:cinematic|cinematique|scene|theatr)\b/.test(depthSource)
+            ? 'cinematic'
+            : /\b(?:layer|couche|superpos|overlap|plan)\b/.test(depthSource)
+                ? 'layered'
+                : 'flat';
+    const motion = /\b(?:none|aucun|still|statique|minimal|reduced)\b/.test(motionSource)
+        ? 'still'
+        : /\b(?:kinetic|rythm|pulse|dynamic|dynamique|rapide)\b/.test(motionSource)
+            ? 'kinetic'
+            : /\b(?:organic|organique|fluid|fluide|float|respir)\b/.test(motionSource)
+                ? 'organic'
+                : 'reveal';
+
+    return { surface, depth, motion };
+};
+
+const getKirbyVisionText = (value = '', fallback = '', max = 180) => {
+    const text = cleanKirbyGeneratedText(value) || cleanKirbyGeneratedText(fallback);
+    return getKirbyShortText(text, max);
+};
+
+const KIRBY_VISION_BARE_INDEX_PATTERN = /^(?:#?\s*)?(?:0*\d+|[ivxlcdm]{1,8})(?:\s*[.)-])?$/i;
+
+const getKirbyVisionContentKey = (value = '') => normalizeKirbyText(cleanKirbyGeneratedText(value))
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const isKirbyVisionBareIndex = (value = '') => {
+    const text = cleanKirbyGeneratedText(value);
+    return Boolean(text) && KIRBY_VISION_BARE_INDEX_PATTERN.test(text);
+};
+
+const hasKirbyVisionMeaningfulContent = (...values) => values.some((value) => {
+    const text = cleanKirbyGeneratedText(value);
+    if (!text || isKirbyVisionBareIndex(text)) {
+        return false;
+    }
+    return /[\p{L}\p{N}]/u.test(text);
+});
+
+const getKirbyVisionUniqueLabels = (values = [], max = 3) => {
+    const seen = new Set();
+    return getKirbyArray(values, max * 2)
+        .map((value) => getKirbyVisionText(value, '', 42))
+        .filter((value) => {
+            const key = getKirbyVisionContentKey(value);
+            if (!key || seen.has(key)) {
+                return false;
+            }
+            seen.add(key);
+            return true;
+        })
+        .slice(0, max);
+};
+
+const getKirbyVisionDistinctLabel = (candidates = [], excluded = [], fallback = '') => {
+    const excludedKeys = new Set(getKirbyArray(excluded, 12).map(getKirbyVisionContentKey).filter(Boolean));
+    const labels = [...getKirbyArray(candidates, 12), fallback]
+        .map((value) => cleanKirbyGeneratedText(value))
+        .filter((value) => hasKirbyVisionMeaningfulContent(value));
+
+    return labels.find((label) => !excludedKeys.has(getKirbyVisionContentKey(label))) || '';
+};
+
+const getKirbyVisionActionPolicy = (ctas = []) => {
+    const labels = getKirbyVisionUniqueLabels(ctas, 3);
+    const primary = labels[0] || 'Prendre contact';
+    const secondary = labels[1] || getKirbyVisionDistinctLabel(
+        ['Découvrir le projet', 'Voir les services', 'En savoir plus'],
+        [primary],
+        'En savoir plus',
+    );
+    const inline = labels[2] || getKirbyVisionDistinctLabel(
+        ['Échanger maintenant', 'Parler du projet', 'Poser une question'],
+        [primary, secondary],
+        'Poser une question',
+    );
+    const nav = getKirbyVisionDistinctLabel(
+        ['Accéder au contact', 'Nous écrire', 'Coordonnées'],
+        [primary, secondary, inline],
+        'Coordonnées',
+    );
+    const booking = getKirbyVisionDistinctLabel(
+        ['Choisir un créneau', 'Voir les disponibilités', 'Planifier un échange'],
+        [primary, secondary, inline, nav],
+        'Voir les disponibilités',
+    );
+
+    return { primary, secondary, inline, nav, booking };
+};
+
+const getKirbyVisionDistinctEditorialText = (candidates = [], excluded = [], fallback = '', max = 180) => {
+    const text = getKirbyVisionDistinctLabel(candidates, excluded, fallback);
+    return getKirbyVisionText(text, fallback, max);
+};
+
+const sanitizeKirbyVisionMediaUrl = (value = '') => {
+    const source = String(value || '').trim();
+    if (!source || source.length > 4_100_000) {
+        return '';
+    }
+
+    return KIRBY_VISION_DATA_IMAGE_PATTERN.test(source) ? source : '';
+};
+
+const getKirbyVisionFocalPosition = (value = '', composition = '') => {
+    const source = normalizeKirbyText(value);
+    const hasHorizontalCue = /\b(?:gauche|left|droite|right|centre|center|central|middle)\b/.test(source);
+    const hasVerticalCue = /\b(?:haut|top|bas|bottom|centre|center|central|middle)\b/.test(source);
+    let x = composition === 'split-flow' ? 68 : 50;
+    let y = 50;
+
+    if (/\b(?:gauche|left)\b/.test(source)) {
+        x = 28;
+    } else if (/\b(?:droite|right)\b/.test(source)) {
+        x = 72;
+    } else if (hasHorizontalCue) {
+        x = 50;
+    }
+
+    if (/\b(?:haut|top)\b/.test(source)) {
+        y = 32;
+    } else if (/\b(?:bas|bottom)\b/.test(source)) {
+        y = 68;
+    } else if (hasVerticalCue) {
+        y = 50;
+    }
+
+    return { x, y };
+};
+
+const getKirbyVisionMedia = (proposal = {}, siteName = '', composition = '', role = 'hero') => {
+    const mediaRole = role === 'secondary' ? 'secondary' : 'hero';
+    const generatedAsset = proposal.generatedMedia && typeof proposal.generatedMedia === 'object'
+        && proposal.generatedMedia[mediaRole] && typeof proposal.generatedMedia[mediaRole] === 'object'
+        ? proposal.generatedMedia[mediaRole]
+        : {};
+    const plannedAssets = getKirbyArray(proposal.mediaPlan?.assets, 8);
+    const plannedAsset = mediaRole === 'hero'
+        ? plannedAssets.find((asset = {}) => normalizeKirbyIdentityToken(asset.role) === 'hero') || plannedAssets[0] || {}
+        : plannedAssets.find((asset = {}) => normalizeKirbyIdentityToken(asset.id) === normalizeKirbyIdentityToken(generatedAsset.assetId))
+            || plannedAssets.find((asset = {}) => normalizeKirbyIdentityToken(asset.role) !== 'hero')
+            || {};
+    const generatedUrl = sanitizeKirbyVisionMediaUrl(generatedAsset.url);
+    const width = Math.max(1, Math.min(4096, Number(generatedAsset.width) || 1536));
+    const height = Math.max(1, Math.min(4096, Number(generatedAsset.height) || 1024));
+    const focalPoint = getKirbyVisionText(generatedAsset.focalPoint || plannedAsset.focalPoint, '', 48);
+    const focalPosition = getKirbyVisionFocalPosition(focalPoint, mediaRole === 'hero' ? composition : '');
+
+    return {
+        url: generatedUrl,
+        alt: getKirbyVisionText(
+            generatedAsset.alt || plannedAsset.alt || (mediaRole === 'hero' ? proposal.mediaPlan?.heroAlt : ''),
+            siteName,
+            220,
+        ),
+        width,
+        height,
+        focalPoint,
+        focalX: focalPosition.x,
+        focalY: focalPosition.y,
+        role: mediaRole,
+        assetId: getKirbyVisionToken(generatedAsset.assetId || plannedAsset.id, `${mediaRole}-visual`),
+        narrativeStage: getKirbyVisionToken(generatedAsset.narrativeStage || plannedAsset.narrativeStage, mediaRole),
+        isGenerated: Boolean(generatedUrl),
+    };
+};
+
+const getKirbyVisionArtifactItems = (artifact = {}, fallbackItems = []) => {
+    const items = getKirbyArray(artifact.items, 8)
+        .map((item = {}) => {
+            const rawLabel = getKirbyVisionText(item.label || item.name || item.title, '', 58);
+            return {
+                label: isKirbyVisionBareIndex(rawLabel) ? '' : rawLabel,
+                value: getKirbyVisionText(item.value, '', 38),
+                detail: getKirbyVisionText(item.detail || item.description || item.text, '', 112),
+            };
+        })
+        .filter((item) => hasKirbyVisionMeaningfulContent(item.label, item.value, item.detail));
+
+    if (items.length) {
+        return items;
+    }
+
+    return getKirbyArray(fallbackItems, 6)
+        .map((item = {}, index) => {
+            const rawLabel = getKirbyVisionText(getKirbyItemTitle(item), '', 58);
+            return {
+                label: isKirbyVisionBareIndex(rawLabel) ? '' : rawLabel,
+                value: String(index + 1).padStart(2, '0'),
+                detail: getKirbyVisionText(getKirbyItemText(item), '', 112),
+            };
+        })
+        .filter((item) => hasKirbyVisionMeaningfulContent(item.label, item.detail));
+};
+
+const filterKirbyVisionLayoutSections = (sections = [], sources = {}) => {
+    const seenSections = new Set();
+    let hasCtaSection = false;
+
+    return getKirbyArray(sections, 8).filter((section = {}) => {
+        const kind = getKirbyVisionEnum(section.kind, KIRBY_VISION_SECTION_KINDS, 'statement');
+        const title = getKirbyVisionText(section.title, '', 86);
+        const purpose = getKirbyVisionText(section.purpose, '', 190);
+        const sectionKey = [kind, getKirbyVisionContentKey(title), getKirbyVisionContentKey(purpose)].join('|');
+        const hasCopy = hasKirbyVisionMeaningfulContent(title, purpose);
+
+        if (seenSections.has(sectionKey)) {
+            return false;
+        }
+        if (kind === 'cta') {
+            if (hasCtaSection) {
+                return false;
+            }
+            hasCtaSection = true;
+        }
+
+        const availability = {
+            statement: hasCopy || sources.hasIdentityCopy,
+            artifact: sources.artifactRole !== 'hero' && Boolean(sources.artifactItems?.length),
+            proof: Boolean(sources.proofs?.length || sources.contentSections?.length),
+            process: Boolean(sources.flow?.length || sources.contentSections?.length),
+            gallery: Boolean(sources.secondaryMedia?.isGenerated || sources.proofs?.length || sources.contentSections?.length),
+            services: Boolean(sources.services?.length),
+            story: Boolean(sources.contentSections?.length || hasCopy),
+            comparison: Boolean(sources.artifactItems?.length),
+            cta: Boolean(hasCopy || sources.inlineAction),
+        };
+
+        if (!availability[kind]) {
+            return false;
+        }
+        seenSections.add(sectionKey);
+        return true;
+    });
+};
+
+const renderKirbyVisionActions = (context, modifier = '', placement = 'hero') => {
+    const isInline = placement === 'inline';
+    const primary = isInline ? context.actionPolicy.inline : context.actionPolicy.primary;
+    const secondary = isInline ? '' : context.actionPolicy.secondary;
+
+    if (!primary && !secondary) {
+        return '';
+    }
+
+    return `
+        <div class="kirby-vision-actions ${modifier}">
+            ${primary ? `<a class="vision-action vision-action-primary" href="#vision-contact">${cleanHtml(primary)}</a>` : ''}
+            ${secondary ? `<a class="vision-action vision-action-secondary" href="#vision-content">${cleanHtml(secondary)}</a>` : ''}
+        </div>
+    `;
+};
+
+const getKirbyVisionNavigationItems = (context) => {
+    const sectionCount = Math.max(context.layoutSections.length, 1);
+    const navigation = context.navigation.length
+        ? context.navigation
+        : context.pages.map((page) => ({ label: getKirbyItemTitle(page) }));
+    return navigation.slice(0, 6).map((item, index) => {
+        const label = getKirbyVisionText(item.label, '', 28);
+        const target = index === 0
+            ? '#vision-top'
+            : index > sectionCount
+                ? '#vision-contact'
+                : `#vision-section-${Math.min(index - 1, sectionCount - 1)}`;
+        return { label, target };
+    }).filter((item) => hasKirbyVisionMeaningfulContent(item.label));
+};
+
+const getKirbyVisionNavLinks = (context) => getKirbyVisionNavigationItems(context)
+    .map((item) => `<a href="${item.target}">${cleanHtml(getKirbyShortText(item.label, 24))}</a>`)
+    .join('');
+
+const renderKirbyVisionMobileMenu = (context, modifier = '') => `
+    <details class="vision-mobile-menu ${modifier}">
+        <summary aria-label="Ouvrir le menu de navigation">
+            <span class="sr-only">Menu</span><i aria-hidden="true"></i><i aria-hidden="true"></i>
+        </summary>
+        <div class="vision-mobile-menu-panel">
+            ${getKirbyVisionNavLinks(context)}
+            <a class="vision-mobile-cta" href="#vision-contact">${cleanHtml(context.actionPolicy.nav)}</a>
+        </div>
+    </details>
+`;
+
+const renderKirbyVisionNav = (context, modifier = '') => {
+    const links = getKirbyVisionNavLinks(context);
+
+    return `
+        <nav class="kirby-vision-nav vision-nav-mode-${context.navigationMode} ${modifier}" aria-label="Navigation de ${cleanHtml(context.siteName)}">
+            <a class="vision-brand" href="#vision-top">${cleanHtml(context.siteName)}</a>
+            <div class="vision-nav-links">${links}</div>
+            <a class="vision-nav-cta" href="#vision-contact">${cleanHtml(context.actionPolicy.nav)}</a>
+            ${renderKirbyVisionMobileMenu(context)}
+        </nav>
+    `;
+};
+
+const renderKirbyVisionSceneMarkup = (scene = 'abstract') => {
+    const renderers = {
+        product: () => `
+            <div class="vision-scene-product"><span></span><div><i></i><i></i><i></i></div><b></b><b></b></div>
+        `,
+        human: () => `
+            <div class="vision-scene-human"><span></span><i></i><b></b><b></b></div>
+        `,
+        place: () => `
+            <div class="vision-scene-place"><span></span><span></span><span></span><i></i><b></b></div>
+        `,
+        result: () => `
+            <div class="vision-scene-result"><span></span><span></span><i></i><b></b></div>
+        `,
+        system: () => `
+            <div class="vision-scene-system"><span></span><span></span><span></span><span></span><i></i><i></i></div>
+        `,
+        editorial: () => `
+            <div class="vision-scene-editorial"><span>Aa</span><i></i><i></i><b></b></div>
+        `,
+        abstract: () => `
+            <div class="vision-scene-abstract"><span class="vision-orbit orbit-a"></span><span class="vision-orbit orbit-b"></span><span class="vision-orbit orbit-c"></span><i></i><i></i><i></i></div>
+        `,
+    };
+
+    return (renderers[scene] || renderers.abstract)();
+};
+
+const renderKirbyVisionMedia = (context, modifier = '', sceneOverride = '', focusOverride = '', allowGenerated = true, mediaRole = 'hero') => {
+    const media = mediaRole === 'secondary' ? context.secondaryMedia : context.media;
+    const scene = KIRBY_VISION_SCENES.includes(sceneOverride) ? sceneOverride : context.hero.scene;
+    const focus = getKirbyVisionText(
+        focusOverride,
+        context.analysis.activity || context.proposal.slogan || context.hero.visualFocus,
+        130,
+    );
+
+    if (scene === 'none') {
+        return '';
+    }
+
+    if (!allowGenerated || !media?.url) {
+        return `
+            <div class="kirby-vision-graphic ${modifier} scene-${scene}" data-kirby-media-role="${mediaRole}" data-scene="${scene}" aria-hidden="true">
+                ${renderKirbyVisionSceneMarkup(scene)}
+            </div>
+        `;
+    }
+
+    return `
+        <figure class="kirby-vision-media ${modifier} scene-${scene} media-render-${context.mediaPlan.renderingToken} ${media.isGenerated ? 'is-generated' : ''}" data-kirby-media-role="${mediaRole}" data-kirby-asset-id="${cleanHtml(media.assetId)}" data-scene="${scene}" style="--vision-focal-x: ${media.focalX}%; --vision-focal-y: ${media.focalY}%;">
+            <img
+                src="${cleanHtml(media.url)}"
+                alt="${cleanHtml(media.alt)}"
+                width="${media.width}"
+                height="${media.height}"
+                loading="${mediaRole === 'hero' ? 'eager' : 'lazy'}"
+                decoding="async"
+            >
+            <figcaption>
+                <span>${cleanHtml(focus)}</span>
+                <small>${cleanHtml(getKirbyVisionText(context.proposal.positioning?.differentiator, context.identity.promise, 110))}</small>
+            </figcaption>
+        </figure>
+    `;
+};
+
+const renderKirbyVisionMenuArtifact = (context, items) => `
+    <div class="vision-menu-artifact">
+        <header><span>${cleanHtml(context.artifact.label)}</span><strong>${cleanHtml(context.artifact.title)}</strong></header>
+        <ol>
+            ${items.map((item) => `
+                <li><div><strong>${cleanHtml(item.label)}</strong><small>${cleanHtml(item.detail)}</small></div><b>${cleanHtml(item.value || '—')}</b></li>
+            `).join('')}
+        </ol>
+        <footer><span>${cleanHtml(context.artifact.status)}</span><i aria-hidden="true"></i></footer>
+    </div>
+`;
+
+const renderKirbyVisionWorkflowArtifact = (context, items) => `
+    <div class="vision-workflow-artifact">
+        <header><small>${cleanHtml(context.artifact.label)}</small><strong>${cleanHtml(context.artifact.title)}</strong><span>${cleanHtml(context.artifact.status)}</span></header>
+        <ol>
+            ${items.map((item, index) => `
+                <li><em>${String(index + 1).padStart(2, '0')}</em><div><strong>${cleanHtml(item.label)}</strong><small>${cleanHtml(item.detail)}</small></div><b>${cleanHtml(item.value)}</b></li>
+            `).join('')}
+        </ol>
+    </div>
+`;
+
+const renderKirbyVisionDashboardArtifact = (context, items) => `
+    <div class="vision-dashboard-artifact">
+        <header><div><small>${cleanHtml(context.artifact.label)}</small><strong>${cleanHtml(context.artifact.title)}</strong></div><span><i></i>${cleanHtml(context.artifact.status)}</span></header>
+        <div class="vision-dashboard-grid">
+            ${items.slice(0, 4).map((item) => `<article><small>${cleanHtml(item.label)}</small>${item.value ? `<strong>${cleanHtml(item.value)}</strong>` : ''}<span>${cleanHtml(item.detail)}</span></article>`).join('')}
+        </div>
+        <div class="vision-dashboard-chart" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    </div>
+`;
+
+const renderKirbyVisionBookingArtifact = (context, items) => {
+    const bookingItems = items.filter((item) => hasKirbyVisionMeaningfulContent(item.label)).slice(0, 5);
+    const summaryItem = bookingItems[0] || items[0] || {};
+
+    return `
+        <div class="vision-booking-artifact">
+            <header><small>${cleanHtml(context.artifact.label)}</small><strong>${cleanHtml(context.artifact.title)}</strong></header>
+            ${bookingItems.length ? `<div class="vision-booking-days" aria-label="Créneaux proposés">
+                ${bookingItems.map((item, index) => `<span class="${index === 1 ? 'is-selected' : ''}"><b>${String(index + 1).padStart(2, '0')}</b><small>${cleanHtml(item.label)}</small></span>`).join('')}
+            </div>` : ''}
+            <div class="vision-booking-summary"><div><span>${cleanHtml(summaryItem.detail || context.opening)}</span><strong>${cleanHtml(summaryItem.value || context.artifact.status)}</strong></div>${bookingItems.length ? `<a href="#vision-contact">${cleanHtml(context.actionPolicy.booking)}</a>` : ''}</div>
+        </div>
+    `;
+};
+
+const renderKirbyVisionCatalogArtifact = (context, items) => `
+    <div class="vision-catalog-artifact">
+        <header><div><small>${cleanHtml(context.artifact.label)}</small><strong>${cleanHtml(context.artifact.title)}</strong></div><span>${cleanHtml(context.artifact.status)}</span></header>
+        <ul>
+            ${items.slice(0, 6).map((item, index) => `<li><i style="--catalog-index:${index}" aria-hidden="true"></i><div><strong>${cleanHtml(item.label)}</strong><small>${cleanHtml(item.detail)}</small></div><b>${cleanHtml(item.value)}</b></li>`).join('')}
+        </ul>
+    </div>
+`;
+
+const renderKirbyVisionTimelineArtifact = (context, items) => `
+    <div class="vision-timeline-artifact">
+        <header><span>${cleanHtml(context.artifact.label)}</span><strong>${cleanHtml(context.artifact.title)}</strong></header>
+        <ol>
+            ${items.map((item) => `<li>${item.value ? `<time>${cleanHtml(item.value)}</time>` : ''}<i aria-hidden="true"></i><div><strong>${cleanHtml(item.label)}</strong><small>${cleanHtml(item.detail)}</small></div></li>`).join('')}
+        </ol>
+    </div>
+`;
+
+const renderKirbyVisionComparisonArtifact = (context, items) => `
+    <div class="vision-comparison-artifact">
+        <header><small>${cleanHtml(context.artifact.label)}</small><strong>${cleanHtml(context.artifact.title)}</strong></header>
+        <div class="vision-table-wrap">
+            <table>
+                <caption class="sr-only">${cleanHtml(context.artifact.title)}</caption>
+                <thead><tr><th scope="col">Option</th><th scope="col">Valeur</th><th scope="col">Détail</th></tr></thead>
+                <tbody>${items.map((item) => `<tr><th scope="row">${cleanHtml(item.label)}</th><td>${cleanHtml(item.value || 'Inclus')}</td><td>${cleanHtml(item.detail)}</td></tr>`).join('')}</tbody>
+            </table>
+        </div>
+    </div>
+`;
+
+const renderKirbyVisionStoryArtifact = (context, items) => `
+    <article class="vision-story-artifact">
+        <header><p>${cleanHtml(context.artifact.label)}</p><h4>${cleanHtml(context.artifact.title)}</h4><span>${cleanHtml(context.artifact.status)}</span></header>
+        <div>
+            ${items.map((item, index) => `<section><em>${String(index + 1).padStart(2, '0')}</em><div><strong>${cleanHtml(item.label)}</strong><p>${cleanHtml(item.detail || item.value)}</p></div></section>`).join('')}
+        </div>
+    </article>
+`;
+
+const KIRBY_VISION_ARTIFACT_RENDERERS = {
+    menu: renderKirbyVisionMenuArtifact,
+    workflow: renderKirbyVisionWorkflowArtifact,
+    dashboard: renderKirbyVisionDashboardArtifact,
+    booking: renderKirbyVisionBookingArtifact,
+    catalog: renderKirbyVisionCatalogArtifact,
+    timeline: renderKirbyVisionTimelineArtifact,
+    comparison: renderKirbyVisionComparisonArtifact,
+    story: renderKirbyVisionStoryArtifact,
+};
+
+const renderKirbyVisionArtifact = (context, modifier = '') => {
+    if (context.artifactRole === 'none') {
+        return '';
+    }
+
+    const renderer = KIRBY_VISION_ARTIFACT_RENDERERS[context.artifact.type] || renderKirbyVisionStoryArtifact;
+    const items = context.artifactItems;
+
+    if (!items.length) {
+        return '';
+    }
+
+    return `
+        <section class="kirby-vision-artifact artifact-${context.artifact.type} ${modifier}" aria-label="${cleanHtml(context.artifact.label || context.artifact.title)}">
+            ${renderer(context, items)}
+        </section>
+    `;
+};
+
+const renderKirbyVisionHeroArtifact = (context, modifier = '') => {
+    const role = KIRBY_VISION_ARTIFACT_ROLES.includes(context.artifactRole) ? context.artifactRole : 'support';
+    return role === 'hero' ? renderKirbyVisionArtifact(context, `${modifier} artifact-role-${role}`) : '';
+};
+
+const getKirbyVisionSectionMeta = (section = {}, context, index = 0) => {
+    const kind = getKirbyVisionEnum(section.kind, KIRBY_VISION_SECTION_KINDS, 'statement');
+    const layout = getKirbyVisionEnum(section.layout, KIRBY_VISION_SECTION_LAYOUTS, index % 2 ? 'split' : 'stack');
+    const emphasis = getKirbyVisionEnum(section.emphasis, KIRBY_VISION_SECTION_EMPHASIS, 'balanced');
+    const fallbackSection = context.contentSections[index % Math.max(context.contentSections.length, 1)] || {};
+    const mediaSlotLabel = getKirbyVisionText(section.mediaSlot, '', 130);
+    const sceneFallback = kind === 'artifact'
+        ? 'product'
+        : kind === 'story'
+            ? 'editorial'
+            : kind === 'process'
+                ? 'system'
+                : kind === 'proof'
+                    ? 'result'
+                    : 'abstract';
+    const scene = getKirbyVisionScene([mediaSlotLabel, section.title, section.purpose, kind], sceneFallback);
+    const fallbackTitle = getKirbyItemTitle(fallbackSection) || context.identity.concept;
+    const title = getKirbyVisionDistinctEditorialText(
+        [section.title, fallbackTitle, context.identity.concept, context.proposal.slogan],
+        context.ctas,
+        kind === 'cta' ? 'Une prochaine étape simple' : 'Découvrir l’essentiel',
+        86,
+    );
+    const purpose = getKirbyVisionDistinctEditorialText(
+        [section.purpose, getKirbyItemText(fallbackSection), context.creative.thesis, context.identity.promise],
+        context.ctas,
+        'Une information claire pour avancer.',
+        190,
+    );
+
+    return {
+        kind,
+        layout,
+        emphasis,
+        mediaSlot: getKirbyVisionToken(mediaSlotLabel, 'none'),
+        mediaSlotLabel,
+        scene,
+        sceneIndex: Math.max(0, KIRBY_VISION_SCENES.indexOf(scene)),
+        motionToken: getKirbyVisionToken(section.motion || context.creative.motionPrinciple, 'still'),
+        title,
+        purpose,
+        motion: getKirbyVisionText(section.motion, context.creative.motionPrinciple, 90),
+        id: `vision-section-${index}`,
+        order: index,
+    };
+};
+
+const getKirbyVisionSectionClasses = (meta, context = {}) => [
+    `layout-${meta.layout}`,
+    `emphasis-${meta.emphasis}`,
+    `section-media-${meta.mediaSlot}`,
+    `section-scene-${meta.scene}`,
+    meta.scene === 'none' ? 'has-no-section-scene' : 'has-section-scene',
+    meta.order === context.secondaryMediaSectionIndex && meta.kind !== 'gallery' ? 'has-section-media' : '',
+    `section-motion-${meta.motionToken}`,
+].filter(Boolean).join(' ');
+
+const getKirbyVisionSectionAttributes = (meta) =>
+    `data-media-slot="${cleanHtml(meta.mediaSlot)}" data-scene="${meta.scene}" style="--vision-order:${meta.order};--vision-scene-index:${meta.sceneIndex}"`;
+
+const renderKirbyVisionSectionScene = (meta, context) => {
+    if (meta.scene === 'none') {
+        return '';
+    }
+
+    if (meta.order === context.secondaryMediaSectionIndex) {
+        return `
+            <aside class="vision-section-scene vision-section-media-scene scene-${meta.scene}">
+                ${renderKirbyVisionMedia(context, 'is-section-media', meta.scene, meta.purpose, true, 'secondary')}
+            </aside>
+        `;
+    }
+
+    return `<aside class="vision-section-scene scene-${meta.scene}" aria-hidden="true">${renderKirbyVisionSceneMarkup(meta.scene)}</aside>`;
+};
+
+const renderKirbyVisionStatementSection = (meta, context) => `
+    <section class="kirby-vision-section vision-statement ${getKirbyVisionSectionClasses(meta, context)}" id="${meta.id}" ${getKirbyVisionSectionAttributes(meta)}>
+        <div class="vision-section-index"><span>${String(meta.order + 1).padStart(2, '0')}</span><i></i></div>
+        <div class="vision-statement-copy"><p>${cleanHtml(context.identity.concept)}</p><h4>${cleanHtml(meta.title)}</h4><strong>${cleanHtml(meta.purpose)}</strong></div>
+        <aside><span>${cleanHtml(getKirbyVisionText(context.proposal.positioning?.differentiator, context.identity.promise, 150))}</span><small>${cleanHtml(getKirbyVisionText(context.proposal.positioning?.promise, context.proposal.slogan, 90))}</small></aside>
+        ${renderKirbyVisionSectionScene(meta, context)}
+    </section>
+`;
+
+const renderKirbyVisionArtifactSection = (meta, context) => {
+    if (context.artifactRole === 'hero' || !context.artifactItems.length) {
+        return '';
+    }
+
+    const artifact = renderKirbyVisionArtifact(context, 'is-section-artifact');
+
+    return `
+        <section class="kirby-vision-section vision-artifact-section ${getKirbyVisionSectionClasses(meta, context)}" id="${meta.id}" ${getKirbyVisionSectionAttributes(meta)}>
+            <header><span>${String(meta.order + 1).padStart(2, '0')}</span><div><h4>${cleanHtml(meta.title)}</h4><p>${cleanHtml(meta.purpose)}</p></div></header>
+            ${artifact}
+            ${renderKirbyVisionSectionScene(meta, context)}
+        </section>
+    `;
+};
+
+const renderKirbyVisionProofSection = (meta, context) => {
+    const proofs = (context.proofs.length ? context.proofs : context.contentSections.slice(0, 4).map((item) => ({
+        title: getKirbyItemTitle(item),
+        metric: '',
+        detail: getKirbyItemText(item),
+    }))).filter((item) => hasKirbyVisionMeaningfulContent(item.title, item.metric, item.detail));
+
+    return `
+        <section class="kirby-vision-section vision-proof-section ${getKirbyVisionSectionClasses(meta, context)}" id="${meta.id}" ${getKirbyVisionSectionAttributes(meta)}>
+            <header><p>${String(meta.order + 1).padStart(2, '0')} · Preuves</p><h4>${cleanHtml(meta.title)}</h4><span>${cleanHtml(meta.purpose)}</span></header>
+            <div class="vision-proof-list">
+                ${proofs.slice(0, 5).map((item, index) => `<article style="--item-order:${index}"><em>${String(index + 1).padStart(2, '0')}</em>${item.metric ? `<b>${cleanHtml(item.metric)}</b>` : ''}<strong>${cleanHtml(item.title)}</strong><p>${cleanHtml(getKirbyVisionText(item.detail, '', 120))}</p></article>`).join('')}
+            </div>
+            ${renderKirbyVisionSectionScene(meta, context)}
+        </section>
+    `;
+};
+
+const renderKirbyVisionProcessSection = (meta, context) => `
+    <section class="kirby-vision-section vision-process-section ${getKirbyVisionSectionClasses(meta, context)}" id="${meta.id}" ${getKirbyVisionSectionAttributes(meta)}>
+        <div class="vision-process-intro"><p>Parcours</p><h4>${cleanHtml(meta.title)}</h4><span>${cleanHtml(meta.purpose)}</span></div>
+        <ol>${context.flow.slice(0, 6).map((item, index) => `<li><span>${String(index + 1).padStart(2, '0')}</span><div><strong>${cleanHtml(item.label)}</strong><small>${cleanHtml(item.detail)}</small></div></li>`).join('')}</ol>
+        ${renderKirbyVisionSectionScene(meta, context)}
+    </section>
+`;
+
+const renderKirbyVisionGallerySection = (meta, context) => {
+    const notes = (context.proofs.length
+        ? context.proofs.map((item) => ({ title: item.title, detail: item.metric || item.detail }))
+        : context.contentSections.map((item) => ({ title: getKirbyItemTitle(item), detail: getKirbyItemText(item) })))
+        .filter((item) => hasKirbyVisionMeaningfulContent(item.title, item.detail))
+        .slice(0, 4);
+
+    return `
+        <section class="kirby-vision-section vision-gallery-section ${getKirbyVisionSectionClasses(meta, context)}" id="${meta.id}" ${getKirbyVisionSectionAttributes(meta)}>
+            <header><p>En situation</p><h4>${cleanHtml(meta.title)}</h4><span>${cleanHtml(meta.purpose)}</span></header>
+            <div class="vision-gallery-stage">
+                ${renderKirbyVisionMedia(context, 'is-gallery-media', meta.scene, meta.purpose, true, 'secondary')}
+                ${notes.length ? `<div class="vision-gallery-notes">
+                    ${notes.map((item, index) => `<span><em>${String(index + 1).padStart(2, '0')}</em><span><strong>${cleanHtml(getKirbyVisionText(item.title, '', 64))}</strong><small>${cleanHtml(getKirbyVisionText(item.detail, '', 92))}</small></span></span>`).join('')}
+                </div>` : ''}
+            </div>
+        </section>
+    `;
+};
+
+const renderKirbyVisionServicesSection = (meta, context) => `
+    <section class="kirby-vision-section vision-services-section ${getKirbyVisionSectionClasses(meta, context)}" id="${meta.id}" ${getKirbyVisionSectionAttributes(meta)}>
+        <header><p>Offre</p><h4>${cleanHtml(meta.title)}</h4><span>${cleanHtml(meta.purpose)}</span></header>
+        <div class="vision-services-list">
+            ${context.services.slice(0, 6).map((item, index) => `<article><em>${String(index + 1).padStart(2, '0')}</em><div><strong>${cleanHtml(getKirbyItemTitle(item))}</strong><p>${cleanHtml(getKirbyVisionText(getKirbyItemText(item), '', 126))}</p></div><i aria-hidden="true">↗</i></article>`).join('')}
+        </div>
+        ${renderKirbyVisionSectionScene(meta, context)}
+    </section>
+`;
+
+const renderKirbyVisionStorySection = (meta, context) => `
+    <section class="kirby-vision-section vision-story-section ${getKirbyVisionSectionClasses(meta, context)}" id="${meta.id}" ${getKirbyVisionSectionAttributes(meta)}>
+        ${(() => {
+            const storyLead = getKirbyVisionDistinctEditorialText(
+                [context.creative.thesis, context.proposal.valueProposition, meta.purpose, context.identity.promise],
+                context.ctas,
+                meta.title,
+                300,
+            );
+            return storyLead ? `<div class="vision-story-lead"><span>${String(meta.order + 1).padStart(2, '0')}</span><p>${cleanHtml(storyLead)}</p></div>` : '';
+        })()}
+        <article><h4>${cleanHtml(meta.title)}</h4><p>${cleanHtml(meta.purpose)}</p><blockquote>${cleanHtml(context.identity.promise || context.proposal.valueProposition)}</blockquote></article>
+        <ol>${context.contentSections.slice(0, 4).map((item) => `<li><strong>${cleanHtml(getKirbyItemTitle(item))}</strong><span>${cleanHtml(getKirbyVisionText(getKirbyItemText(item), '', 110))}</span></li>`).join('')}</ol>
+        ${renderKirbyVisionSectionScene(meta, context)}
+    </section>
+`;
+
+const renderKirbyVisionComparisonSection = (meta, context) => {
+    const items = getKirbyVisionArtifactItems(context.artifact, context.services);
+    return `
+        <section class="kirby-vision-section vision-comparison-section ${getKirbyVisionSectionClasses(meta, context)}" id="${meta.id}" ${getKirbyVisionSectionAttributes(meta)}>
+            <header><p>Choisir</p><h4>${cleanHtml(meta.title)}</h4><span>${cleanHtml(meta.purpose)}</span></header>
+            <div class="vision-comparison-columns">
+                ${items.slice(0, 4).map((item, index) => `<article class="${index === 1 ? 'is-highlighted' : ''}"><em>${String(index + 1).padStart(2, '0')}</em><strong>${cleanHtml(item.label)}</strong><b>${cleanHtml(item.value)}</b><p>${cleanHtml(item.detail)}</p></article>`).join('')}
+            </div>
+            ${renderKirbyVisionSectionScene(meta, context)}
+        </section>
+    `;
+};
+
+const renderKirbyVisionCtaSection = (meta, context) => `
+    <section class="kirby-vision-section vision-inline-cta ${getKirbyVisionSectionClasses(meta, context)}" id="${meta.id}" ${getKirbyVisionSectionAttributes(meta)}>
+        <div><p>${cleanHtml(context.identity.concept)}</p><h4>${cleanHtml(meta.title)}</h4><span>${cleanHtml(meta.purpose)}</span></div>
+        ${renderKirbyVisionActions(context, 'is-inline', 'inline')}
+        ${renderKirbyVisionSectionScene(meta, context)}
+    </section>
+`;
+
+const KIRBY_VISION_SECTION_RENDERERS = {
+    statement: renderKirbyVisionStatementSection,
+    artifact: renderKirbyVisionArtifactSection,
+    proof: renderKirbyVisionProofSection,
+    process: renderKirbyVisionProcessSection,
+    gallery: renderKirbyVisionGallerySection,
+    services: renderKirbyVisionServicesSection,
+    story: renderKirbyVisionStorySection,
+    comparison: renderKirbyVisionComparisonSection,
+    cta: renderKirbyVisionCtaSection,
+};
+
+const renderKirbyVisionSections = (context) => `
+    <div class="kirby-vision-sections" id="vision-content">
+        ${context.layoutSections.map((section, index) => {
+            const meta = getKirbyVisionSectionMeta(section, context, index);
+            return (KIRBY_VISION_SECTION_RENDERERS[meta.kind] || renderKirbyVisionStatementSection)(meta, context);
+        }).filter(Boolean).join('')}
+    </div>
+`;
+
+const renderKirbyVisionClosing = (context) => `
+    <section class="kirby-vision-closing closing-${context.closingMode}" id="vision-contact">
+        <p>${cleanHtml(getKirbyVisionText(context.analysis.activity, context.proposal.projectType || context.identity.concept, 160))}</p>
+        <h4>${cleanHtml(context.closingHeadline)}</h4>
+        <div>
+            <a class="vision-action vision-action-primary" href="mailto:${cleanHtml(context.email)}?subject=${encodeURIComponent(`Projet ${context.siteName}`)}">${cleanHtml(context.actionPolicy.primary)}</a>
+            <a class="vision-action vision-action-secondary" href="#vision-top">Revenir au début</a>
+        </div>
+    </section>
+`;
+
+const renderKirbyVisionFooter = (context) => `
+    <footer class="kirby-vision-footer"><strong>${cleanHtml(context.siteName)}</strong><span>${cleanHtml(context.domain)}</span><a href="mailto:${cleanHtml(context.email)}">${cleanHtml(context.email)}</a></footer>
+`;
+
+const renderKirbyVisionHeroCopy = (context, modifier = '') => {
+    const headlineKey = normalizeKirbyText(context.heroHeadline);
+    const lead = normalizeKirbyText(context.heroLead) === headlineKey ? '' : context.heroLead;
+    const detailKey = normalizeKirbyText(context.heroDetail);
+    const detail = detailKey && detailKey !== headlineKey && detailKey !== normalizeKirbyText(lead)
+        ? context.heroDetail
+        : '';
+
+    return `
+        <div class="kirby-vision-hero-copy ${modifier}">
+            <p class="vision-eyebrow">${cleanHtml(context.analysis.activity || context.proposal.projectType || context.identity.concept)}</p>
+            <h3>${cleanHtml(context.heroHeadline)}</h3>
+            ${lead ? `<strong>${cleanHtml(lead)}</strong>` : ''}
+            ${detail ? `<span>${cleanHtml(detail)}</span>` : ''}
+            ${renderKirbyVisionActions(context)}
+        </div>
+    `;
+};
+
+const getKirbyVisionHeroClasses = (context) => [
+    `hero-${context.hero.variant}`,
+    `hero-align-${context.hero.alignment}`,
+    context.hero.overlap ? 'hero-has-overlap' : 'hero-no-overlap',
+    context.hero.scene === 'none' ? 'hero-without-media' : 'hero-with-media',
+    `hero-media-${context.hero.mediaSlot}`,
+].join(' ');
+
+const getKirbyVisionSiteAttributes = (context) => [
+    `data-hero-media-slot="${cleanHtml(context.hero.mediaSlot)}"`,
+    `data-hero-scene="${context.hero.scene}"`,
+    `data-artifact-role="${context.artifactRole}"`,
+    `data-navigation-mode="${context.navigationMode}"`,
+    `data-surface-mode="${context.experienceModes.surface}"`,
+    `data-depth-mode="${context.experienceModes.depth}"`,
+    `data-motion-mode="${context.experienceModes.motion}"`,
+    `data-section-rhythm="${context.sectionRhythm}"`,
+].join(' ');
+
+const renderKirbyVisionArtifactLed = (context) => `
+    <article class="kirby-vision-site vision-composition-artifact-led ${context.siteClass} ${context.identity.className}" ${getKirbyVisionSiteAttributes(context)} id="vision-top" style="${context.identity.style}">
+        ${renderKirbyVisionNav(context, 'vision-nav-artifact')}
+        <div class="vision-main" role="document" aria-label="Aperçu du site généré">
+            <header class="vision-artifact-hero ${getKirbyVisionHeroClasses(context)}">
+                <div class="vision-artifact-backdrop">${renderKirbyVisionMedia(context, 'is-artifact-media')}</div>
+                <div class="vision-artifact-hero-grid">
+                    ${renderKirbyVisionHeroCopy(context)}
+                    <div class="vision-artifact-stage">
+                        ${renderKirbyVisionHeroArtifact(context, 'is-hero-artifact')}
+                        <div class="vision-blueprint-cue" aria-hidden="true"><i></i><i></i><i></i></div>
+                    </div>
+                </div>
+            </header>
+            ${renderKirbyVisionSections(context)}
+            ${renderKirbyVisionClosing(context)}
+        </div>
+        ${renderKirbyVisionFooter(context)}
+    </article>
+`;
+
+const renderKirbyVisionSplitFlow = (context) => `
+    <article class="kirby-vision-site vision-composition-split-flow ${context.siteClass} ${context.identity.className}" ${getKirbyVisionSiteAttributes(context)} id="vision-top" style="${context.identity.style}">
+        ${renderKirbyVisionNav(context, 'vision-nav-split')}
+        <div class="vision-main" role="document" aria-label="Aperçu du site généré">
+            <section class="vision-split-hero ${getKirbyVisionHeroClasses(context)}">
+                ${context.hero.scene === 'none' ? '' : `<div class="vision-split-media-column">${renderKirbyVisionMedia(context, 'is-split-media')}</div>`}
+                <div class="vision-split-content-column">
+                    ${renderKirbyVisionHeroCopy(context, 'is-split-copy')}
+                    ${renderKirbyVisionHeroArtifact(context, 'is-split-artifact')}
+                </div>
+            </section>
+            ${renderKirbyVisionSections(context)}
+            ${renderKirbyVisionClosing(context)}
+        </div>
+        ${renderKirbyVisionFooter(context)}
+    </article>
+`;
+
+const renderKirbyVisionEditorialStack = (context) => `
+    <article class="kirby-vision-site vision-composition-editorial-stack ${context.siteClass} ${context.identity.className}" ${getKirbyVisionSiteAttributes(context)} id="vision-top" style="${context.identity.style}">
+        ${renderKirbyVisionNav(context, 'vision-nav-editorial')}
+        <header class="vision-editorial-mast ${getKirbyVisionHeroClasses(context)}">
+            <div class="vision-editorial-number" aria-hidden="true"></div>
+            <p>${cleanHtml(context.identity.concept)}</p>
+            <h3>${cleanHtml(context.heroHeadline)}</h3>
+            <div class="vision-editorial-meta"><strong>${cleanHtml(context.siteName)}</strong><span>${cleanHtml(context.heroLead)}</span>${renderKirbyVisionActions(context, 'is-editorial')}</div>
+        </header>
+        <div class="vision-main" role="document" aria-label="Aperçu du site généré">
+            <section class="vision-editorial-lead">
+                ${renderKirbyVisionMedia(context, 'is-editorial-media')}
+                <blockquote>${cleanHtml(getKirbyVisionText(context.creative.thesis, context.proposal.valueProposition, 340))}</blockquote>
+            </section>
+            ${context.artifactRole === 'hero' && context.artifactItems.length
+                ? `<div class="vision-editorial-artifact-band">${renderKirbyVisionHeroArtifact(context, 'is-editorial-artifact')}</div>`
+                : ''}
+            ${renderKirbyVisionSections(context)}
+            ${renderKirbyVisionClosing(context)}
+        </div>
+        ${renderKirbyVisionFooter(context)}
+    </article>
+`;
+
+const renderKirbyVisionProductCanvas = (context) => `
+    <article class="kirby-vision-site vision-composition-product-canvas ${context.siteClass} ${context.identity.className}" ${getKirbyVisionSiteAttributes(context)} id="vision-top" style="${context.identity.style}">
+        <div class="vision-product-shell">
+            <aside class="vision-product-rail" aria-label="Navigation produit">
+                <a class="vision-product-mark" href="#vision-top">${cleanHtml(context.siteName.split(/\s+/).map((word) => word.charAt(0)).join('').slice(0, 2).toUpperCase() || 'KV')}</a>
+                <nav>${getKirbyVisionNavigationItems(context).map((item, index) => `<a class="${index === 0 ? 'is-active' : ''}" href="${item.target}"><span>${String(index + 1).padStart(2, '0')}</span>${cleanHtml(getKirbyShortText(item.label, 20))}</a>`).join('')}</nav>
+                ${renderKirbyVisionMobileMenu(context, 'vision-product-mobile-menu')}
+                <a class="vision-product-contact" href="#vision-contact">↗<span class="sr-only">Contact</span></a>
+            </aside>
+            <div class="vision-product-main vision-main" role="document" aria-label="Aperçu du site généré">
+                <header class="vision-product-topbar"><div><small>${cleanHtml(context.identity.concept)}</small><strong>${cleanHtml(context.siteName)}</strong></div><span>${cleanHtml(context.artifact.status)}</span></header>
+                <section class="vision-product-theater ${getKirbyVisionHeroClasses(context)}">
+                    ${renderKirbyVisionHeroCopy(context, 'is-product-copy')}
+                    ${renderKirbyVisionHeroArtifact(context, 'is-product-artifact')}
+                    ${renderKirbyVisionMedia(context, 'is-product-media')}
+                </section>
+                ${renderKirbyVisionSections(context)}
+                ${renderKirbyVisionClosing(context)}
+            </div>
+        </div>
+        ${renderKirbyVisionFooter(context)}
+    </article>
+`;
+
+const renderKirbyVisionImmersiveSequence = (context) => `
+    <article class="kirby-vision-site vision-composition-immersive-sequence ${context.siteClass} ${context.identity.className}" ${getKirbyVisionSiteAttributes(context)} id="vision-top" style="${context.identity.style}">
+        <header class="vision-immersive-hero ${getKirbyVisionHeroClasses(context)}">
+            ${renderKirbyVisionMedia(context, 'is-immersive-media')}
+            ${renderKirbyVisionNav(context, 'vision-nav-immersive')}
+            <div class="vision-immersive-copy">
+                <p>${cleanHtml(context.analysis.activity || context.identity.concept)}</p>
+                <h3>${cleanHtml(context.heroHeadline)}</h3>
+                <strong>${cleanHtml(context.heroLead)}</strong>
+                ${renderKirbyVisionActions(context, 'is-immersive')}
+            </div>
+            <aside class="vision-immersive-signal"><span>${cleanHtml(getKirbyVisionText(context.proposal.positioning?.differentiator, context.identity.promise, 150))}</span><i aria-hidden="true"></i></aside>
+            ${context.artifactRole === 'hero' && context.artifactItems.length
+                ? `<div class="vision-immersive-artifact">${renderKirbyVisionHeroArtifact(context, 'is-immersive-artifact')}</div>`
+                : ''}
+        </header>
+        <div class="vision-main" role="document" aria-label="Aperçu du site généré">
+            ${renderKirbyVisionSections(context)}
+            ${renderKirbyVisionClosing(context)}
+        </div>
+        ${renderKirbyVisionFooter(context)}
+    </article>
+`;
+
+const KIRBY_VISION_COMPOSITION_RENDERERS = {
+    'artifact-led': renderKirbyVisionArtifactLed,
+    'split-flow': renderKirbyVisionSplitFlow,
+    'editorial-stack': renderKirbyVisionEditorialStack,
+    'product-canvas': renderKirbyVisionProductCanvas,
+    'immersive-sequence': renderKirbyVisionImmersiveSequence,
+};
+
+const buildKirbyVisionPreview = ({ proposal = {}, brief = '', siteName = '', domain = '', pages = [] } = {}) => {
+    const identity = getKirbyIdentitySystem(proposal, brief);
+    const analysis = proposal.projectAnalysis && typeof proposal.projectAnalysis === 'object' ? proposal.projectAnalysis : {};
+    const creative = proposal.creativeDirection && typeof proposal.creativeDirection === 'object' ? proposal.creativeDirection : {};
+    const experience = proposal.experienceBlueprint && typeof proposal.experienceBlueprint === 'object' ? proposal.experienceBlueprint : {};
+    const layout = proposal.layoutBlueprint && typeof proposal.layoutBlueprint === 'object' ? proposal.layoutBlueprint : {};
+    const informationArchitecture = proposal.informationArchitecture && typeof proposal.informationArchitecture === 'object' ? proposal.informationArchitecture : {};
+    const experienceSystem = proposal.experienceSystem && typeof proposal.experienceSystem === 'object' ? proposal.experienceSystem : {};
+    const artifactSource = experience.primaryArtifact && typeof experience.primaryArtifact === 'object' ? experience.primaryArtifact : {};
+    const artifactType = getKirbyVisionEnum(artifactSource.type, KIRBY_IDENTITY_ARTIFACTS, 'story');
+    const contentSections = getKirbyArray(proposal.homeSections, 8)
+        .filter((item) => hasKirbyVisionMeaningfulContent(getKirbyItemTitle(item), getKirbyItemText(item)));
+    const services = getKirbyArray(
+        getKirbyArray(proposal.services, 8).length ? proposal.services : proposal.recommendedServices,
+        8,
+    ).filter((item) => hasKirbyVisionMeaningfulContent(getKirbyItemTitle(item), getKirbyItemText(item)));
+    const proofs = getKirbyArray(experience.proofModules, 6).map((item = {}) => ({
+        title: getKirbyVisionText(item.title || item.label, '', 64),
+        metric: getKirbyVisionText(item.metric || item.value, '', 28),
+        detail: getKirbyVisionText(item.detail || item.description || item.text, '', 130),
+    })).filter((item) => hasKirbyVisionMeaningfulContent(item.title, item.metric, item.detail));
+    const flow = getKirbyArray(experience.flow, 8).map((item = {}) => ({
+        label: getKirbyVisionText(item.label || item.title || item.name, '', 58),
+        detail: getKirbyVisionText(item.detail || item.description || item.text, '', 120),
+    })).filter((item) => hasKirbyVisionMeaningfulContent(item.label, item.detail));
+    const fallbackLayoutSections = [
+        { kind: 'statement', title: contentSections[0] ? getKirbyItemTitle(contentSections[0]) : identity.concept, purpose: contentSections[0] ? getKirbyItemText(contentSections[0]) : creative.thesis, layout: 'split', emphasis: 'dominant' },
+        { kind: 'artifact', title: artifactSource.title || 'Expérience', purpose: experience.openingMove, layout: 'full-bleed', emphasis: 'dominant' },
+        { kind: 'proof', title: 'Preuves concrètes', purpose: proposal.positioning?.promise, layout: 'mosaic', emphasis: 'balanced' },
+        { kind: 'process', title: 'Parcours', purpose: proposal.valueProposition, layout: 'rail', emphasis: 'balanced' },
+        { kind: 'cta', title: identity.promise || 'Une prochaine étape simple', purpose: proposal.valueProposition || creative.thesis, layout: 'split', emphasis: 'dominant' },
+    ];
+    const layoutSectionCandidates = getKirbyArray(layout.sections, 8).length ? getKirbyArray(layout.sections, 8) : fallbackLayoutSections;
+    const ctas = getKirbyVisionUniqueLabels(proposal.ctas, 3);
+    const actionPolicy = getKirbyVisionActionPolicy(ctas);
+    const navigation = getKirbyArray(informationArchitecture.primaryNavigation, 8).map((item = {}) => ({
+        label: getKirbyVisionText(item.label, '', 36),
+        purpose: getKirbyVisionText(item.purpose, '', 100),
+        audience: getKirbyVisionText(item.audience, '', 46),
+    })).filter((item) => hasKirbyVisionMeaningfulContent(item.label));
+    const navigationMode = getKirbyVisionEnum(informationArchitecture.navigationMode, KIRBY_VISION_NAVIGATION_MODES, 'single-page');
+    const experienceModes = getKirbyVisionExperienceModes(experienceSystem);
+    const heroSource = layout.hero && typeof layout.hero === 'object' ? layout.hero : {};
+    const media = getKirbyVisionMedia(proposal, siteName, identity.composition);
+    const secondaryMedia = getKirbyVisionMedia(proposal, siteName, identity.composition, 'secondary');
+    const artifactItems = getKirbyVisionArtifactItems(
+        artifactSource,
+        services.length ? services : contentSections,
+    );
+    const sectionRhythm = getKirbyVisionEnum(creative.sectionRhythm, KIRBY_VISION_SECTION_RHYTHMS, 'progressive');
+    const imageStrategy = getKirbyVisionEnum(identity.imageStrategy, KIRBY_VISION_IMAGE_STRATEGIES, media.isGenerated ? 'result-proof' : 'graphic-system');
+    const sceneFallback = imageStrategy === 'product-proof'
+        ? 'product'
+        : imageStrategy === 'result-proof'
+            ? 'result'
+            : imageStrategy === 'service-proof'
+                ? 'human'
+                : 'abstract';
+    const requestedHeroScene = getKirbyVisionScene([
+        heroSource.mediaSlot,
+        heroSource.visualFocus,
+        proposal.mediaPlan?.heroPrompt,
+        proposal.mediaPlan?.heroAlt,
+        creative.mediaStyle,
+        identity.imageStrategy,
+    ], sceneFallback);
+    const hero = {
+        variant: getKirbyVisionEnum(heroSource.variant || creative.heroMode, KIRBY_VISION_HERO_VARIANTS, 'artifact-stage'),
+        alignment: getKirbyVisionEnum(heroSource.alignment, KIRBY_VISION_HERO_ALIGNMENTS, 'asymmetric'),
+        visualFocus: getKirbyVisionText(heroSource.visualFocus, proposal.mediaPlan?.heroAlt || identity.visualMetaphor, 130),
+        overlap: heroSource.overlap !== false,
+        mediaSlot: getKirbyVisionToken(heroSource.mediaSlot, media.isGenerated ? 'full-bleed' : 'graphic-stage'),
+        scene: requestedHeroScene === 'none' && media.isGenerated ? sceneFallback : requestedHeroScene,
+    };
+    const artifactRole = getKirbyVisionArtifactRole({ explicitRole: artifactSource.role, identity, hero, creative, media });
+    const filteredLayoutSections = filterKirbyVisionLayoutSections(layoutSectionCandidates, {
+        artifactRole,
+        artifactItems,
+        contentSections,
+        services,
+        proofs,
+        flow,
+        secondaryMedia,
+        inlineAction: actionPolicy.inline,
+        hasIdentityCopy: hasKirbyVisionMeaningfulContent(identity.concept, identity.promise, creative.thesis),
+    });
+    const layoutSections = filteredLayoutSections.length
+        ? filteredLayoutSections
+        : [fallbackLayoutSections[0], fallbackLayoutSections[4]];
+    const secondaryMediaSectionIndex = (() => {
+        const normalizedKinds = layoutSections.map((section = {}) =>
+            getKirbyVisionEnum(section.kind, KIRBY_VISION_SECTION_KINDS, 'statement'));
+        const galleryIndex = normalizedKinds.indexOf('gallery');
+        if (galleryIndex >= 0) {
+            return galleryIndex;
+        }
+        const preferredIndex = normalizedKinds.findIndex((kind) => ['proof', 'process', 'story'].includes(kind));
+        return preferredIndex >= 0 ? preferredIndex : Math.min(1, Math.max(0, layoutSections.length - 1));
+    })();
+    const renderingToken = getKirbyVisionToken(proposal.mediaPlan?.renderingStyle || creative.mediaStyle, 'authored');
+    const siteClass = [
+        'kirby-vision-v3-site',
+        media.isGenerated ? 'has-generated-media' : 'has-graphic-media',
+        secondaryMedia.isGenerated ? 'has-secondary-media' : 'has-secondary-graphic',
+        `hero-scene-${hero.scene}`,
+        `artifact-role-${artifactRole}`,
+        `vision-nav-${navigationMode}`,
+        `vision-surface-${experienceModes.surface}`,
+        `vision-depth-${experienceModes.depth}`,
+        `vision-motion-${experienceModes.motion}`,
+        `vision-rhythm-${sectionRhythm}`,
+        `vision-imagery-${imageStrategy}`,
+        `vision-render-${renderingToken}`,
+    ].join(' ');
+    const opening = getKirbyVisionDistinctEditorialText(
+        [experience.openingMove, proposal.valueProposition, proposal.slogan, identity.promise],
+        ctas,
+        identity.concept || siteName,
+        190,
+    );
+    const heroHeadline = getKirbyVisionDistinctEditorialText(
+        [proposal.positioning?.promise, proposal.valueProposition, proposal.slogan, experience.openingMove, identity.promise, siteName],
+        ctas,
+        siteName,
+        118,
+    );
+    const heroLead = getKirbyVisionDistinctEditorialText(
+        [proposal.valueProposition, identity.promise, creative.thesis, experience.openingMove, proposal.slogan],
+        [...ctas, heroHeadline],
+        creative.thesis || siteName,
+        170,
+    );
+    const heroDetail = getKirbyVisionDistinctEditorialText(
+        [creative.thesis, proposal.positioning?.differentiator, identity.promise, experience.openingMove],
+        [...ctas, heroHeadline, heroLead],
+        proposal.positioning?.differentiator || identity.concept,
+        210,
+    );
+    const closingHeadline = getKirbyVisionDistinctEditorialText(
+        [identity.promise, proposal.valueProposition, proposal.slogan, creative.thesis, identity.concept],
+        ctas,
+        'Une prochaine étape claire et simple.',
+        180,
+    );
+    const context = {
+        proposal,
+        identity,
+        analysis,
+        creative,
+        experience,
+        informationArchitecture,
+        experienceSystem,
+        experienceModes,
+        layout,
+        siteName,
+        domain,
+        email: `contact@${domain}`,
+        pages: getKirbyArray(pages.length ? pages : proposal.pages, 8),
+        navigation,
+        navigationMode,
+        contentSections,
+        services,
+        proofs,
+        flow: flow.length ? flow : contentSections.slice(0, 5).map((item) => ({ label: getKirbyItemTitle(item), detail: getKirbyItemText(item) })),
+        layoutSections,
+        ctas,
+        actionPolicy,
+        artifactItems,
+        media,
+        secondaryMedia,
+        secondaryMediaSectionIndex,
+        hero,
+        artifactRole,
+        siteClass,
+        sectionRhythm,
+        imageStrategy,
+        mediaPlan: {
+            heroPrompt: getKirbyVisionText(proposal.mediaPlan?.heroPrompt, '', 220),
+            heroAlt: getKirbyVisionText(proposal.mediaPlan?.heroAlt, siteName, 220),
+            galleryPrompts: getKirbyArray(proposal.mediaPlan?.galleryPrompts, 4).map((item) => getKirbyVisionText(item, '', 110)).filter(Boolean),
+            assets: getKirbyArray(proposal.mediaPlan?.assets, 8).map((asset = {}) => ({
+                id: getKirbyVisionToken(asset.id, 'media-asset'),
+                role: getKirbyVisionToken(asset.role, 'support'),
+                narrativeStage: getKirbyVisionToken(asset.narrativeStage, 'proof'),
+            })),
+            renderingStyle: getKirbyVisionText(proposal.mediaPlan?.renderingStyle, identity.artDirection, 120),
+            renderingToken,
+        },
+        artifact: {
+            ...artifactSource,
+            type: artifactType,
+            label: getKirbyVisionDistinctEditorialText(
+                [artifactSource.label, analysis.activity, proposal.projectType],
+                ctas,
+                'Expérience',
+                58,
+            ),
+            title: getKirbyVisionDistinctEditorialText(
+                [artifactSource.title, identity.promise, proposal.valueProposition, identity.concept],
+                ctas,
+                'Une expérience concrète',
+                100,
+            ),
+            status: hasKirbyVisionMeaningfulContent(artifactSource.status)
+                ? getKirbyVisionText(artifactSource.status, 'Actif', 34)
+                : 'Actif',
+        },
+        opening,
+        heroHeadline,
+        heroLead,
+        heroDetail,
+        closingHeadline,
+        closingMode: getKirbyVisionEnum(layout.closingMode, KIRBY_VISION_CLOSING_MODES, 'manifesto'),
+    };
+    const renderer = KIRBY_VISION_COMPOSITION_RENDERERS[identity.composition] || renderKirbyVisionArtifactLed;
+
+    return {
+        className: `kirby-vision-v2 kirby-vision-v3 vision-${identity.composition} ${identity.className}`,
+        style: identity.style,
+        markup: renderer(context),
+    };
+};
+
+const setKirbyProgressiveMediaStatus = (message = '', state = 'loading') => {
+    const preview = aiBriefOutput?.querySelector('.kirby-live-browser');
+    if (!preview) {
+        return;
+    }
+
+    preview.querySelector('.kirby-progressive-media-status')?.remove();
+    if (!message) {
+        return;
+    }
+
+    const status = document.createElement('div');
+    status.className = `kirby-progressive-media-status is-${state}`;
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+    status.innerHTML = `<i aria-hidden="true"></i><span>${escapeHtml(message)}</span>`;
+    preview.appendChild(status);
+};
+
+const preloadKirbyGeneratedImage = (url = '') => {
+    if (!url || typeof Image === 'undefined') {
+        return Promise.resolve();
+    }
+
+    return new Promise((resolve) => {
+        const image = new Image();
+        let settled = false;
+        const finish = () => {
+            if (settled) return;
+            settled = true;
+            resolve();
+        };
+        image.onload = finish;
+        image.onerror = finish;
+        image.src = url;
+        if (typeof image.decode === 'function') {
+            image.decode().then(finish).catch(() => {});
+        }
+        window.setTimeout(finish, 12000);
+    });
+};
+
+const hydrateKirbyProgressiveMedia = async ({ role = 'hero', requestId, mediaSerial } = {}) => {
+    if (!kirbyActiveProposal || !isKirbyRequestCurrent(requestId) || mediaSerial !== kirbyProgressiveMediaSerial) {
+        return false;
+    }
+
+    const siteName = formatKirbySiteName(kirbyActiveProposal.siteName) || 'Nom de site à valider';
+    const domain = getKirbyDomain(siteName);
+    const pages = getKirbyArray(kirbyActiveProposal.pages, 8);
+    const nextPreview = buildKirbyVisionPreview({
+        proposal: kirbyActiveProposal,
+        brief: kirbyActiveBrief,
+        siteName,
+        domain,
+        pages,
+    });
+    const template = document.createElement('template');
+    template.innerHTML = nextPreview.markup.trim();
+    const selector = `[data-kirby-media-role="${role === 'secondary' ? 'secondary' : 'hero'}"]`;
+    const nextNodes = Array.from(template.content.querySelectorAll(selector));
+    const currentSite = aiBriefOutput?.querySelector('.kirby-vision-v3-site');
+    const currentNodes = Array.from(currentSite?.querySelectorAll(selector) || []);
+
+    if (!currentSite || !nextNodes.length || !currentNodes.length) {
+        return false;
+    }
+
+    await Promise.all(nextNodes.map((node) => preloadKirbyGeneratedImage(node.querySelector('img')?.src || '')));
+    if (!isKirbyRequestCurrent(requestId) || mediaSerial !== kirbyProgressiveMediaSerial) {
+        return false;
+    }
+
+    const nextSite = template.content.querySelector('.kirby-vision-v3-site');
+    if (nextSite) {
+        currentSite.className = nextSite.className;
+        currentSite.setAttribute('style', nextSite.getAttribute('style') || '');
+    }
+    currentNodes.forEach((node, index) => {
+        const nextNode = nextNodes[index] || nextNodes[0];
+        node.replaceWith(nextNode.cloneNode(true));
+    });
+    currentSite.classList.add('is-media-hydrated');
+    return true;
+};
+
+const startKirbyProgressiveMedia = ({ brief = '', runtime = {}, requestId } = {}) => {
+    if (!runtime?.mediaPending || !kirbyActiveProposal || !isKirbyRequestCurrent(requestId)) {
+        return;
+    }
+
+    const plannedAssets = getKirbyArray(kirbyActiveProposal.mediaPlan?.assets, 8);
+    const hasSecondaryPlan = plannedAssets.some((asset = {}) => normalizeKirbyIdentityToken(asset.role) !== 'hero');
+    const roles = [
+        ...(!kirbyActiveProposal.generatedMedia?.hero ? ['hero'] : []),
+        ...(hasSecondaryPlan && !kirbyActiveProposal.generatedMedia?.secondary ? ['secondary'] : []),
+    ];
+    if (!roles.length) {
+        return;
+    }
+
+    kirbyProgressiveMediaSerial += 1;
+    const mediaSerial = kirbyProgressiveMediaSerial;
+    let remaining = roles.length;
+    let hydratedCount = 0;
+    setKirbyProgressiveMediaStatus(
+        roles.length > 1 ? 'Mise en page prête · création des visuels…' : 'Mise en page prête · création du visuel…',
+    );
+
+    const tasks = roles.map(async (role) => {
+        try {
+            const payload = await requestKirbyMediaAsset({
+                brief,
+                proposal: kirbyActiveProposal,
+                role,
+            });
+            if (!isKirbyRequestCurrent(requestId) || mediaSerial !== kirbyProgressiveMediaSerial) {
+                return;
+            }
+            const generatedMedia = payload?.generatedMedia;
+            if (!generatedMedia || typeof generatedMedia !== 'object') {
+                return;
+            }
+
+            kirbyActiveProposal.generatedMedia = {
+                ...(kirbyActiveProposal.generatedMedia || {}),
+                ...cloneKirbyProposal(generatedMedia),
+            };
+            if (await hydrateKirbyProgressiveMedia({ role, requestId, mediaSerial })) {
+                hydratedCount += 1;
+            }
+        } catch (error) {
+            if (isKirbyRequestCurrent(requestId) && mediaSerial === kirbyProgressiveMediaSerial) {
+                console.warn(`Kirby ${role} media unavailable:`, error?.message || error);
+            }
+        } finally {
+            remaining -= 1;
+            if (isKirbyRequestCurrent(requestId) && mediaSerial === kirbyProgressiveMediaSerial && remaining > 0) {
+                setKirbyProgressiveMediaStatus('Premier visuel prêt · la série se complète…');
+            }
+        }
+    });
+
+    Promise.allSettled(tasks).then(() => {
+        if (!isKirbyRequestCurrent(requestId) || mediaSerial !== kirbyProgressiveMediaSerial) {
+            return;
+        }
+        setKirbyProgressiveMediaStatus(
+            hydratedCount ? 'Direction visuelle finalisée.' : 'Mise en page prête · visuel graphique conservé.',
+            hydratedCount ? 'ready' : 'fallback',
+        );
+        window.setTimeout(() => {
+            if (mediaSerial === kirbyProgressiveMediaSerial) {
+                setKirbyProgressiveMediaStatus('');
+            }
+        }, hydratedCount ? 2600 : 5200);
+    });
+};
+
 const renderKirbyProposal = (proposal, brief, runtime = {}) => {
     if (!aiBriefOutput) {
         return;
@@ -21789,14 +29593,63 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
     ].filter(Boolean).join(' '));
     const briefSignals = getKirbyBriefSignals(brief);
     const layoutVariant = getKirbyLayoutVariant(safeProposal, brief, false);
+    const specializedPreviewSource = normalizeKirbyText([
+        brief,
+        safeProposal.siteName,
+        safeProposal.projectType,
+        safeProposal.sectorKey,
+        safeProposal.visualMood,
+    ].filter(Boolean).join(' '));
+    const isContaDirectPreview = briefSignals.isAccountingApp
+        && /conta direct|contadirect|comptabilite fournisseur|facture fournisseur|fiche fournisseur|bon de commande|circuit de validation|echeancier fournisseur|balance agee|detection des doublons/.test(specializedPreviewSource);
+    const isRestaurantMenuPreview = briefSignals.isRestaurant
+        && /qr|qr code|code qr|menu numerique|menu digital|carte numerique|carte digitale|carte en ligne|scanner le menu/.test(specializedPreviewSource);
     const isDashboardPreview = layoutVariant === 'product-dashboard';
     const isFinancePreview = layoutVariant === 'finance-os';
     const isDreamPreview = briefSignals.isDreamPortal;
-    const isLuminaPreview = !isDreamPreview && (layoutVariant === 'lumina-showcase' || /lumina-future|lumina-showcase/.test(toneSource));
+    const hasExplicitLuminaDirection = /lumina|4d|futuriste|future|glassmorphism|verre depoli|verre dépoli|macos|apple|surface transparente/.test(toneSource);
+    const isCommonLocalBusinessPreview = briefSignals.isBeauty || briefSignals.isShop || briefSignals.isRestaurant || briefSignals.isHotel || briefSignals.isCraft || briefSignals.isTravel || briefSignals.isLegal || briefSignals.isSport || briefSignals.isVeterinary;
+    const isLuminaPreview = !isDreamPreview && !isCommonLocalBusinessPreview && (hasExplicitLuminaDirection || layoutVariant === 'lumina-showcase' || /lumina-future|lumina-showcase/.test(toneSource));
     const isKidsFuturePreview = !isFinancePreview && !isDreamPreview && ((layoutVariant === 'story-world' && briefSignals.isEducationKids) || briefSignals.isEducationKids || /kids-future|comptine|mini-jeu|mini jeu|luna|leo|léo/.test(toneSource));
     const sectorExperience = getKirbySectorExperienceModel(safeProposal, brief);
     const isSectorExperiencePreview = Boolean(sectorExperience);
-    const previewTone = 'is-lumina';
+    const isFashionShopPreview = briefSignals.isShop && !briefSignals.isKidsFashion;
+    const isBeautyServicePreview = briefSignals.isBeauty;
+    const isRestaurantPreview = briefSignals.isRestaurant;
+    const isHotelPreview = briefSignals.isHotel;
+    const isCraftServicePreview = briefSignals.isCraft;
+    const hasKirbyVisionPreview = runtime?.source === 'openai'
+        && Boolean(safeProposal.brandIdentity?.concept)
+        && Boolean(safeProposal.experienceBlueprint?.primaryArtifact?.type);
+    const previewTone = hasKirbyVisionPreview
+        ? 'is-vision-v2'
+        : isContaDirectPreview
+        ? 'is-conta-direct'
+        : isRestaurantMenuPreview
+            ? 'is-restaurant-menu'
+            : isFinancePreview
+                ? 'is-finance-os'
+        : isDashboardPreview
+            ? 'is-dashboard'
+            : isDreamPreview
+                ? 'is-dream-portal'
+                : isKidsFuturePreview
+                    ? 'is-kids-future'
+                    : isSectorExperiencePreview
+                        ? 'is-sector-experience'
+                        : isFashionShopPreview
+                            ? 'is-fashion-shop'
+                            : isBeautyServicePreview
+                                ? 'is-beauty-service'
+                                : isRestaurantPreview
+                                    ? 'is-restaurant-pro'
+                                    : isHotelPreview
+                                        ? 'is-hotel-pro'
+                                        : isCraftServicePreview
+                                            ? 'is-craft-service'
+                                            : isLuminaPreview
+                                                ? 'is-lumina'
+                                                : 'is-classic';
     const sectorClass = `sector-${normalizeKirbyText(safeProposal.sectorKey || 'generic').replace(/[^a-z0-9-]/g, '-') || 'generic'}`;
     const dashboardInitials = cleanHtml(siteName
         .split(/\s+/)
@@ -21905,6 +29758,41 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
             ['Compte pro', '12 430 €'],
             ['Rapprochement', '96%'],
         ];
+    const contaWorkflow = ['Reçu', 'Contrôlé', 'Validé', 'Payé', 'Comptabilisé', 'Archivé'];
+    const contaDocumentChecks = [
+        ['Fournisseur', 'Identifié'],
+        ['Doublon', 'Aucun détecté'],
+        ['Bon de commande', 'Rapproché'],
+        ['Échéance', 'Vérifiée'],
+    ];
+    const restaurantMenuUrl = `https://${domain}/menu`;
+    const restaurantQrParams = new URLSearchParams({
+        size: '420x420',
+        format: 'png',
+        ecc: 'H',
+        margin: '14',
+        qzone: '3',
+        data: restaurantMenuUrl,
+    });
+    const restaurantQrUrl = `https://api.qrserver.com/v1/create-qr-code/?${restaurantQrParams.toString()}`;
+    const restaurantImageUrls = [
+        'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1600&q=88',
+        'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1400&q=88',
+        'https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=1400&q=88',
+        'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1400&q=88',
+        'https://images.unsplash.com/photo-1544148103-0773bf10d330?auto=format&fit=crop&w=1400&q=88',
+        'https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=1400&q=88',
+    ];
+    const restaurantImageOffset = getKirbyHash(`${brief} ${siteName} restaurant-menu`) % restaurantImageUrls.length;
+    const restaurantImageStyles = [0, 1, 2, 3].map((index) => {
+        const url = restaurantImageUrls[(restaurantImageOffset + index) % restaurantImageUrls.length];
+        return `background-image: url('${url}');`;
+    });
+    const restaurantMenuSections = [
+        { title: 'Carte du moment', text: 'Plats, prix et allergènes restent lisibles sur mobile.' },
+        { title: 'Suggestions', text: 'La carte évolue sans réimpression ni téléchargement.' },
+        { title: 'Réserver', text: 'Le passage du menu à la réservation reste immédiat.' },
+    ];
     const financePreview = `
         <div class="kirby-finance-os" aria-label="Apercu interface finance ${cleanHtml(siteName)}">
             <nav class="kirby-finance-nav">
@@ -21985,6 +29873,118 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
                 <ol>
                     ${financeWorkflow.map((item) => `<li>${cleanHtml(item)}</li>`).join('')}
                 </ol>
+            </section>
+            ${footerMarkup}
+        </div>
+    `;
+    const contaDirectPreview = `
+        <div class="kirby-conta-direct" aria-label="Aperçu Conta Direct, comptabilité fournisseurs et automatisation">
+            <nav class="conta-site-nav">
+                <div class="conta-site-brand"><span>CD</span><strong>${cleanHtml(siteName)}</strong></div>
+                <div>
+                    <span>Produit</span><span>Fonctionnalités</span><span>Sécurité</span><span>Ressources</span>
+                </div>
+                <em>${cleanHtml(primaryCta || 'Demander une démo')}</em>
+            </nav>
+            <section class="conta-site-intro">
+                <div class="conta-site-copy">
+                    <p class="signal-label">Comptabilité fournisseurs + IA</p>
+                    <h3>${cleanHtml(siteName)}</h3>
+                    <p>${cleanHtml(getKirbyShortText(safeProposal.valueProposition || safeProposal.slogan || 'Chaque facture avance dans un circuit clair, contrôlé et traçable.', 154))}</p>
+                    ${actionsMarkup}
+                    <div class="conta-trust-line">
+                        <span>Validation humaine</span><span>Historique complet</span><span>Export comptable</span>
+                    </div>
+                </div>
+                <div class="conta-product-shell" aria-label="Interface de traitement d'une facture fournisseur">
+                    <aside class="conta-product-nav">
+                        <strong>CD</strong>
+                        <span class="is-active">Documents</span>
+                        <span>Fournisseurs</span>
+                        <span>Paiements</span>
+                        <span>Clôture</span>
+                        <span>Archives</span>
+                    </aside>
+                    <main class="conta-product-main">
+                        <header>
+                            <div><small>Factures fournisseurs</small><strong>Boîte de réception</strong></div>
+                            <span>Importer</span>
+                        </header>
+                        <section class="conta-intake-grid">
+                            <article class="conta-drop-zone">
+                                <span>PDF · PHOTO · SCANNER</span>
+                                <strong>Déposer un document</strong>
+                                <small>Extraction automatique, puis contrôle.</small>
+                                <i>Analyser</i>
+                            </article>
+                            <article class="conta-invoice-sheet">
+                                <div><strong>FACTURE</strong><small>Fournisseur</small></div>
+                                <p><span>Date</span><b>Détectée</b></p>
+                                <p><span>Référence</span><b>Détectée</b></p>
+                                <p><span>HT · TVA · TTC</span><b>Vérifiés</b></p>
+                                <footer><span>Échéance</span><strong>À valider</strong></footer>
+                            </article>
+                            <aside class="conta-ai-checks">
+                                <div><span>IA</span><strong>Contrôles proposés</strong></div>
+                                ${contaDocumentChecks.map(([label, value]) => `<p><span>${cleanHtml(label)}</span><b>${cleanHtml(value)}</b></p>`).join('')}
+                                <button type="button" tabindex="-1">Valider le document</button>
+                            </aside>
+                        </section>
+                    </main>
+                </div>
+            </section>
+            <section class="conta-workflow" aria-label="Cycle de traitement d'un document">
+                <div>
+                    <p class="signal-label">Un statut visible à chaque étape</p>
+                    <strong>Du document reçu à l’archive comptable.</strong>
+                </div>
+                <ol>
+                    ${contaWorkflow.map((item, index) => `<li class="${index < 2 ? 'is-complete' : index === 2 ? 'is-current' : ''}"><span>${index + 1}</span><strong>${cleanHtml(item)}</strong></li>`).join('')}
+                </ol>
+            </section>
+            <section class="conta-capabilities">
+                <span>Rapprochement facture–commande</span>
+                <span>Échéancier fournisseur</span>
+                <span>Préparation TVA</span>
+                <span>Recherche documentaire</span>
+            </section>
+            ${footerMarkup}
+        </div>
+    `;
+    const restaurantMenuPreview = `
+        <div class="kirby-restaurant-menu" aria-label="Aperçu restaurant avec carte numérique et QR code">
+            <nav class="restaurant-site-nav">
+                <strong>${cleanHtml(siteName)}</strong>
+                <div><span>La carte</span><span>Le lieu</span><span>Réserver</span></div>
+                <em>${cleanHtml(primaryCta || 'Voir le menu')}</em>
+            </nav>
+            <section class="restaurant-menu-hero kirby-hero-image" style="${restaurantImageStyles[0]}">
+                <div class="restaurant-menu-shade"></div>
+                <div class="restaurant-menu-copy">
+                    <p class="signal-label">Restaurant · carte en direct</p>
+                    <h3>${cleanHtml(siteName)}</h3>
+                    <p>${cleanHtml(getKirbyShortText(safeProposal.valueProposition || safeProposal.slogan || 'Une table à découvrir, une carte à consulter en un geste.', 150))}</p>
+                    ${actionsMarkup}
+                </div>
+                <aside class="restaurant-menu-phone">
+                    <header><strong>${cleanHtml(getKirbyShortText(siteName, 20))}</strong><span>Menu</span></header>
+                    <div class="restaurant-phone-photo" style="${restaurantImageStyles[1]}"></div>
+                    <small>La carte aujourd’hui</small>
+                    ${restaurantMenuSections.slice(0, 3).map((item, index) => `<p><span>${cleanHtml(item.title)}</span><b>${String(index + 1).padStart(2, '0')}</b></p>`).join('')}
+                    <em>Réserver une table</em>
+                </aside>
+                <aside class="restaurant-qr-panel">
+                    <img src="${cleanHtml(restaurantQrUrl)}" alt="QR code ouvrant le menu numérique de ${cleanHtml(siteName)}" loading="eager">
+                    <div><strong>Scannez la carte</strong><span>Menu à jour, sans application.</span></div>
+                </aside>
+            </section>
+            <section class="restaurant-menu-benefits">
+                ${restaurantMenuSections.map((item, index) => `
+                    <article><em>${String(index + 1).padStart(2, '0')}</em><strong>${cleanHtml(item.title)}</strong><span>${cleanHtml(item.text)}</span></article>
+                `).join('')}
+            </section>
+            <section class="restaurant-photo-strip" aria-hidden="true">
+                ${restaurantImageStyles.slice(1, 4).map((style) => `<span style="${style}"></span>`).join('')}
             </section>
             ${footerMarkup}
         </div>
@@ -22492,20 +30492,252 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
         ${sectionsMarkup}
         ${footerMarkup}
     `;
-    const websitePreview = luminaPreview;
+    const fashionSections = (visibleSections.length ? visibleSections : [
+        { title: 'Nouvelles collections', text: 'Mettre en avant les pièces qui viennent d’arriver en boutique.' },
+        { title: 'Catégories', text: 'Organiser robes, ensembles, vestes et accessoires pour guider la visite.' },
+        { title: 'Promotions', text: 'Afficher les offres du moment sans transformer la page en catalogue froid.' },
+        { title: 'Boutique', text: 'Horaires, adresse, carte et réseaux sociaux restent faciles à trouver.' },
+    ]).slice(0, 4);
+    const fashionPages = visiblePageNames.length
+        ? visiblePageNames.slice(0, 5)
+        : ['Collections', 'Catégories', 'Galerie', 'Promotions', 'Boutique'];
+    const fashionPreview = `
+        <div class="kirby-fashion-shop" aria-label="Aperçu boutique mode ${cleanHtml(siteName)}">
+            <nav class="kirby-fashion-nav">
+                <strong>${cleanHtml(siteName)}</strong>
+                <div>
+                    ${fashionPages.map((pageName, index) => `<span class="${index === 0 ? 'is-active' : ''}">${cleanHtml(getKirbyShortText(pageName, 18))}</span>`).join('')}
+                </div>
+                <em>${cleanHtml(getKirbyShortText(primaryCta || 'Voir la collection', 22))}</em>
+            </nav>
+            <section class="kirby-fashion-hero">
+                <div class="kirby-fashion-copy">
+                    <p class="signal-label">${cleanHtml(getKirbyShortText(siteModel.name || 'Boutique mode', 34))}</p>
+                    <h3>${cleanHtml(siteName)}</h3>
+                    <p>${cleanHtml(getKirbyShortText(safeProposal.valueProposition || safeProposal.slogan || 'Une boutique féminine moderne avec collections, galerie, horaires et promotions.', 150))}</p>
+                    ${actionsMarkup}
+                </div>
+                <div class="kirby-fashion-lookbook" aria-hidden="true">
+                    <span class="look look-main kirby-hero-image" style="${previewImageStyle}"></span>
+                    <span class="look look-small look-a"></span>
+                    <span class="look look-small look-b"></span>
+                    <article>
+                        <small>Nouvelle collection</small>
+                        <strong>${cleanHtml(getKirbyShortText(fashionSections[0]?.title || 'Collections', 30))}</strong>
+                    </article>
+                </div>
+            </section>
+            <section class="kirby-fashion-categories">
+                ${(fashionSections.length ? fashionSections : visiblePages).slice(0, 4).map((section, index) => `
+                    <article>
+                        <em>${['Robe', 'Maille', 'Veste', 'Promo'][index] || String(index + 1).padStart(2, '0')}</em>
+                        <strong>${cleanHtml(getKirbyItemTitle(section))}</strong>
+                        <span>${cleanHtml(getKirbyShortText(getKirbyItemText(section), 78))}</span>
+                    </article>
+                `).join('')}
+            </section>
+            <section class="kirby-fashion-store">
+                <div>
+                    <p class="signal-label">En boutique</p>
+                    <strong>Horaires, carte et réseaux</strong>
+                </div>
+                <ol>
+                    <li>Galerie photos</li>
+                    <li>Promotions visibles</li>
+                    <li>Adresse et horaires</li>
+                    <li>Instagram, Facebook, TikTok</li>
+                </ol>
+            </section>
+            ${footerMarkup}
+        </div>
+    `;
+    const beautySections = (visibleSections.length ? visibleSections : [
+        { title: 'Prestations', text: 'Présenter coiffure, soins, tarifs et options à domicile avec un parcours simple.' },
+        { title: 'Zone & horaires', text: 'Clarifier la zone d’intervention, les disponibilités et la prise de rendez-vous.' },
+        { title: 'Galerie', text: 'Montrer des réalisations, avant/après ou inspirations sans surcharge.' },
+        { title: 'Avis clientes', text: 'Rassurer avec des preuves humaines et un contact direct.' },
+    ]).slice(0, 4);
+    const beautyPreview = `
+        <div class="kirby-beauty-service" aria-label="Aperçu beauté et coiffure ${cleanHtml(siteName)}">
+            <nav class="kirby-beauty-nav">
+                <strong>${cleanHtml(siteName)}</strong>
+                <div>
+                    ${(visiblePageNames.length ? visiblePageNames : ['Prestations', 'Tarifs', 'Galerie', 'Rendez-vous']).slice(0, 5).map((pageName, index) => `<span class="${index === 0 ? 'is-active' : ''}">${cleanHtml(getKirbyShortText(pageName, 18))}</span>`).join('')}
+                </div>
+                <em>${cleanHtml(getKirbyShortText(primaryCta || 'Prendre rendez-vous', 24))}</em>
+            </nav>
+            <section class="kirby-beauty-hero">
+                <div class="kirby-beauty-copy">
+                    <p class="signal-label">${cleanHtml(getKirbyShortText(siteModel.name || 'Beauté à domicile', 34))}</p>
+                    <h3>${cleanHtml(siteName)}</h3>
+                    <p>${cleanHtml(getKirbyShortText(safeProposal.valueProposition || safeProposal.slogan || 'Un site doux, clair et rassurant pour choisir une prestation, vérifier la zone et réserver.', 150))}</p>
+                    ${actionsMarkup}
+                    <div class="kirby-beauty-trust" aria-hidden="true">
+                        <span>Zone claire</span>
+                        <span>Tarifs lisibles</span>
+                        <span>Photos réelles</span>
+                    </div>
+                </div>
+                <div class="kirby-beauty-stage" aria-hidden="true">
+                    <span class="beauty-photo kirby-hero-image" style="${previewImageStyle}"></span>
+                    <article class="beauty-booking-card">
+                        <small>Prochain créneau</small>
+                        <strong>${cleanHtml(getKirbyShortText(primaryCta || 'Rendez-vous', 26))}</strong>
+                        <span>Paris · domicile · 45 min</span>
+                    </article>
+                    <article class="beauty-price-card">
+                        <small>À partir de</small>
+                        <strong>39 €</strong>
+                        <span>${cleanHtml(getKirbyShortText(beautySections[0]?.title || 'Prestations', 24))}</span>
+                    </article>
+                </div>
+            </section>
+            <section class="kirby-beauty-services">
+                ${beautySections.map((section, index) => `
+                    <article>
+                        <em>${String(index + 1).padStart(2, '0')}</em>
+                        <strong>${cleanHtml(getKirbyItemTitle(section))}</strong>
+                        <span>${cleanHtml(getKirbyShortText(getKirbyItemText(section), 82))}</span>
+                    </article>
+                `).join('')}
+            </section>
+            <section class="kirby-beauty-booking">
+                <div>
+                    <p class="signal-label">Réservation</p>
+                    <strong>Choisir, vérifier, réserver</strong>
+                </div>
+                <ol>
+                    <li>Choix de la prestation</li>
+                    <li>Zone d’intervention</li>
+                    <li>Créneau disponible</li>
+                    <li>Confirmation rapide</li>
+                </ol>
+            </section>
+            ${footerMarkup}
+        </div>
+    `;
+    const craftSections = (visibleSections.length ? visibleSections : [
+        { title: 'Urgences', text: 'Accès immédiat à l’appel, aux disponibilités et au périmètre d’intervention.' },
+        { title: 'Services', text: 'Fuite, débouchage, chauffe-eau, installation et entretien présentés clairement.' },
+        { title: 'Zone locale', text: 'Rassurer avec les villes couvertes, horaires, délais et preuves clients.' },
+        { title: 'Devis rapide', text: 'Qualifier la demande avec photos, urgence, adresse et créneau souhaité.' },
+    ]).slice(0, 4);
+    const craftPreview = `
+        <div class="kirby-craft-service" aria-label="Aperçu artisan local ${cleanHtml(siteName)}">
+            <nav class="kirby-craft-nav">
+                <strong>${cleanHtml(siteName)}</strong>
+                <div>
+                    ${(visiblePageNames.length ? visiblePageNames : ['Urgences', 'Services', 'Tarifs', 'Zone', 'Contact']).slice(0, 5).map((pageName, index) => `<span class="${index === 0 ? 'is-active' : ''}">${cleanHtml(getKirbyShortText(pageName, 18))}</span>`).join('')}
+                </div>
+                <em>${cleanHtml(getKirbyShortText(primaryCta || 'Appeler', 22))}</em>
+            </nav>
+            <section class="kirby-craft-hero">
+                <div class="kirby-craft-visual kirby-hero-image" style="${previewImageStyle}" aria-hidden="true">
+                    <article>
+                        <small>Disponible aujourd’hui</small>
+                        <strong>${cleanHtml(getKirbyShortText(primaryCta || 'Appeler maintenant', 28))}</strong>
+                    </article>
+                </div>
+                <div class="kirby-craft-copy">
+                    <p class="signal-label">${cleanHtml(getKirbyShortText(siteModel.name || 'Service local', 34))}</p>
+                    <h3>${cleanHtml(siteName)}</h3>
+                    <p>${cleanHtml(getKirbyShortText(safeProposal.valueProposition || safeProposal.slogan || 'Un site local rassurant, rapide et précis pour transformer une urgence en demande claire.', 150))}</p>
+                    ${actionsMarkup}
+                    <div class="kirby-craft-proof" aria-hidden="true">
+                        <span>Intervention rapide</span>
+                        <span>Zone vérifiée</span>
+                        <span>Devis clair</span>
+                    </div>
+                </div>
+            </section>
+            <section class="kirby-craft-services">
+                ${craftSections.map((section, index) => `
+                    <article>
+                        <em>${String(index + 1).padStart(2, '0')}</em>
+                        <strong>${cleanHtml(getKirbyItemTitle(section))}</strong>
+                        <span>${cleanHtml(getKirbyShortText(getKirbyItemText(section), 82))}</span>
+                    </article>
+                `).join('')}
+            </section>
+            <section class="kirby-craft-journey">
+                <div>
+                    <p class="signal-label">Parcours client</p>
+                    <strong>Appel, diagnostic, intervention</strong>
+                </div>
+                <ol>
+                    <li>Décrire le problème</li>
+                    <li>Envoyer une photo</li>
+                    <li>Valider le créneau</li>
+                    <li>Suivre l’intervention</li>
+                </ol>
+            </section>
+            ${footerMarkup}
+        </div>
+    `;
+    const visionPreview = hasKirbyVisionPreview ? buildKirbyVisionPreview({
+        proposal: safeProposal,
+        brief,
+        siteName,
+        domain,
+        pages: visiblePages,
+    }) : null;
+    const websitePreview = visionPreview
+        ? visionPreview.markup
+        : isContaDirectPreview
+        ? contaDirectPreview
+        : isRestaurantMenuPreview
+            ? restaurantMenuPreview
+            : isFinancePreview
+                ? financePreview
+        : isDashboardPreview
+            ? dashboardPreview
+            : isDreamPreview
+                ? dreamPreview
+                : isKidsFuturePreview
+                    ? kidsWorldPreview
+                    : isSectorExperiencePreview
+                        ? sectorExperiencePreview
+                        : isFashionShopPreview
+                            ? fashionPreview
+                            : isBeautyServicePreview
+                                ? beautyPreview
+                                : isRestaurantPreview
+                                    ? warmPreview
+                                    : isHotelPreview
+                                        ? cinematicPreview
+                                        : isCraftServicePreview
+                                            ? craftPreview
+                                            : isLuminaPreview
+                                                ? luminaPreview
+                                                : layoutVariant === 'cinematic-video'
+                                                    ? cinematicPreview
+                                                    : layoutVariant === 'gallery-focus'
+                                                        ? galleryPreview
+                                                        : layoutVariant === 'minimal-editorial'
+                                                            ? minimalPreview
+                                                            : layoutVariant === 'luxury-asymmetric'
+                                                                ? asymmetricPreview
+                                                                : layoutVariant === 'warm-editorial'
+                                                                    ? warmPreview
+                                                                    : classicPreview;
 
     if (quoteItems.length) {
         quoteParams.set('items', quoteItems.join('|'));
     }
     quoteParams.set('project', projectSummary);
 
+    kirbyActiveProposal = safeProposal;
+    kirbyActiveBrief = brief;
+    kirbyActiveRuntime = { ...runtime };
+    kirbyActiveSeed = kirbyConceptNonce;
     builderPanel?.classList.add('has-proposal');
-    aiBriefOutput.classList.remove('is-loading');
+    aiBriefOutput.classList.remove('is-loading', 'is-error');
+    clearKirbyLoadingProgress();
     aiBriefOutput.innerHTML = `
         <div class="kirby-generated-clean">
             <div class="kirby-generated-website kirby-editor-workspace">
-                <div class="kirby-preview-browser kirby-live-browser kirby-site-canvas ${previewTone} ${sectorClass} layout-${layoutVariant}" style="${previewStyle.canvas}" aria-label="Prévisualisation du site">
-                    <div class="kirby-preview-chrome"><span></span><span></span><span></span></div>
+                <div class="kirby-preview-browser kirby-live-browser kirby-site-canvas ${previewTone} ${sectorClass} layout-${layoutVariant} ${visionPreview?.className || ''}" style="${visionPreview ? visionPreview.style : previewStyle.canvas}" aria-label="Prévisualisation du site">
+                    ${visionPreview ? '' : '<div class="kirby-preview-chrome"><span></span><span></span><span></span></div>'}
                     ${websitePreview}
                 </div>
             </div>
@@ -22530,46 +30762,103 @@ const renderKirbyProposal = (proposal, brief, runtime = {}) => {
 
         const revision = new FormData(revisionForm).get('revision')?.toString().trim() || '';
 
-        if (!revision) {
+        if (!revision || kirbySiteRequestInFlight) {
             return;
         }
 
+        setKirbyRequestBusy(true);
+        revisionForm.setAttribute('aria-busy', 'true');
+        revisionForm.querySelector('button[type="submit"]')?.setAttribute('disabled', '');
         const requestId = beginKirbyRequest();
-        setKirbyLoading();
+        setKirbyLoading('Kirby ajuste le site…');
         const rebuildContext = getKirbyRevisionRebuildContext(brief, revision);
         const targetBrief = rebuildContext.shouldRebuild ? rebuildContext.rebuiltBrief : brief;
         const shouldResetArchitecture = rebuildContext.shouldRebuild;
+        const currentRenderedProposal = kirbyActiveProposal || safeProposal;
 
         try {
             const payload = shouldResetArchitecture
                 ? await requestKirbyProposal({ brief: targetBrief, revision: '', currentProposal: null })
-                : await requestKirbyProposal({ brief, revision, currentProposal: safeProposal });
+                : await requestKirbyProposal({ brief, revision, currentProposal: currentRenderedProposal });
             if (!isKirbyRequestCurrent(requestId)) {
                 return;
             }
             const proposalFromPayload = assertKirbyPayloadProposal(payload);
-            const revisedProposal = normalizeKirbyProposalForBrief(
+            const normalizedRevisionProposal = normalizeKirbyProposalForBrief(
                 proposalFromPayload,
                 targetBrief,
             );
+            const revisedProposal = shouldResetArchitecture
+                ? normalizedRevisionProposal
+                : mergeKirbyRevisionMedia(normalizedRevisionProposal, currentRenderedProposal, revision);
             kirbyConceptNonce += 1;
-            renderKirbyConceptExperience({
+            const didRender = renderKirbyConceptExperience({
                 baseProposal: revisedProposal,
                 brief: targetBrief,
                 runtime: payload,
                 seed: kirbyConceptNonce,
             });
+            if (didRender) {
+                startKirbyProgressiveMedia({ brief: targetBrief, runtime: payload, requestId });
+            }
         } catch (error) {
             if (!isKirbyRequestCurrent(requestId)) {
                 return;
             }
             console.error('Kirby revision blocked:', error);
             renderKirbyPipelineError('Modification non rendue', getKirbyPipelineErrorIssues(error));
+        } finally {
+            setKirbyRequestBusy(false);
+            clearKirbyLoadingProgress();
         }
     });
 };
 
-const renderKirbyPipelineError = (title = 'Pipeline Kirby bloqué', issues = []) => {
+let kirbyLoadingProgressTimer = null;
+let kirbyLoadingStartedAt = 0;
+
+const getKirbyLoadingPhase = (elapsedSeconds = 0) => {
+    if (elapsedSeconds >= 105) return 'Kirby finalise et vérifie chaque détail…';
+    if (elapsedSeconds >= 65) return 'Kirby compose les sections et les interactions…';
+    if (elapsedSeconds >= 30) return 'Kirby construit la direction artistique…';
+    if (elapsedSeconds >= 10) return 'Kirby comprend le produit et ses publics…';
+    return 'Kirby lit votre demande…';
+};
+
+const updateKirbyLoadingStatus = (message = '') => {
+    const status = aiBriefOutput?.querySelector('[data-kirby-loading-status]');
+    if (status && message) {
+        status.textContent = message;
+    }
+};
+
+const clearKirbyLoadingProgress = () => {
+    if (kirbyLoadingProgressTimer) {
+        window.clearInterval(kirbyLoadingProgressTimer);
+        kirbyLoadingProgressTimer = null;
+    }
+    kirbyLoadingStartedAt = 0;
+};
+
+const startKirbyLoadingProgress = () => {
+    clearKirbyLoadingProgress();
+    kirbyLoadingStartedAt = Date.now();
+    kirbyLoadingProgressTimer = window.setInterval(() => {
+        const elapsedSeconds = Math.max(0, Math.floor((Date.now() - kirbyLoadingStartedAt) / 1000));
+        const elapsed = aiBriefOutput?.querySelector('[data-kirby-loading-elapsed]');
+        const status = aiBriefOutput?.querySelector('[data-kirby-loading-status]');
+        if (elapsed) {
+            const minutes = String(Math.floor(elapsedSeconds / 60)).padStart(2, '0');
+            const seconds = String(elapsedSeconds % 60).padStart(2, '0');
+            elapsed.textContent = `${minutes}:${seconds}`;
+        }
+        if (status) {
+            status.textContent = getKirbyLoadingPhase(elapsedSeconds);
+        }
+    }, 1000);
+};
+
+const renderKirbyPipelineError = (title = 'Kirby n’a pas pu terminer', issues = []) => {
     if (!aiBriefOutput) {
         return;
     }
@@ -22580,12 +30869,14 @@ const renderKirbyPipelineError = (title = 'Pipeline Kirby bloqué', issues = [])
 
     aiBriefOutput.closest('.ai-brief-panel')?.classList.remove('has-proposal');
     aiBriefOutput.classList.remove('is-loading');
+    aiBriefOutput.classList.add('is-error');
+    clearKirbyLoadingProgress();
     aiBriefOutput.innerHTML = `
-        <div class="kirby-generation-stage" aria-label="Contrôle qualité Kirby">
+        <div class="kirby-generation-stage kirby-generation-error" role="alert" aria-label="Message de Kirby">
             <div class="kirby-generation-overlay">
-                <p class="signal-label">Contrôle qualité bloquant</p>
+                <p class="signal-label">Une nouvelle tentative est possible</p>
                 <h3>${escapeHtml(title)}</h3>
-                <p>La page n’est pas rendue pour éviter une régression vers une ancienne maquette ou un contenu hors brief.</p>
+                <p>Votre demande est conservée. Vous pouvez relancer sans rafraîchir la page.</p>
                 ${cleanIssues.length ? `
                     <ul>
                         ${cleanIssues.map((issue) => `<li>${escapeHtml(issue)}</li>`).join('')}
@@ -22602,15 +30893,20 @@ const setKirbyLoading = (message = 'Génération du site...') => {
     }
 
     aiBriefOutput.closest('.ai-brief-panel')?.classList.remove('has-proposal');
+    aiBriefOutput.classList.remove('is-error');
     aiBriefOutput.classList.add('is-loading');
     aiBriefOutput.innerHTML = `
         <div class="kirby-generation-stage" aria-label="Kirby génère le site">
             <div class="kirby-generation-overlay">
                 <div class="kirby-loader-ring" aria-hidden="true"></div>
                 <h3>${escapeHtml(message)}</h3>
+                <p data-kirby-loading-status>Kirby lit votre demande…</p>
+                <div class="kirby-loading-progress" aria-hidden="true"><i></i></div>
+                <time data-kirby-loading-elapsed>00:00</time>
             </div>
         </div>
     `;
+    startKirbyLoadingProgress();
 };
 
 kirbyExampleButtons.forEach((button) => {
@@ -22628,12 +30924,18 @@ kirbyAutopilotButtons.forEach((button) => {
     button.addEventListener('click', async () => {
         const baseBrief = aiBriefInput?.value.trim() || '';
 
+        if (kirbySiteRequestInFlight) {
+            updateKirbyLoadingStatus('Kirby travaille déjà sur cette proposition…');
+            return;
+        }
+
         if (baseBrief.length < 8 || !aiBriefOutput) {
             aiBriefInput?.focus();
             return;
         }
 
         const brief = `${baseBrief}\n\nMission Kirby : prends le projet en main. Déduis la direction de marque et de design depuis la demande, construis le parcours client complet, rédige les contenus prioritaires, prépare le SEO et livre une première version forte à ajuster.`;
+        setKirbyRequestBusy(true);
         const requestId = beginKirbyRequest();
         setKirbyLoading('Kirby prend le projet en main…');
 
@@ -22644,18 +30946,24 @@ kirbyAutopilotButtons.forEach((button) => {
             }
             const proposalFromPayload = assertKirbyPayloadProposal(payload);
             kirbyConceptNonce += 1;
-            renderKirbyConceptExperience({
+            const didRender = renderKirbyConceptExperience({
                 baseProposal: proposalFromPayload,
                 brief,
                 runtime: payload,
                 seed: kirbyConceptNonce,
             });
+            if (didRender) {
+                startKirbyProgressiveMedia({ brief, runtime: payload, requestId });
+            }
         } catch (error) {
             if (!isKirbyRequestCurrent(requestId)) {
                 return;
             }
             console.error('Kirby autopilot blocked:', error);
             renderKirbyPipelineError('Génération non rendue', getKirbyPipelineErrorIssues(error));
+        } finally {
+            setKirbyRequestBusy(false);
+            clearKirbyLoadingProgress();
         }
     });
 });
@@ -22667,16 +30975,25 @@ if (aiBriefForm && aiBriefInput && aiBriefOutput) {
         const baseBrief = aiBriefInput.value.trim();
         const brief = buildKirbyBriefFromForm();
 
+        if (kirbySiteRequestInFlight) {
+            updateKirbyLoadingStatus('Kirby travaille déjà sur cette proposition…');
+            return;
+        }
+
         if (baseBrief.length < 8) {
             aiBriefOutput.closest('.ai-brief-panel')?.classList.remove('has-proposal');
+            aiBriefOutput.classList.remove('is-loading');
+            aiBriefOutput.classList.add('is-error');
+            clearKirbyLoadingProgress();
             aiBriefOutput.innerHTML = `
                 <p class="signal-label">Idée trop courte</p>
                 <h3>Décrivez votre activité en une phrase.</h3>
-                <p>Exemple : Je suis coiffeuse à Rueil, je veux un site avec tarifs, photos, rendez-vous et contact.</p>
+                <p>Exemple : Je suis coiffeuse à Paris, je veux un site avec tarifs, photos, rendez-vous et contact.</p>
             `;
             return;
         }
 
+        setKirbyRequestBusy(true);
         const requestId = beginKirbyRequest();
         setKirbyLoading();
 
@@ -22687,18 +31004,24 @@ if (aiBriefForm && aiBriefInput && aiBriefOutput) {
             }
             const proposalFromPayload = assertKirbyPayloadProposal(payload);
             kirbyConceptNonce += 1;
-            renderKirbyConceptExperience({
+            const didRender = renderKirbyConceptExperience({
                 baseProposal: proposalFromPayload,
                 brief,
                 runtime: payload,
                 seed: kirbyConceptNonce,
             });
+            if (didRender) {
+                startKirbyProgressiveMedia({ brief, runtime: payload, requestId });
+            }
         } catch (error) {
             if (!isKirbyRequestCurrent(requestId)) {
                 return;
             }
             console.error('Kirby assistant blocked:', error);
             renderKirbyPipelineError('Génération non rendue', getKirbyPipelineErrorIssues(error));
+        } finally {
+            setKirbyRequestBusy(false);
+            clearKirbyLoadingProgress();
         }
     });
 }
