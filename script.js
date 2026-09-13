@@ -10277,7 +10277,10 @@ const getImportedCvReadySummary = (extracted = {}, locale = 'fr') => {
 };
 
 const importPastedCvWithKirby = async (text = '', { sourceKind = 'document' } = {}) => {
-    const sourceText = String(text || '').trim();
+    const rawSourceText = String(text || '').trim();
+    const sourceText = sourceKind === 'narrative'
+        ? rawSourceText.replace(/\\@/g, '@')
+        : rawSourceText;
     if (!sourceText || !cvForm) {
         return 'Collez le texte complet du CV pour que Kirby puisse le structurer.';
     }
