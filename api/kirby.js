@@ -10035,7 +10035,19 @@ const hasNarratedCvSkillContradiction = (item = '', allSourceFacts = []) => {
     );
 };
 
-const hasNarratedCvSkillCollectionGrounding = (items = [], sourceSegments = [], allSourceSegments = []) => {
+const NARRATED_CV_SAFE_SKILL_DIAGNOSTIC_TOKENS = new Set([
+    'arrivee', 'calme', 'client', 'consigne', 'cvhandover', 'cvmastery', 'cvorganization',
+    'cvrequestresponse', 'cvresponsibility', 'cvteamwork', 'cvuse', 'demande', 'depart', 'equipe',
+    'excel', 'facturation', 'fournisseur', 'hotelier', 'logiciel', 'mail', 'nuit', 'outlook',
+    'priorite', 'reclamation', 'reservation', 'telephone',
+]);
+
+const hasNarratedCvSkillCollectionGrounding = (
+    items = [],
+    sourceSegments = [],
+    allSourceSegments = [],
+    diagnostics = null,
+) => {
     const values = Array.isArray(items) ? items.filter(Boolean) : [];
     const segments = getNarratedCvSkillFactSegments(sourceSegments);
     const allSegments = getNarratedCvSkillFactSegments(
@@ -10043,16 +10055,27 @@ const hasNarratedCvSkillCollectionGrounding = (items = [], sourceSegments = [], 
             .map((entry) => typeof entry === 'string' ? { text: entry, kind: 'generic' } : entry),
     );
     if (!values.length) return true;
-    if (!segments.length) return false;
+    if (!segments.length) {
+        if (diagnostics && typeof diagnostics === 'object') {
+            diagnostics.skillFailures = [{ index: 0, reason: 'no_source_segments', categories: [] }];
+        }
+        return false;
+    }
 
-    return values.every((item) => {
-        if (hasNarratedCvSkillContradiction(item, allSegments)) return false;
+    const evaluations = values.map((item, index) => {
         const outputTokens = getNarratedCvSkillTokenRecords(item, { checkAffirmation: false })
             .map(({ token }) => token);
-        if (!outputTokens.length) return false;
+        const categories = [...new Set(outputTokens
+            .filter((token) => NARRATED_CV_SAFE_SKILL_DIAGNOSTIC_TOKENS.has(token)))];
+        if (hasNarratedCvSkillContradiction(item, allSegments)) {
+            return { index, passed: false, reason: 'contradiction', categories };
+        }
+        if (!outputTokens.length) return { index, passed: false, reason: 'no_tokens', categories };
         const conceptGrounded = hasNarratedCvConceptualSkillGrounding(item, segments);
-        if (conceptGrounded !== null) return conceptGrounded;
-        return segments.some((sourceFactRecord) => {
+        if (conceptGrounded !== null) {
+            return { index, passed: conceptGrounded, reason: conceptGrounded ? 'ok' : 'concept', categories };
+        }
+        const passed = segments.some((sourceFactRecord) => {
             const sourceValue = sourceFactRecord.text;
             return hasNarratedCvOrderedSkillTokenGrounding(outputTokens, sourceValue)
                 && getNarratedCvYears(item).every((year) => new Set(getNarratedCvYears(sourceValue)).has(year))
@@ -10061,7 +10084,14 @@ const hasNarratedCvSkillCollectionGrounding = (items = [], sourceSegments = [], 
                 && hasNarratedCvSkillConnectorPairGrounding(item, sourceValue)
                 && hasNarratedCvSkillQuantityGrounding(item, sourceValue);
         });
+        return { index, passed, reason: passed ? 'ok' : 'ordered_tokens', categories };
     });
+    if (diagnostics && typeof diagnostics === 'object') {
+        diagnostics.skillFailures = evaluations
+            .filter(({ passed }) => !passed)
+            .map(({ index, reason, categories }) => ({ index, reason, categories }));
+    }
+    return evaluations.every(({ passed }) => passed);
 };
 
 const hasNarratedCvAggregateCoverage = (items = [], sourceSegments = [], minimumRatio = 0.45) => {
@@ -10259,13 +10289,19 @@ const hasCompleteNarratedCvExtraction = (value, documentText = '', diagnostics =
         minimumOutputRatio: 0.35,
     });
     const summaryClausesGrounded = hasNarratedCvClauseGrounding(extracted.summary, source);
-    const skillsGrounded = hasNarratedCvSkillCollectionGrounding(
+    const skillCollectionGrounded = hasNarratedCvSkillCollectionGrounding(
         extracted.skills || [],
         skillSourceSegments,
         allSkillAssertionSegments,
-    )
-        && (!explicitSkillSegments.length
-            || hasNarratedCvSkillAggregateCoverage(extracted.skills || [], explicitSkillSegments, 0.55));
+        diagnostics,
+    );
+    const skillAggregateGrounded = !explicitSkillSegments.length
+        || hasNarratedCvSkillAggregateCoverage(extracted.skills || [], explicitSkillSegments, 0.55);
+    if (diagnostics && typeof diagnostics === 'object') {
+        diagnostics.skillCount = (extracted.skills || []).length;
+        diagnostics.skillAggregateGrounded = skillAggregateGrounded;
+    }
+    const skillsGrounded = skillCollectionGrounded && skillAggregateGrounded;
     const activitiesGrounded = activitySegments.length
         ? hasNarratedCvCollectionGrounding(extracted.activities || [], activitySegments, { requireAllSourceSegments: true })
             && hasNarratedCvAggregateCoverage(extracted.activities || [], activitySegments, 0.5)
@@ -13310,6 +13346,9 @@ module.exports = async (request, response) => {
 
         let fallbackReason = 'no_openai_api_key';
         let fallbackDiagnostic = '';
+        let previewSkillDiagnostic = null;
+        const previewValidationDebug = process.env.VERCEL_ENV === 'preview'
+            && normalize(request.headers && request.headers['x-kirby-validation-debug']) === '1';
         try {
             const openAiResult = await callOpenAiCvAssistant({
                 task,
@@ -13350,6 +13389,15 @@ module.exports = async (request, response) => {
                 });
             }
             if (openAiResult) {
+                if (previewValidationDebug) {
+                    previewSkillDiagnostic = {
+                        count: Number(validationDiagnostics.skillCount) || 0,
+                        aggregateGrounded: validationDiagnostics.skillAggregateGrounded === true,
+                        failures: Array.isArray(validationDiagnostics.skillFailures)
+                            ? validationDiagnostics.skillFailures.slice(0, 24)
+                            : [],
+                    };
+                }
                 const failedChecks = Array.isArray(validationDiagnostics.failedChecks)
                     ? validationDiagnostics.failedChecks.filter(Boolean)
                     : [];
@@ -13379,7 +13427,12 @@ module.exports = async (request, response) => {
             ok: true,
             source: 'deterministic-fallback',
             warning: fallbackReason,
-            ...(fallbackDiagnostic ? { diagnostic: { validation: fallbackDiagnostic } } : {}),
+            ...(fallbackDiagnostic ? {
+                diagnostic: {
+                    validation: fallbackDiagnostic,
+                    ...(previewSkillDiagnostic ? { skillValidation: previewSkillDiagnostic } : {}),
+                },
+            } : {}),
             cv: deterministicHeadline
                 ? finalizeCvAssistantResult({
                     result: safeFallback,
