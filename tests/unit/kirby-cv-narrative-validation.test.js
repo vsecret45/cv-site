@@ -283,6 +283,822 @@ for (const fixture of acceptedNarratives) {
     });
 }
 
+test('CV raconté : accepte des compétences fidèlement déduites des missions', async () => {
+    const extractionWithWorkSkills = {
+        ...expectedEliseExtraction,
+        skills: [
+            ...expectedEliseExtraction.skills,
+            'Accueil des visiteurs',
+            'Relation client',
+            'Gestion des réservations et de la facturation',
+            'Réception du courrier',
+            'Prise des commandes et service',
+            'Encaissement',
+        ],
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative: eliseNarrative,
+        assistantResult: buildAssistantResult(extractionWithWorkSkills),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai', `compétences métier rejetées (${body.diagnostic?.validation || body.warning || 'raison inconnue'})`);
+});
+
+for (const skill of [
+    'Réponse aux demandes par téléphone et e-mail',
+    'Prise en charge des arrivées et départs',
+    'Passation des consignes à l’équipe de nuit',
+    'Passage des consignes à l’équipe de nuit',
+    'Logiciel hôtelier de réservation',
+    'Gestion des check-ins et check-outs',
+    'Booking management',
+    'Sens de l’organisation',
+    'Traitement des réclamations avec calme',
+]) {
+    test(`CV raconté : accepte la paraphrase métier fidèle « ${skill} »`, async () => {
+        const extraction = {
+            ...expectedEliseExtraction,
+            skills: [...expectedEliseExtraction.skills, skill],
+        };
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative: eliseNarrative,
+            assistantResult: buildAssistantResult(extraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'openai', `paraphrase rejetée (${body.diagnostic?.validation || body.warning || 'raison inconnue'})`);
+    });
+}
+
+for (const skill of [
+    'Gestion des réservations hôtelières',
+    'Suivi des réservations',
+    'Gestion des plaintes avec calme',
+    'Traitement des demandes clients par téléphone et courriel',
+    'Relais des consignes à l’équipe de nuit',
+    'Gestion des priorités',
+    'Priorisation',
+    'Service client par téléphone et e-mail',
+]) {
+    test(`CV raconté : accepte une autre formulation fidèle « ${skill} »`, async () => {
+        const extraction = {
+            ...expectedEliseExtraction,
+            skills: [...expectedEliseExtraction.skills, skill],
+        };
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative: eliseNarrative,
+            assistantResult: buildAssistantResult(extraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'openai', `formulation rejetée (${body.diagnostic?.validation || body.warning || 'raison inconnue'})`);
+    });
+}
+
+test('CV raconté : accepte les paraphrases métier anglaises bornées', async () => {
+    const narrative = `${eliseNarrative}\n\nMy skills: I handle reservations and billing, answer customer requests by phone and email, and I work in a team.`;
+    const extraction = {
+        ...expectedEliseExtraction,
+        skills: [
+            ...expectedEliseExtraction.skills,
+            'Handling reservations and billing',
+            'Responding to customer requests by phone and email',
+            'Teamwork',
+        ],
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai', `paraphrases anglaises rejetées (${body.diagnostic?.validation || body.warning || 'raison inconnue'})`);
+});
+
+for (const skill of [
+    'Managing bookings and invoices',
+    'Responding to guest enquiries via phone and email',
+    'Answering customer inquiries over the phone and by email',
+    'Working collaboratively in a team',
+]) {
+    test(`CV raconté : accepte la variante anglaise « ${skill} »`, async () => {
+        const narrative = `${eliseNarrative}\n\nMy skills: I handle reservations and billing, answer customer requests by phone and email, and I work in a team.`;
+        const extraction = {
+            ...expectedEliseExtraction,
+            skills: [...expectedEliseExtraction.skills, skill],
+        };
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative,
+            assistantResult: buildAssistantResult(extraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'openai', `variante anglaise rejetée (${body.diagnostic?.validation || body.warning || 'raison inconnue'})`);
+    });
+}
+
+test('CV raconté : accepte « sans perdre mon calme » comme une affirmation', async () => {
+    const narrative = eliseNarrative.replace(
+        'Je sais gérer les réclamations avec calme, organiser les priorités et travailler en équipe.',
+        'Je sais gérer les réclamations sans perdre mon calme, organiser les priorités et travailler en équipe.',
+    );
+    const extraction = {
+        ...expectedEliseExtraction,
+        skills: [...expectedEliseExtraction.skills, 'Traitement des réclamations avec calme'],
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai', `formulation affirmative rejetée (${body.diagnostic?.validation || body.warning || 'raison inconnue'})`);
+});
+
+test('CV raconté : accepte une maîtrise seulement lorsqu’elle est explicitement déclarée', async () => {
+    const narrative = eliseNarrative.replace(
+        'Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière.',
+        'Je maîtrise Excel et je sais utiliser Outlook ainsi qu’un logiciel de réservation hôtelière.',
+    );
+    const extraction = {
+        ...expectedEliseExtraction,
+        skills: [...expectedEliseExtraction.skills, 'Maîtrise d’Excel'],
+    };
+    const { statusCode, body } = await callKirbyNarrative({ narrative, assistantResult: buildAssistantResult(extraction) });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai', `maîtrise explicite rejetée (${body.diagnostic?.validation || body.warning || 'raison inconnue'})`);
+});
+
+for (const fixture of [
+    {
+        source: 'Je maîtrise Excel, mais je ne maîtrise pas Photoshop. Je sais utiliser Outlook et un logiciel de réservation hôtelière.',
+        skill: 'Maîtrise d’Excel',
+    },
+    {
+        source: 'Je sais utiliser Excel, mais je ne sais pas utiliser Photoshop. Je sais utiliser Outlook et un logiciel de réservation hôtelière.',
+        skill: 'Utilisation d’Excel',
+    },
+]) {
+    test(`CV raconté : la négation visant Photoshop ne contredit pas « ${fixture.skill} »`, async () => {
+        const narrative = eliseNarrative.replace(
+            'Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière.',
+            fixture.source,
+        );
+        const extraction = {
+            ...expectedEliseExtraction,
+            skills: [...expectedEliseExtraction.skills, fixture.skill],
+        };
+        const { statusCode, body } = await callKirbyNarrative({ narrative, assistantResult: buildAssistantResult(extraction) });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'openai', `négation rattachée au mauvais outil (${body.diagnostic?.validation || body.warning || 'raison inconnue'})`);
+    });
+}
+
+for (const fixture of [
+    {
+        source: 'Je maîtrise Excel et je sais utiliser Outlook ainsi qu’un logiciel de réservation hôtelière.',
+        inventedSkill: 'Maîtrise d’Outlook',
+    },
+    {
+        source: 'Je sais utiliser Excel et je maîtrise Outlook ainsi qu’un logiciel de réservation hôtelière.',
+        inventedSkill: 'Maîtrise d’Excel',
+    },
+]) {
+    test(`CV raconté : ne transfère pas une maîtrise à un autre outil (« ${fixture.inventedSkill} »)`, async () => {
+        const narrative = eliseNarrative.replace(
+            'Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière.',
+            fixture.source,
+        );
+        const extraction = {
+            ...expectedEliseExtraction,
+            skills: [...expectedEliseExtraction.skills, fixture.inventedSkill],
+        };
+        const { statusCode, body } = await callKirbyNarrative({ narrative, assistantResult: buildAssistantResult(extraction) });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'deterministic-fallback');
+        assert.equal(body.warning, 'empty_openai_result');
+    });
+}
+
+for (const fixture of [
+    {
+        source: 'Je maîtrise Excel et je débute sur Outlook. Je sais utiliser un logiciel de réservation hôtelière.',
+        inventedSkill: 'Maîtrise d’Outlook',
+    },
+    {
+        source: 'Je maîtrise Excel et j’ai seulement des notions sur Outlook. Je sais utiliser un logiciel de réservation hôtelière.',
+        inventedSkill: 'Maîtrise d’Outlook',
+    },
+    {
+        source: 'Outils : Excel (maîtrise), Outlook (utilisation), logiciel de réservation hôtelière (utilisation).',
+        inventedSkill: 'Maîtrise d’Outlook',
+    },
+]) {
+    test(`CV raconté : ne transforme pas un niveau faible en maîtrise (« ${fixture.inventedSkill} »)`, async () => {
+        const narrative = eliseNarrative.replace(
+            'Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière.',
+            fixture.source,
+        );
+        const extraction = {
+            ...expectedEliseExtraction,
+            skills: [...expectedEliseExtraction.skills, fixture.inventedSkill],
+        };
+        const { statusCode, body } = await callKirbyNarrative({ narrative, assistantResult: buildAssistantResult(extraction) });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'deterministic-fallback');
+        assert.equal(body.warning, 'empty_openai_result');
+    });
+}
+
+test('CV raconté : accepte une maîtrise rattachée au bon outil dans une liste annotée', async () => {
+    const narrative = eliseNarrative.replace(
+        'Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière.',
+        'Outils : Excel (maîtrise), Outlook (utilisation), logiciel de réservation hôtelière (utilisation).',
+    );
+    const extraction = {
+        ...expectedEliseExtraction,
+        skills: [...expectedEliseExtraction.skills, 'Maîtrise d’Excel'],
+    };
+    const { statusCode, body } = await callKirbyNarrative({ narrative, assistantResult: buildAssistantResult(extraction) });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai', `maîtrise annotée rejetée (${body.diagnostic?.validation || body.warning || 'raison inconnue'})`);
+});
+
+for (const inventedSkill of [
+    'Utilisation d’Outlook comme logiciel de réservation hôtelière',
+    'Utilisation d’Outlook, logiciel de réservation hôtelière',
+    'Utilisation d’Excel pour les réservations hôtelières',
+    'Utilisation d’Excel en réservation hôtelière',
+    'Gestion des arrivées pour la facturation',
+]) {
+    test(`CV raconté : rejette une association inventée (« ${inventedSkill} »)`, async () => {
+        const extraction = {
+            ...expectedEliseExtraction,
+            skills: [...expectedEliseExtraction.skills, inventedSkill],
+        };
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative: eliseNarrative,
+            assistantResult: buildAssistantResult(extraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'deterministic-fallback');
+        assert.equal(body.warning, 'empty_openai_result');
+    });
+}
+
+for (const fixture of [
+    { statement: 'Je suis en train d’apprendre Photoshop.', inventedSkill: 'Photoshop' },
+    { statement: 'Je suis en phase d’apprentissage de Photoshop.', inventedSkill: 'Photoshop' },
+    { statement: 'I am learning Photoshop.', inventedSkill: 'Photoshop' },
+    { statement: 'I am getting familiar with Photoshop.', inventedSkill: 'Photoshop' },
+    { statement: 'Je suis loin de maîtriser Photoshop.', inventedSkill: 'Maîtrise de Photoshop' },
+    { statement: 'Je maîtrise mal Photoshop.', inventedSkill: 'Maîtrise de Photoshop' },
+    { statement: 'Je maîtrise à peine Photoshop.', inventedSkill: 'Maîtrise de Photoshop' },
+    { statement: 'Je sais que Photoshop existe.', inventedSkill: 'Utilisation de Photoshop' },
+    { statement: 'Je sais juste que Photoshop existe.', inventedSkill: 'Utilisation de Photoshop' },
+    { statement: 'Je sais à quoi sert Photoshop.', inventedSkill: 'Utilisation de Photoshop' },
+    { statement: 'I know that Photoshop exists.', inventedSkill: 'Use of Photoshop' },
+    { statement: 'I know about Photoshop.', inventedSkill: 'Use of Photoshop' },
+    { statement: 'I am aware of Photoshop.', inventedSkill: 'Photoshop' },
+]) {
+    test(`CV raconté : ne transforme pas en compétence « ${fixture.statement} »`, async () => {
+        const extraction = {
+            ...expectedEliseExtraction,
+            skills: [...expectedEliseExtraction.skills, fixture.inventedSkill],
+        };
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative: `${eliseNarrative}\n\n${fixture.statement}`,
+            assistantResult: buildAssistantResult(extraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'deterministic-fallback');
+        assert.equal(body.warning, 'empty_openai_result');
+    });
+}
+
+test('CV raconté : « machine learning » reste une compétence explicitement connue', async () => {
+    const extraction = {
+        ...expectedEliseExtraction,
+        skills: [...expectedEliseExtraction.skills, 'Machine learning'],
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative: `${eliseNarrative}\n\nI know machine learning.`,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai', `compétence machine learning rejetée (${body.diagnostic?.validation || body.warning || 'raison inconnue'})`);
+});
+
+test('CV raconté : « contrairement à Photoshop » ne devient pas une compétence Photoshop', async () => {
+    const narrative = eliseNarrative.replace(
+        'Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière.',
+        'Je sais utiliser Excel et Outlook, contrairement à Photoshop, ainsi qu’un logiciel de réservation hôtelière.',
+    );
+    const extraction = {
+        ...expectedEliseExtraction,
+        skills: [...expectedEliseExtraction.skills, 'Photoshop'],
+    };
+    const { statusCode, body } = await callKirbyNarrative({ narrative, assistantResult: buildAssistantResult(extraction) });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'deterministic-fallback');
+    assert.equal(body.warning, 'empty_openai_result');
+});
+
+for (const source of [
+    'Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière, à l’exception de Photoshop.',
+    'Photoshop mis à part, je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière.',
+]) {
+    test(`CV raconté : une exclusion explicite ne devient pas Photoshop (« ${source} »)`, async () => {
+        const narrative = eliseNarrative.replace(
+            'Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière.',
+            source,
+        );
+        const extraction = {
+            ...expectedEliseExtraction,
+            skills: [...expectedEliseExtraction.skills, 'Photoshop'],
+        };
+        const { statusCode, body } = await callKirbyNarrative({ narrative, assistantResult: buildAssistantResult(extraction) });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'deterministic-fallback');
+        assert.equal(body.warning, 'empty_openai_result');
+    });
+}
+
+for (const fixture of [
+    { statement: 'J’ai cessé d’utiliser Excel.', skill: 'Excel' },
+    { statement: 'J’ai arrêté d’utiliser Outlook.', skill: 'Outlook' },
+    { statement: 'Concernant Excel, j’ai cessé de m’en servir.', skill: 'Excel' },
+    { statement: 'J’ai abandonné Excel.', skill: 'Excel' },
+    { statement: 'I stopped working with Outlook.', skill: 'Outlook' },
+    { statement: 'I gave up Excel.', skill: 'Excel' },
+    { statement: 'Je sais utiliser Excel, mais ce n’est plus le cas aujourd’hui.', skill: 'Excel', replaceTools: true },
+    { statement: 'I know how to use Excel, but not anymore.', skill: 'Excel', replaceTools: true },
+]) {
+    test(`CV raconté : la cessation d’usage invalide « ${fixture.skill} »`, async () => {
+        const narrative = fixture.replaceTools
+            ? eliseNarrative.replace(
+                'Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière.',
+                `${fixture.statement} Je sais utiliser Outlook et un logiciel de réservation hôtelière.`,
+            )
+            : `${eliseNarrative}\n\n${fixture.statement}`;
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative,
+            assistantResult: buildAssistantResult(expectedEliseExtraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'deterministic-fallback');
+        assert.equal(body.warning, 'empty_openai_result');
+    });
+}
+
+for (const fixture of [
+    {
+        source: 'Je sais gérer sans difficulté les réclamations avec calme, organiser les priorités et travailler en équipe.',
+        skill: 'Traitement des réclamations avec calme',
+    },
+    {
+        source: 'Je sais gérer les réclamations avec calme, organiser les priorités et travailler sans difficulté en équipe.',
+        skill: 'Travail en équipe',
+    },
+    {
+        source: 'Je sais gérer les réclamations avec calme, organiser les priorités et travailler sans problème en équipe.',
+        skill: 'Travail en équipe',
+    },
+]) {
+    test(`CV raconté : « sans difficulté » ne nie pas « ${fixture.skill} »`, async () => {
+        const narrative = eliseNarrative.replace(
+            'Je sais gérer les réclamations avec calme, organiser les priorités et travailler en équipe.',
+            fixture.source,
+        );
+        const extraction = {
+            ...expectedEliseExtraction,
+            skills: [...expectedEliseExtraction.skills, fixture.skill],
+        };
+        const { statusCode, body } = await callKirbyNarrative({ narrative, assistantResult: buildAssistantResult(extraction) });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'openai', `affirmation rejetée (${body.diagnostic?.validation || body.warning || 'raison inconnue'})`);
+    });
+}
+
+test('CV raconté : une négation sur les fournisseurs ne contredit pas les demandes clients', async () => {
+    const narrative = eliseNarrative.replace(
+        'Je réponds aussi aux demandes des clients par téléphone et par mail.',
+        'Je réponds aux demandes des clients par téléphone et par mail, mais je ne réponds pas aux demandes des fournisseurs.',
+    );
+    const extraction = {
+        ...expectedEliseExtraction,
+        skills: [...expectedEliseExtraction.skills, 'Réponse aux demandes des clients par téléphone et par mail'],
+    };
+    const { statusCode, body } = await callKirbyNarrative({ narrative, assistantResult: buildAssistantResult(extraction) });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai', `portée de négation incorrecte (${body.diagnostic?.validation || body.warning || 'raison inconnue'})`);
+});
+
+test('CV raconté : une négation sur les clients ne contredit pas les demandes fournisseurs', async () => {
+    const narrative = eliseNarrative.replace(
+        'Je réponds aussi aux demandes des clients par téléphone et par mail.',
+        'Je ne réponds pas aux demandes des clients, mais je réponds aux demandes des fournisseurs par téléphone et par mail.',
+    );
+    const extraction = {
+        ...expectedEliseExtraction,
+        skills: [...expectedEliseExtraction.skills, 'Réponse aux demandes des fournisseurs par téléphone et par mail'],
+        experiences: expectedEliseExtraction.experiences.map((item) => item.replace(
+            'Réponse aux demandes des clients par téléphone et par mail',
+            'Réponse aux demandes des fournisseurs par téléphone et par mail',
+        )),
+    };
+    const { statusCode, body } = await callKirbyNarrative({ narrative, assistantResult: buildAssistantResult(extraction) });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai', `portée de négation inverse incorrecte (${body.diagnostic?.validation || body.warning || 'raison inconnue'})`);
+});
+
+test('CV raconté : « sans délai » ne nie pas la réponse aux demandes', async () => {
+    const narrative = eliseNarrative.replace(
+        'Je réponds aussi aux demandes des clients par téléphone et par mail.',
+        'Je réponds sans délai aux demandes des clients par téléphone et par mail.',
+    );
+    const extraction = {
+        ...expectedEliseExtraction,
+        skills: [...expectedEliseExtraction.skills, 'Réponse aux demandes par téléphone et e-mail'],
+    };
+    const { statusCode, body } = await callKirbyNarrative({ narrative, assistantResult: buildAssistantResult(extraction) });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai', `affirmation rejetée (${body.diagnostic?.validation || body.warning || 'raison inconnue'})`);
+});
+
+test('CV raconté : rejette une compétence métier absente du récit', async () => {
+    const extractionWithInventedSkill = {
+        ...expectedEliseExtraction,
+        skills: [
+            ...expectedEliseExtraction.skills,
+            'Comptabilité analytique avancée',
+        ],
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative: eliseNarrative,
+        assistantResult: buildAssistantResult(extractionWithInventedSkill),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'deterministic-fallback');
+    assert.equal(body.warning, 'empty_openai_result');
+});
+
+test('CV raconté : rejette une compétence managériale et chiffrée inventée', async () => {
+    const extractionWithInventedManagement = {
+        ...expectedEliseExtraction,
+        skills: [
+            ...expectedEliseExtraction.skills,
+            'Management de 20 personnes',
+        ],
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative: eliseNarrative,
+        assistantResult: buildAssistantResult(extractionWithInventedManagement),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'deterministic-fallback');
+    assert.equal(body.warning, 'empty_openai_result');
+});
+
+for (const inventedSkill of [
+    'Gestion du secrétariat',
+    'Maîtrise du secrétariat',
+    'Gestion des livres',
+    'Maîtrise des livres',
+]) {
+    test(`CV raconté : ne transforme pas une aide ou une réception en « ${inventedSkill} »`, async () => {
+        const extraction = {
+            ...expectedEliseExtraction,
+            skills: [...expectedEliseExtraction.skills, inventedSkill],
+        };
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative: eliseNarrative,
+            assistantResult: buildAssistantResult(extraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'deterministic-fallback');
+        assert.equal(body.warning, 'empty_openai_result');
+    });
+}
+
+for (const inventedSkill of [
+    'Gestion de la facturation des arrivées',
+    'Maîtrise du logiciel Outlook de réservation hôtelière',
+    'Gestion des réservations de départ',
+    'Gestion de la facturation des départs',
+    'Prise en charge des factures d’arrivée',
+    'Orientalisme',
+    'Maîtrise d’Excel',
+]) {
+    test(`CV raconté : rejette la relation ou le niveau inventé « ${inventedSkill} »`, async () => {
+        const extraction = {
+            ...expectedEliseExtraction,
+            skills: [...expectedEliseExtraction.skills, inventedSkill],
+        };
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative: eliseNarrative,
+            assistantResult: buildAssistantResult(extraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'deterministic-fallback');
+        assert.equal(body.warning, 'empty_openai_result');
+    });
+}
+
+for (const object of ['passeports', 'badges', 'factures']) {
+    test(`CV raconté : ne rattache pas « ${object} » à la gestion des réservations`, async () => {
+        const action = object === 'passeports' ? 'scanner' : object === 'badges' ? 'imprimer' : 'classer';
+        const narrative = `${eliseNarrative}\n\nJe sais gérer les réservations et ${action} les ${object}.`;
+        const extraction = {
+            ...expectedEliseExtraction,
+            skills: [...expectedEliseExtraction.skills, `Gestion des réservations de ${object}`],
+        };
+        const { statusCode, body } = await callKirbyNarrative({ narrative, assistantResult: buildAssistantResult(extraction) });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'deterministic-fallback');
+        assert.equal(body.warning, 'empty_openai_result');
+    });
+}
+
+test('CV raconté : ne rattache pas à la facturation la quantité des réservations', async () => {
+    const narrative = eliseNarrative.replace(
+        'Je m’occupe des arrivées, des départs, des réservations et de la facturation.',
+        'Je m’occupe des arrivées, des départs, de 10 réservations et de la facturation.',
+    );
+    const extraction = {
+        ...expectedEliseExtraction,
+        skills: [...expectedEliseExtraction.skills, 'Gestion de la facturation de 10 réservations'],
+    };
+    const { statusCode, body } = await callKirbyNarrative({ narrative, assistantResult: buildAssistantResult(extraction) });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'deterministic-fallback');
+    assert.equal(body.warning, 'empty_openai_result');
+});
+
+test('CV raconté : une équipe de nuit ne prouve pas un travail en équipe explicitement nié', async () => {
+    const narrative = eliseNarrative.replace(
+        'Je sais gérer les réclamations avec calme, organiser les priorités et travailler en équipe.',
+        'Je sais gérer les réclamations avec calme et organiser les priorités. Je ne sais pas travailler en équipe.',
+    );
+    const extraction = {
+        ...expectedEliseExtraction,
+        summary: 'Je suis organisée, souriante et à l’aise avec les clients. Je sais gérer les réclamations avec calme et organiser les priorités.',
+        skills: expectedEliseExtraction.skills,
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'deterministic-fallback');
+    assert.equal(body.warning, 'empty_openai_result');
+});
+
+for (const inventedSkill of [
+    'Gestion agile',
+    'Stratégie client',
+    'Facturation des salles',
+    'Réservation de livres',
+    'Gestion d’équipe',
+    'Encadrer une équipe',
+    'Direction d’équipe',
+    'Coaching d’équipe',
+    'Accueil de 2017 clients',
+    'Accueil de 05 clients',
+    'Gestion de 2025 factures',
+    'Gestion de 2025 arrivées',
+    'Commandement des commandes',
+    'Standardisation du standard',
+    'Organigramme',
+    'Facturation par mail',
+    'Réservation du courrier',
+    'Réception des salles',
+    'Préparation des livres',
+    'Réception des commandes',
+    'Conseil des livres',
+    'Réservation des départs',
+    'Facturation des départs',
+    'Gestion des réserves',
+    'Organisation de l’équipe de nuit',
+    'Organisation d’une équipe de nuit',
+    'Organisation de mon équipe de nuit',
+    'Organisation des équipes de nuit',
+    'Gestion des équipes de nuit',
+    'Gestion du répondeur',
+    'Réservation des salles et du courrier',
+]) {
+    test(`CV raconté : rejette la compétence recomposée ou inventée « ${inventedSkill} »`, async () => {
+        const extractionWithInventedSkill = {
+            ...expectedEliseExtraction,
+            skills: [
+                ...expectedEliseExtraction.skills,
+                inventedSkill,
+            ],
+        };
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative: eliseNarrative,
+            assistantResult: buildAssistantResult(extractionWithInventedSkill),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'deterministic-fallback');
+        assert.equal(body.warning, 'empty_openai_result');
+    });
+}
+
+for (const negatedSkillStatement of [
+    'Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière, mais pas Photoshop.',
+    'Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière, mais je ne sais pas utiliser Photoshop.',
+    'Photoshop est un outil que je ne maîtrise pas. Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière.',
+    'Je souhaite apprendre Photoshop. Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière.',
+    'Je dois apprendre Photoshop. Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière.',
+    'Je prévois d’apprendre Photoshop. Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière.',
+    'Je compte apprendre Photoshop. Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière.',
+    'Je vais apprendre Photoshop. Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière.',
+    'Mon objectif est d’apprendre Photoshop. Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière.',
+    'Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière, sauf Photoshop.',
+    'Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière. Photoshop reste hors de mes compétences.',
+    'Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière. Photoshop est hors de mon champ de compétences.',
+    'Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière. Je suis incapable d’utiliser Photoshop.',
+    'Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière. Photoshop m’est totalement inconnu.',
+    'Je compte me former à Photoshop. Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière.',
+    'Photoshop m’est étranger. Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière.',
+    'Je connais Photoshop uniquement de nom. Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière.',
+    'Je n’utilise guère Photoshop. Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière.',
+    'J’ai oublié comment utiliser Photoshop. Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière.',
+    'J’ai perdu ma maîtrise de Photoshop. Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière.',
+]) {
+    test(`CV raconté : ne transforme pas en compétence « ${negatedSkillStatement} »`, async () => {
+        const narrative = eliseNarrative.replace(
+            'Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière.',
+            negatedSkillStatement,
+        );
+        const extractionWithNegatedSkill = {
+            ...expectedEliseExtraction,
+            skills: [...expectedEliseExtraction.skills, 'Photoshop'],
+        };
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative,
+            assistantResult: buildAssistantResult(extractionWithNegatedSkill),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'deterministic-fallback');
+        assert.equal(body.warning, 'empty_openai_result');
+    });
+}
+
+for (const fixture of [
+    {
+        narrative: `${eliseNarrative}\n\nFinalement, je ne maîtrise plus Excel.`,
+        skill: 'Excel',
+    },
+    {
+        narrative: `${eliseNarrative}\n\nFinalement, je n’utilise plus Outlook.`,
+        skill: 'Outlook',
+    },
+    {
+        narrative: eliseNarrative.replace(
+            'Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière.',
+            'Outils : Excel oui, Outlook non, et un logiciel de réservation hôtelière.',
+        ),
+        skill: 'Outlook',
+    },
+    {
+        narrative: eliseNarrative.replace(
+            'Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière.',
+            'Je sais utiliser Excel et non Outlook, ainsi qu’un logiciel de réservation hôtelière.',
+        ),
+        skill: 'Outlook',
+    },
+    {
+        narrative: `${eliseNarrative}\n\nExcel est requis pour le poste, ce n’est pas une de mes compétences.`,
+        skill: 'Excel',
+    },
+]) {
+    test(`CV raconté : une rétractation explicite invalide « ${fixture.skill} »`, async () => {
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative: fixture.narrative,
+            assistantResult: buildAssistantResult(expectedEliseExtraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'deterministic-fallback');
+        assert.equal(body.warning, 'empty_openai_result');
+    });
+}
+
+for (const fixture of [
+    { statement: 'Je voudrais un poste avec management d’équipe.', skill: 'Management d’équipe' },
+    { statement: 'Je vise à devenir experte en Excel.', skill: 'Experte en Excel' },
+    { statement: 'Mon objectif est de travailler en équipe.', skill: 'Travail en équipe' },
+    { statement: 'Je cherche un poste où je pourrai travailler en équipe.', skill: 'Travail en équipe' },
+    { statement: 'Mon objectif est de gérer les réservations.', skill: 'Gestion des réservations' },
+]) {
+    test(`CV raconté : une aspiration ne devient pas la compétence « ${fixture.skill} »`, async () => {
+        const narrative = eliseNarrative.replace(
+            'Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière.',
+            `Je sais utiliser Excel, Outlook et un logiciel de réservation hôtelière. ${fixture.statement}`,
+        ).replace(
+            'Je sais gérer les réclamations avec calme, organiser les priorités et travailler en équipe.',
+            'Je sais gérer les réclamations avec calme et organiser les priorités.',
+        );
+        const extraction = {
+            ...expectedEliseExtraction,
+            summary: 'Je suis organisée, souriante et à l’aise avec les clients. Je sais gérer les réclamations avec calme et organiser les priorités.',
+            skills: [
+                ...expectedEliseExtraction.skills.filter((skill) => skill !== 'Travail en équipe'),
+                fixture.skill,
+            ],
+        };
+        const { statusCode, body } = await callKirbyNarrative({ narrative, assistantResult: buildAssistantResult(extraction) });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'deterministic-fallback');
+        assert.equal(body.warning, 'empty_openai_result');
+    });
+}
+
+test('CV raconté : un malaise avec les clients ne devient pas une relation client', async () => {
+    const narrative = eliseNarrative.replace(
+        'Je cherche un poste de réceptionniste en hôtellerie. Je suis organisée, souriante et à l’aise avec les clients.',
+        'Je cherche un poste de réceptionniste en hôtellerie. Je suis organisée, souriante et très mal à l’aise avec les clients.',
+    );
+    const extraction = {
+        ...expectedEliseExtraction,
+        summary: 'Je suis organisée et souriante. Je sais gérer les réclamations avec calme, organiser les priorités et travailler en équipe.',
+        skills: [...expectedEliseExtraction.skills, 'Relation client'],
+    };
+    const { statusCode, body } = await callKirbyNarrative({ narrative, assistantResult: buildAssistantResult(extraction) });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'deterministic-fallback');
+    assert.equal(body.warning, 'empty_openai_result');
+});
+
+test('CV raconté : ne rattache pas une quantité au mauvais objet dans une compétence', async () => {
+    const narrative = eliseNarrative.replace(
+        'Je m’occupe des arrivées, des départs, des réservations et de la facturation.',
+        'Je m’occupe des arrivées, des départs, de 10 réservations et de la facturation.',
+    );
+    const extractionWithReassignedQuantity = {
+        ...expectedEliseExtraction,
+        skills: [...expectedEliseExtraction.skills, 'Facturation de 10 clients'],
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extractionWithReassignedQuantity),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'deterministic-fallback');
+    assert.equal(body.warning, 'empty_openai_result');
+});
+
+for (const inventedSkill of ['Gestion de 10 réservistes', 'Gestion de 10 réserves']) {
+    test(`CV raconté : ne confond pas réservations et « ${inventedSkill} »`, async () => {
+        const narrative = eliseNarrative.replace(
+            'Je m’occupe des arrivées, des départs, des réservations et de la facturation.',
+            'Je m’occupe des arrivées, des départs, de 10 réservations et de la facturation.',
+        );
+        const extractionWithWrongReservationWord = {
+            ...expectedEliseExtraction,
+            skills: [...expectedEliseExtraction.skills, inventedSkill],
+        };
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative,
+            assistantResult: buildAssistantResult(extractionWithWrongReservationWord),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'deterministic-fallback');
+        assert.equal(body.warning, 'empty_openai_result');
+    });
+}
+
 test('CV raconté : rejette une extraction qui invente une expérience et un diplôme', async () => {
     const inventedExtraction = {
         ...expectedEliseExtraction,
