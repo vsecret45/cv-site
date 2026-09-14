@@ -5434,6 +5434,92 @@ const addExperienceCard = () => {
 
 const getLanguageField = () => cvForm?.elements.languages || null;
 
+const CV_LANGUAGE_CANONICAL_NAME_BY_ALIAS = new Map([
+    ['francais', 'french'],
+    ['french', 'french'],
+    ['anglais', 'english'],
+    ['english', 'english'],
+    ['arabe', 'arabic'],
+    ['arabic', 'arabic'],
+    ['espagnol', 'spanish'],
+    ['spanish', 'spanish'],
+    ['italien', 'italian'],
+    ['italian', 'italian'],
+    ['allemand', 'german'],
+    ['german', 'german'],
+    ['portugais', 'portuguese'],
+    ['portuguese', 'portuguese'],
+    ['neerlandais', 'dutch'],
+    ['dutch', 'dutch'],
+    ['chinois', 'chinese'],
+    ['chinese', 'chinese'],
+    ['mandarin', 'mandarin'],
+    ['japonais', 'japanese'],
+    ['japanese', 'japanese'],
+    ['polonais', 'polish'],
+    ['polish', 'polish'],
+]);
+
+const CV_LANGUAGE_CANONICAL_LABELS = {
+    french: { fr: 'Français', en: 'French' },
+    english: { fr: 'Anglais', en: 'English' },
+    arabic: { fr: 'Arabe', en: 'Arabic' },
+    spanish: { fr: 'Espagnol', en: 'Spanish' },
+    italian: { fr: 'Italien', en: 'Italian' },
+    german: { fr: 'Allemand', en: 'German' },
+    portuguese: { fr: 'Portugais', en: 'Portuguese' },
+    dutch: { fr: 'Néerlandais', en: 'Dutch' },
+    chinese: { fr: 'Chinois', en: 'Chinese' },
+    mandarin: { fr: 'Mandarin', en: 'Mandarin' },
+    japanese: { fr: 'Japonais', en: 'Japanese' },
+    polish: { fr: 'Polonais', en: 'Polish' },
+};
+
+const getCanonicalCvLanguageKey = (value = '') => {
+    const tokens = normalizeForMatch(value)
+        .replace(/[’']/g, ' ')
+        .split(/[^a-z0-9]+/)
+        .filter(Boolean);
+    const alias = tokens.find((token) => CV_LANGUAGE_CANONICAL_NAME_BY_ALIAS.has(token));
+    return alias ? CV_LANGUAGE_CANONICAL_NAME_BY_ALIAS.get(alias) : '';
+};
+
+const getCvLanguageLabelForLocale = (canonicalKey = '', fallback = '') => {
+    const labels = CV_LANGUAGE_CANONICAL_LABELS[canonicalKey] || null;
+    if (!labels) {
+        return normalizeCvSentenceText(fallback || '').replace(/\.$/, '');
+    }
+    return currentCvContentLocale === 'en' ? labels.en : labels.fr;
+};
+
+const normalizeCvLanguageName = (value = '') => {
+    const cleanValue = normalizeCvSentenceText(value || '').replace(/\.$/, '');
+    const canonicalKey = getCanonicalCvLanguageKey(cleanValue);
+    return canonicalKey ? getCvLanguageLabelForLocale(canonicalKey, cleanValue) : cleanValue;
+};
+
+const dedupeLanguageEntriesByCanonicalKey = (entries = []) => {
+    const orderedKeys = [];
+    const byKey = new Map();
+
+    (Array.isArray(entries) ? entries : []).forEach((entry = {}) => {
+        const language = normalizeCvLanguageName(entry.language || '');
+        if (!language) {
+            return;
+        }
+        const canonicalKey = getCanonicalCvLanguageKey(language) || normalizeForMatch(language);
+        if (!byKey.has(canonicalKey)) {
+            orderedKeys.push(canonicalKey);
+        }
+        byKey.set(canonicalKey, {
+            language: getCvLanguageLabelForLocale(getCanonicalCvLanguageKey(language), language),
+            level: normalizeLanguageLevel(entry.level || ''),
+        });
+    });
+
+    return orderedKeys.map((key) => byKey.get(key)).filter((entry) => entry?.language);
+};
+
 const normalizeLanguageLevel = (value = '') => {
     const normalized = normalizeForMatch(value).replace(/\s+/g, ' ').trim();
     const frenchAliases = {
@@ -5511,7 +5597,7 @@ const normalizeLanguageLevel = (value = '') => {
 
 const parseLanguageEntry = (line = '') => {
     const [language = '', ...levelParts] = String(line).split(/\s*[:–—-]\s*/);
-    const cleanLanguage = normalizeCvSentenceText(language).replace(/\.$/, '');
+    const cleanLanguage = normalizeCvLanguageName(language);
 
     return {
         language: cleanLanguage,
@@ -5520,7 +5606,7 @@ const parseLanguageEntry = (line = '') => {
 };
 
 const serializeLanguageEntry = (entry = {}) => {
-    const language = normalizeCvSentenceText(entry.language || '').replace(/\.$/, '');
+    const language = normalizeCvLanguageName(entry.language || '');
     const level = normalizeLanguageLevel(entry.level || '');
 
     return language ? (level ? `${language} : ${level}` : language) : '';
@@ -5571,12 +5657,9 @@ const getLanguageSourceEntries = () => {
         return [];
     }
 
-    return splitLines(field.value)
+    return dedupeLanguageEntriesByCanonicalKey(splitLines(field.value)
         .map(parseLanguageEntry)
-        .filter((entry) => entry.language)
-        .filter((entry, index, entries) =>
-            entries.findIndex((candidate) => normalizeForMatch(candidate.language) === normalizeForMatch(entry.language)) === index
-        );
+        .filter((entry) => entry.language));
 };
 
 const renderLanguageEditor = (options = {}) => {
@@ -13499,7 +13582,7 @@ const getExplicitHeadlineFromInstruction = (message = '') => {
         || rawCandidate;
     const candidate = cleanExplicitHeadlineCandidate(
         connectorCandidate
-            .replace(/^(?:(?:sous\s+(?:mon|le)\s+nom|under\s+(?:my|the)\s+name)\s*)?(?:par|en|vers|pour|with|to|as|by|:)\s*/i, '')
+            .replace(/^(?:(?:sous\s+(?:mon|le)\s+nom|under\s+(?:my|the)\s+name)\s*)?(?:(?:par|en|vers|pour|with|to|as|by)\b|:)\s*/i, '')
             .replace(/^(?:(?:du|de\s+mon|de\s+ce)\s+(?:m[ée]tier|poste|cv))\s*/i, '')
             .replace(/\s*,?\s*(?:avec|en\s+gardant|tout\s+en\s+gardant|respecte|respecter)\s+(?:(?:exactement|strictement)\s+)?(?:cette|la)?\s*(?:casse|capitalisation|majuscule(?:s)?|minuscule(?:s)?)[\s\S]*$/i, '')
             .replace(/\s*,\s*(?:pas|not|et\s+non|plut[oô]t\s+que)\b[\s\S]*$/i, '')
@@ -13994,7 +14077,20 @@ const getExplicitLanguageMutationIntent = (message = '') => {
         ? `${unquotedMatch[1].trim()} : ${unquotedMatch[3].trim()}`
         : '');
 
-    return target ? { type: 'remove_exact', target } : null;
+    if (target) {
+        return { type: 'remove_exact', target };
+    }
+
+    const languageMentions = [
+        ...source.matchAll(new RegExp(`\\b(${KIRBY_LANGUAGE_NAME_PATTERN})\\b`, 'gi')),
+    ]
+        .map((match) => getCanonicalCvLanguageKey(match[1]) || normalizeForMatch(match[1]))
+        .filter(Boolean);
+    const uniqueMentions = [...new Set(languageMentions)];
+
+    return uniqueMentions.length === 1
+        ? { type: 'remove_language', languageKey: uniqueMentions[0] }
+        : null;
 };
 
 const applyQuickExplicitLanguageMutation = (message = '') => {
@@ -14029,27 +14125,50 @@ const applyQuickExplicitLanguageMutation = (message = '') => {
         return `Langues conservées uniquement : ${intent.lines.join(', ')}. Aucun autre contenu n’a été modifié.`;
     }
 
-    const targetKey = getExactLanguageLineKey(intent.target);
+    const targetKey = intent.type === 'remove_exact' ? getExactLanguageLineKey(intent.target) : '';
+    const targetCanonicalKey = intent.type === 'remove_language'
+        ? intent.languageKey
+        : getCanonicalCvLanguageKey(parseLanguageEntry(intent.target).language || intent.target);
     const sourceLines = String(field.value || '').split(/\r?\n/);
-    const matchingLines = sourceLines.filter((line) => getExactLanguageLineKey(line) === targetKey);
-    if (!matchingLines.length) {
+    const matchingIndexes = sourceLines
+        .map((line, index) => ({
+            line,
+            index,
+            lineKey: getExactLanguageLineKey(line),
+            canonicalKey: getCanonicalCvLanguageKey(parseLanguageEntry(line).language || line),
+        }))
+        .filter((item) => (targetKey && item.lineKey === targetKey) || (targetCanonicalKey && item.canonicalKey === targetCanonicalKey))
+        .map((item) => item.index);
+    if (!matchingIndexes.length) {
         hideKirbyCvProposal();
         setCvStatus('Langue introuvable : CV inchangé');
-        return `Je n’ai rien modifié : « ${intent.target} » n’est pas présente exactement dans LANGUES. Vous pouvez envoyer une nouvelle commande immédiatement.`;
+        return intent.type === 'remove_language'
+            ? `Je n’ai rien modifié : cette langue n’est pas présente dans LANGUES. Vous pouvez envoyer une nouvelle commande immédiatement.`
+            : `Je n’ai rien modifié : « ${intent.target} » n’est pas présente exactement dans LANGUES. Vous pouvez envoyer une nouvelle commande immédiatement.`;
     }
 
     const beforeState = getCvHistoryState();
-    field.value = sourceLines
-        .filter((line) => getExactLanguageLineKey(line) !== targetKey)
-        .join('\n')
-        .replace(/^\n+|\n+$/g, '');
+    const removedIndexes = new Set(matchingIndexes);
+    const remainingEntries = sourceLines
+        .filter((_, index) => !removedIndexes.has(index))
+        .map(parseLanguageEntry)
+        .filter((entry) => entry.language);
+    field.value = dedupeLanguageEntriesByCanonicalKey(remainingEntries)
+        .map(serializeLanguageEntry)
+        .filter(Boolean)
+        .join('\n');
     clearEditableOverride('languages');
     renderLanguageEditor({ normalizeField: false });
     updateCvPreview({ preserveDensity: true });
     commitCvHistoryTransition(beforeState);
     scheduleCvDraftSave();
     setCvStatus('Langue supprimée');
-    return `Langue supprimée : « ${matchingLines[0].trim()} ». Aucun autre contenu n’a été modifié.`;
+    const removedLabel = targetCanonicalKey
+        ? getCvLanguageLabelForLocale(targetCanonicalKey, intent.target || '')
+        : sourceLines[matchingIndexes[0]]?.trim() || intent.target || 'langue';
+    return matchingIndexes.length > 1
+        ? `Langue supprimée : « ${removedLabel} » (${matchingIndexes.length} lignes retirées). Aucun autre contenu n’a été modifié.`
+        : `Langue supprimée : « ${removedLabel} ». Aucun autre contenu n’a été modifié.`;
 };
 
 const applyQuickLanguageCorrections = (message = '') => {
@@ -14632,6 +14751,10 @@ const getKirbyCvRawFollowUpDateValue = (message = '') => {
 };
 
 const hasQuickExperienceDateIntent = (message = '', dateValue = '') => {
+    if (isFullCvTranslationRequest(message)) {
+        return false;
+    }
+
     if (hasNewExperienceAdditionIntent(message)) {
         return false;
     }
@@ -14640,7 +14763,10 @@ const hasQuickExperienceDateIntent = (message = '', dateValue = '') => {
         return false;
     }
 
-    const source = normalizeForMatch(message);
+    const source = normalizeForMatch(getAffirmativeKirbyInstruction(message));
+    if (!source) {
+        return false;
+    }
     const hasAdditionVerb = /\b(ajoute|ajouter|rajoute|rajouter|insere|inserer|integre|integrer|cree|creer|add|insert|include|create)\b/.test(source);
     const hasDateTopic = /\b(date|dates|periode|periodes|period|periods|mois|month|months|annee|annees|year|years)\b/.test(source);
     const hasCorrectionVerb = /\b(modifie|modifier|change|changer|corrige|corriger|remplace|remplacer|mets|mettre|met|modify|update|change|correct|replace|set)\b/.test(source);
@@ -14659,7 +14785,12 @@ const hasQuickExperienceDateIntent = (message = '', dateValue = '') => {
 };
 
 const getQuickExperienceDateCorrection = (message = '') => {
-    const source = normalizeForMatch(getKirbyUserInstruction(message));
+    if (isFullCvTranslationRequest(message)) {
+        pendingExperienceDateCorrectionIndex = null;
+        return null;
+    }
+
+    const source = normalizeForMatch(getAffirmativeKirbyInstruction(message));
     const hasAdditionVerb = /\b(ajoute|ajouter|rajoute|rajouter|insere|inserer|integre|integrer|cree|creer|add|insert|include|create)\b/.test(source);
     const canResolveExplicitTarget = typeof getExplicitCvDateTargetField === 'function';
     const explicitTargetField = canResolveExplicitTarget ? getExplicitCvDateTargetField(message) : '';
@@ -16720,23 +16851,44 @@ const mergeKirbyLanguages = (languages = []) => {
         return false;
     }
 
-    const entries = isDefaultCvFieldValue('languages', field.value) ? [] : getLanguageSourceEntries();
-    const existing = new Map(entries.map((entry) => [normalizeForMatch(entry.language), entry]));
+    const entries = isDefaultCvFieldValue('languages', field.value)
+        ? []
+        : getLanguageSourceEntries();
+    const existing = new Map();
+    const order = [];
+
+    entries.forEach((entry) => {
+        const canonicalKey = getCanonicalCvLanguageKey(entry.language) || normalizeForMatch(entry.language);
+        if (!existing.has(canonicalKey)) {
+            order.push(canonicalKey);
+        }
+        existing.set(canonicalKey, {
+            language: normalizeCvLanguageName(entry.language),
+            level: normalizeLanguageLevel(entry.level || ''),
+        });
+    });
 
     languages.forEach((entry) => {
-        const language = normalizeCvSentenceText(entry?.language || '').replace(/\.$/, '');
+        const language = normalizeCvLanguageName(entry?.language || '');
         if (!language) {
             return;
         }
-        const key = normalizeForMatch(language);
+        const key = getCanonicalCvLanguageKey(language) || normalizeForMatch(language);
+        if (!existing.has(key)) {
+            order.push(key);
+        }
         const previous = existing.get(key);
         existing.set(key, {
-            language,
+            language: getCvLanguageLabelForLocale(getCanonicalCvLanguageKey(language), language),
             level: entry?.level ? normalizeLanguageLevel(entry.level) : previous?.level || '',
         });
     });
 
-    const value = [...existing.values()].map(serializeLanguageEntry).filter(Boolean).join('\n');
+    const value = order
+        .map((key) => existing.get(key))
+        .map(serializeLanguageEntry)
+        .filter(Boolean)
+        .join('\n');
     if (!value || value === field.value) {
         return false;
     }
@@ -17735,6 +17887,104 @@ const applyKirbyCollectionDateTextReplacement = (operation = {}) => {
     return true;
 };
 
+const applyKirbyLanguageTextMutationOperation = (operation = {}) => {
+    const currentValue = String(
+        operation.target?.currentValue
+        || operation.target?.label
+        || operation.target?.title
+        || ''
+    ).trim();
+    const requestedField = KIRBY_TEXT_MUTATION_FIELDS.includes(operation.field) ? operation.field : '';
+    const canUseLanguagePath = ['replace_text', 'remove_text'].includes(operation.type)
+        && (!requestedField || requestedField === 'languages');
+
+    if (!canUseLanguagePath || !currentValue) {
+        return { handled: false, changed: false };
+    }
+
+    const field = getLanguageField();
+    if (!field) {
+        return { handled: true, changed: false };
+    }
+
+    const entries = splitLines(field.value)
+        .map(parseLanguageEntry)
+        .filter((entry) => entry.language);
+    if (!entries.length) {
+        return { handled: true, changed: false };
+    }
+
+    const targetLineKey = getExactLanguageLineKey(currentValue);
+    const targetCanonicalKey = getCanonicalCvLanguageKey(parseLanguageEntry(currentValue).language || currentValue);
+    const matchingIndexes = entries
+        .map((entry, index) => ({
+            index,
+            lineKey: getExactLanguageLineKey(serializeLanguageEntry(entry)),
+            canonicalKey: getCanonicalCvLanguageKey(entry.language),
+        }))
+        .filter((item) => item.lineKey === targetLineKey || (targetCanonicalKey && item.canonicalKey === targetCanonicalKey))
+        .map((item) => item.index);
+
+    if (!matchingIndexes.length) {
+        return { handled: true, changed: false };
+    }
+
+    if (operation.type === 'remove_text') {
+        const toRemove = new Set(matchingIndexes);
+        const nextEntries = dedupeLanguageEntriesByCanonicalKey(entries.filter((_, index) => !toRemove.has(index)));
+        const nextValue = nextEntries.map(serializeLanguageEntry).filter(Boolean).join('\n');
+        if (nextValue === field.value) {
+            return { handled: true, changed: false };
+        }
+
+        field.value = nextValue;
+        clearEditableOverride('languages');
+        return { handled: true, changed: true };
+    }
+
+    const firstMatchIndex = Math.min(...matchingIndexes);
+    const targetEntry = entries[firstMatchIndex] || parseLanguageEntry(currentValue);
+    const replacementRaw = String(operation.value || '').trim();
+    if (!replacementRaw) {
+        return { handled: true, changed: false };
+    }
+
+    const replacementParsed = parseLanguageEntry(replacementRaw);
+    const replacementCanonicalKey = getCanonicalCvLanguageKey(replacementParsed.language || replacementRaw) || targetCanonicalKey;
+    const replacementMentionsLanguage = Boolean(getCanonicalCvLanguageKey(replacementRaw));
+    const replacementLanguage = replacementMentionsLanguage
+        ? normalizeCvLanguageName(replacementParsed.language)
+        : normalizeCvLanguageName(
+            getCvLanguageLabelForLocale(
+                replacementCanonicalKey,
+                targetEntry.language || replacementRaw,
+            ),
+        );
+    const replacementLevel = replacementMentionsLanguage
+        ? normalizeLanguageLevel(replacementParsed.level || targetEntry.level || '')
+        : normalizeLanguageLevel(replacementRaw || targetEntry.level || '');
+    if (!replacementLanguage) {
+        return { handled: true, changed: false };
+    }
+
+    const toRemove = new Set(matchingIndexes);
+    const nextEntries = entries.filter((_, index) => !toRemove.has(index));
+    nextEntries.splice(firstMatchIndex, 0, {
+        language: replacementLanguage,
+        level: replacementLevel,
+    });
+
+    const dedupedEntries = dedupeLanguageEntriesByCanonicalKey(nextEntries);
+    const nextValue = dedupedEntries.map(serializeLanguageEntry).filter(Boolean).join('\n');
+    if (!nextValue || nextValue === field.value) {
+        return { handled: true, changed: false };
+    }
+
+    field.value = nextValue;
+    clearEditableOverride('languages');
+    return { handled: true, changed: true };
+};
+
 const applyKirbyTextMutationOperation = (operation = {}) => {
     const currentValue = String(
         operation.target?.currentValue ||
@@ -17747,6 +17997,11 @@ const applyKirbyTextMutationOperation = (operation = {}) => {
     }
 
     const requestedField = KIRBY_TEXT_MUTATION_FIELDS.includes(operation.field) ? operation.field : '';
+    const languageMutation = applyKirbyLanguageTextMutationOperation(operation);
+    if (languageMutation.handled) {
+        return languageMutation.changed;
+    }
+
     const isOngoingDateReplacement = operation.type === 'replace_text'
         && (!requestedField || requestedField === 'experience')
         && isOngoingExperienceDateMarker(currentValue)
@@ -18327,11 +18582,18 @@ const applyKirbyOperations = (operations = [], context = {}) => {
         return [];
     }
 
+    const allowPartialFailures = context.allowPartialFailures === true;
     const beforeState = getCvHistoryState();
     const applied = [];
+    let skippedCount = 0;
     for (const operation of requested) {
         const result = applyKirbyOperation(operation, context);
         if (!result) {
+            if (allowPartialFailures) {
+                skippedCount += 1;
+                continue;
+            }
+
             // Une consigne composée est indivisible : si une seule opération
             // est ambiguë ou invalide, les précédentes sont annulées aussi.
             const mutationStarted = Boolean(beforeState && getCvHistoryState() !== beforeState);
@@ -18350,7 +18612,10 @@ const applyKirbyOperations = (operations = [], context = {}) => {
         applied.push(result);
     }
 
-    return [...new Set(applied)];
+    const dedupedApplied = [...new Set(applied)];
+    dedupedApplied.skippedCount = skippedCount;
+    dedupedApplied.partial = allowPartialFailures && skippedCount > 0;
+    return dedupedApplied;
 };
 
 const isKirbyNoopSuccessReply = (reply = '') =>
@@ -18584,10 +18849,12 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
         ? applyKirbyExtractedCv(proposal.extracted)
         : [];
     const changes = [...extractionChanges];
+    const allowPartialOperations = shouldAllowPartialKirbyOperations(userInstruction, proposal.operations);
     const operationChanges = applyKirbyOperations(proposal.operations, {
         instruction: userInstruction,
         experienceOrder: proposal.experienceOrder,
         skillOrder: proposal.skillOrder || proposal.skillsOrder,
+        allowPartialFailures: allowPartialOperations,
     });
     if (operationChanges.failed === true) {
         const operationError = new Error('kirby_cv_operation_transaction_failed');
@@ -18810,6 +19077,53 @@ const getAffirmativeKirbyInstruction = (instruction = '') => {
         .split(/\b(?:sans|without)\b/i, 1)[0]
         .replace(/\b(?:ne|n['’])\s+[\s\S]*?\s+(?:pas|plus|jamais|rien|aucun|aucune)\b[\s\S]*$/i, '')
         .trim();
+};
+
+const isKirbyProofreadInstruction = (instruction = '') => {
+    const source = normalizeForMatch(getAffirmativeKirbyInstruction(instruction))
+        .replace(/[’']/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!source) {
+        return false;
+    }
+
+    const hasProofVerb = /\b(?:relis|relire|relecture|corrige|corriger|corriges|corrigez|proofread|revise|revisez|correct|fix)\b/.test(source);
+    const hasQualityTopic = /\b(?:fautes?|orthographe|grammaire|coquilles?|typos?|spelling|grammar)\b/.test(source);
+    return hasProofVerb && hasQualityTopic;
+};
+
+const isKirbySafeTextOperation = (operation = {}) => {
+    const type = operation?.type || '';
+    if (!['replace_text', 'remove_text', 'set_field'].includes(type)) {
+        return false;
+    }
+
+    if (type === 'set_field') {
+        return [
+            'headline',
+            'summary',
+            'skills',
+            'experience',
+            'projects',
+            'education',
+            'activities',
+            'languages',
+            'permit',
+            'location',
+        ].includes(operation?.field || '');
+    }
+
+    return !operation?.field || KIRBY_TEXT_MUTATION_FIELDS.includes(operation.field);
+};
+
+const shouldAllowPartialKirbyOperations = (instruction = '', operations = []) => {
+    const requested = getKirbyCvArray(operations);
+    if (!requested.length || !isKirbyProofreadInstruction(instruction)) {
+        return false;
+    }
+
+    return requested.every((operation) => isKirbySafeTextOperation(operation));
 };
 
 const getSingleFieldEditIntent = (instruction = '') => {
