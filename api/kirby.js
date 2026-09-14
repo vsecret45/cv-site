@@ -1882,8 +1882,9 @@ Actions d'edition directes :
 - Si l'utilisateur demande une modification ciblee ou globale d'un element du CV (ajout d'experience, date/periode, retrait des mois, suppression de puce/ligne, niveau de langue, suppression/retrait, correction d'un champ), renseigne "operations" avec l'action a appliquer. Ne te contente jamais de suggestions, notice ou bugReport si une action peut etre executee avec le CV fourni.
 - Une demande comme « sauvegarde le CV », « applique et sauvegarde », « confirme apres verification » doit produire une modification seulement si une modification est demandee ; sinon laisse operations vide et notice courte. Ne transforme jamais cette demande en correction de date.
 - Si l'utilisateur demande de deplacer, monter, descendre ou placer une experience sous/au-dessus d'une autre, retourne obligatoirement operations avec type "reorder_experiences". Si possible, renseigne experienceOrder avec la liste complete des experiences existantes dans l'ordre final attendu. Sinon renseigne operation.position.before ou operation.position.after avec la reference exacte de l'experience voisine. Ne change aucun intitule pour fabriquer l'ordre.
-- Si la demande cible explicitement un seul champ (titre, langue, date, telephone, email, profil, nom, ville, permis), ne lance pas d'optimisation globale : laisse periodGaps, generatedExperiences, educationSuggestions, suggestedSkills et layout vides sauf demande explicite d'optimisation globale.
+- Si la demande cible explicitement un seul champ (titre, langue, date, telephone, email, profil, competences, nom, ville, permis), ne lance pas d'optimisation globale : laisse periodGaps, generatedExperiences, educationSuggestions, suggestedSkills et layout vides sauf demande explicite d'optimisation globale.
 - Pour ajouter une experience avec assez d'informations (au moins titre ou organisme, periode ou missions), utilise type "add_experience". Renseigne operation.experience avec title, period, organization et description. N'utilise pas bugReport si l'experience peut etre ajoutee comme brouillon factuel a partir de la demande.
+- Pour ajouter une competence explicitement fournie, utilise exclusivement type "add_skill", field "skills" et value = la nouvelle ligne exacte. Une operation add_skill ajoute cette valeur a la liste existante : elle ne remplace jamais la rubrique et target.currentValue reste vide. Ne retourne add_skill que si la consigne contient un verbe d'ajout affirmatif, vise explicitement la rubrique competences et cite mot pour mot la valeur a ajouter. Pour remplacer ou supprimer une competence existante, utilise respectivement replace_text ou remove_text avec target.currentValue = texte actuel exact.
 - Pour corriger uniquement l'intitule d'une experience existante, utilise type "update_experience_title", renseigne "value" avec le nouvel intitule exact, et cible l'experience avec target.index si le contexte de selection le fournit, sinon target.title, target.organization ou target.currentValue. Ne modifie jamais l'entreprise, les dates ou les missions pour une correction d'intitule.
 - Pour corriger une date d'experience existante, utilise exclusivement type "update_experience_date", jamais replace_text. Cible une seule experience avec target.index uniquement si le contexte de selection la confirme, sinon avec target.title ou target.organization, et recopie sa periode actuelle complete dans target.currentValue. Renseigne target.datePart avec "start", "end", "whole" ou "matched" selon la cible, puis renseigne "value" avec la periode finale complete obtenue apres la seule substitution demandee : annee seule = conserve le mois ; mois seul = conserve l'annee ; mois + annee = remplace les deux. Respecte explicitement la borne de debut ou de fin nommee. Si une annee ou un mois peut designer les deux bornes et que la consigne ne les distingue pas, ne retourne aucune operation et demande debut ou fin dans notice.
 - Une demande comme « remplacer Now par 2025-2026 » ou « replace Present with 2025-2026 » vise l'unique experience dont la date contient ce marqueur. Utilise update_experience_date, jamais replace_text. Si l'utilisateur fournit une periode complete, reprends-la comme value ; s'il remplace seulement Now/Present par une date de fin, conserve exactement le debut existant dans la periode finale. Ne laisse jamais la date vide et ne produis jamais « November 2025 - 2025 - 2026 ». Si plusieurs experiences sont en cours et qu'aucun poste ou contexte de selection ne les distingue, laisse operations vide et demande laquelle corriger.
@@ -1969,7 +1970,7 @@ Schema JSON obligatoire :
     "preserveAllContent": true
   },
   "operations": [{
-    "type": "add_experience | update_experience_title | update_experience_date | set_experience_bullets | normalize_experience_dates | remove_experience_bullet | upsert_language | set_field | replace_text | remove_text | remove_section | reorder_experiences | reorder_skills | sort_experiences | remove_experience",
+    "type": "add_experience | add_skill | update_experience_title | update_experience_date | set_experience_bullets | normalize_experience_dates | remove_experience_bullet | upsert_language | set_field | replace_text | remove_text | remove_section | reorder_experiences | reorder_skills | sort_experiences | remove_experience",
     "field": "experience | languages | fullName | location | phone | email | permit | headline | summary | skills | education | activities | projects",
     "target": {
       "index": 0,
@@ -7187,6 +7188,31 @@ const getAffirmativeCvActionContexts = (instruction = '', actionPattern) => {
         .filter(Boolean);
 };
 
+const getAffirmativeCvActionClauses = (instruction = '', actionPattern) => {
+    const source = normalizeCvOperationIntentText(instruction);
+    if (!source || !(actionPattern instanceof RegExp)) {
+        return [];
+    }
+
+    const matcher = new RegExp(actionPattern.source, actionPattern.flags.includes('i') ? 'gi' : 'g');
+    const boundaryPattern = /[;.!?\n]|\b(?:mais|but|then|ensuite|however)\b|\bpuis\b(?!-)/g;
+    return [...source.matchAll(matcher)]
+        .filter((match) => !isCvActionNegated(source, match))
+        .map((match) => {
+            const before = source.slice(0, match.index);
+            const previousBoundaries = [...before.matchAll(boundaryPattern)];
+            const previousBoundary = previousBoundaries.at(-1);
+            const start = previousBoundary
+                ? (previousBoundary.index || 0) + previousBoundary[0].length
+                : 0;
+            const afterStart = (match.index || 0) + match[0].length;
+            const nextBoundary = /[;.!?\n]|\b(?:mais|but|then|ensuite|however)\b|\bpuis\b(?!-)/.exec(source.slice(afterStart));
+            const end = nextBoundary ? afterStart + nextBoundary.index : source.length;
+            return source.slice(start, end).trim();
+        })
+        .filter(Boolean);
+};
+
 const getExplicitCvSectionRemovalKeys = (instruction = '') => {
     const removalContexts = getAffirmativeCvActionContexts(instruction, CV_REMOVE_ACTION_PATTERN);
     if (!removalContexts.length) {
@@ -7270,6 +7296,7 @@ const sanitizeCvLayout = (value, { instruction = '' } = {}) => {
 
 const CV_OPERATION_TYPES = new Set([
     'add_experience',
+    'add_skill',
     'update_experience_title',
     'update_experience_date',
     'set_experience_bullets',
@@ -7345,7 +7372,9 @@ const sanitizeCvOperation = (value) => {
             currentValue: limitCvText(rawTarget.currentValue || rawTarget.current || value.currentValue, 160),
             ...(datePart ? { datePart } : {}),
         },
-        value: limitCvMultilineText(rawValue, 6000),
+        value: type === 'add_skill'
+            ? limitCvText(rawValue, CV_MAX_SKILL_CHARS)
+            : limitCvMultilineText(rawValue, 6000),
         items,
         experience: sanitizeCvGeneratedExperience(value.experience || value.entry || value.item),
         position: {
@@ -7513,6 +7542,7 @@ const getCvOperationIntent = (instruction = '', cv = {}, { lastEdit = null } = {
     const source = normalizeCvOperationIntentText(instruction);
     const removalContexts = getAffirmativeCvActionContexts(source, CV_REMOVE_ACTION_PATTERN);
     const additionContexts = getAffirmativeCvActionContexts(source, CV_ADD_ACTION_PATTERN);
+    const additionClauses = getAffirmativeCvActionClauses(source, CV_ADD_ACTION_PATTERN);
     const directCorrectionContexts = getAffirmativeCvActionContexts(source, CV_CORRECTION_ACTION_PATTERN);
     const sourceExperienceModel = buildCvDocumentModel(cv).experience;
     const sourceExperienceTitles = getCvExperienceTitles(cv && cv.experience);
@@ -7571,6 +7601,7 @@ const getCvOperationIntent = (instruction = '', cv = {}, { lastEdit = null } = {
         source,
         removalContexts,
         additionContexts,
+        additionClauses,
         explicitExperienceAdditionContexts,
         existingExperiences: sourceExperienceModel,
         correctionContexts,
@@ -7705,6 +7736,176 @@ const cvAddExperienceOperationMatchesIntent = (operation, intent) => {
     return !duplicatesExistingExperience;
 };
 
+const cvAddSkillOperationMatchesIntent = (operation, intent) => {
+    const value = limitCvText(operation && operation.value, CV_MAX_SKILL_CHARS);
+    const contexts = (intent && intent.additionClauses || [])
+        .filter(cvAdditionClauseExplicitlyTargetsSkills);
+    if (!value || operation.field !== 'skills' || !contexts.length || /\r|\n/.test(value)) {
+        return false;
+    }
+
+    // L'ajout ne dépend pas de la présence préalable de la nouvelle ligne.
+    // En revanche, sa valeur doit être citée mot pour mot dans la même clause
+    // affirmative que le verbe d'ajout et la rubrique Compétences.
+    const normalizedValue = normalizeExplicitCvSkillValue(value);
+    if (!normalizedValue) return false;
+
+    const explicitGroundedValue = getStrictlyGroundedCvSkillAddition(intent && intent.source, intent);
+    return Boolean(explicitGroundedValue)
+        && normalizedValue === normalizeExplicitCvSkillValue(explicitGroundedValue);
+};
+
+const CV_SKILLS_SECTION_NAME_SOURCE = '(?:competences?|skills?|core expertise|expertise)';
+const CV_SKILLS_SECTION_BEFORE_ADD_PATTERN = new RegExp(
+    `(?:^|\\b)(?:(?:dans|sur|pour|au sein de|in|under|within)\\s+(?:(?:la|les|ma|mes|the|my)\\s+)?(?:(?:rubrique|section)\\s+)?${CV_SKILLS_SECTION_NAME_SOURCE}|(?:rubrique|section)\\s+(?:(?:des?|de la|the)\\s+)?${CV_SKILLS_SECTION_NAME_SOURCE}|(?:mes|les|my|the)\\s+${CV_SKILLS_SECTION_NAME_SOURCE})\\b`,
+);
+const CV_SKILLS_SECTION_AFTER_ADD_PATTERN = new RegExp(
+    `\\b(?:(?:dans|sur|a|au|aux|sous|pour|in|to|under|within)\\s+(?:(?:la|les|ma|mes|the|my)\\s+)?(?:(?:rubrique|section)\\s+)?${CV_SKILLS_SECTION_NAME_SOURCE}|(?:rubrique|section)\\s+(?:(?:des?|de la|the)\\s+)?${CV_SKILLS_SECTION_NAME_SOURCE})\\b`,
+);
+const CV_SKILLS_DIRECT_LABEL_BEFORE_ADD_PATTERN = new RegExp(
+    `^\\s*${CV_SKILLS_SECTION_NAME_SOURCE}\\s*:\\s*$`,
+);
+
+function cvAdditionClauseExplicitlyTargetsSkills(clause = '') {
+    const source = normalizeCvOperationIntentText(clause);
+    const actionMatch = source.match(CV_ADD_ACTION_PATTERN);
+    if (!actionMatch) return false;
+
+    const beforeAction = source.slice(0, actionMatch.index || 0);
+    const afterAction = source.slice((actionMatch.index || 0) + actionMatch[0].length);
+    const hypotheticalPrefix = beforeAction.trim();
+    const firstOrThirdPersonConditional = /\b(?:(?:je|j|il|elle|on|nous|ils|elles)\s+(?:ne\s+)?(?:pourrais|pourrait|pourrions|pourraient)|(?:pourrais|pourrait|pourrions|pourraient)[-\s]+(?:je|il|elle|on|nous|ils|elles)|(?:i|he|she|we|they)\s+(?:could|might|would))\b[^;.!?]{0,100}$/.test(hypotheticalPrefix);
+    const nonImperativeQuestion = /(?:^|\b)(?:pourquoi|why|faut[-\s]+il|dois[-\s]+je|devrais[-\s]+je|puis[-\s]+je|should\s+i|may\s+i|can\s+i)\b[^;.!?]{0,100}$/.test(hypotheticalPrefix);
+    if (/(?:^|\b)(?:si|if)\b[^;.!?]{0,160}$/.test(hypotheticalPrefix)
+        || firstOrThirdPersonConditional
+        || nonImperativeQuestion) {
+        return false;
+    }
+
+    return CV_SKILLS_SECTION_BEFORE_ADD_PATTERN.test(beforeAction)
+        || CV_SKILLS_DIRECT_LABEL_BEFORE_ADD_PATTERN.test(beforeAction)
+        || CV_SKILLS_SECTION_AFTER_ADD_PATTERN.test(afterAction);
+}
+
+function normalizeExplicitCvSkillValue(value = '') {
+    return normalizeCvOperationIntentText(value)
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+}
+
+function findUniqueCvInstructionDisplayValue(instruction = '', normalizedCandidate = '') {
+    const candidateTokens = normalizeExplicitCvSkillValue(normalizedCandidate).split(' ').filter(Boolean);
+    if (!candidateTokens.length) return '';
+
+    const source = String(instruction);
+    const sourceTokens = [...source.matchAll(/[\p{L}\p{N}]+/gu)].map((match) => ({
+        key: normalizeExplicitCvSkillValue(match[0]),
+        start: match.index || 0,
+        end: (match.index || 0) + match[0].length,
+    }));
+    const matches = [];
+    for (let index = 0; index <= sourceTokens.length - candidateTokens.length; index += 1) {
+        const slice = sourceTokens.slice(index, index + candidateTokens.length);
+        if (slice.every((token, tokenIndex) => token.key === candidateTokens[tokenIndex])) {
+            matches.push(source.slice(slice[0].start, slice[slice.length - 1].end));
+        }
+    }
+
+    return matches.length === 1 ? limitCvText(matches[0], CV_MAX_SKILL_CHARS) : '';
+}
+
+function cleanExplicitCvSkillAdditionCandidate(value = '') {
+    return normalizeCvOperationIntentText(value)
+        .replace(/\s*,?\s*\b(?:sans|without)\b[\s\S]*$/, '')
+        .replace(/^\s*(?:(?:uniquement|seulement|juste|simplement|only|just)\s+)+/, '')
+        .replace(/^\s*(?:(?:une?|la|le|the|a|an)\s+)?(?:(?:nouvelle?|new)\s+)?(?:ligne|competence|skill|element|item)\b\s*/, '')
+        .replace(/^\s*(?:intitulee?|nommee?|appelee?|titled|called)\b\s*/, '')
+        .replace(/^[\s:,\-]+|[\s,;:.!?\-]+$/g, '')
+        .trim();
+}
+
+const getStrictlyGroundedCvSkillAddition = (instruction = '', intent = null) => {
+    const resolvedIntent = intent || getCvOperationIntent(instruction);
+    const skillClauses = (resolvedIntent.additionClauses || [])
+        .filter(cvAdditionClauseExplicitlyTargetsSkills);
+    if (skillClauses.length !== 1) return '';
+
+    const clause = skillClauses[0];
+    const actionMatch = clause.match(CV_ADD_ACTION_PATTERN);
+    if (!actionMatch) return '';
+
+    const afterAction = clause.slice((actionMatch.index || 0) + actionMatch[0].length);
+    const quotedValues = [...String(instruction).matchAll(/«([^»]+)»|“([^”]+)”|"([^"]+)"/g)]
+        .map((match) => match[1] || match[2] || match[3] || '')
+        .filter((value) => value && !/[\r\n]/.test(value))
+        .map((value) => limitCvText(value, CV_MAX_SKILL_CHARS))
+        .filter(Boolean)
+        .filter((value, index, values) => values.indexOf(value) === index)
+        .filter((value) => {
+            const normalizedValue = normalizeCvOperationIntentText(value)
+                .replace(/[^a-z0-9]+/g, ' ')
+                .trim();
+            const normalizedAfterAction = normalizeCvOperationIntentText(afterAction)
+                .replace(/[^a-z0-9]+/g, ' ')
+                .trim();
+            return normalizedValue
+                && ` ${normalizedAfterAction} `.includes(` ${normalizedValue} `);
+        });
+
+    if (quotedValues.length) {
+        return quotedValues.length === 1 ? quotedValues[0] : '';
+    }
+
+    const targetAfterAction = CV_SKILLS_SECTION_AFTER_ADD_PATTERN.exec(afterAction);
+    const targetBeforeAction = CV_SKILLS_SECTION_BEFORE_ADD_PATTERN.test(
+        clause.slice(0, actionMatch.index || 0),
+    ) || CV_SKILLS_DIRECT_LABEL_BEFORE_ADD_PATTERN.test(
+        clause.slice(0, actionMatch.index || 0),
+    );
+    const candidateSource = targetAfterAction
+        ? afterAction.slice(0, targetAfterAction.index)
+        : targetBeforeAction
+            ? afterAction
+            : '';
+    const normalizedCandidate = cleanExplicitCvSkillAdditionCandidate(candidateSource);
+    if (!normalizedCandidate) return '';
+
+    return findUniqueCvInstructionDisplayValue(instruction, normalizedCandidate);
+};
+
+const recoverLegacyHeadlineOnlySkillAddition = (result, instruction = '', intent = null) => {
+    const groundedValue = getStrictlyGroundedCvSkillAddition(instruction, intent);
+    const rawOperations = Array.isArray(result && result.operations) ? result.operations : [];
+    if (!groundedValue || rawOperations.length !== 1) return result;
+
+    const legacyOperation = sanitizeCvOperation(rawOperations[0]);
+    const sameGroundedValue = normalizeExplicitCvSkillValue(legacyOperation && legacyOperation.value)
+        === normalizeExplicitCvSkillValue(groundedValue);
+    if (!legacyOperation
+        || legacyOperation.type !== 'set_field'
+        || legacyOperation.field !== 'headline'
+        || !sameGroundedValue) {
+        return result;
+    }
+
+    // Compatibilite avec l'ancienne sortie fautive du modele : la seule
+    // mutation synthetisee est litteralement ancree dans la clause d'ajout.
+    // L'operation headline reste presente afin que le filtre de securite la
+    // rejette et la comptabilise dans operationSafety.
+    return {
+        ...(result || {}),
+        operations: [
+            ...rawOperations,
+            {
+                type: 'add_skill',
+                field: 'skills',
+                value: groundedValue,
+                reason: 'Ajout de competence explicitement demande',
+            },
+        ],
+    };
+};
+
 const cvCorrectionOperationMatchesIntent = (operation, intent) => {
     const hasScope = (scope) => intent.scopes.has(scope);
     const namesOperationExperience = [
@@ -7799,6 +8000,7 @@ const cvOperationMatchesExplicitIntent = (operation, intent) => {
         return cvRemovalOperationMatchesIntent(operation, intent);
     }
     if (operation.type === 'add_experience') return cvAddExperienceOperationMatchesIntent(operation, intent);
+    if (operation.type === 'add_skill') return cvAddSkillOperationMatchesIntent(operation, intent);
     if (['reorder_experiences', 'sort_experiences'].includes(operation.type)) return intent.orderExperiences;
     if (operation.type === 'reorder_skills') return intent.orderSkills && operation.items.length > 0;
     return cvCorrectionOperationMatchesIntent(operation, intent);
@@ -7806,12 +8008,19 @@ const cvOperationMatchesExplicitIntent = (operation, intent) => {
 
 const sanitizeCvOperations = (value, { instruction = '', intent = null } = {}) => {
     const resolvedIntent = intent || getCvOperationIntent(instruction);
+    const groundedSkillAddition = getStrictlyGroundedCvSkillAddition(
+        instruction || resolvedIntent.source,
+        resolvedIntent,
+    );
 
     return (Array.isArray(value) ? value : [])
         .map(sanitizeCvOperation)
         .filter(Boolean)
         .map((operation) => rebaseCvDateOperationFromLastEdit(operation, resolvedIntent.lastEdit))
         .filter((operation) => cvOperationMatchesExplicitIntent(operation, resolvedIntent))
+        .map((operation) => operation.type === 'add_skill' && groundedSkillAddition
+            ? { ...operation, value: groundedSkillAddition }
+            : operation)
         .slice(0, 32);
 };
 
@@ -8256,14 +8465,48 @@ const isSafeExplicitCvHeadline = (value = '') => {
     );
 };
 
+const CV_HEADLINE_SECOND_ACTION_SOURCE = '(?:ajout(?:e|es|ons|ez|er)|rajout(?:e|es|ons|ez|er)|ins[eè]r(?:e|es|ons|ez|er)|modifi(?:e|es|ons|ez|er)|chang(?:e|es|ons|ez|er)|remplac(?:e|es|ons|ez|er)|supprim(?:e|es|ons|ez|er)|retir(?:e|es|ons|ez|er)|enlev(?:e|es|ons|ez|er)|d[eé]plac(?:e|es|ons|ez|er)|corrig(?:e|es|eons|ez|er)|mets|mettre|add(?:s|ed|ing)?|insert(?:s|ed|ing)?|modify|update|change|replace|remove|delete|move|correct|set)';
+const CV_HEADLINE_FOLLOWING_ACTION_PATTERN = new RegExp(
+    `(?:\\s*,?\\s*\\b(?:puis|ensuite|then|and\\s+then)\\b|\\s+\\b(?:et|and)\\b\\s+(?=${CV_HEADLINE_SECOND_ACTION_SOURCE}\\b))[\\s\\S]*$`,
+    'i',
+);
+
+const getCvHeadlineActionClause = (value = '') => {
+    const tail = String(value || '').trim();
+    const leadingQuotedValue = tail.match(/^(?:«[^»]+»|“[^”]+”|"[^"]+")/);
+
+    // Une conjonction située dans le titre cité appartient à sa valeur. Les
+    // séparateurs d'actions ne sont évalués qu'après cette valeur littérale.
+    return leadingQuotedValue
+        ? leadingQuotedValue[0]
+        : tail.replace(CV_HEADLINE_FOLLOWING_ACTION_PATTERN, '').trim();
+};
+
 const getExplicitCvHeadline = (instruction = '', currentHeadline = '', documentLanguage = '') => {
     const source = normalizeText(instruction);
+    const normalizedSource = normalizeCvOperationIntentText(source);
+    const labelsAnotherElement = /\b(?:ligne|line|element|item)\s+(?:intitulee?|nommee?|appelee?|titled|called)\b/.test(normalizedSource);
+    const explicitlyTargetsHeadline = /\b(?:titre\s+(?:(?:du|de mon|de ce)\s+)?(?:cv|poste|metier)|intitule\s+(?:du|de mon|de ce)\s+(?:cv|poste|metier)|poste\s+vise|headline|job\s+title|target\s+role)\b/.test(normalizedSource);
+    const headlineActionMatch = source.match(
+        /(?:change|changer|modifie|modifier|remplace|remplacer|mets|mettre|modify|replace|correct|set|update)\s+(?:(?:le|mon|the|my)\s+)?(?:titre|intitul[ée]|poste\s+vis[ée]|headline|job\s+title|target\s+role)(?:\s+(?:sous\s+(?:mon|le)\s+nom|under\s+(?:my|the)\s+name))?\s*(?:par|en|vers|pour|with|to|as|by|:)?\s+([\s\S]+)/i,
+    );
+    if (labelsAnotherElement && !explicitlyTargetsHeadline && !headlineActionMatch) {
+        return '';
+    }
+    const headlineActionClause = getCvHeadlineActionClause(headlineActionMatch?.[1]);
     const conversationalHeadline = getConversationalCvHeadline(source, documentLanguage);
     if (conversationalHeadline) {
         return conversationalHeadline;
     }
+    const explicitActionHeadline = cleanExplicitCvHeadline(headlineActionClause);
+    if (isSafeExplicitCvHeadline(explicitActionHeadline)) {
+        return explicitActionHeadline;
+    }
     if (shouldNormalizeExistingCvHeadline(source)) {
-        const quotedHeadline = [...source.matchAll(/«([^»]+)»|“([^”]+)”|"([^"]+)"/g)]
+        const headlineQuoteSource = labelsAnotherElement && headlineActionMatch
+            ? headlineActionClause
+            : source;
+        const quotedHeadline = [...headlineQuoteSource.matchAll(/«([^»]+)»|“([^”]+)”|"([^"]+)"/g)]
             .map((match) => cleanExplicitCvHeadline(match[1] || match[2] || match[3] || ''))
             .filter(isSafeExplicitCvHeadline)
             .at(-1);
@@ -8273,7 +8516,8 @@ const getExplicitCvHeadline = (instruction = '', currentHeadline = '', documentL
         return '';
     }
 
-    const quotedValues = [...source.matchAll(/«([^»]+)»|“([^”]+)”|"([^"]+)"/g)]
+    const headlineQuoteSource = headlineActionMatch ? headlineActionClause : source;
+    const quotedValues = [...headlineQuoteSource.matchAll(/«([^»]+)»|“([^”]+)”|"([^"]+)"/g)]
         .map((match) => cleanExplicitCvHeadline(match[1] || match[2] || match[3] || ''))
         .filter(isSafeExplicitCvHeadline);
     if (quotedValues.length) {
@@ -8350,8 +8594,13 @@ const finalizeCvAssistantResult = ({ result, cv, task, jobOffer, instruction, in
             ? { ...(result || {}), operations: [] }
             : result
         : { ...(result || {}), headline: '', jobTarget: '' };
+    const recoveredIntentGuardedResult = recoverLegacyHeadlineOnlySkillAddition(
+        intentGuardedResult,
+        instruction,
+        operationIntent,
+    );
     const assistantResult = enhanceCvGapDrafts(
-        sanitizeCvAssistantResult(intentGuardedResult, cv, { instruction, interaction }),
+        sanitizeCvAssistantResult(recoveredIntentGuardedResult, cv, { instruction, interaction }),
         { cv, instruction, jobOffer },
     );
     const openEndedModelRole = getOpenEndedCvRoleFromAssistantResult(assistantResult);
@@ -12566,6 +12815,7 @@ const buildOpenAiCvPrompt = ({ task, cv, jobOffer, instruction, documentText, do
     'Pour une modification locale, laisse vides les champs non demandes : ne renomme pas un poste, une entreprise, une date, une mission, le titre global, l accroche ou les competences si la consigne ne le demande pas explicitement.',
     'Pour un deplacement avant/apres une autre experience explicitement demande, retourne une seule operation reorder_experiences avec position.before ou position.after.',
     'Pour changer l ordre des competences, retourne une operation reorder_skills avec field skills et items contenant la liste finale complete. Ne supprime aucune competence qui n est pas explicitement retiree.',
+    'Pour ajouter une nouvelle competence explicitement citee, retourne une seule operation add_skill avec field skills et value egale a cette nouvelle ligne mot pour mot. Ne mets pas les competences existantes dans value et n utilise ni set_field ni replace_text pour cet ajout.',
     'Pour une correction ciblee de phrase, ligne, date ou intitule, retourne uniquement l operation correspondante. Ne remplis pas headline, summary, skills, generatedExperiences, educationSuggestions, layout ou experienceOrder si ces champs ne sont pas demandes.',
     'Correction de date atomique : reconnais comme equivalents les mois complets et abreges, avec ou sans point, accent ou majuscule (janvier/janv., fevrier/févr., aout/août, septembre/sept.). Une annee seule remplace uniquement l annee et conserve le mois ; un mois seul conserve l annee ; une date mois + annee remplace les deux. Dans une periode, debut/start cible la premiere borne et fin/end la seconde. Pour une experience non ambigue, retourne une seule update_experience_date avec target.currentValue = periode actuelle complete et value = periode finale complete. Pour une formation, un diplome, une certification, des etudes, un cursus, un training, un course ou un degree non ambigu, retourne une seule replace_text avec field education, target.title = intitule reel de la ligne, target.currentValue = date source exacte et value = date de remplacement. Pour un projet non ambigu, utilise le meme contrat avec field projects. Recopie mot pour mot chaque fragment non vise ; ne trie, ne reformate et ne recompose aucune ligne. Ne retourne ni normalize_experience_dates, sort_experiences, reorder_experiences, experienceOrder, ni changement de layout. Si la date correspond a plusieurs lignes de la rubrique ciblee sans cible unique, laisse operations vide et demande l intitule exact de cette rubrique dans notice. Ne demande jamais un poste ou une entreprise lorsque la rubrique ciblee est education.',
     interaction && interaction.lastEdit

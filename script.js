@@ -13364,6 +13364,15 @@ const getExplicitHeadlineFromInstruction = (message = '') => {
         return '';
     }
 
+    const normalizedInstruction = normalizeForMatch(instruction);
+    const labelsAnotherElement = /\b(?:ligne|line|element|item)\s+(?:intitulee?|nommee?|appelee?|titled|called)\b/.test(normalizedInstruction);
+    const explicitlyEditsHeadline = /\b(?:change|changer|modifie|modifier|remplace|remplacer|corrige|corriger|mets|mettre|met|applique|appliquer|modify|replace|correct|set|update)\s+(?:(?:le|mon|the|my)\s+)?(?:titre|intitule)\b/.test(normalizedInstruction);
+    const explicitlyTargetsHeadline = explicitlyEditsHeadline
+        || /\b(?:titre\s+(?:(?:du|de mon|de ce)\s+)?(?:cv|poste|metier)|intitule\s+(?:du|de mon|de ce)\s+(?:cv|poste|metier)|poste\s+vise|headline|job\s+title|target\s+role)\b/.test(normalizedInstruction);
+    if (labelsAnotherElement && !explicitlyTargetsHeadline) {
+        return '';
+    }
+
     const conversationalCandidate = getConversationalHeadlineCandidate(instruction);
     if (conversationalCandidate) {
         return conversationalCandidate;
@@ -13378,7 +13387,24 @@ const getExplicitHeadlineFromInstruction = (message = '') => {
     // l'utilisateur demande d'inscrire : les mots « sous mon nom » ou
     // « avec cette casse exacte » restent des consignes, jamais du contenu.
     if (hasHeadlineTarget) {
-        const quotedValues = [...instruction.matchAll(/«([^»]+)»|“([^”]+)”|"([^"]+)"/g)]
+        const quotedMatches = [...instruction.matchAll(/«([^»]+)»|“([^”]+)”|"([^"]+)"/g)];
+        const headlineClausePattern = new RegExp(`\\b${editVerb}\\s+${headlineTarget}\\b`, 'i');
+        const targetedQuotedMatches = quotedMatches.filter((match) => {
+            const beforeQuote = instruction.slice(0, match.index || 0);
+            const boundaries = [...beforeQuote.matchAll(
+                /[.;!?]|\b(?:puis|ensuite|then)\b|\b(?:et|and)\b(?=\s+(?:ajoute|ajouter|ins[eè]re|ins[eé]rer|supprime|supprimer|retire|retirer|remplace|remplacer|modifie|modifier|change|changer|corrige|corriger|d[eé]place|d[eé]placer|add|insert|remove|replace|modify|update|change|correct|move)\b)/gi
+            )];
+            const previousBoundary = boundaries.at(-1);
+            const clause = previousBoundary
+                ? beforeQuote.slice((previousBoundary.index || 0) + previousBoundary[0].length)
+                : beforeQuote;
+            return headlineClausePattern.test(clause);
+        });
+        const quotedValues = (targetedQuotedMatches.length
+            ? targetedQuotedMatches
+            : quotedMatches.length === 1
+                ? quotedMatches
+                : [])
             .map((match) => cleanExplicitHeadlineCandidate(match[1] || match[2] || match[3] || ''))
             .filter((candidate) => isProfessionalHeadlineCandidate(candidate, { allowAnyExplicitValue: true }));
         if (quotedValues.length) {
@@ -13466,7 +13492,7 @@ const hasConcreteKirbyCvEditIntent = (message = '') => {
 };
 
 const hasCompoundKirbyCvInstruction = (message = '') => {
-    const source = normalizeForMatch(getKirbyUserInstruction(message));
+    const source = normalizeForMatch(getAffirmativeKirbyInstruction(message));
     const actionPatterns = [
         /\b(ajoute|ajouter|insere|inserer|integre|integrer|add|insert)\b/,
         /\b(supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|remove|delete)\b/,
@@ -16140,7 +16166,227 @@ const applyQuickCvTypographyAdjustment = (message = '') => {
     return 'Contenu principal réduit dans le CV.';
 };
 
+const getExactSkillLineKey = (value = '') => normalizeForMatch(stripBulletPrefix(String(value || '')))
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const appendSkillToEditableOverride = (skill = '') => {
+    const override = cvEditableContent.skills;
+    if (!override || typeof override.html !== 'string') {
+        clearEditableOverride('skills');
+        return;
+    }
+
+    const template = document.createElement('template');
+    template.innerHTML = sanitizeCvEditableHtml('skills', override.html);
+    const skillKey = getExactSkillLineKey(skill);
+    const alreadyRendered = [...template.content.querySelectorAll('li')]
+        .some((item) => getExactSkillLineKey(item.textContent || '') === skillKey);
+    if (!alreadyRendered) {
+        const item = document.createElement('li');
+        item.textContent = skill;
+        template.content.appendChild(item);
+    }
+
+    const container = document.createElement('div');
+    container.appendChild(template.content.cloneNode(true));
+    cvEditableContent.skills = {
+        ...override,
+        html: sanitizeCvEditableHtml('skills', container.innerHTML),
+    };
+};
+
+const explicitSkillAdditionActionSource = '(?:ajoute|ajoutes|ajoutez|ajouter|rajoute|rajoutes|rajoutez|rajouter|insere|inseres|inserez|inserer|add|adds|insert|inserts)';
+const hypotheticalSkillAdditionActionSource = '(?:ajoutais|ajoutait|ajoutions|ajoutiez|ajoutaient|inserais|inserait|inserions|inseriez|inseraient|added|inserted)';
+const explicitSkillTargetSource = '(?:competence|competences|skill|skills|savoir[ -]faire)';
+
+const hasExplicitSkillTargetForAction = (source = '', actionSource = explicitSkillAdditionActionSource) => {
+    const determiner = '(?:(?:la|le|les|ma|mon|mes|du|de la|des|the|my)\\s+)?';
+    const sectionBeforeAction = new RegExp(
+        `(?:\\b(?:dans|sous|sur|pour|au sein de|in|under|within|for)\\s+${determiner}(?:(?:rubrique|section)\\s+${determiner})?${explicitSkillTargetSource}\\b(?:\\s+(?:rubrique|section))?|\\b(?:rubrique|section)\\s+${determiner}${explicitSkillTargetSource}\\b|(?:^|[.;!?]\\s*)(?:(?:rubrique|section)\\s+${determiner})?${explicitSkillTargetSource}\\s*:)[^.;!?]{0,120}\\b${actionSource}\\b`
+    ).test(source);
+    const sectionAfterAction = new RegExp(
+        `\\b${actionSource}\\b[^.;!?]{0,180}?\\b(?:dans|a|au|aux|sur|pour|in|to|into|under|within|for)\\s+${determiner}(?:(?:rubrique|section)\\s+${determiner})?${explicitSkillTargetSource}\\b`
+    ).test(source);
+
+    return sectionBeforeAction || sectionAfterAction;
+};
+
+const isExplicitSkillAdditionActionNegated = (source = '', match = null) => {
+    if (!match) {
+        return false;
+    }
+
+    const before = source.slice(Math.max(0, (match.index || 0) - 84), match.index || 0);
+    const afterStart = (match.index || 0) + match[0].length;
+    const after = source.slice(afterStart, afterStart + 42);
+    const clauseBefore = before.split(/[.;!?\n]|\b(?:mais|but|puis|then|ensuite|however)\b/).pop() || '';
+
+    if (/\b(?:pas|not)(?:\s+[a-z0-9-]+){0,7}\s*$/.test(clauseBefore)) {
+        return true;
+    }
+    if (/\b(?:sans|without|never|jamais|avoid(?:ing)?|evit(?:e|es|er|ez)|do not|don t|dont|not to)\b(?:\s+[a-z0-9-]+){0,7}\s*$/.test(clauseBefore)) {
+        return true;
+    }
+    if (/\b(?:ne|n)\b[^.;!?\n]{0,56}\b(?:pas|plus|jamais|rien|aucun|aucune)\b[^.;!?\n]{0,24}$/.test(clauseBefore)) {
+        return true;
+    }
+    if (/\b(?:ne|n)\s+(?:[a-z0-9-]+\s+){0,4}$/.test(clauseBefore)
+        && /^\s*(?:surtout\s+)?(?:pas|plus|jamais|rien|aucun|aucune)\b/.test(after)) {
+        return true;
+    }
+
+    return /^\s*(?:surtout\s+)?(?:pas|jamais|not|never)\b/.test(after);
+};
+
+const getExplicitSkillAffirmativeInstruction = (instruction = '') => {
+    const source = String(instruction || '').trim();
+    const maskedSource = source.replace(
+        /«[^»]*»|“[^”]*”|"[^"]*"/g,
+        (quotedValue) => ' '.repeat(quotedValue.length)
+    );
+    const preservationBoundary = /\b(?:sans|without)\s+(?:toucher|modifier|changer|alterer|altérer|reecrire|réécrire|supprimer|retirer|ajouter|inventer|touch|modify|change|alter|rewrite|remove|delete|add|invent)\b|(?:[.;!?]\s*)?\b(?:ne|n['’]\s*)\s*[^.;!?]{0,80}\b(?:pas|plus|jamais|rien|aucun|aucune)\b/i.exec(maskedSource);
+
+    return (preservationBoundary ? source.slice(0, preservationBoundary.index) : source)
+        .replace(/[\s,;:.!?]+$/, '')
+        .trim();
+};
+
+const getExplicitSkillAdditionIntent = (message = '') => {
+    const instruction = getKirbyUserInstruction(message).trim();
+    const instructionSource = normalizeForMatch(instruction)
+        .replace(/[’']/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    const actionMatcher = new RegExp(`\\b${explicitSkillAdditionActionSource}\\b`, 'g');
+    const actionMatches = [...instructionSource.matchAll(actionMatcher)];
+    const explicitlyTargetsSkills = hasExplicitSkillTargetForAction(instructionSource);
+    const negatesAddition = explicitlyTargetsSkills
+        && actionMatches.some((match) => isExplicitSkillAdditionActionNegated(instructionSource, match));
+    const hypotheticalActionSource = `(?:${explicitSkillAdditionActionSource}|${hypotheticalSkillAdditionActionSource})`;
+    const explicitlyTargetsSkillsHypothetically = hasExplicitSkillTargetForAction(
+        instructionSource,
+        hypotheticalActionSource
+    );
+    const hypotheticalAddition = explicitlyTargetsSkillsHypothetically && (
+        /\b(?:que\s+se\s+passerait|qu\s+arriverait|a\s+quoi\s+ressemblerait|supposons|imaginons|imagine\s+que|hypothese|what\s+(?:would\s+happen|if)|suppose)\b[\s\S]{0,180}\b(?:ajout|inser|add|insert)/.test(instructionSource)
+        || /\bsi\s+(?:j\s+|(?:je|tu|vous|on|nous|il|elle)\s+)(?:ajoutais|ajoutait|ajoutions|ajoutiez|ajoutaient|inserais|inserait|inserions|inseriez|inseraient)\b/.test(instructionSource)
+        || /\bif\s+(?:i|you|we|they|he|she)\s+(?:added|inserted)\b/.test(instructionSource)
+        || /\bje\s+pourrais\s+(?:ajouter|rajouter|inserer)\b/.test(instructionSource)
+        || /\bi\s+(?:could|would)\s+(?:add|insert)\b/.test(instructionSource)
+    );
+    const nonCommandQuestion = explicitlyTargetsSkills && /^(?:pourquoi|why|faut(?:-|\s+)il|dois(?:-|\s+)je|devrais(?:-|\s+)je|should\s+i|puis(?:-|\s+)je|may\s+i|can\s+i)\b[\s\S]{0,180}\b(?:ajout|inser|add|insert)/.test(instructionSource);
+    if (negatesAddition || hypotheticalAddition || nonCommandQuestion) {
+        return {
+            matched: true,
+            value: '',
+            refusalReason: negatesAddition
+                ? 'negated'
+                : hypotheticalAddition
+                    ? 'hypothetical'
+                    : 'non_command',
+        };
+    }
+
+    const affirmativeInstruction = getExplicitSkillAffirmativeInstruction(instruction);
+    const source = normalizeForMatch(affirmativeInstruction);
+    const hasAddAction = new RegExp(`\\b${explicitSkillAdditionActionSource}\\b`).test(source);
+    const hasDifferentAction = /\b(?:remplace|remplacer|supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|replace|remove|delete)\b/.test(source);
+    const targetsSkills = hasExplicitSkillTargetForAction(source);
+
+    if (!affirmativeInstruction || !hasAddAction || !targetsSkills || hasDifferentAction) {
+        return null;
+    }
+
+    const quotedValues = [...affirmativeInstruction.matchAll(/«([^»]+)»|“([^”]+)”|"([^"]+)"/g)]
+        .map((match) => match[1] || match[2] || match[3] || '')
+        .map((value) => value.trim())
+        .filter(Boolean);
+    const uniqueQuotedValues = [...new Map(
+        quotedValues.map((value) => [normalizeForMatch(value).trim(), value])
+    ).values()];
+
+    let rawValue = uniqueQuotedValues.length === 1 ? uniqueQuotedValues[0] : '';
+    if (!rawValue && uniqueQuotedValues.length === 0) {
+        const actionFirst = affirmativeInstruction.match(
+            /\b(?:ajoute|ajoutes|ajoutez|ajouter|rajoute|rajoutes|rajoutez|rajouter|ins[eè]re|ins[eè]res|ins[eé]rez|ins[eé]rer|add|adds|insert|inserts)\b\s+(.+?)\s+(?:dans|[àa]|aux?)\s+(?:(?:la|les|ma|mes|the|my)\s+)?(?:(?:rubrique|section)\s+)?(?:comp[eé]tences?|skills?)\b/i
+        );
+        const sectionFirst = affirmativeInstruction.match(
+            /\b(?:comp[eé]tences?|skills?)\b[^.;!?]{0,120}?\b(?:ajoute|ajoutes|ajoutez|ajouter|rajoute|rajoutes|rajoutez|rajouter|ins[eè]re|ins[eè]res|ins[eé]rez|ins[eé]rer|add|adds|insert|inserts)\b\s+([^.;!?]+)(?:[.!?]|$)/i
+        );
+        rawValue = actionFirst?.[1] || sectionFirst?.[1] || '';
+    }
+
+    const scopedRawValue = uniqueQuotedValues.length
+        ? String(rawValue || '')
+        : String(rawValue || '').replace(/^(?:uniquement|seulement|juste|only|just)\s+/i, '');
+    const value = normalizeCvSentenceText(scopedRawValue
+        .replace(/^[\s,:;=–—-]+/, '')
+        .replace(/^(?:(?:uniquement|seulement|juste|only|just)\s+)?(?:(?:une?|one)\s+)?(?:(?:nouvelle?|new)\s+)?(?:ligne|line|competence|comp[eé]tence|skill)(?:\s+(?:intitul[eé]e?|nomm[eé]e?|appel[eé]e?|titled|called))?\s*[:=–—-]?\s*/i, '')
+        .replace(/[.!?]+\s*$/, '')
+        .trim());
+    const normalizedValue = normalizeForMatch(value).replace(/[^a-z0-9]+/g, ' ').trim();
+    const normalizedContext = normalizeForMatch(affirmativeInstruction).replace(/[^a-z0-9]+/g, ' ').trim();
+    const invalidValue = !value
+        || uniqueQuotedValues.length > 1
+        || value.length > 180
+        || !normalizedValue
+        || !` ${normalizedContext} `.includes(` ${normalizedValue} `)
+        || /^(?:competence|competences|skill|skills|ligne|line|nouvelle ligne|new line)$/.test(normalizedValue);
+
+    return {
+        matched: true,
+        value: invalidValue ? '' : value,
+    };
+};
+
+const applyQuickExplicitSkillAddition = (message = '') => {
+    const intent = getExplicitSkillAdditionIntent(message);
+    if (!intent) {
+        return '';
+    }
+    if (intent.refusalReason === 'negated') {
+        return 'Je n’ai rien modifié : la demande indique de ne pas ajouter cette compétence.';
+    }
+    if (intent.refusalReason === 'hypothetical') {
+        return 'Je n’ai rien modifié : cette formulation décrit une hypothèse, pas une commande d’ajout.';
+    }
+    if (intent.refusalReason === 'non_command') {
+        return 'Je n’ai rien modifié : cette formulation pose une question, pas une commande d’ajout.';
+    }
+    if (!intent.value) {
+        return 'Je n’ai rien modifié : indiquez une seule compétence exacte à ajouter dans la rubrique COMPÉTENCES.';
+    }
+
+    const field = cvForm?.elements.skills;
+    if (!field) {
+        return 'Je n’ai rien modifié : la rubrique COMPÉTENCES est indisponible dans le CV affiché.';
+    }
+
+    const existing = splitLines(field.value);
+    const intentKey = getExactSkillLineKey(intent.value);
+    if (existing.some((item) => getExactSkillLineKey(item) === intentKey)) {
+        return `La compétence « ${intent.value} » est déjà présente. Le CV est resté inchangé.`;
+    }
+
+    const beforeState = getCvHistoryState();
+    field.value = field.value
+        ? `${field.value}${field.value.endsWith('\n') ? '' : '\n'}${intent.value}`
+        : intent.value;
+    appendSkillToEditableOverride(intent.value);
+    updateCvPreview({ preserveDensity: true });
+    commitCvHistoryTransition(beforeState);
+    scheduleCvDraftSave();
+    setCvStatus('Compétence ajoutée');
+    return `Compétence ajoutée dans COMPÉTENCES : « ${intent.value} ». Aucun autre contenu n’a été modifié.`;
+};
+
 const applyQuickKirbyCorrection = (message = '') => {
+    const explicitSkillAdditionReply = applyQuickExplicitSkillAddition(message);
+    if (explicitSkillAdditionReply) {
+        return explicitSkillAdditionReply;
+    }
+
     const explicitHeadlineReply = applyQuickExplicitHeadlineCorrection(message);
     if (explicitHeadlineReply) {
         return explicitHeadlineReply;
@@ -16173,7 +16419,7 @@ const applyQuickKirbyCorrection = (message = '') => {
 };
 
 const isQuickKirbyMutationReply = (reply = '') =>
-    /^(CV corrigé|CV complété|Coordonnées mises à jour|Langues mises à jour|Titre appliqué|Titre mis à jour|Profil raccourci|Date mise à jour|Mois retirés|Expériences rangées|Mention supprimée|Doublons supprimés|Expérience supprimée|CV recentré)/i.test(String(reply || '').trim());
+    /^(CV corrigé|CV complété|Coordonnées mises à jour|Langues mises à jour|Compétence ajoutée|Titre appliqué|Titre mis à jour|Profil raccourci|Date mise à jour|Mois retirés|Expériences rangées|Mention supprimée|Doublons supprimés|Expérience supprimée|CV recentré)/i.test(String(reply || '').trim());
 
 const reorderExistingExperiences = (order = []) => {
     const field = getExperienceField();
@@ -17450,6 +17696,34 @@ const applyKirbyOperationUnsafe = (operation = {}, context = {}) => {
         return '';
     }
 
+    if (operation.type === 'add_skill') {
+        const field = cvForm?.elements.skills;
+        const skill = normalizeCvSentenceText(operation.value || '');
+        const intent = getExplicitSkillAdditionIntent(context.instruction || operation.reason || '');
+        if (
+            !field
+            || !skill
+            || operation.field !== 'skills'
+            || !intent?.value
+            || normalizeForMatch(intent.value).trim() !== normalizeForMatch(skill).trim()
+            || !isAllowedKirbyFieldValue('skills', skill)
+        ) {
+            return '';
+        }
+
+        const existing = splitLines(field.value);
+        const skillKey = getExactSkillLineKey(skill);
+        if (existing.some((item) => getExactSkillLineKey(item) === skillKey)) {
+            return 'compétence déjà présente';
+        }
+
+        field.value = field.value
+            ? `${field.value}${field.value.endsWith('\n') ? '' : '\n'}${skill}`
+            : skill;
+        appendSkillToEditableOverride(skill);
+        return `compétence ${skill}`;
+    }
+
     if (operation.type === 'add_experience') {
         const field = getExperienceField();
         const line = serializeKirbyOperationExperience(operation);
@@ -17822,11 +18096,17 @@ const applyKirbyOperations = (operations = [], context = {}) => {
         if (!result) {
             // Une consigne composée est indivisible : si une seule opération
             // est ambiguë ou invalide, les précédentes sont annulées aussi.
-            if (beforeState && getCvHistoryState() !== beforeState) {
-                restoreCvHistorySnapshot(beforeState, 'Modification Kirby annulée : CV restauré');
-            }
+            const mutationStarted = Boolean(beforeState && getCvHistoryState() !== beforeState);
+            const rollbackPerformed = Boolean(
+                mutationStarted
+                && beforeState
+                && getCvHistoryState() !== beforeState
+                && restoreCvHistorySnapshot(beforeState, 'Modification Kirby annulée : CV restauré')
+            );
             const rejected = [];
             rejected.failed = true;
+            rejected.mutationStarted = mutationStarted;
+            rejected.rollbackPerformed = rollbackPerformed;
             return rejected;
         }
         applied.push(result);
@@ -17837,6 +18117,19 @@ const applyKirbyOperations = (operations = [], context = {}) => {
 
 const isKirbyNoopSuccessReply = (reply = '') =>
     /\bdéjà\b|\bdeja\b|\bdéjà correct\b|\bdéjà aligné\b|\bdeja aligne\b/i.test(String(reply || ''));
+
+const getKirbyTransactionFailureMessage = (error = {}) => {
+    if (error?.message !== 'kirby_cv_operation_transaction_failed') {
+        return error?.message || '';
+    }
+    if (error.rollbackPerformed === true) {
+        return 'La modification n’a pas pu être validée. Les changements commencés ont été annulés et le CV précédent a été restauré.';
+    }
+    if (error.mutationStarted === true) {
+        return 'La modification n’a pas pu être validée. Kirby n’a pas confirmé la restauration automatique : vérifiez le CV affiché avant de continuer.';
+    }
+    return 'Je n’ai rien modifié : l’opération ciblée n’a pas pu être appliquée au CV affiché.';
+};
 
 const getKirbyApplyFailureReply = (result = {}, instruction = '') => {
     const operation = result?.cv?.operations?.[0] || {};
@@ -17940,13 +18233,18 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
         skillOrder: proposal.skillOrder || proposal.skillsOrder,
     });
     if (operationChanges.failed === true) {
-        throw new Error('kirby_cv_operation_transaction_failed');
+        const operationError = new Error('kirby_cv_operation_transaction_failed');
+        operationError.mutationStarted = operationChanges.mutationStarted === true;
+        operationError.rollbackPerformed = operationChanges.rollbackPerformed === true;
+        throw operationError;
     }
     changes.push(...operationChanges);
     const hasExplicitExperienceOrderOperation = getKirbyCvArray(proposal.operations)
         .some((operation) => ['reorder_experiences', 'sort_experiences'].includes(operation?.type));
     const hasExperienceAdditionOperation = getKirbyCvArray(proposal.operations)
         .some((operation) => operation?.type === 'add_experience');
+    const hasExplicitSkillOperation = getKirbyCvArray(proposal.operations)
+        .some((operation) => operation?.type === 'add_skill');
     if (
         (shouldApplyExtractedCv || hasExperienceAdditionOperation) &&
         !hasNegatedExperienceOrderCommand(userInstruction) &&
@@ -18010,7 +18308,7 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
         }
     }
 
-    if ((allowGlobalCvRewrite || implicitTopicIntent === 'skills') && !singleFieldIntent && skillsField && ((Array.isArray(proposal.skills) && proposal.skills.length) || layoutIntent.namedSkillRemovals.length)) {
+    if (!hasExplicitSkillOperation && (allowGlobalCvRewrite || implicitTopicIntent === 'skills') && !singleFieldIntent && skillsField && ((Array.isArray(proposal.skills) && proposal.skills.length) || layoutIntent.namedSkillRemovals.length)) {
         const existing = splitLines(skillsField.value).map(normalizeCvSentenceText);
         const proposed = Array.isArray(proposal.skills) ? proposal.skills.map(normalizeCvSentenceText) : [];
         const allowSkillRemoval = hasExplicitDestructiveCvRemoval(instruction);
@@ -18032,7 +18330,7 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
 
     // Les éléments marqués « à valider » restent dans la proposition et ne
     // deviennent jamais des faits du CV. Un ajout explicite passe par une
-    // opération applicative (add_experience/set_field) fondée sur la demande.
+    // opération applicative (add_experience/add_skill/set_field) fondée sur la demande.
 
     const explicitExperienceReorderAsked = isExperienceOrderCleanupIntent(instruction)
         || getKirbyCvArray(proposal.operations).some((operation) => operation?.type === 'reorder_experiences');
@@ -18148,7 +18446,7 @@ const getAffirmativeKirbyInstruction = (instruction = '') => {
     // la seule cible modifiable est bien le profil.
     return source
         .split(/\b(?:sans|without)\b/i, 1)[0]
-        .replace(/\b(?:ne|n['’])\s+[\s\S]*?\s+(?:pas|plus|jamais)\b[\s\S]*$/i, '')
+        .replace(/\b(?:ne|n['’])\s+[\s\S]*?\s+(?:pas|plus|jamais|rien|aucun|aucune)\b[\s\S]*$/i, '')
         .trim();
 };
 
@@ -18163,6 +18461,7 @@ const getSingleFieldEditIntent = (instruction = '') => {
     const fieldPatterns = [
         ['date', /\b(date|dates|periode|periodes)\b/],
         ['languages', /\b(langue|langues|francais|anglais|arabe|espagnol|italien|allemand|portugais|french|english|native|basic|notions?|courant|bilingue)\b/],
+        ['skills', /\b(competence|competences|skill|skills|savoir faire)\b/],
         ['phone', /\b(telephone|tel|mobile|numero|numéro)\b/],
         ['email', /\b(email|e-mail|mail|adresse mail|courriel)\b/],
         ['headline', /\b(titre|intitule|intitulé|poste vise|poste visé|metier|métier)\b/],
@@ -18284,8 +18583,12 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
                 afterApplySnapshot = getKirbyCvSnapshot();
             } catch (error) {
                 if (beforeApplyState && getCvHistoryState() !== beforeApplyState) {
+                    error.mutationStarted = true;
                     try {
-                        restoreCvHistorySnapshot(beforeApplyState, 'Modification Kirby annulée : CV restauré');
+                        error.rollbackPerformed = restoreCvHistorySnapshot(
+                            beforeApplyState,
+                            'Modification Kirby annulée : CV restauré'
+                        ) || error.rollbackPerformed === true;
                     } catch (rollbackError) {
                         console.error('Restauration de la modification Kirby impossible', rollbackError);
                     }
@@ -18324,7 +18627,7 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
     } catch (error) {
         console.error(error);
         const message = error?.message === 'kirby_cv_operation_transaction_failed'
-            ? 'Je n’ai rien modifié : une partie de la demande était ambiguë. Le CV précédent a été restauré.'
+            ? getKirbyTransactionFailureMessage(error)
             : error?.message || 'Kirby est momentanément indisponible. Le CV n’a pas été modifié.';
         setCvStatus('Erreur Kirby : CV non modifié');
         setAssistantActivity(message, false);
@@ -21040,8 +21343,12 @@ if (assistantApplyButton) {
         } catch (error) {
             applyError = error;
             if (beforeApplyState && getCvHistoryState() !== beforeApplyState) {
+                applyError.mutationStarted = true;
                 try {
-                    restoreCvHistorySnapshot(beforeApplyState, 'Modification Kirby annulée : CV restauré');
+                    applyError.rollbackPerformed = restoreCvHistorySnapshot(
+                        beforeApplyState,
+                        'Modification Kirby annulée : CV restauré'
+                    ) || applyError.rollbackPerformed === true;
                 } catch (rollbackError) {
                     console.error('Restauration de la proposition Kirby impossible', rollbackError);
                 }
@@ -21056,9 +21363,11 @@ if (assistantApplyButton) {
         }
         if (applyError) {
             const message = applyError?.message === 'kirby_cv_operation_transaction_failed'
-                ? 'Je n’ai rien modifié : une partie de la demande était ambiguë. Le CV précédent a été restauré.'
-                : applyError?.message || 'La proposition n’a pas pu être appliquée. Le CV précédent a été restauré.';
-            setCvStatus('Erreur Kirby : CV restauré');
+                ? getKirbyTransactionFailureMessage(applyError)
+                : applyError?.message || (applyError.rollbackPerformed
+                    ? 'La proposition n’a pas pu être appliquée. Le CV précédent a été restauré.'
+                    : 'La proposition n’a pas pu être appliquée. Le CV est resté inchangé.');
+            setCvStatus(applyError.rollbackPerformed ? 'Erreur Kirby : CV restauré' : 'Erreur Kirby : CV non modifié');
             appendAssistantMessage(message, 'bot');
             return;
         }

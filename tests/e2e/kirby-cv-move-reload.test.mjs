@@ -7,6 +7,15 @@ const pageUrl = new URL(PAGE_URL);
 const EXPECTS_REMOTE_PERSISTENCE = pageUrl.protocol === 'https:'
     && pageUrl.hostname.replace(/^www\./i, '').toLowerCase() === 'sacreationweb.com';
 const COMMAND = 'Déplace Développement web — depuis 2023 sous Machiniste-receveur et au-dessus des expériences plus anciennes';
+const EXACT_CANVA_COMMAND = 'Dans la rubrique COMPÉTENCES, ajoute uniquement une nouvelle ligne intitulée “Maîtrise de Canva”. Ne modifie rien d’autre.';
+const ELISE_SKILLS = [
+    'Excel',
+    'Outlook',
+    'Logiciel de réservation hôtelière',
+    'Gestion des réclamations avec calme',
+    'Organisation des priorités',
+    'Travail en équipe',
+];
 
 const narrativeMergeSource = [
     'Depuis mars 2025, je suis réceptionniste à l’Hôtel Démo à Ville-Test, en CDI. Je transmets aussi les consignes à l’équipe de nuit.',
@@ -235,7 +244,7 @@ const inspectExpression = `
 })()
 `;
 
-test('Kirby moves Développement web under Machiniste-receveur and keeps the DOM order after full reload', async () => {
+test('Kirby adds only “Maîtrise de Canva”, then preserves the targeted move after full reload', async () => {
     const browserVersion = await fetch(`http://127.0.0.1:${CDP_PORT}/json/version`).then((response) => response.json());
     assert.match(browserVersion.Browser || '', /^Chrome\//);
 
@@ -601,6 +610,286 @@ test('Kirby moves Développement web under Machiniste-receveur and keeps the DOM
         assert.match(partialNarrativeResult.preview, /Test de mise en forme/);
         const kirbyApiCallCountAfterImports = trace.kirbyApiCalls.length;
 
+        const canvaBefore = await evaluate(`
+          (() => {
+            const skills = cvForm.elements.skills;
+            skills.value = ${JSON.stringify(ELISE_SKILLS.join('\n'))};
+            clearEditableOverride('skills');
+            updateCvPreview({ preserveDensity: true });
+            return {
+              snapshot: JSON.parse(getKirbyCvSnapshot()),
+              botCount: document.querySelectorAll('#assistant-thread .assistant-thread-message.is-bot').length,
+              compound: hasCompoundKirbyCvInstruction(${JSON.stringify(EXACT_CANVA_COMMAND)}),
+              headline: getExplicitHeadlineFromInstruction(${JSON.stringify(EXACT_CANVA_COMMAND)}),
+              compoundHeadline: getExplicitHeadlineFromInstruction('Remplace le titre par « Réceptionniste », puis ajoute une ligne intitulée « Canva » dans COMPÉTENCES.'),
+              coordinatedHeadline: getExplicitHeadlineFromInstruction('Remplace le titre par « Réceptionniste » et ajoute une ligne intitulée « Canva » dans COMPÉTENCES.'),
+              quotedActionWordHeadline: getExplicitHeadlineFromInstruction('Remplace le titre par « Strategy and Change Manager », puis ajoute une ligne intitulée « Canva » dans COMPÉTENCES.'),
+              exactIntent: getExplicitSkillAdditionIntent(${JSON.stringify(EXACT_CANVA_COMMAND)}),
+              alternateIntents: [
+                getExplicitSkillAdditionIntent('Ajoute « Maîtrise de Canva » à la rubrique Compétences, sans toucher au reste.'),
+                getExplicitSkillAdditionIntent('Dans mes compétences, insère une ligne : Maîtrise de Canva.'),
+                getExplicitSkillAdditionIntent('Ajoute Maîtrise de Canva aux compétences.'),
+                getExplicitSkillAdditionIntent('In SKILLS, add “Maîtrise de Canva”.'),
+                getExplicitSkillAdditionIntent('Rubrique des compétences, ajoute « Maîtrise de Canva ».'),
+                getExplicitSkillAdditionIntent('COMPÉTENCES : ajoute « Maîtrise de Canva ».'),
+                getExplicitSkillAdditionIntent('SKILLS: add “Maîtrise de Canva”.'),
+                getExplicitSkillAdditionIntent('Ajoute uniquement Maîtrise de Canva aux compétences.'),
+              ],
+              conjugatedIntents: [
+                getExplicitSkillAdditionIntent('Dans la rubrique COMPÉTENCES, ajoutez « Maîtrise de Canva ».'),
+                getExplicitSkillAdditionIntent('Dans mes compétences, insérez une ligne : Maîtrise de Canva.'),
+              ],
+              politeIntents: [
+                getExplicitSkillAdditionIntent('Pourriez-vous ajouter « Maîtrise de Canva » à la rubrique COMPÉTENCES ?'),
+                getExplicitSkillAdditionIntent('Could you add “Maîtrise de Canva” to SKILLS?'),
+              ],
+              negatedIntents: [
+                getExplicitSkillAdditionIntent('N’ajoute pas « Maîtrise de Canva » dans COMPÉTENCES.'),
+                getExplicitSkillAdditionIntent("N'ajoute pas « Maîtrise de Canva » dans COMPÉTENCES."),
+                getExplicitSkillAdditionIntent('Ne rajoute pas « Maîtrise de Canva » dans COMPÉTENCES.'),
+                getExplicitSkillAdditionIntent('Ne m’ajoute pas « Maîtrise de Canva » dans COMPÉTENCES.'),
+                getExplicitSkillAdditionIntent('Je ne veux pas ajouter « Maîtrise de Canva » dans COMPÉTENCES.'),
+                getExplicitSkillAdditionIntent('Je ne souhaite pas rajouter « Maîtrise de Canva » dans COMPÉTENCES.'),
+                getExplicitSkillAdditionIntent('Do not add “Maîtrise de Canva” to SKILLS.'),
+              ],
+              hypotheticalIntents: [
+                getExplicitSkillAdditionIntent('Que se passerait-il si tu ajoutais « Maîtrise de Canva » dans COMPÉTENCES ?'),
+                getExplicitSkillAdditionIntent('Si j’ajoutais « Maîtrise de Canva » dans COMPÉTENCES, à quoi ressemblerait le CV ?'),
+                getExplicitSkillAdditionIntent('Je pourrais ajouter « Maîtrise de Canva » dans COMPÉTENCES.'),
+                getExplicitSkillAdditionIntent('I could add “Maîtrise de Canva” to SKILLS.'),
+              ],
+              questionIntents: [
+                getExplicitSkillAdditionIntent('Pourquoi ajouter « Maîtrise de Canva » dans COMPÉTENCES ?'),
+                getExplicitSkillAdditionIntent('Faut-il ajouter « Maîtrise de Canva » dans COMPÉTENCES ?'),
+              ],
+              unrelatedRefusals: [
+                getExplicitSkillAdditionIntent('N’ajoute pas cette expérience.'),
+                getExplicitSkillAdditionIntent('I could add an experience.'),
+              ],
+              wrongSectionIntent: getExplicitSkillAdditionIntent('Dans FORMATION, ajoute « Bilan de compétences ».'),
+              replaceIntent: getExplicitSkillAdditionIntent('Dans COMPÉTENCES, remplace « Excel » par « Maîtrise de Canva ».'),
+              removeIntent: getExplicitSkillAdditionIntent('Dans COMPÉTENCES, supprime uniquement « Excel ».'),
+              incompleteIntent: getExplicitSkillAdditionIntent('Ajoute une ligne dans COMPÉTENCES.'),
+              genericValueIntent: getExplicitSkillAdditionIntent('Ajoutez une nouvelle ligne dans COMPÉTENCES.'),
+              quotedWithoutIntent: getExplicitSkillAdditionIntent('Ajoute « Communication sans violence » dans COMPÉTENCES.'),
+              noMutationFailure: getKirbyTransactionFailureMessage(Object.assign(
+                new Error('kirby_cv_operation_transaction_failed'),
+                { mutationStarted: false, rollbackPerformed: false },
+              )),
+              startedAt: performance.now(),
+            };
+          })()
+        `);
+        assert.equal(canvaBefore.compound, false);
+        assert.equal(canvaBefore.headline, '');
+        assert.equal(canvaBefore.compoundHeadline, 'Réceptionniste');
+        assert.equal(canvaBefore.coordinatedHeadline, 'Réceptionniste');
+        assert.equal(canvaBefore.quotedActionWordHeadline, 'Strategy and Change Manager');
+        assert.deepEqual(canvaBefore.exactIntent, { matched: true, value: 'Maîtrise de Canva' });
+        canvaBefore.alternateIntents.forEach((intent) => {
+            assert.deepEqual(intent, { matched: true, value: 'Maîtrise de Canva' });
+        });
+        canvaBefore.conjugatedIntents.forEach((intent) => {
+            assert.deepEqual(intent, { matched: true, value: 'Maîtrise de Canva' });
+        });
+        canvaBefore.politeIntents.forEach((intent) => {
+            assert.deepEqual(intent, { matched: true, value: 'Maîtrise de Canva' });
+        });
+        canvaBefore.negatedIntents.forEach((intent) => {
+            assert.deepEqual(intent, { matched: true, value: '', refusalReason: 'negated' });
+        });
+        canvaBefore.hypotheticalIntents.forEach((intent) => {
+            assert.deepEqual(intent, { matched: true, value: '', refusalReason: 'hypothetical' });
+        });
+        canvaBefore.questionIntents.forEach((intent) => {
+            assert.deepEqual(intent, { matched: true, value: '', refusalReason: 'non_command' });
+        });
+        canvaBefore.unrelatedRefusals.forEach((intent) => {
+            assert.equal(intent, null);
+        });
+        assert.equal(canvaBefore.wrongSectionIntent, null);
+        assert.equal(canvaBefore.replaceIntent, null);
+        assert.equal(canvaBefore.removeIntent, null);
+        assert.deepEqual(canvaBefore.incompleteIntent, { matched: true, value: '' });
+        assert.deepEqual(canvaBefore.genericValueIntent, { matched: true, value: '' });
+        assert.deepEqual(canvaBefore.quotedWithoutIntent, { matched: true, value: 'Communication sans violence' });
+        assert.doesNotMatch(canvaBefore.noMutationFailure, /ambigu|restaur/i);
+
+        await evaluate(`
+          (() => {
+            document.querySelector('#assistant-toggle')?.click();
+            const input = document.querySelector('#assistant-input');
+            input.value = ${JSON.stringify(EXACT_CANVA_COMMAND)};
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            document.querySelector('#assistant-form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+            return true;
+          })()
+        `);
+
+        let canvaAfter = null;
+        for (let index = 0; index < 20; index += 1) {
+            await delay(100);
+            canvaAfter = await evaluate(`
+              (() => {
+                const replies = [...document.querySelectorAll('#assistant-thread .assistant-thread-message.is-bot .assistant-thread-body')]
+                  .map((node) => node.textContent.trim());
+                const skills = cvForm.elements.skills.value.split(/\\n+/).filter(Boolean);
+                if (replies.length <= ${canvaBefore.botCount} || !skills.includes('Maîtrise de Canva')) return null;
+                return {
+                  snapshot: JSON.parse(getKirbyCvSnapshot()),
+                  skills,
+                  previewSkills: [...document.querySelectorAll('#preview-skills > li')]
+                    .map((node) => node.textContent.trim())
+                    .filter(Boolean),
+                  reply: replies.at(-1) || '',
+                  elapsedMs: performance.now() - ${canvaBefore.startedAt},
+                };
+              })()
+            `);
+            if (canvaAfter) break;
+        }
+        assert.ok(canvaAfter, 'La commande Canva ciblée n’a pas été appliquée dans l’interface');
+        assert.deepEqual(canvaAfter.skills, [...ELISE_SKILLS, 'Maîtrise de Canva']);
+        assert.deepEqual(canvaAfter.previewSkills, [...ELISE_SKILLS, 'Maîtrise de Canva']);
+        assert.match(canvaAfter.reply, /Compétence ajoutée.+Maîtrise de Canva/is);
+        assert.doesNotMatch(canvaAfter.reply, /ambigu|restaur/i);
+        assert.ok(canvaAfter.elapsedMs < 3000, `Réponse déterministe trop lente : ${canvaAfter.elapsedMs} ms`);
+        assert.equal(trace.kirbyApiCalls.length, kirbyApiCallCountAfterImports, 'La commande déterministe ne doit pas appeler /api/kirby-cv');
+
+        const beforeWithoutSkill = structuredClone(canvaBefore.snapshot);
+        const afterWithoutSkill = structuredClone(canvaAfter.snapshot);
+        beforeWithoutSkill.cv.skills = '__TARGETED_SKILL_FIELD__';
+        afterWithoutSkill.cv.skills = '__TARGETED_SKILL_FIELD__';
+        assert.deepEqual(afterWithoutSkill, beforeWithoutSkill, 'Une donnée hors COMPÉTENCES a changé');
+
+        const refusalBefore = await evaluate(`(() => ({
+          snapshot: getKirbyCvSnapshot(),
+          botCount: document.querySelectorAll('#assistant-thread .assistant-thread-message.is-bot').length,
+          startedAt: performance.now(),
+        }))()`);
+        await evaluate(`
+          (() => {
+            const input = document.querySelector('#assistant-input');
+            input.value = 'Ajoute une ligne dans COMPÉTENCES.';
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            document.querySelector('#assistant-form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+            return true;
+          })()
+        `);
+        let refusalAfter = null;
+        for (let index = 0; index < 20; index += 1) {
+            await delay(100);
+            refusalAfter = await evaluate(`(() => {
+              const replies = [...document.querySelectorAll('#assistant-thread .assistant-thread-message.is-bot .assistant-thread-body')]
+                .map((node) => node.textContent.trim());
+              if (replies.length <= ${refusalBefore.botCount}) return null;
+              return {
+                snapshot: getKirbyCvSnapshot(),
+                reply: replies.at(-1) || '',
+                elapsedMs: performance.now() - ${refusalBefore.startedAt},
+              };
+            })()`);
+            if (refusalAfter) break;
+        }
+        assert.ok(refusalAfter, 'Le refus déterministe incomplet n’a pas répondu');
+        assert.equal(refusalAfter.snapshot, refusalBefore.snapshot);
+        assert.match(refusalAfter.reply, /indiquez une seule compétence exacte/i);
+        assert.doesNotMatch(refusalAfter.reply, /ambigu|restaur/i);
+        assert.ok(refusalAfter.elapsedMs < 3000, `Refus déterministe trop lent : ${refusalAfter.elapsedMs} ms`);
+        assert.equal(trace.kirbyApiCalls.length, kirbyApiCallCountAfterImports, 'Le refus déterministe ne doit pas appeler /api/kirby-cv');
+
+        const skillAdditionSafety = await evaluate(`
+          (() => {
+            const field = cvForm.elements.skills;
+            const previousValue = field.value;
+            const hadOverride = Object.prototype.hasOwnProperty.call(cvEditableContent, 'skills');
+            const previousOverride = hadOverride ? structuredClone(cvEditableContent.skills) : null;
+            try {
+              field.value = 'Maîtrise de Canva avancée\\nOutlook';
+              cvEditableContent.skills = {
+                html: '<li><strong>Maîtrise de Canva avancée</strong></li><li><em>Outlook personnalisé</em></li>',
+                style: {},
+              };
+              updateCvPreview({ preserveDensity: true });
+              const extendedReply = applyQuickExplicitSkillAddition(${JSON.stringify(EXACT_CANVA_COMMAND)});
+              const extendedValues = field.value.split(/\\n+/).filter(Boolean);
+              const preservedOverrideHtml = cvEditableContent.skills?.html || '';
+              const preservedPreviewItems = [...document.querySelectorAll('#preview-skills > li')]
+                .map((node) => node.textContent.trim());
+
+              field.value = 'Excel\\nMaîtrise de Canva';
+              delete cvEditableContent.skills;
+              updateCvPreview({ preserveDensity: true });
+              const noOpOperations = applyKirbyOperations([
+                { type: 'add_skill', field: 'skills', value: 'Maîtrise de Canva' },
+                { type: 'add_skill', field: 'skills', value: 'Maîtrise de Figma' },
+              ], { instruction: ${JSON.stringify(EXACT_CANVA_COMMAND)} });
+              const noOpFailureMessage = getKirbyTransactionFailureMessage(Object.assign(
+                new Error('kirby_cv_operation_transaction_failed'),
+                {
+                  mutationStarted: noOpOperations.mutationStarted,
+                  rollbackPerformed: noOpOperations.rollbackPerformed,
+                },
+              ));
+
+              const protectedValue = field.value;
+              const negatedReply = applyQuickExplicitSkillAddition('N’ajoute pas « Maîtrise de Figma » dans COMPÉTENCES.');
+              const hypotheticalReply = applyQuickExplicitSkillAddition('Je pourrais ajouter « Maîtrise de Figma » dans COMPÉTENCES.');
+              const questionReply = applyQuickExplicitSkillAddition('Pourquoi ajouter « Maîtrise de Figma » dans COMPÉTENCES ?');
+              return {
+                extendedReply,
+                extendedValues,
+                preservedOverrideHtml,
+                preservedPreviewItems,
+                noOpOperations: {
+                  failed: noOpOperations.failed,
+                  mutationStarted: noOpOperations.mutationStarted,
+                  rollbackPerformed: noOpOperations.rollbackPerformed,
+                },
+                noOpFailureMessage,
+                protectedValue,
+                valueAfterProtectedRequests: field.value,
+                negatedReply,
+                hypotheticalReply,
+                questionReply,
+              };
+            } finally {
+              field.value = previousValue;
+              if (hadOverride) {
+                cvEditableContent.skills = previousOverride;
+              } else {
+                delete cvEditableContent.skills;
+              }
+              updateCvPreview({ preserveDensity: true });
+            }
+          })()
+        `);
+        assert.match(skillAdditionSafety.extendedReply, /Compétence ajoutée.+Maîtrise de Canva/is);
+        assert.deepEqual(skillAdditionSafety.extendedValues, [
+            'Maîtrise de Canva avancée',
+            'Outlook',
+            'Maîtrise de Canva',
+        ]);
+        assert.match(skillAdditionSafety.preservedOverrideHtml, /<strong>Maîtrise de Canva avancée<\/strong>/);
+        assert.match(skillAdditionSafety.preservedOverrideHtml, /<em>Outlook personnalisé<\/em>/);
+        assert.match(skillAdditionSafety.preservedOverrideHtml, /<li>Maîtrise de Canva<\/li>/);
+        assert.deepEqual(skillAdditionSafety.preservedPreviewItems, [
+            'Maîtrise de Canva avancée',
+            'Outlook personnalisé',
+            'Maîtrise de Canva',
+        ]);
+        assert.deepEqual(skillAdditionSafety.noOpOperations, {
+            failed: true,
+            mutationStarted: false,
+            rollbackPerformed: false,
+        });
+        assert.doesNotMatch(skillAdditionSafety.noOpFailureMessage, /restaur/i);
+        assert.equal(skillAdditionSafety.valueAfterProtectedRequests, skillAdditionSafety.protectedValue);
+        assert.match(skillAdditionSafety.negatedReply, /indique de ne pas ajouter/i);
+        assert.match(skillAdditionSafety.hypotheticalReply, /hypothèse/i);
+        assert.match(skillAdditionSafety.questionReply, /pose une question/i);
+        assert.equal(trace.kirbyApiCalls.length, kirbyApiCallCountAfterImports, 'Les refus locaux ne doivent pas appeler /api/kirby-cv');
+
         const unrelatedPlacement = await evaluate(`
           (async () => {
             const field = document.querySelector('#cv-form textarea[name="experience"]');
@@ -668,6 +957,8 @@ test('Kirby moves Développement web under Machiniste-receveur and keeps the DOM
         );
         assert.match(afterReload.formValue, /Machiniste-receveur - RATP, Paris - 2024 - 2025/);
         assert.match(afterReload.formValue, /Développement web - Projets autodidactes - depuis 2023/);
+        const skillsAfterReload = await evaluate(`cvForm.elements.skills.value.split(/\\n+/).filter(Boolean)`);
+        assert.deepEqual(skillsAfterReload, [...ELISE_SKILLS, 'Maîtrise de Canva']);
 
         const writesBeforeNoop = (state.writes || []).length;
         const localWritesBeforeNoop = (state.localWrites || []).length;
