@@ -6406,10 +6406,7 @@ const normalizeCvDocumentLanguage = (value = '') => {
     return '';
 };
 
-const detectCvDocumentLanguage = (cv = {}, rawText = '') => {
-    const explicitLanguage = normalizeCvDocumentLanguage(cv.documentLanguage);
-    if (explicitLanguage) return explicitLanguage;
-
+const getCvDocumentLanguageScores = (cv = {}, rawText = '') => {
     const cvText = [
         cv.headline,
         cv.summary,
@@ -6431,6 +6428,7 @@ const detectCvDocumentLanguage = (cv = {}, rawText = '') => {
         /\bbusiness consultant\b/g,
         /\baccounting\b/g,
         /\bmanagement\b/g,
+        /\b(?:customer|secretary|receptionist|organized|proficiency|filing|archiving|hiking|native|intermediate|photographer|photography|portrait|electrician|project manager|advisor|recruitment officer|healthcare assistant)\b/g,
         /\bwith more than\b/g,
         /\b(?:and|the|for|from|present)\b/g,
     ];
@@ -6442,23 +6440,78 @@ const detectCvDocumentLanguage = (cv = {}, rawText = '') => {
         /\bparcours\b/g,
         /\bcomptable\b/g,
         /\bgestion\b/g,
+        /\b(?:accueil|secretaire|receptionniste|organisee?|maitrise|classement|archivage|randonnee|maternelle|intermediaire|photographe|photographie|portraitiste|evenementiel|electricien|conseillere|chargee|recrutement|hotesse|soignante|chef de projet)\b/g,
         /\b(?:et|les|des|pour|depuis|aujourd hui)\b/g,
     ];
     const score = (patterns) => patterns.reduce((total, pattern) => total + ([...source.matchAll(pattern)].length || 0), 0);
     const englishScore = score(englishSignals);
     const frenchScore = score(frenchSignals);
 
+    return { englishScore, frenchScore };
+};
+
+const detectCvDocumentLanguageSignal = (cv = {}, rawText = '') => {
+    const { englishScore, frenchScore } = getCvDocumentLanguageScores(cv, rawText);
+    if (englishScore === frenchScore) return '';
     return englishScore > frenchScore ? 'en' : 'fr';
+};
+
+const detectCvDocumentLanguage = (cv = {}, rawText = '') => {
+    const explicitLanguage = normalizeCvDocumentLanguage(cv.documentLanguage);
+    if (explicitLanguage) return explicitLanguage;
+
+    return detectCvDocumentLanguageSignal(cv, rawText) || 'fr';
 };
 
 const getRequestedCvTranslationLanguage = (instruction = '') => {
     const source = stripAccents(normalizeText(instruction).toLowerCase());
-    const translationRequested = /\b(traduis|traduire|traduction|translate|translation|version)\b/.test(source);
+    const translationRequested = /\b(tradui(?:s|t|re|sez|sons)|traduction|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|translat(?:e|es|ed|ing|ion)|convert(?:s|ed|ing)?|put|version)\b/.test(source);
+    const fullCvReplacementRequested = /\b(?:remplac(?:e|es|ons|ez|er)|replac(?:e|es|ed|ing))\b[^.;!?]{0,100}\b(?:cv|curriculum vitae|document)\b/.test(source);
+    const negatedTranslation = /\b(?:ne|n)\s+(?:me\s+|le\s+|la\s+|les\s+)?(?:tradui(?:s|t|re|sez|sons)|remplac(?:e|es|ons|ez|er))\b[^.;!?]{0,32}\b(?:pas|plus|jamais)\b/.test(source)
+        || /\b(?:do not|don t|dont|never)\s+(?:translate|replace)\b/.test(source)
+        || /\b(?:sans|without)\s+(?:traduire|translate|remplacer|replacing)\b/.test(source);
 
-    if (!translationRequested) return '';
+    if ((!translationRequested && !fullCvReplacementRequested) || negatedTranslation) return '';
     if (/\b(?:en|vers|into|to|in)\s+(?:anglais|english)\b|\b(?:english version|version anglaise?)\b/.test(source)) return 'en';
     if (/\b(?:en|vers|into|to|in)\s+(?:francais|french)\b|\b(?:french version|version francaise?)\b/.test(source)) return 'fr';
     return '';
+};
+
+const getFullCvTranslationLanguage = (instruction = '') => {
+    const requestedLanguage = getRequestedCvTranslationLanguage(instruction);
+    if (!requestedLanguage) return '';
+
+    const source = stripAccents(normalizeText(instruction).toLowerCase())
+        .replace(/[’']/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    const asksForTranslationInstructions = /^(?:comment(?:\s+(?:faire\s+pour|puis[- ]je|peut[- ]on))?|how\s+(?:do|can|could|would|should)\s+(?:i|we|one)|pourquoi|why|faut[- ]il|dois[- ]je|devrais[- ]je|should\s+i|puis[- ]je|may\s+i|can\s+i|est[- ]ce que je peux)\b[^.!?]{0,220}\b(?:tradui(?:re|s|t)|translat(?:e|es|ed|ing)|remplac(?:e|er|ez|ons)|replac(?:e|es|ed|ing)|converti(?:s|t|r|ssez|ssons)|convert(?:s|ed|ing)?|met(?:s|tez|tons|tre)|put)\b/.test(source);
+    if (asksForTranslationInstructions) return '';
+    const actionTargetsWholeCv = /\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?|remplac(?:e|es|ons|ez|er)|replac(?:e|es|ed|ing))\b(?:[- ]+(?:le|la|les|it))?\s+(?:(?:entierement|completement|fully|entirely)\s+)?(?:(?:tout|toute|entier|entiere|complet|complete|whole|entire)\s+)?(?:(?:le|la|mon|ma|the|my)\s+)?(?:cv|curriculum vitae|document)(?:\s+(?:entier|entiere|complet|complete|whole|entire))?\b|\b(?:translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?|replac(?:e|es|ed|ing))\b\s+(?:(?:the|my)\s+)(?:whole|entire|complete)\s+(?:cv|curriculum vitae|document)\b/.test(source);
+    const languageBeforeWholeCv = /\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?)\b\s+(?:en|vers|into|to|in)\s+(?:anglais|english|francais|french)\s+(?:(?:tout|toute|entier|entiere|complet|complete|whole|entire)\s+)?(?:(?:le|la|mon|ma|the|my)\s+)?(?:cv|curriculum vitae|document)\b/.test(source);
+    const languageBeforeDeterminedWholeCv = /\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?)\b\s+(?:en|vers|into|to|in)\s+(?:anglais|english|francais|french)\s+(?:(?:le|la|mon|ma|the|my)\s+)(?:tout|toute|entier|entiere|complet|complete|whole|entire)\s+(?:cv|curriculum vitae|document)\b/.test(source);
+    const wholeActionAfterCvAntecedent = /\b(?:cv|curriculum vitae|document)\b[^.;!?]{0,100}\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?)\b\s+(?:tout|entierement|completement|all|entirely|fully)\b/.test(source);
+    const wholeCvVersionRequested = /\b(?:version\s+(?:anglaise?|english|francaise?|french)|(?:english|french)\s+version)\b[^.;!?]{0,80}\b(?:de|du|of)\s+(?:(?:mon|le|the|my)\s+)?(?:cv|curriculum vitae|document)\b/.test(source);
+    const wholeCvVersionWithPreposition = /\bversion\s+(?:en|in)\s+(?:anglais|english|francais|french)\b[^.;!?]{0,80}\b(?:de|du|of)\s+(?:(?:mon|le|the|my)\s+)?(?:cv|curriculum vitae|document)\b/.test(source);
+    const putWholeCvInLanguage = /\bput\b\s+(?:(?:the|my)\s+)?(?:(?:whole|entire|complete)\s+)?(?:cv|curriculum vitae|document)\s+(?:in|into|to)\s+(?:english|french)\b/.test(source);
+    const rebuildsWholeCvThenTranslates = /\b(?:refais|refaire|reconstruis|reconstruire|rebuild|recreate|redo)\b[^.;!?]{0,100}\b(?:tout|toute|entier|entiere|complet|complete|whole|entire)\s+(?:(?:le|la|mon|ma|the|my)\s+)?(?:cv|curriculum vitae|document)\b[^.;!?]{0,80}\b(?:tradui(?:s|t|re|sez|sons)|translat(?:e|es|ed|ing))\b/.test(source);
+    const wholeCvContentTargeted = /\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?|remplac(?:e|es|ons|ez|er)|replac(?:e|es|ed|ing))\b[^.;!?]{0,48}\b(?:(?:tout|toute|entier|entiere|complet|complete|whole|entire)\s+)?(?:le\s+|la\s+|l\s+|the\s+|my\s+)?(?:contenu|integralite|content)\b[^.;!?]{0,48}\b(?:du|de|of)\s+(?:(?:mon|ma|le|la|the|my)\s+)?(?:cv|curriculum vitae|document)\b/.test(source);
+    const targetsOnlyPart = /\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?)\b[^.;!?]{0,100}\b(?:uniquement|seulement|only|just)\b[^.;!?]{0,60}\b(?:profil|profile|resume|summary|rubrique|section|titre|headline|competences?|skills?|experience|formation|education|langues?|languages?|dates?)\b/.test(source);
+    const targetsNamedPartBeforeCv = /\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?)\b[^.;!?]{0,80}\b(?:profil|profile|resume|summary|rubrique|section|titre|headline|competences?|skills?|experiences?|formation|education|langues?|languages?|dates?)\b[^.;!?]{0,80}\b(?:cv|curriculum vitae|document)\b/.test(source);
+
+    if (targetsOnlyPart || targetsNamedPartBeforeCv) return '';
+
+    return actionTargetsWholeCv
+        || languageBeforeWholeCv
+        || languageBeforeDeterminedWholeCv
+        || wholeActionAfterCvAntecedent
+        || wholeCvVersionRequested
+        || wholeCvVersionWithPreposition
+        || putWholeCvInLanguage
+        || rebuildsWholeCvThenTranslates
+        || wholeCvContentTargeted
+        ? requestedLanguage
+        : '';
 };
 
 const getCvOutputLanguage = ({ cv = {}, instruction = '' } = {}) =>
@@ -6466,6 +6519,10 @@ const getCvOutputLanguage = ({ cv = {}, instruction = '' } = {}) =>
 
 const isFullCvBuildRequest = ({ task = '', instruction = '' } = {}) => {
     if (task === 'autofill' || task === 'create') {
+        return true;
+    }
+
+    if (getFullCvTranslationLanguage(instruction)) {
         return true;
     }
 
@@ -6496,9 +6553,25 @@ const looksLikeCvSourceDocument = (value = '') => {
 const normalizeCvLanguageLevel = (value = '', documentLanguage = 'fr') => {
     const level = limitCvText(value, 72);
     const key = stripAccents(normalizeText(level).toLowerCase());
-    const cefrMatch = key.match(/^(?:niveau\s+)?([abc][12])$/i);
+    const cefrMatch = key.match(/\b([abc][12])\b/i);
     if (cefrMatch) {
         const cefrLevel = cefrMatch[1].toUpperCase();
+        const qualifier = [
+            ['native', /\b(?:langue maternelle|maternelle|native speaker|native)\b/],
+            ['bilingual', /\b(?:bilingual|bilingue)\b/],
+            ['fluent', /\b(?:fluent|courant(?:e)?|couramment)\b/],
+            ['professional', /\b(?:professional working proficiency|working proficiency|niveau professionnel|professionnel(?:le)?)\b/],
+            ['intermediate', /\b(?:intermediate|niveau intermediaire|intermediaire)\b/],
+            ['elementary', /\b(?:elementary level|elementary|bases solides)\b/],
+            ['beginner', /\b(?:beginner|debutant(?:e)?)\b/],
+            ['basic', /\b(?:basic|bases?|notions?)\b/],
+        ].find(([, pattern]) => pattern.test(key))?.[0];
+        if (qualifier) {
+            const qualifierLabels = documentLanguage === 'en'
+                ? { native: 'Native', bilingual: 'Bilingual', fluent: 'Fluent', professional: 'Professional working proficiency', intermediate: 'Intermediate', elementary: 'Elementary', beginner: 'Beginner', basic: 'Basic' }
+                : { native: 'Langue maternelle', bilingual: 'Bilingue', fluent: 'Courant', professional: 'Niveau professionnel', intermediate: 'Niveau intermédiaire', elementary: 'Bases solides', beginner: 'Débutant', basic: 'Notions' };
+            return `${qualifierLabels[qualifier]} ${cefrLevel}`;
+        }
         return documentLanguage === 'en' ? cefrLevel : `Niveau ${cefrLevel}`;
     }
     const canonicalKeyByAlias = {
@@ -6766,7 +6839,13 @@ const parseCvDocumentExperience = (line = '', index = 0) => {
         organization: headerParts.slice(1).join(' - '),
         period,
         chronology: getCvPeriodRange(period || rawHeader),
-        missions: rawBullets.map((bullet) => limitCvText(bullet, 800)).filter(Boolean).slice(0, 20),
+        // Les libellés courts comme « Service » sont des missions valides.
+        // `limitCvText` réutilise un filtre de placeholders destiné aux sites
+        // et supprimait cette ligne avant la comparaison de traduction.
+        missions: rawBullets
+            .map((bullet) => cleanGeneratedText(bullet).slice(0, 800).trim())
+            .filter(Boolean)
+            .slice(0, 20),
         sourceLine: cleanLine,
     };
 };
@@ -7604,6 +7683,10 @@ const getCvOperationIntent = (instruction = '', cv = {}, { lastEdit = null } = {
         additionClauses,
         explicitExperienceAdditionContexts,
         existingExperiences: sourceExperienceModel,
+        existingLanguageLines: normalize(cv && cv.languages)
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter(Boolean),
         correctionContexts,
         scopes,
         universalScopes,
@@ -7618,6 +7701,75 @@ const getCvOperationIntent = (instruction = '', cv = {}, { lastEdit = null } = {
         orderSkills: orderContexts.length > 0 && orderMentionsSkills,
         lastEdit,
         dateTargetScope,
+    };
+};
+
+const normalizeCvLanguageLineForMatch = (value = '') =>
+    normalizeCvOperationIntentText(value)
+        .replace(/[^a-z0-9]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+const getCvLanguageLineNameForMatch = (value = '') =>
+    normalizeCvLanguageLineForMatch(String(value || '').split(/\s*[:–—-]\s*/)[0] || '');
+
+const canonicalizeCvLanguageTextOperation = (operation, intent = {}) => {
+    if (!operation
+        || !['remove_text', 'replace_text'].includes(operation.type)
+        || operation.field !== 'languages') {
+        return operation;
+    }
+
+    const target = operation.target || {};
+    const currentValue = limitCvText(target.currentValue, 160);
+    const label = limitCvText(target.label, 120);
+    const currentKey = normalizeCvLanguageLineForMatch(currentValue);
+    const labelKey = normalizeCvLanguageLineForMatch(label);
+    const sourceLines = Array.isArray(intent.existingLanguageLines)
+        ? intent.existingLanguageLines.filter(Boolean)
+        : [];
+    if (!currentKey || !sourceLines.length) return operation;
+
+    const candidateKeys = new Set([currentKey]);
+    if (labelKey && currentKey.startsWith(`${labelKey} ${labelKey} `)) {
+        candidateKeys.add(currentKey.slice(labelKey.length + 1));
+    }
+
+    const exactMatches = sourceLines.filter((line) =>
+        candidateKeys.has(normalizeCvLanguageLineForMatch(line))
+    );
+    const labelMatches = labelKey
+        ? sourceLines.filter((line) => {
+            const lineKey = normalizeCvLanguageLineForMatch(line);
+            if (getCvLanguageLineNameForMatch(line) !== labelKey) return false;
+            const lineValueKey = lineKey.slice(labelKey.length).trim();
+            return candidateKeys.has(lineKey)
+                || candidateKeys.has(lineValueKey)
+                || [...candidateKeys].some((candidateKey) =>
+                    candidateKey === `${labelKey} ${lineKey}`
+                    || candidateKey === `${labelKey} ${lineValueKey}`
+                );
+        })
+        : [];
+    const matches = [...new Set([...exactMatches, ...labelMatches])];
+    if (matches.length !== 1) return operation;
+
+    const canonicalCurrentValue = matches[0];
+    const canonicalKey = normalizeCvLanguageLineForMatch(canonicalCurrentValue);
+    const currentValueContainsLabel = Boolean(
+        labelKey
+        && (canonicalKey === labelKey || canonicalKey.startsWith(`${labelKey} `))
+    );
+
+    return {
+        ...operation,
+        target: {
+            ...target,
+            // Le libellé sert à retrouver la ligne, mais ne doit pas être
+            // concaténé une seconde fois à une valeur déjà complète.
+            label: currentValueContainsLabel ? '' : label,
+            currentValue: canonicalCurrentValue,
+        },
     };
 };
 
@@ -8016,6 +8168,7 @@ const sanitizeCvOperations = (value, { instruction = '', intent = null } = {}) =
     return (Array.isArray(value) ? value : [])
         .map(sanitizeCvOperation)
         .filter(Boolean)
+        .map((operation) => canonicalizeCvLanguageTextOperation(operation, resolvedIntent))
         .map((operation) => rebaseCvDateOperationFromLastEdit(operation, resolvedIntent.lastEdit))
         .filter((operation) => cvOperationMatchesExplicitIntent(operation, resolvedIntent))
         .map((operation) => operation.type === 'add_skill' && groundedSkillAddition
@@ -8573,6 +8726,7 @@ const getOpenEndedCvRoleFromAssistantResult = (assistantResult = {}) => {
 
 const finalizeCvAssistantResult = ({ result, cv, task, jobOffer, instruction, interaction = null }) => {
     const narratedBuild = interaction?.sourceKind === 'narrative' && ['create', 'autofill'].includes(task);
+    const fullTranslationLanguage = getFullCvTranslationLanguage(instruction);
     const explicitHeadline = narratedBuild
         ? ''
         : getExplicitCvHeadline(instruction, cv && cv.headline, cv && cv.documentLanguage);
@@ -8589,11 +8743,13 @@ const finalizeCvAssistantResult = ({ result, cv, task, jobOffer, instruction, in
     // Les champs de synthèse du modèle ne contournent jamais le contrôle des
     // opérations : sans intention de titre, une suggestion de titre parasite
     // est neutralisée, même si le modèle l'a tout de même générée.
-    const intentGuardedResult = modelMayChangeHeadline
-        ? narratedBuild
+    const intentGuardedResult = fullTranslationLanguage
+        ? { ...(result || {}), operations: [] }
+        : modelMayChangeHeadline
+            ? narratedBuild
             ? { ...(result || {}), operations: [] }
             : result
-        : { ...(result || {}), headline: '', jobTarget: '' };
+            : { ...(result || {}), headline: '', jobTarget: '' };
     const recoveredIntentGuardedResult = recoverLegacyHeadlineOnlySkillAddition(
         intentGuardedResult,
         instruction,
@@ -8714,10 +8870,10 @@ const getCvLanguagesFromText = (value = '', documentLanguage = '', { requireCont
                     : afterLanguage
                         ? candidate.index - (match.index + match[0].length)
                         : 0;
-                return { value: candidate[0], distance, isRelated };
+                return { value: candidate[0], distance, isRelated, isCefr: /\b[abc][12]\b/i.test(candidate[0]) };
             })
             .filter((candidate) => candidate.isRelated)
-            .sort((left, right) => left.distance - right.distance);
+            .sort((left, right) => Number(right.isCefr) - Number(left.isCefr) || left.distance - right.distance);
         languageLevelPattern.lastIndex = 0;
         const levelSource = levelCandidates[0]?.value || '';
         const [, fallbackLevel = ''] = line.split(/\s*[:–—-]\s*/, 2);
@@ -9428,10 +9584,16 @@ const getNarratedCvOrderedMonthDates = (value = '') => {
     }).filter(Boolean);
 };
 
-const getNarratedCvOrderedTemporalTokens = (value = '', { affirmedOnly = false } = {}) => {
+const getNarratedCvOrderedTemporalTokens = (value = '', { affirmedOnly = false, includeOngoing = false } = {}) => {
     const rawSource = normalizeText(value);
     const source = stripAccents(rawSource).toLowerCase();
     const tokens = [];
+    if (includeOngoing) {
+        const ongoingSource = source.replace(/[’']/g, ' ');
+        for (const match of ongoingSource.matchAll(/\b(?:aujourd hui|present|now|current|actuel|actuellement|en cours|to date)\b/g)) {
+            tokens.push({ kind: 'ongoing', index: match.index, length: match[0].length, token: 'ongoing' });
+        }
+    }
     for (const match of source.matchAll(/\b(0?[1-9]|1[0-2])[\/.-](?=(?:19|20)\d{2}\b)/g)) {
         tokens.push({ kind: 'month', index: match.index, length: match[0].length, token: `month:${Number.parseInt(match[1], 10)}` });
     }
@@ -12076,18 +12238,765 @@ const hasMeaningfulCvAssistantResult = (
         || reject('empty_content');
 };
 
+const getCvExtractionText = (extracted = {}) => [
+    extracted.headline,
+    extracted.summary,
+    ...(Array.isArray(extracted.skills) ? extracted.skills : []),
+    ...(Array.isArray(extracted.experiences) ? extracted.experiences : []),
+    ...(Array.isArray(extracted.projects) ? extracted.projects : []),
+    ...(Array.isArray(extracted.education) ? extracted.education : []),
+    ...(Array.isArray(extracted.certifications) ? extracted.certifications : []),
+    ...(Array.isArray(extracted.activities) ? extracted.activities : []),
+    ...(Array.isArray(extracted.languages)
+        ? extracted.languages.flatMap((item) => [item && item.language, item && item.level])
+        : []),
+].filter(Boolean).join('\n');
+
+const getCvTranslationOrganizationAnchor = (value = '') =>
+    normalizeCvLanguageLineForMatch(value)
+        .replace(/\b(?:cdi|contrat a duree indeterminee|contrat permanent|poste permanent|permanent contract|cdd|contrat a duree determinee|fixed term contract|interim|temporaire|temporary contract|temp contract|alternance|apprentissage|work study|apprenticeship|freelance|independant|independante|self employed|stage|stagiaire|internship|intern)\b/g, ' ')
+        .replace(/\b(?:19|20)\d{2}\b/g, ' ')
+        .replace(/\b(?:janv(?:ier)?|fevr(?:ier)?|mars|avr(?:il)?|mai|juin|juil(?:let)?|aout|sept(?:embre)?|oct(?:obre)?|nov(?:embre)?|dec(?:embre)?|january|february|march|april|may|june|july|august|september|october|november|december|aujourd hui|present|now|current)\b/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+const cvTokenListsEqual = (left = [], right = []) =>
+    left.length === right.length && left.every((value, index) => value === right[index]);
+
+const getCvTranslationPermitKey = (value = '') => {
+    const normalized = normalizeCvLanguageLineForMatch(value);
+    const classes = [...new Set(getNarratedCvPermitClassKeys(value))].sort();
+    if (!classes.length) return normalized;
+    const hasDrivingLicenceType = /\b(?:driving|driver s) licen[cs]es?\b/.test(normalized)
+        || /\bpermis(?: de conduire)?\b/.test(normalized);
+    if (!hasDrivingLicenceType) return `invalid-permit:${normalized}`;
+    const remainingQualifier = normalized
+        .replace(/\b(?:driving|driver s) licen[cs]es?\b/g, ' ')
+        .replace(/\bpermis(?: de conduire)?\b/g, ' ')
+        .replace(/\b(?:categorie|category|class|classes|et|and)\b/g, ' ')
+        .split(/\s+/)
+        .filter(Boolean)
+        .filter((token) => !classes.map((entry) => entry.toLowerCase()).includes(token))
+        .join(' ');
+    return remainingQualifier
+        ? `invalid-permit:${normalized}`
+        : `driving-licence:${classes.join('|')}`;
+};
+
+const getCvTranslationContractKeys = (value = '') =>
+    [...getNarratedCvContractKinds(value)].sort();
+
+const getCvTranslationTemporalTokens = (value = '') =>
+    getNarratedCvOrderedTemporalTokens(value, { includeOngoing: true });
+
+const CV_TRANSLATION_LANGUAGE_NAMES = new Map(Object.entries({
+    francais: 'french', french: 'french', anglais: 'english', english: 'english',
+    espagnol: 'spanish', spanish: 'spanish', italien: 'italian', italian: 'italian',
+    allemand: 'german', german: 'german', deutsch: 'german', portugais: 'portuguese', portuguese: 'portuguese',
+    arabe: 'arabic', arabic: 'arabic', chinois: 'chinese', chinese: 'chinese', mandarin: 'mandarin',
+    japonais: 'japanese', japanese: 'japanese', russe: 'russian', russian: 'russian',
+    neerlandais: 'dutch', dutch: 'dutch', polonais: 'polish', polish: 'polish',
+}));
+
+const getCvTranslationLanguageNameKey = (value = '') => {
+    const key = normalizeCvLanguageLineForMatch(value);
+    return CV_TRANSLATION_LANGUAGE_NAMES.get(key) || key;
+};
+
+const getCvTranslationLanguageLevelKey = (value = '') => {
+    const key = normalizeCvLanguageLineForMatch(value).replace(/^niveau /, '');
+    const cefr = key.match(/\b([abc][12])\b/);
+    const aliases = new Map([
+        ['langue maternelle', 'native'], ['maternelle', 'native'], ['native speaker', 'native'], ['native', 'native'],
+        ['bilingue', 'bilingual'], ['bilingual', 'bilingual'], ['courant', 'fluent'], ['courante', 'fluent'], ['couramment', 'fluent'], ['fluent', 'fluent'],
+        ['niveau professionnel', 'professional'], ['professionnel', 'professional'], ['professional working proficiency', 'professional'], ['working proficiency', 'professional'],
+        ['intermediaire', 'intermediate'], ['intermediate', 'intermediate'], ['bases solides', 'elementary'], ['elementary level', 'elementary'], ['elementary', 'elementary'],
+        ['debutant', 'beginner'], ['debutante', 'beginner'], ['beginner', 'beginner'], ['notions', 'basic'], ['notion', 'basic'], ['bases', 'basic'], ['basic', 'basic'],
+    ]);
+    if (cefr) {
+        const qualifierEntry = [...aliases.entries()].find(([label]) =>
+            new RegExp(`(?:^| )${label.replace(/\s+/g, '\\s+')}(?: |$)`).test(key)
+        );
+        const qualifier = qualifierEntry && qualifierEntry[1];
+        const cefrLevel = cefr[1];
+        const compatibleIntermediate = qualifier === 'intermediate' && /^b[12]$/.test(cefrLevel);
+        return qualifier && !compatibleIntermediate ? `${cefrLevel}:${qualifier}` : cefrLevel;
+    }
+    return aliases.get(key) || key;
+};
+
+const getCvTranslationInstitutionAnchors = (value = '') => {
+    const rawChunks = String(value || '').split(/\s+[|–—-]\s+/).map((chunk) => chunk.trim()).filter(Boolean);
+    const chunks = rawChunks.map((chunk) => normalizeCvLanguageLineForMatch(chunk));
+    const marker = /\b(?:association|organisme|centre de formation|training center|institut|institute|universite|university|ecole|school|lycee|college|academy)\b/;
+    const candidates = [
+        ...rawChunks.slice(1).filter((chunk) => {
+            const normalizedChunk = normalizeCvLanguageLineForMatch(chunk);
+            const properNameWords = chunk.match(/\b[A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÿ’'-]{2,}\b/g) || [];
+            return !getCvTranslationTemporalTokens(chunk).length
+                && (marker.test(normalizedChunk) || properNameWords.length >= 2);
+        }).map((chunk) => normalizeCvLanguageLineForMatch(chunk)),
+        ...chunks.filter((chunk) => marker.test(chunk)).map((chunk) => chunk.slice(chunk.search(marker))),
+    ];
+    const ignored = new Set(['association', 'organisme', 'centre', 'formation', 'training', 'center', 'institut', 'institute', 'universite', 'university', 'ecole', 'school', 'high', 'lycee', 'college', 'academy', 'de', 'des', 'du', 'la', 'le', 'les', 'l', 'd', 'a', 'au', 'aux', 'at', 'in', 'of', 'the', 'et', 'and', 'fictif', 'fictive', 'fictional']);
+    return candidates.map((candidate) => candidate.split(' ').filter((token) => token && !ignored.has(token) && !/^\d+$/.test(token)))
+        .filter((tokens) => tokens.length)
+        .filter((tokens, index, list) => list.findIndex((entry) => entry.join(' ') === tokens.join(' ')) === index);
+};
+
+const getCvTranslationLanguageCheckText = (extracted = {}) => {
+    const experienceText = (extracted.experiences || []).flatMap((line, index) => {
+        const parsed = parseCvDocumentExperience(line, index);
+        return [parsed.title, ...parsed.missions];
+    });
+    return [
+        extracted.headline,
+        extracted.summary,
+        ...(extracted.skills || []),
+        ...experienceText,
+        ...(extracted.projects || []),
+        ...(extracted.education || []),
+        ...(extracted.certifications || []),
+        ...(extracted.activities || []),
+        ...(extracted.languages || []).flatMap((item) => [item && item.language, item && item.level]),
+    ].filter(Boolean).join('\n');
+};
+
+const hasCvTranslationSourceLanguageResidue = (extracted = {}, targetLanguage = '') => {
+    const source = stripAccents(normalizeText(getCvTranslationLanguageCheckText(extracted)).toLowerCase()).replace(/[’']/g, ' ');
+    const frenchResidue = /\b(?:assistante|secretaire|accueil|gestion|maitrise|classement|archivage|facturation|premiers? secours|conseils? clients?|travail en equipe|competences?|experiences? professionnelles?|aujourd hui|langue maternelle|niveau intermediaire|randonnee|cinema italien|organisee?|polyvalente?|couramment|notions)\b/;
+    const englishResidue = /\b(?:secretary|customer reception|management|proficiency|filing|archiving|professional experience|present|native|intermediate|hiking|italian cinema|organized|versatile|fluent|basic)\b/;
+    return targetLanguage === 'en' ? frenchResidue.test(source) : targetLanguage === 'fr' ? englishResidue.test(source) : true;
+};
+
+// Une traduction complète peut reformuler les mots, mais pas changer leur
+// sens métier. Cette table volontairement bilingue canonicalise les notions
+// usuelles d'un CV avant une comparaison champ par champ.
+const CV_TRANSLATION_SEMANTIC_TOKEN_ALIASES = new Map(Object.entries({
+    accueil: 'reception', reception: 'reception',
+    cvresponsibility: 'management',
+    client: 'customer', clientele: 'customer', customer: 'customer', guest: 'customer',
+    classement: 'filing', classer: 'filing', filing: 'filing',
+    archivage: 'archiving', archiver: 'archiving', archiving: 'archiving',
+    numerique: 'digital', digital: 'digital',
+    cvmastery: 'proficiency', proficiency: 'proficiency', proficient: 'proficiency',
+    microsoft: 'microsoft', word: 'word', excel: 'excel', outlook: 'outlook', powerpoint: 'powerpoint', canva: 'canva',
+    assistante: 'assistant', assistant: 'assistant',
+    agente: 'agent', agent: 'agent',
+    cvstage: 'intern', stagiaire: 'intern', intern: 'intern', internship: 'intern',
+    administratif: 'administrative', administrative: 'administrative', administration: 'administrative',
+    secretaire: 'secretary', secretary: 'secretary',
+    polyvalent: 'versatile', polyvalente: 'versatile', versatile: 'versatile',
+    professionnelle: 'professional', professionnel: 'professional', professional: 'professional',
+    cvorganization: 'organization', organisation: 'organization', organization: 'organization', organized: 'organization',
+    documentaire: 'document', document: 'document', dossier: 'file', file: 'file',
+    courrier: 'mail', correspondance: 'mail', correspondence: 'mail', mail: 'mail', email: 'mail',
+    telephone: 'telephone', phone: 'telephone', standard: 'switchboard', switchboard: 'switchboard',
+    reservation: 'reservation', booking: 'reservation',
+    facturation: 'billing', facture: 'billing', billing: 'billing', invoice: 'billing', invoicing: 'billing',
+    arrivee: 'arrival', arrival: 'arrival', depart: 'departure', departure: 'departure',
+    reclamation: 'complaint', plainte: 'complaint', complaint: 'complaint',
+    priorite: 'priority', priority: 'priority', equipe: 'teamwork', cvteamwork: 'teamwork', teamwork: 'teamwork',
+    calme: 'calm', calm: 'calm', souriant: 'smile', souriante: 'smile', cvsmile: 'smile', smiling: 'smile',
+    consigne: 'handover', cvhandover: 'handover', handover: 'handover', nuit: 'night', night: 'night',
+    hotelier: 'hospitality', hotellerie: 'hospitality', hospitality: 'hospitality', hotel: 'hospitality',
+    receptionniste: 'receptionist', receptionist: 'receptionist',
+    vendeur: 'sales', vendeuse: 'sales', vente: 'sales', sales: 'sales', selling: 'sales',
+    conseil: 'advice', conseiller: 'advice', conseillere: 'advice', advice: 'advice', advisor: 'advice', advising: 'advice',
+    encaissement: 'checkout', cashiering: 'checkout', checkout: 'checkout', cash: 'checkout',
+    livre: 'book', book: 'book', books: 'book', librairie: 'bookstore', bookstore: 'bookstore',
+    commande: 'order', order: 'order',
+    demande: 'request', demandes: 'request', request: 'request', requests: 'request',
+    fournisseur: 'supplier', fournisseurs: 'supplier', supplier: 'supplier', suppliers: 'supplier', vendor: 'supplier', vendors: 'supplier',
+    repondre: 'response', repond: 'response', reponds: 'response', repondent: 'response', respond: 'response', responds: 'response', responding: 'response',
+    answer: 'response', answers: 'response', answering: 'response', reply: 'response', replies: 'response', replying: 'response',
+    restauration: 'food_service', restaurant: 'food_service', waitress: 'food_service', waiter: 'food_service',
+    salle: 'room', room: 'room', table: 'table', service: 'service', serving: 'service',
+    visiteur: 'visitor', visitor: 'visitor', orientation: 'orientation', guiding: 'orientation',
+    guidance: 'orientation', directing: 'orientation', aide: 'assistance', assistance: 'assistance',
+    secretariat: 'secretarial', secretarial: 'secretarial', rendez: 'appointment', appointment: 'appointment',
+    devis: 'quotation', quotation: 'quotation', quote: 'quotation', suivi: 'follow_up', tracking: 'follow_up', reminder: 'reminder', rappel: 'reminder',
+    redaction: 'writing', writing: 'writing', preparation: 'preparation', prepare: 'preparation', prepared: 'preparation', preparing: 'preparation',
+    formation: 'training', training: 'training',
+    secours: 'first_aid', aid: 'first_aid', randonnée: 'hiking', randonnee: 'hiking', hiking: 'hiking',
+    cinema: 'cinema', italien: 'italian', italian: 'italian', natation: 'swimming', swimming: 'swimming',
+    parachutisme: 'skydiving', skydiving: 'skydiving',
+    commerce: 'commerce', commercial: 'commerce', business: 'commerce', busines: 'commerce', option: 'specialization', specialization: 'specialization',
+    projet: 'project', project: 'project', personnel: 'personal', personal: 'personal', benevolat: 'volunteering', volunteering: 'volunteering',
+    paie: 'payroll', salaire: 'payroll', payroll: 'payroll', wage: 'payroll',
+    recrutement: 'recruitment', recruitment: 'recruitment', recruter: 'recruitment', recruited: 'recruitment', recruiting: 'recruitment', hiring: 'recruitment',
+    ingenieur: 'engineering', engineer: 'engineering', engineering: 'engineering',
+    logiciel: 'software', software: 'software', developpeur: 'development', developpeuse: 'development', developer: 'development', development: 'development', programmation: 'development', programming: 'development',
+    cloud: 'cloud', distribue: 'distributed_systems', distributed: 'distributed_systems', systeme: 'systems', system: 'systems',
+    comptabilite: 'accounting', comptable: 'accounting', accounting: 'accounting', bookkeeping: 'accounting', finance: 'finance', financier: 'finance', financial: 'finance',
+    marketing: 'marketing', juridique: 'legal', legal: 'legal', medical: 'healthcare', healthcare: 'healthcare', patient: 'healthcare', soin: 'healthcare',
+    conducteur: 'driving', chauffeur: 'driving', driver: 'driving', conduite: 'driving', driving: 'driving',
+    logistique: 'logistics', logistics: 'logistics', enseignant: 'teaching', teacher: 'teaching', teaching: 'teaching',
+    peintre: 'painter', painter: 'painter', peinture: 'painting', painting: 'painting',
+    batiment: 'building', building: 'building', interieur: 'interior', interieure: 'interior', interior: 'interior',
+    photographe: 'photographer', photographer: 'photographer', photographie: 'photography', photography: 'photography',
+    portraitiste: 'portrait', portrait: 'portrait', evenementiel: 'event', evenementielle: 'event', event: 'event',
+    electricien: 'electrician', electrician: 'electrician',
+    boulanger: 'baker', boulangere: 'baker', baker: 'baker',
+    plombier: 'plumber', plombiere: 'plumber', plumber: 'plumber',
+    infirmier: 'nurse', infirmiere: 'nurse', nurse: 'nurse',
+    web: 'web',
+    encadrement: 'leadership', superviser: 'leadership', supervised: 'leadership', supervising: 'leadership', leadership: 'leadership',
+    lycee: 'institution', school: 'institution', ecole: 'institution', universite: 'institution', university: 'institution', institut: 'institution', institute: 'institution',
+    aise: 'comfort', comfortable: 'comfort', confort: 'comfort', friendly: 'smile', cvcustomercomfort: 'comfort', cvcustomerrelation: 'customer_relation',
+    receipt: 'reception', receiving: 'reception', received: 'reception',
+    handing: 'handover',
+    expert: 'expert_level', expertise: 'expert_level',
+    cours: 'training', course: 'training', trekking: 'hiking', film: 'cinema', films: 'cinema',
+}));
+
+const CV_TRANSLATION_SEMANTIC_GENERIC_TOKENS = new Set([
+    'experience', 'experiences', 'employee', 'employees', 'employe', 'employes', 'worker', 'workers',
+    'role', 'work', 'working', 'task', 'tasks', 'mission', 'missions', 'activity', 'activities',
+]);
+
+const CV_TRANSLATION_SEMANTIC_IGNORED_TOKENS = new Set([
+    'cvuse',
+    'am', 'suis', 'etre', 'being', 'assisting', 'assist', 'assisted',
+    'can', 'part',
+    'in', 'en', 'au', 'out', 'up', 'through', 'within', 'across', 'including', 'include',
+    'high', 'level', 'niveau',
+]);
+
+const getCvTranslationSemanticConcepts = (value = '', { context = 'content' } = {}) => {
+    const normalized = normalizeCvLanguageLineForMatch(value);
+    const concepts = new Set();
+    const add = (concept) => { if (concept) concepts.add(concept); };
+    const hasFirstAidPhrase = /\b(?:premiers? secours|first aid)\b/.test(normalized);
+
+    if (context === 'education') {
+        if (/\b(?:bac professionnel|baccalaureat professionnel|vocational (?:baccalaureate|diploma)|vocational high school diploma)\b/.test(normalized)) add('degree:vocational');
+        else if (/\b(?:baccalaureat|high school diploma)\b/.test(normalized)) add('degree:baccalaureate');
+        if (/\b(?:master|masters|mba)\b/.test(normalized)) add(/\bmba\b/.test(normalized) ? 'degree:mba' : 'degree:master');
+        if (/\b(?:licence|bachelor|bachelors)\b/.test(normalized)) add('degree:bachelor');
+        if (/\bbts\b/.test(normalized)) add('degree:bts');
+        if (/\bcap\b|\bcertificat d aptitude professionnelle\b/.test(normalized)) add('degree:cap');
+        if (hasFirstAidPhrase) add('first_aid');
+        if (/\b(?:certification|certificat|certificate)\b/.test(normalized)) add('certification');
+    }
+
+    getNarratedCvSkillTokenRecords(value, { checkAffirmation: false }).forEach(({ token }) => {
+        const aliasedConcept = CV_TRANSLATION_SEMANTIC_TOKEN_ALIASES.get(token);
+        if (!token || (!aliasedConcept
+            && (CV_TRANSLATION_SEMANTIC_GENERIC_TOKENS.has(token) || CV_TRANSLATION_SEMANTIC_IGNORED_TOKENS.has(token)))) return;
+        if (hasFirstAidPhrase && /^(?:premier|premiers|secour|secours|first|aid)$/.test(token)) return;
+        if (context === 'education' && /^(?:bac|baccalaureat|baccalaureate|vocational|diploma|degree|master|masters|mba|licence|bachelor|bachelors|bts|cap|certificat|certificate|certification|professionnel|professional|client|customer)$/.test(token)) return;
+        add(aliasedConcept || `literal:${token}`);
+    });
+
+    if (/\bfront desk\b/.test(normalized)) {
+        concepts.delete('literal:front');
+        concepts.delete('literal:desk');
+        concepts.add('reception');
+    }
+    if (/\b(?:food service|service de restauration)\b/.test(normalized)) {
+        concepts.delete('literal:food');
+        concepts.delete('service');
+        concepts.add('food_service');
+    }
+    if (context === 'experience-title' && /\b(?:sales assistant|assistant de vente)\b/.test(normalized)) {
+        concepts.delete('assistant');
+        concepts.add('sales');
+    }
+    if (/\b(?:organisation|organization|organiser|organize|gestion|management)\s+(?:de\s+|des\s+|les\s+|of\s+|the\s+)?(?:priorites|priorities)\b|\b(?:priority|priorities)\s+(?:management|organization)\b|\bprioriti[sz]\w*\s+(?:les?\s+|the\s+)?(?:taches|tasks)\b/.test(normalized)) {
+        concepts.delete('organization');
+        concepts.delete('priority');
+        concepts.delete('management');
+        concepts.delete('literal:prioritizing');
+        concepts.delete('literal:prioritising');
+        concepts.add('priority_management');
+    }
+    if (/\bcash handling\b/.test(normalized)) {
+        concepts.delete('management');
+    }
+    if (/\b(?:dining )?room (?:setup|preparation)\b/.test(normalized)) {
+        concepts.delete('literal:dining');
+        concepts.delete('literal:setup');
+        concepts.add('preparation');
+    }
+    if (/\b(?:prise des commandes|order taking|taking orders?)\b/.test(normalized)) {
+        concepts.delete('literal:prise');
+        concepts.delete('literal:taking');
+    }
+    if (/\b(?:accueil des visiteurs|welcoming visitors)\b/.test(normalized)) {
+        ['reception', 'visitor', 'literal:welcoming'].forEach((concept) => concepts.delete(concept));
+        concepts.add('visitor_reception');
+    }
+    if (/\b(?:reservation des salles|booking meeting rooms?)\b/.test(normalized)) {
+        ['reservation', 'room', 'literal:meeting', 'literal:rooms'].forEach((concept) => concepts.delete(concept));
+        concepts.add('room_booking');
+    }
+    if (/\b(?:preparation de la salle|setting up the dining room)\b/.test(normalized)) {
+        ['preparation', 'room', 'literal:setting', 'literal:dining', 'literal:setup'].forEach((concept) => concepts.delete(concept));
+        concepts.add('room_preparation');
+    }
+    if (/\b(?:orientation des visiteurs|welcoming and directing visitors)\b/.test(normalized)) {
+        ['reception', 'orientation', 'visitor', 'literal:welcoming'].forEach((concept) => concepts.delete(concept));
+        concepts.add('visitor_orientation');
+    }
+    if (/\b(?:aide au secretariat|assisting with secretarial duties)\b/.test(normalized)) {
+        ['assistance', 'secretarial', 'literal:dutie', 'literal:duties'].forEach((concept) => concepts.delete(concept));
+        concepts.add('secretarial_assistance');
+    }
+    if (context === 'experience-mission' && /^(?:service|table service|serving customers?)$/.test(normalized)) {
+        ['service', 'table', 'customer'].forEach((concept) => concepts.delete(concept));
+        concepts.add('table_service');
+    }
+    if (context === 'education' && /\breception services?\b/.test(normalized)) {
+        concepts.delete('service');
+        concepts.delete('literal:services');
+    }
+    if (/\b(?:chef de projet|project manager)\b/.test(normalized)) {
+        concepts.delete('project');
+        concepts.delete('management');
+        concepts.delete('literal:chef');
+        concepts.delete('literal:manager');
+        concepts.add('project_manager');
+    }
+    if (/\b(?:chargee? (?:de |du )?recrutement|recruitment officer)\b/.test(normalized)) {
+        concepts.delete('literal:chargee');
+        concepts.delete('literal:charge');
+        concepts.delete('literal:officer');
+        concepts.add('recruitment_role');
+    }
+    if (/\b(?:hotesse (?:d |de l |de )?accueil|receptionist)\b/.test(normalized)) {
+        concepts.delete('reception');
+        concepts.delete('receptionist');
+        concepts.delete('literal:hotesse');
+        concepts.add('receptionist');
+    }
+    if (/\b(?:aide soignante|healthcare assistant)\b/.test(normalized)) {
+        concepts.delete('assistance');
+        concepts.delete('assistant');
+        concepts.delete('healthcare');
+        concepts.delete('literal:soignante');
+        concepts.add('healthcare_assistant');
+    }
+    if (/\b(?:transmission des consignes a l equipe de nuit|night shift handover|handover of instructions to the night team)\b/.test(normalized)) {
+        ['handover', 'teamwork', 'night', 'literal:transmission', 'literal:shift', 'literal:instruction', 'literal:instructions'].forEach((concept) => concepts.delete(concept));
+        concepts.add('night_handover');
+    }
+    if (/\b(?:arrivees? departs? reservations? et facturation|(?:handling )?check ins? check outs? (?:bookings?|reservations?) and (?:invoices?|billing))\b/.test(normalized)) {
+        ['arrival', 'departure', 'reservation', 'billing', 'checkout', 'management', 'literal:handling', 'literal:check', 'literal:in', 'literal:ins', 'literal:out', 'literal:outs'].forEach((concept) => concepts.delete(concept));
+        concepts.add('frontdesk_transactions');
+    }
+    if (/\b(?:accueil des visiteurs et gestion du standard|welcoming visitors and handling the switchboard|visitor reception and switchboard management)\b/.test(normalized)) {
+        ['reception', 'visitor', 'visitor_reception', 'management', 'switchboard', 'literal:welcoming', 'literal:handling'].forEach((concept) => concepts.delete(concept));
+        concepts.add('visitor_switchboard_reception');
+    }
+    if (/\b(?:je suis organisee souriante et a l aise avec les clients|organized friendly and customer focused|i am organized friendly and comfortable assisting guests?)\b/.test(normalized)) {
+        ['organization', 'smile', 'comfort', 'customer', 'customer_relation', 'literal:focused'].forEach((concept) => concepts.delete(concept));
+        concepts.add('organized_customer_service_profile');
+    }
+    if (context === 'headline' && /\b(?:receptionniste en hotellerie|hotel receptionist|hospitality front desk clerk)\b/.test(normalized)) {
+        ['reception', 'receptionist', 'hospitality', 'literal:front', 'literal:desk', 'literal:clerk'].forEach((concept) => concepts.delete(concept));
+        concepts.add('hospitality_receptionist');
+    }
+    if (context === 'experience-title' && /\b(?:agente? d accueil|front desk (?:agent|officer))\b/.test(normalized)) {
+        ['agent', 'reception', 'literal:front', 'literal:desk', 'literal:officer'].forEach((concept) => concepts.delete(concept));
+        concepts.add('reception_agent');
+    }
+    if (context === 'experience-title' && /\b(?:employee? de restauration|food service (?:employee|worker))\b/.test(normalized)) {
+        ['food_service', 'service', 'literal:food', 'literal:worker'].forEach((concept) => concepts.delete(concept));
+        concepts.add('food_service_worker');
+    }
+
+    // « Organisation des priorités » se traduit naturellement par
+    // « Priority management » : le mot générique management ne doit pas
+    // rendre cette paire asymétrique, tout en conservant la notion métier.
+    return concepts;
+};
+
+const CV_TRANSLATION_EQUIVALENT = 'equivalent';
+const CV_TRANSLATION_MISMATCH = 'mismatch';
+
+// Une traduction peut conserver telle quelle une marque, une technologie ou
+// un terme réellement international. En revanche, une ligne métier française
+// complète laissée identique au milieu d'un CV anglais n'est pas traduite.
+const CV_TRANSLATION_NEUTRAL_UNCHANGED_TOKENS = new Set([
+    'microsoft', 'office', 'excel', 'outlook', 'powerpoint', 'canva', 'google', 'workspace',
+    'adobe', 'photoshop', 'illustrator', 'figma', 'salesforce', 'wordpress', 'sap',
+    'crm', 'erp', 'html', 'css', 'javascript', 'typescript', 'python', 'sql', 'windows',
+    'macos', 'linux', 'marketing', 'communication', 'digital', 'web', 'design', 'ux', 'ui',
+    'agile', 'scrum', 'kanban', 'tennis', 'yoga', 'football', 'rugby', 'piano', 'bts', 'cap',
+]);
+
+const isNeutralUnchangedCvTranslationValue = (value = '') => {
+    const tokens = normalizeCvLanguageLineForMatch(value).split(' ').filter(Boolean);
+    return Boolean(tokens.length) && tokens.every((token) =>
+        CV_TRANSLATION_NEUTRAL_UNCHANGED_TOKENS.has(token)
+        || /^\d+(?:[a-z]+)?$/.test(token)
+    );
+};
+
+const getCvTranslationRelationSignatures = (value = '') => {
+    const source = normalizeCvLanguageLineForMatch(value);
+    const signatures = [];
+    const relationTerms = {
+        customer: /^(?:customer|customers|client|clients|guest|guests)$/,
+        employee: /^(?:employee|employees|employe|employes|salarie|salaries|staff)$/,
+        team: /^(?:team|teams|equipe|equipes)$/,
+        supplier: /^(?:supplier|suppliers|vendor|vendors|fournisseur|fournisseurs)$/,
+        visitor: /^(?:visitor|visitors|visiteur|visiteurs)$/,
+        user: /^(?:user|users|utilisateur|utilisateurs)$/,
+        patient: /^(?:patient|patients)$/,
+        payroll: /^(?:payroll|paie|salaire|salaires)$/,
+        complaint: /^(?:complaint|complaints|plainte|plaintes|reclamation|reclamations)$/,
+        reservation: /^(?:reservation|reservations|booking|bookings)$/,
+        request: /^(?:request|requests|demande|demandes)$/,
+        invoice: /^(?:invoice|invoices|facture|factures)$/,
+        mail: /^(?:mail|mails|courrier|courriers|email|emails)$/,
+        order: /^(?:order|orders|commande|commandes)$/,
+        call: /^(?:call|calls|appel|appels)$/,
+        payment: /^(?:payment|payments|paiement|paiements)$/,
+    };
+    const canonicalRelationTerm = (term = '') =>
+        Object.entries(relationTerms).find(([, pattern]) => pattern.test(term))?.[0] || term;
+    // Seule une personne explicitement nommée comme sujet est enregistrée.
+    // Ainsi « Customer reservation management » reste une traduction fidèle,
+    // tandis que « Customers manage reservations » est bien une inversion.
+    for (const match of source.matchAll(/\b(customers?|clients?|guests?|employees?|employes?|salaries?|staff|teams?|equipes?|suppliers?|vendors?|fournisseurs?|visitors?|visiteurs?|users?|utilisateurs?|patients?)\b\s+(?:directly\s+)?(?:manage|manages|managed|managing|gerer|gere|gerent|handle|handles|handled|handling|traiter|traite|traitent|process|processes|processed|processing|resolve|resolves|resolved|resolving|resoudre|resout|resolvent|respond|responds|responded|responding|repondre|repond|repondent|answer|answers|answered|answering|reply|replies|replied|receive|receives|received|receiving|send|sends|sent|sending|prepare|prepares|prepared|preparing|organize|organizes|organized|organizing|organiser|organise|organisent|book|books|booked|booking|pay|pays|paid|paying)\s+(?:(?:to|for|with|a|aux?|pour)\s+)?(?:(?:their|the|leurs?|les?|la|le|des?)\s+)?(?:\d+\s+)?(payroll|paie|salaires?|complaints?|plaintes?|reclamations?|reservations?|bookings?|requests?|demandes?|invoices?|factures?|mails?|courriers?|emails?|orders?|commandes?|calls?|appels?|payments?|paiements?|teams?|equipes?|customers?|clients?)\b/g)) {
+        signatures.push(`actor:${canonicalRelationTerm(match[1])}:acts_on:${canonicalRelationTerm(match[2])}`);
+    }
+    for (const match of source.matchAll(/\b(payroll|paie|salaires?|complaints?|plaintes?|reclamations?|reservations?|bookings?|requests?|demandes?|invoices?|factures?|mails?|courriers?|emails?|orders?|commandes?|calls?|appels?|payments?|paiements?|teams?|equipes?|customers?|clients?)\b\s+(?:(?:is|are|was|were|est|sont|etaient)\s+)?(?:managed|handled|processed|resolved|answered|received|sent|prepared|organized|booked|paid|geree?s?|traitee?s?|resolue?s?|repondue?s?|recue?s?|envoyee?s?|preparee?s?|organisee?s?)\s+(?:directly\s+)?(?:by|par)\s+(?:the\s+|les?\s+)?(customers?|clients?|guests?|employees?|employes?|salaries?|staff|teams?|equipes?|suppliers?|vendors?|fournisseurs?|visitors?|visiteurs?|users?|utilisateurs?|patients?)\b/g)) {
+        signatures.push(`actor:${canonicalRelationTerm(match[2])}:acts_on:${canonicalRelationTerm(match[1])}`);
+    }
+    return [...new Set(signatures)].sort();
+};
+
+const getCvTranslationSemanticComparison = (
+    sourceValue = '',
+    translatedValue = '',
+    { context = 'content', allowedTranslatedConcepts = new Set() } = {},
+) => {
+    const sourceText = normalizeText(sourceValue);
+    const translatedText = normalizeText(translatedValue);
+    if (!sourceText || !translatedText) {
+        return sourceText === translatedText ? CV_TRANSLATION_EQUIVALENT : CV_TRANSLATION_MISMATCH;
+    }
+    const sourceContracts = getCvTranslationContractKeys(sourceText);
+    const translatedContracts = getCvTranslationContractKeys(translatedText);
+    if (sourceContracts.length || translatedContracts.length) {
+        if (!cvTokenListsEqual(sourceContracts, translatedContracts)) return CV_TRANSLATION_MISMATCH;
+        if (!getCvTranslationOrganizationAnchor(sourceText)
+            && !getCvTranslationOrganizationAnchor(translatedText)) return CV_TRANSLATION_EQUIVALENT;
+    }
+    const sourceRelations = getCvTranslationRelationSignatures(sourceText);
+    const translatedRelations = getCvTranslationRelationSignatures(translatedText);
+    if ((sourceRelations.length || translatedRelations.length)
+        && !cvTokenListsEqual(sourceRelations, translatedRelations)) return CV_TRANSLATION_MISMATCH;
+    const sourceConcepts = getCvTranslationSemanticConcepts(sourceText, { context });
+    const translatedConcepts = getCvTranslationSemanticConcepts(translatedText, { context });
+    const sourceKnownConcepts = new Set([...sourceConcepts].filter((concept) => !concept.startsWith('literal:')));
+    const translatedKnownConcepts = new Set([...translatedConcepts].filter((concept) => !concept.startsWith('literal:')));
+    const knownConceptsMatch = [...sourceKnownConcepts].every((concept) => translatedKnownConcepts.has(concept))
+        && [...translatedKnownConcepts].every((concept) =>
+            sourceKnownConcepts.has(concept) || allowedTranslatedConcepts.has(concept)
+        );
+    if (!knownConceptsMatch) return CV_TRANSLATION_MISMATCH;
+    const sourceLiteralConcepts = new Set([...sourceConcepts].filter((concept) => concept.startsWith('literal:')));
+    const translatedLiteralConcepts = new Set([...translatedConcepts].filter((concept) => concept.startsWith('literal:')));
+    const sourceLiteralList = [...sourceLiteralConcepts].sort();
+    const translatedLiteralList = [...translatedLiteralConcepts].sort();
+    if (cvTokenListsEqual(sourceLiteralList, translatedLiteralList)) {
+        return sourceKnownConcepts.size || translatedKnownConcepts.size
+            || normalizeCvLanguageLineForMatch(sourceText) === normalizeCvLanguageLineForMatch(translatedText)
+            ? CV_TRANSLATION_EQUIVALENT
+            : CV_TRANSLATION_MISMATCH;
+    }
+    return CV_TRANSLATION_MISMATCH;
+};
+
+const getCvTranslationQuantityConceptPairs = (value = '') => {
+    const source = stripAccents(normalizeText(value).toLowerCase()).replace(/[’']/g, ' ');
+    const withoutDates = source
+        .replace(/\b(?:0?[1-9]|1[0-2])[\/.](?:19|20)\d{2}\b/g, (match) => ' '.repeat(match.length))
+        .replace(/\b(?:janv?(?:ier)?|january|fevr?(?:ier)?|february|mars|march|avr(?:il)?|april|mai|may|juin|june|juil(?:let)?|july|aout|august|sept?(?:embre)?|september|oct(?:obre)?|october|nov(?:embre)?|november|dec(?:embre)?|december)\.?\s*(?:19|20)\d{2}\b/g, (match) => ' '.repeat(match.length))
+        .replace(/\b(?:19|20)\d{2}\b/g, (match) => ' '.repeat(match.length));
+    const numberValues = {
+        deux: '2', two: '2', trois: '3', three: '3', quatre: '4', four: '4', cinq: '5', five: '5',
+        six: '6', sept: '7', seven: '7', huit: '8', eight: '8', neuf: '9', nine: '9', dix: '10', ten: '10',
+        onze: '11', eleven: '11', douze: '12', twelve: '12', treize: '13', thirteen: '13',
+        quatorze: '14', fourteen: '14', quinze: '15', fifteen: '15', seize: '16', sixteen: '16',
+        vingt: '20', twenty: '20', trente: '30', thirty: '30', quarante: '40', forty: '40',
+        cinquante: '50', fifty: '50', soixante: '60', sixty: '60', cent: '100', hundred: '100',
+        mille: '1000', thousand: '1000',
+    };
+    const matches = [...withoutDates.matchAll(/\b(?:\d+(?:[.,]\d+)?|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|onze|douze|treize|quatorze|quinze|seize|vingt|trente|quarante|cinquante|soixante|cent|mille|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|twenty|thirty|forty|fifty|sixty|hundred|thousand)\b/g)];
+    return matches.map((match, index) => {
+        const nextIndex = matches[index + 1]?.index ?? withoutDates.length;
+        const followingText = withoutDates.slice(match.index + match[0].length, nextIndex);
+        const concept = [...getCvTranslationSemanticConcepts(followingText, { context: 'quantity' })]
+            .find((candidate) => !candidate.startsWith('literal:') && candidate !== 'management');
+        const number = numberValues[match[0]] || match[0].replace(',', '.');
+        return `${concept || `position:${index}`}:${number}`;
+    }).sort();
+};
+
+const getCvTranslationEducationTitle = (value = '') => {
+    const marker = /\b(?:association|organisme|centre de formation|training center|institut|institute|universite|university|ecole|school|lycee|college|academy)\b/;
+    return String(value || '')
+        .split(/\s+[|–—-]\s+/)
+        .map((chunk) => chunk.trim())
+        .filter(Boolean)
+        .filter((chunk, index) => {
+            if (getCvTranslationTemporalTokens(chunk).length) return false;
+            if (index === 0) return true;
+            const normalizedChunk = normalizeCvLanguageLineForMatch(chunk);
+            const properNameWords = chunk.match(/\b[A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÿ’'-]{2,}\b/g) || [];
+            return !marker.test(normalizedChunk) && properNameWords.length < 2;
+        })
+        .map((chunk) => normalizeCvLanguageLineForMatch(chunk))
+        .join(' ');
+};
+
+const assessCompleteCvTranslation = ({
+    cv = {},
+    sourceExtraction = {},
+    translatedExtraction = {},
+    sourceLanguage = '',
+    targetLanguage = '',
+} = {}) => {
+    const source = sourceExtraction && typeof sourceExtraction === 'object' ? sourceExtraction : {};
+    const translated = translatedExtraction && typeof translatedExtraction === 'object' ? translatedExtraction : {};
+    const exactIdentityFields = ['fullName', 'location', 'phone', 'email'];
+    const requiredTextFields = ['headline', 'summary'];
+    const collectionFields = ['skills', 'experiences', 'projects', 'education', 'certifications', 'activities', 'languages'];
+    const reject = (reason) => ({ status: CV_TRANSLATION_MISMATCH, reason, reviewPairs: [] });
+    const compareSemanticPair = (_id, sourceValue, translatedValue, context, options = {}) => {
+        const sourceKey = normalizeCvLanguageLineForMatch(sourceValue);
+        const translatedKey = normalizeCvLanguageLineForMatch(translatedValue);
+        if (sourceKey
+            && sourceKey === translatedKey
+            && sourceLanguage
+            && targetLanguage
+            && sourceLanguage !== targetLanguage
+            && !isNeutralUnchangedCvTranslationValue(sourceValue)) {
+            return false;
+        }
+        return getCvTranslationSemanticComparison(sourceValue, translatedValue, { context, ...options })
+            === CV_TRANSLATION_EQUIVALENT;
+    };
+
+    const preservesIdentity = exactIdentityFields.every((field) => {
+        const sourceValue = normalizeText(source[field] || '');
+        const translatedValue = normalizeText(translated[field] || '');
+        return sourceValue === translatedValue;
+    });
+    if (!preservesIdentity) return reject('identity');
+
+    const preservesRequiredText = requiredTextFields.every((field) =>
+        !normalizeText(source[field] || '') || Boolean(normalizeText(translated[field] || ''))
+    );
+    if (!preservesRequiredText) return reject('required_text');
+
+    const sourcePermit = normalizeText(source.permit || '');
+    const translatedPermit = normalizeText(translated.permit || '');
+    if (Boolean(sourcePermit) !== Boolean(translatedPermit)
+        || (sourcePermit && getCvTranslationPermitKey(sourcePermit) !== getCvTranslationPermitKey(translatedPermit))) {
+        return reject('permit');
+    }
+
+    const preservesCollectionShape = collectionFields.every((field) => {
+        const sourceItems = Array.isArray(source[field]) ? source[field] : [];
+        const translatedItems = Array.isArray(translated[field]) ? translated[field] : [];
+        return sourceItems.length === translatedItems.length;
+    });
+    if (!preservesCollectionShape) return reject('collection_shape');
+
+    const pairedCollectionFactsMatch = collectionFields.every((field) => {
+        const sourceItems = Array.isArray(source[field]) ? source[field] : [];
+        const translatedItems = Array.isArray(translated[field]) ? translated[field] : [];
+        return sourceItems.every((item, index) => {
+            const sourceValue = field === 'languages'
+                ? `${item && item.language || ''} ${item && item.level || ''}`
+                : item;
+            const translatedValue = field === 'languages'
+                ? `${translatedItems[index] && translatedItems[index].language || ''} ${translatedItems[index] && translatedItems[index].level || ''}`
+                : translatedItems[index];
+            return cvTokenListsEqual(getCvTranslationTemporalTokens(sourceValue), getCvTranslationTemporalTokens(translatedValue))
+                && cvTokenListsEqual(getCvTranslationQuantityConceptPairs(sourceValue), getCvTranslationQuantityConceptPairs(translatedValue));
+        });
+    });
+    if (!pairedCollectionFactsMatch) return reject('paired_facts');
+
+    const scalarSourceText = [source.headline, source.summary, source.permit].filter(Boolean).join('\n');
+    const scalarTranslatedText = [translated.headline, translated.summary, translated.permit].filter(Boolean).join('\n');
+    if (!cvTokenListsEqual(getCvTranslationTemporalTokens(scalarSourceText), getCvTranslationTemporalTokens(scalarTranslatedText))
+        || !cvTokenListsEqual(getCvTranslationQuantityConceptPairs(scalarSourceText), getCvTranslationQuantityConceptPairs(scalarTranslatedText))) {
+        return reject('scalar_facts');
+    }
+
+    if (!compareSemanticPair('headline', source.headline, translated.headline, 'headline')) {
+        return reject('headline_semantics');
+    }
+    if (!compareSemanticPair('summary', source.summary, translated.summary, 'summary')) {
+        return reject('summary_semantics');
+    }
+
+    const invalidSkillIndex = (source.skills || []).findIndex((skill, index) =>
+        !compareSemanticPair(`skills.${index}`, skill, (translated.skills || [])[index], 'skill')
+    );
+    if (invalidSkillIndex >= 0) return reject(`skill_semantics:${invalidSkillIndex}`);
+
+    // Les employeurs et organismes sont des faits, pas du contenu à traduire.
+    // Leur présence au même index protège aussi l'ordre des expériences.
+    const sourceExperiences = (Array.isArray(source.experiences) ? source.experiences : []).map(parseCvDocumentExperience);
+    const translatedExperiences = Array.isArray(translated.experiences) ? translated.experiences : [];
+    let experienceFailure = '';
+    const preservesExperienceOrder = sourceExperiences.every((entry, index) => {
+        const translatedEntry = parseCvDocumentExperience(translatedExperiences[index] || '', index);
+        const sourceOrganization = getCvTranslationOrganizationAnchor(entry && entry.organization);
+        const translatedOrganization = getCvTranslationOrganizationAnchor(translatedEntry && translatedEntry.organization);
+        if (sourceOrganization !== translatedOrganization) {
+            experienceFailure = `${index}:organization`;
+            return false;
+        }
+        if (!cvTokenListsEqual(
+            getCvTranslationContractKeys(entry && entry.sourceLine),
+            getCvTranslationContractKeys(translatedEntry && translatedEntry.sourceLine),
+        )) {
+            experienceFailure = `${index}:contract`;
+            return false;
+        }
+        const titleContextConcepts = getCvTranslationSemanticConcepts(
+            [source.headline, entry && entry.organization].filter(Boolean).join(' '),
+            { context: 'experience-title' },
+        );
+        const sourceTitleConcepts = getCvTranslationSemanticConcepts(entry && entry.title, { context: 'experience-title' });
+        const allowedTitleQualifiers = new Set();
+        // Relation bornée : « Hotel receptionist » précise naturellement
+        // « Réceptionniste » quand l'hôtellerie est déjà factuelle. Aucun
+        // autre concept du titre global ne se propage aux anciens postes.
+        if ((sourceTitleConcepts.has('receptionist') || sourceTitleConcepts.has('reception'))
+            && titleContextConcepts.has('hospitality')) {
+            allowedTitleQualifiers.add('hospitality');
+        }
+        if (!compareSemanticPair(
+            `experiences.${index}.title`,
+            entry && entry.title,
+            translatedEntry && translatedEntry.title,
+            'experience-title',
+            {
+            allowedTranslatedConcepts: allowedTitleQualifiers,
+            },
+        )) {
+            experienceFailure = `${index}:title`;
+            return false;
+        }
+        const sourceMissions = Array.isArray(entry && entry.missions) ? entry.missions : [];
+        const translatedMissions = Array.isArray(translatedEntry && translatedEntry.missions) ? translatedEntry.missions : [];
+        if (sourceMissions.length !== translatedMissions.length) {
+            experienceFailure = `${index}:mission_shape`;
+            return false;
+        }
+        const invalidMissionIndex = sourceMissions.findIndex((mission, missionIndex) =>
+            !compareSemanticPair(
+                    `experiences.${index}.missions.${missionIndex}`,
+                    mission,
+                    translatedMissions[missionIndex],
+                    'experience-mission',
+                )
+        );
+        if (invalidMissionIndex >= 0) {
+            experienceFailure = `${index}:mission:${invalidMissionIndex}`;
+            return false;
+        }
+        return true;
+    });
+    if (!preservesExperienceOrder) return reject(`experience_semantics:${experienceFailure || 'unknown'}`);
+
+    const preservesInstitutionAnchors = ['education', 'certifications'].every((field) => {
+        const sourceItems = Array.isArray(source[field]) ? source[field] : [];
+        const translatedItems = Array.isArray(translated[field]) ? translated[field] : [];
+        return sourceItems.every((item, index) => {
+            const sourceAnchors = getCvTranslationInstitutionAnchors(item).map((anchor) => anchor.join(' ')).sort();
+            const translatedAnchors = getCvTranslationInstitutionAnchors(translatedItems[index]).map((anchor) => anchor.join(' ')).sort();
+            if (!cvTokenListsEqual(sourceAnchors, translatedAnchors)) return false;
+            return compareSemanticPair(
+                `${field}.${index}`,
+                getCvTranslationEducationTitle(item),
+                getCvTranslationEducationTitle(translatedItems[index]),
+                'education',
+            );
+        });
+    });
+    if (!preservesInstitutionAnchors) return reject('education_semantics');
+
+    const preservesOtherCollectionSemantics = ['projects', 'activities'].every((field) =>
+        (source[field] || []).every((item, index) =>
+            compareSemanticPair(`${field}.${index}`, item, (translated[field] || [])[index], field)
+        )
+    );
+    if (!preservesOtherCollectionSemantics) return reject('collection_semantics');
+
+    const preservesLanguages = (source.languages || []).every((language, index) => {
+        const translatedLanguage = (translated.languages || [])[index] || {};
+        return getCvTranslationLanguageNameKey(language && language.language)
+                === getCvTranslationLanguageNameKey(translatedLanguage.language)
+            && getCvTranslationLanguageLevelKey(language && language.level)
+                === getCvTranslationLanguageLevelKey(translatedLanguage.level);
+    });
+    if (!preservesLanguages) return reject('languages');
+
+    if (hasCvTranslationSourceLanguageResidue(translated, targetLanguage)) return reject('source_language_residue');
+    const detectedLanguage = detectCvDocumentLanguageSignal({
+        headline: translated.headline,
+        summary: translated.summary,
+        skills: (translated.skills || []).join('\n'),
+        experience: (translated.experiences || []).join('\n'),
+        projects: (translated.projects || []).join('\n'),
+        education: [...(translated.education || []), ...(translated.certifications || [])].join('\n'),
+        languages: (translated.languages || []).map((item) => `${item.language || ''} ${item.level || ''}`).join('\n'),
+        activities: (translated.activities || []).join('\n'),
+    });
+    if (detectedLanguage !== targetLanguage) return reject('target_language');
+    return { status: CV_TRANSLATION_EQUIVALENT, reviewPairs: [] };
+};
+
 const ensureCompleteCvAssistantResult = ({ result, cv, task, jobOffer, instruction, documentText = '', documentLanguage = '', interaction = null }) => {
     const assistantResult = finalizeCvAssistantResult({ result, cv, task, jobOffer, instruction, interaction });
     if (!isFullCvBuildRequest({ task, instruction })) return assistantResult;
 
-    const outputLanguage = normalizeCvDocumentLanguage(documentLanguage) || getCvOutputLanguage({ cv, instruction });
-    const sourceExtraction = buildCvSourceExtraction({ cv, instruction, documentText, task, documentLanguage: outputLanguage });
-    const extracted = mergeCvExtractionWithSource(assistantResult.extracted, sourceExtraction);
+    const translationLanguage = getFullCvTranslationLanguage(instruction);
+    const sourceLanguage = normalizeCvDocumentLanguage(documentLanguage)
+        || detectCvDocumentLanguage(cv, documentText);
+    const outputLanguage = translationLanguage
+        || getCvOutputLanguage({ cv, instruction })
+        || sourceLanguage;
+    const sourceExtraction = buildCvSourceExtraction({ cv, instruction, documentText, task, documentLanguage: sourceLanguage });
+    const extracted = translationLanguage
+        ? assistantResult.extracted
+        : mergeCvExtractionWithSource(assistantResult.extracted, sourceExtraction);
+    if (translationLanguage) {
+        const assessment = assessCompleteCvTranslation({
+            cv,
+            sourceExtraction,
+            translatedExtraction: extracted,
+            sourceLanguage,
+            targetLanguage: translationLanguage,
+        });
+        if (assessment.status !== CV_TRANSLATION_EQUIVALENT) {
+            const error = new Error('incomplete_cv_translation');
+            error.code = 'incomplete_cv_translation';
+            error.validationReason = assessment.reason;
+            throw error;
+        }
+    }
     if (task === 'autofill' || task === 'create') {
         extracted.experiences = sortCvExperiencesNewestFirst(extracted.experiences);
     }
-    const skills = preferCompleteCvList(assistantResult.skills, extracted.skills);
-    const languages = preferCompleteCvList(assistantResult.languages, extracted.languages);
+    const skills = translationLanguage
+        ? extracted.skills
+        : preferCompleteCvList(assistantResult.skills, extracted.skills);
+    const languages = translationLanguage
+        ? extracted.languages
+        : preferCompleteCvList(assistantResult.languages, extracted.languages);
     const completenessFix = outputLanguage === 'en'
         ? 'All source sections were preserved for the final layout.'
         : 'Toutes les rubriques sources sont conservées pour la mise en page finale.';
@@ -12095,14 +13004,27 @@ const ensureCompleteCvAssistantResult = ({ result, cv, task, jobOffer, instructi
     return {
         ...assistantResult,
         documentLanguage: outputLanguage,
-        headline: assistantResult.headline || extracted.headline,
-        summary: assistantResult.summary || extracted.summary,
+        headline: translationLanguage ? extracted.headline : assistantResult.headline || extracted.headline,
+        summary: translationLanguage ? extracted.summary : assistantResult.summary || extracted.summary,
         skills,
-        experienceOrder: task === 'autofill' || task === 'create'
+        experienceOrder: translationLanguage || task === 'autofill' || task === 'create'
             ? getCvExperienceTitles(extracted.experiences.join('\n'))
             : assistantResult.experienceOrder,
         languages,
         extracted,
+        jobTarget: translationLanguage ? extracted.headline : assistantResult.jobTarget,
+        operations: translationLanguage ? [] : assistantResult.operations,
+        operationSafety: translationLanguage
+            ? { targetedRequest: false, filteredAll: false, rejectedCount: 0 }
+            : assistantResult.operationSafety,
+        ...(translationLanguage ? {
+            documentReplacement: {
+                type: 'translation',
+                sourceLanguage,
+                targetLanguage: translationLanguage,
+                complete: true,
+            },
+        } : {}),
         quality: {
             ...assistantResult.quality,
             fixes: toCvStringList([...(assistantResult.quality?.fixes || []), completenessFix], 5, 160),
@@ -12598,8 +13520,12 @@ const enhanceCvGapDrafts = (assistantResult, { cv = {}, instruction = '', jobOff
         ...(shouldEnhanceDigitalProject ? digitalProjectExperienceDetails.skills : []),
         ...educationSuggestions.flatMap((education) => education.skills || []),
     ]) : [];
-    const requestedLanguages = getCvLanguagesFromText(instruction, documentLanguage)
-        .filter((language) => Boolean(language.level));
+    // Dans une traduction complète, « anglais » / « English » désigne la
+    // langue cible du document, pas une langue parlée à ajouter au CV.
+    const requestedLanguages = getFullCvTranslationLanguage(instruction)
+        ? []
+        : getCvLanguagesFromText(instruction, documentLanguage)
+            .filter((language) => Boolean(language.level));
     const languagesByKey = new Map(
         [
             ...(result.languages || []),
@@ -12816,6 +13742,9 @@ const buildOpenAiCvPrompt = ({ task, cv, jobOffer, instruction, documentText, do
     'Pour un deplacement avant/apres une autre experience explicitement demande, retourne une seule operation reorder_experiences avec position.before ou position.after.',
     'Pour changer l ordre des competences, retourne une operation reorder_skills avec field skills et items contenant la liste finale complete. Ne supprime aucune competence qui n est pas explicitement retiree.',
     'Pour ajouter une nouvelle competence explicitement citee, retourne une seule operation add_skill avec field skills et value egale a cette nouvelle ligne mot pour mot. Ne mets pas les competences existantes dans value et n utilise ni set_field ni replace_text pour cet ajout.',
+    getFullCvTranslationLanguage(instruction)
+        ? `TRADUCTION COMPLETE DU CV : retourne l integralite du document dans extracted en ${getFullCvTranslationLanguage(instruction) === 'en' ? 'anglais' : 'francais'}, dans le meme ordre et avec exactement le meme nombre d experiences, competences, projets, formations, certifications, activites et langues que la source. Conserve strictement le nom, les coordonnees, les employeurs, organismes, dates, nombres et niveaux. Traduis le titre, le profil, les missions, competences, formations, activites ainsi que les noms et niveaux de langues. Remplace la version source : ne melange et ne duplique jamais les deux langues. Laisse operations vide ; une traduction complete est appliquee atomiquement depuis extracted.`
+        : '',
     'Pour une correction ciblee de phrase, ligne, date ou intitule, retourne uniquement l operation correspondante. Ne remplis pas headline, summary, skills, generatedExperiences, educationSuggestions, layout ou experienceOrder si ces champs ne sont pas demandes.',
     'Correction de date atomique : reconnais comme equivalents les mois complets et abreges, avec ou sans point, accent ou majuscule (janvier/janv., fevrier/févr., aout/août, septembre/sept.). Une annee seule remplace uniquement l annee et conserve le mois ; un mois seul conserve l annee ; une date mois + annee remplace les deux. Dans une periode, debut/start cible la premiere borne et fin/end la seconde. Pour une experience non ambigue, retourne une seule update_experience_date avec target.currentValue = periode actuelle complete et value = periode finale complete. Pour une formation, un diplome, une certification, des etudes, un cursus, un training, un course ou un degree non ambigu, retourne une seule replace_text avec field education, target.title = intitule reel de la ligne, target.currentValue = date source exacte et value = date de remplacement. Pour un projet non ambigu, utilise le meme contrat avec field projects. Recopie mot pour mot chaque fragment non vise ; ne trie, ne reformate et ne recompose aucune ligne. Ne retourne ni normalize_experience_dates, sort_experiences, reorder_experiences, experienceOrder, ni changement de layout. Si la date correspond a plusieurs lignes de la rubrique ciblee sans cible unique, laisse operations vide et demande l intitule exact de cette rubrique dans notice. Ne demande jamais un poste ou une entreprise lorsque la rubrique ciblee est education.',
     interaction && interaction.lastEdit
@@ -15016,6 +15945,7 @@ module.exports = async (request, response) => {
             console.error('Kirby CV OpenAI failed:', {
                 code: fallbackReason,
                 statuses: error && error.statuses ? error.statuses : undefined,
+                validationReason: error && error.validationReason ? error.validationReason : undefined,
             });
         }
 

@@ -5579,7 +5579,7 @@ const getLanguageSourceEntries = () => {
         );
 };
 
-const renderLanguageEditor = () => {
+const renderLanguageEditor = (options = {}) => {
     if (!languageCards || !getLanguageField() || isSyncingLanguageEditor) {
         return;
     }
@@ -5589,7 +5589,13 @@ const renderLanguageEditor = () => {
     const entries = getLanguageSourceEntries();
     const normalizedValue = entries.map(serializeLanguageEntry).filter(Boolean).join('\n');
     const languageField = getLanguageField();
-    const didNormalizeLanguageValue = Boolean(languageField && normalizedValue && normalizedValue !== languageField.value.trim());
+    const shouldNormalizeField = options?.normalizeField !== false;
+    const didNormalizeLanguageValue = Boolean(
+        shouldNormalizeField
+        && languageField
+        && normalizedValue
+        && normalizedValue !== languageField.value.trim()
+    );
     if (didNormalizeLanguageValue) {
         languageField.value = normalizedValue;
     }
@@ -12682,11 +12688,11 @@ const appendAssistantMessage = (text, role) => {
     return item;
 };
 
-const getKirbyCvSource = () => {
+const getKirbyCvSource = ({ includeDisplayedValues = false } = {}) => {
     const values = cvForm ? Object.fromEntries(new FormData(cvForm).entries()) : {};
     const cleanValue = (name) => {
         const value = values[name] || '';
-        return isDefaultCvFieldValue(name, value) ? '' : value;
+        return !includeDisplayedValues && isDefaultCvFieldValue(name, value) ? '' : value;
     };
 
     return {
@@ -12842,7 +12848,9 @@ const requestKirbyCvAssistant = async ({
                 jobOffer: typeof jobOffer === 'string' ? jobOffer : jobOfferField?.value || '',
                 instruction,
                 documentText: typeof documentText === 'string' ? documentText : '',
-                documentLanguage: documentLanguage === 'en' ? 'en' : documentLanguage === 'fr' ? 'fr' : '',
+                documentLanguage: documentLanguage === 'en' || documentLanguage === 'fr'
+                    ? documentLanguage
+                    : currentCvContentLocale === 'en' ? 'en' : 'fr',
                 sourceKind: sourceKind === 'narrative' ? 'narrative' : sourceKind === 'document' ? 'document' : '',
                 letter: getKirbyLetterSource(),
                 interaction: interaction && typeof interaction === 'object'
@@ -13071,7 +13079,76 @@ const isCvSinglePageRequest = (message = '') => {
 const hasLanguageNameInInstruction = (message = '') =>
     /\b(francais|français|anglais|arabe|espagnol|italien|allemand|portugais|french|english|arabic|spanish|italian|german|portuguese)\b/i.test(message);
 
+const isNonCommandCvTranslationQuestion = (message = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(message))
+        .replace(/[’']/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    return /^(?:comment(?:\s+(?:faire\s+pour|puis(?:-|\s+)je|peut(?:-|\s+)on))?|how\s+(?:do|can|could|would|should)\s+(?:i|we|one)|pourquoi|why|faut(?:-|\s+)il|dois(?:-|\s+)je|devrais(?:-|\s+)je|should\s+i|puis(?:-|\s+)je|may\s+i|can\s+i|est(?:-|\s+)ce que je peux)\b[\s\S]{0,220}\b(?:tradui(?:s|t|re|sez|sons)|translat(?:e|es|ed|ing)|remplac(?:e|er|ez|ons)|replac(?:e|es|ed|ing)|converti(?:s|t|r|ssez|ssons)|convert(?:s|ed|ing)?|met(?:s|tez|tons|tre)|put)\b/.test(source);
+};
+
+const getFullCvTranslationLocale = (message = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(message))
+        .replace(/[’']/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!source) {
+        return '';
+    }
+
+    if (isNonCommandCvTranslationQuestion(message)) {
+        return '';
+    }
+
+    const negated = /\bne\b.{0,32}\b(?:tradui(?:s|t|re|sez|sons)|remplac(?:e|er|ez|ons)|converti(?:s|t|r|ssez|ssons)|met(?:s|tez|tons|tre))\b.{0,24}\b(?:pas|plus|jamais)\b/.test(source)
+        || /\b(?:do not|don t|dont|never)\b.{0,24}\b(?:translate|replace|convert)\b/.test(source);
+    if (negated) {
+        return '';
+    }
+
+    const action = '(?:tradui(?:s|t|re|sez|sons)|translat(?:e|es|ed|ing)|remplac(?:e|er|ez|ons)|replac(?:e|es|ed|ing)|converti(?:s|t|r|ssez|ssons)|convert(?:s|ed|ing)?|met(?:s|tez|tons|tre)|put)';
+    const cvTarget = '(?:(?:(?:tout|toute|entier|entiere|complet|complete|whole|entire)\\s+(?:(?:le|la|mon|ma|the|my)\\s+)?|(?:(?:le|la|mon|ma|the|my)\\s+)(?:(?:tout|toute|entier|entiere|complet|complete|whole|entire)\\s+)?))?(?:cv|curriculum vitae|document)(?:\\s+(?:entier|entiere|complet|complete|whole|entire))?';
+    const targetedScope = '(?:profil|profile|accroche|summary|titre|headline|competence|competences|skills?|experience|experiences|formation|formations|education|langue|langues|languages?|activite|activites|activities|date|dates|coordonnees|contact|rubrique|section|champ|field|ligne|line)';
+    const limitsTranslationToOneScope = new RegExp(
+        `\\b(?:uniquement|seulement|juste|only|just)\\b[^.;!?]{0,72}\\b${targetedScope}\\b|\\b${targetedScope}\\b[^.;!?]{0,72}\\b(?:uniquement|seulement|juste|only|just)\\b`
+    ).test(source);
+    const targetsNamedScopeOfCv = new RegExp(
+        `\\b${action}\\b[^.;!?]{0,64}\\b${targetedScope}\\b[^.;!?]{0,64}\\b(?:de|du|dans|of|in)\\s+(?:(?:le|la|mon|ma|the|my)\\s+)?(?:cv|curriculum vitae|document)\\b`
+    ).test(source);
+    const targetsNamedScopeBeforeCv = new RegExp(
+        `\\b${action}\\b[^.;!?]{0,100}\\b${targetedScope}\\b[^.;!?]{0,120}\\b(?:cv|curriculum vitae|document)\\b`
+    ).test(source);
+    const targetsEverySection = new RegExp(
+        `\\b${action}\\b[^.;!?]{0,100}\\b(?:toutes?\\s+(?:les\\s+)?|all\\s+|every\\s+)(?:rubriques?|sections?)\\b[^.;!?]{0,100}\\b(?:cv|curriculum vitae|document)\\b`
+    ).test(source);
+    if (limitsTranslationToOneScope || targetsNamedScopeOfCv || (targetsNamedScopeBeforeCv && !targetsEverySection)) {
+        return '';
+    }
+
+    const targetsWholeCv = new RegExp(`\\b${action}\\b[^.;!?]{0,100}\\b${cvTarget}\\b`).test(source)
+        || new RegExp(`\\b(?:cv|curriculum vitae|document)\\b[^.;!?]{0,80}\\b${action}\\b[^.;!?]{0,48}\\b(?:tout|toute|entierement|completement|fully|entirely)\\b`).test(source)
+        || /\b(?:refais|refaire|reconstruis|reconstruire|rebuild|recreate|redo)\b[^.;!?]{0,100}\b(?:tout|toute|entier|entiere|complet|complete|whole|entire)\s+(?:(?:le|la|mon|ma|the|my)\s+)?(?:cv|curriculum vitae|document)\b[^.;!?]{0,80}\b(?:tradui(?:s|t|re|sez)|translat(?:e|es|ed|ing))\b/.test(source)
+        || /\b(?:version\s+(?:(?:en|in)\s+)?(?:anglaise?|anglais|english|francaise?|francais|french)|(?:english|french)\s+version)\b[^.;!?]{0,80}\b(?:de|du|of)\s+(?:(?:mon|le|the|my)\s+)?(?:cv|curriculum vitae|document)\b/.test(source);
+    if (!targetsWholeCv) {
+        return '';
+    }
+
+    if (/\b(?:en|vers|into|to|in)\s+(?:anglais|english)\b|\b(?:version\s+(?:(?:en|in)\s+)?(?:anglaise?|anglais|english)|english version)\b/.test(source)) {
+        return 'en';
+    }
+    if (/\b(?:en|vers|into|to|in)\s+(?:francais|french)\b|\b(?:version\s+(?:(?:en|in)\s+)?(?:francaise?|francais|french)|french version)\b/.test(source)) {
+        return 'fr';
+    }
+    return '';
+};
+
+const isFullCvTranslationRequest = (message = '') => Boolean(getFullCvTranslationLocale(message));
+
 const isLanguageFocusedInstruction = (message = '') => {
+    if (isFullCvTranslationRequest(message)) {
+        return false;
+    }
     const source = normalizeForMatch(getKirbyUserInstruction(message));
     const hasLanguageSignal = /\b(langue|langues|francais|anglais|arabe|espagnol|italien|allemand|portugais|french|english|arabic|spanish|italian|german|portuguese|native|basic|beginner|elementary|intermediate|fluent|notions?|courant|bilingue)\b/.test(source);
     const hasOtherCvScope = /\b(experience|experiences|poste|mission|missions|formation|formations|certification|certifications|ecole|universite|projet|projets|competence|competences|trou|periode|periode vide|autoformation|cv pret|pret a l emploi|pret a l'emploi)\b/.test(source);
@@ -13360,7 +13437,9 @@ const shouldNormalizeCurrentHeadlineCase = (message = '') => {
 
 const getExplicitHeadlineFromInstruction = (message = '') => {
     const instruction = getKirbyUserInstruction(message).trim();
-    if (!instruction) {
+    if (!instruction
+        || isFullCvTranslationRequest(instruction)
+        || isNonCommandCvTranslationQuestion(instruction)) {
         return '';
     }
 
@@ -13444,6 +13523,10 @@ const hasConcreteKirbyCvEditIntent = (message = '') => {
     }
 
     if (isCvSinglePageRequest(instruction)) {
+        return true;
+    }
+
+    if (isFullCvTranslationRequest(instruction)) {
         return true;
     }
 
@@ -13839,7 +13922,142 @@ const getQuickLanguageCorrections = (message = '') => {
     return [...corrections.values()];
 };
 
+const KIRBY_LANGUAGE_NAME_PATTERN = '(?:fran[cç]ais|anglais|arabe|espagnol|italien|allemand|portugais|french|english|arabic|spanish|italian|german|portuguese)';
+
+const getExactLanguageLineKey = (value = '') => normalizeForMatch(String(value || ''))
+    .replace(/[‐‑‒–—-]/g, ':')
+    .replace(/\s*:\s*/g, ':')
+    .replace(/[.!?]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const isCompleteLanguageLine = (value = '') => {
+    const parts = String(value || '').split(/\s*[:‐‑‒–—-]\s*/);
+    return parts.length >= 2 && Boolean(parts[0]?.trim()) && Boolean(parts.slice(1).join(' ').trim());
+};
+
+const getQuotedKirbyValues = (value = '') => [
+    ...String(value || '').matchAll(/[«“"]([^»”"]+)[»”"]/g),
+].map((match) => match[1]?.trim()).filter(Boolean);
+
+const getExplicitLanguageMutationIntent = (message = '') => {
+    const rawInstruction = stripDirectionalFormatting(getKirbyUserInstruction(message)).trim();
+    const affirmativeInstruction = getAffirmativeKirbyInstruction(rawInstruction);
+    const source = normalizeForMatch(affirmativeInstruction)
+        .replace(/[’']/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!source || !new RegExp(`\\b(?:langue|langues|language|languages|${KIRBY_LANGUAGE_NAME_PATTERN})\\b`, 'i').test(source)) {
+        return null;
+    }
+
+    const nonCommandQuestion = new RegExp(
+        `^(?:comment(?:\\s+(?:faire\\s+pour|puis(?:-|\\s+)je|peut(?:-|\\s+)on))?|how\\s+(?:do|can|could|would|should)\\s+(?:i|we|one)|pourquoi|why|faut(?:-|\\s+)il|dois(?:-|\\s+)je|devrais(?:-|\\s+)je|puis(?:-|\\s+)je|may\\s+i|can\\s+i|est(?:-|\\s+)ce que je peux)\\b[\\s\\S]{0,220}\\b(?:conserve|conserver|garde|garder|keep|retain|supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|remove|delete)\\b`
+    ).test(source);
+    if (nonCommandQuestion) {
+        return { type: 'non_command' };
+    }
+
+    const keepsOnly = /\b(?:conserve|conserver|gard(?:e|er)|keep|retain)\b/.test(source)
+        && /\b(?:uniquement|seulement|exclusivement|only)\b/.test(source);
+    if (keepsOnly) {
+        const quotedLines = getQuotedKirbyValues(affirmativeInstruction)
+            .map((line) => line.replace(/^[•*-]\s*/, '').trim())
+            .filter(isCompleteLanguageLine);
+        const unquotedLinePattern = new RegExp(
+            `\\b(${KIRBY_LANGUAGE_NAME_PATTERN})\\s*[:‐‑‒–—-]\\s*([^.;\\n]+?)(?=\\s+(?:et|and)\\s+(?=${KIRBY_LANGUAGE_NAME_PATTERN}\\s*[:‐‑‒–—-])|\\s+(?:supprime|supprimer|retire|retirer|remove|delete)\\b|[.;\\n]|$)`,
+            'gi'
+        );
+        const unquotedLines = [...affirmativeInstruction.matchAll(unquotedLinePattern)]
+            .map((match) => `${match[1].trim()} : ${match[2].trim()}`)
+            .filter(isCompleteLanguageLine);
+        const lines = quotedLines.length ? quotedLines : unquotedLines;
+        const uniqueLines = lines.filter((line, index) =>
+            lines.findIndex((candidate) => getExactLanguageLineKey(candidate) === getExactLanguageLineKey(line)) === index
+        );
+        return uniqueLines.length
+            ? { type: 'retain_only', lines: uniqueLines }
+            : { type: 'retain_only', lines: [], invalid: true };
+    }
+
+    const removesLine = /\b(?:supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|remove|delete)\b/.test(source);
+    if (!removesLine) {
+        return null;
+    }
+
+    const quotedTarget = getQuotedKirbyValues(affirmativeInstruction).find(isCompleteLanguageLine) || '';
+    const unquotedPattern = new RegExp(
+        `\\b(${KIRBY_LANGUAGE_NAME_PATTERN})\\s*([:‐‑‒–—-])\\s*([^.;\\n]+?)(?=\\s+(?:dans|de|du|from|in)\\s+(?:(?:la|le|les|the)\\s+)?(?:rubrique|section|langues?|languages?)\\b|[.;\\n]|$)`,
+        'i'
+    );
+    const unquotedMatch = affirmativeInstruction.match(unquotedPattern);
+    const target = quotedTarget || (unquotedMatch
+        ? `${unquotedMatch[1].trim()} : ${unquotedMatch[3].trim()}`
+        : '');
+
+    return target ? { type: 'remove_exact', target } : null;
+};
+
+const applyQuickExplicitLanguageMutation = (message = '') => {
+    const intent = getExplicitLanguageMutationIntent(message);
+    const field = getLanguageField();
+    if (!intent) {
+        return '';
+    }
+    if (!field) {
+        return 'Je n’ai rien modifié : la rubrique LANGUES est indisponible dans le CV affiché.';
+    }
+    if (intent.type === 'non_command') {
+        return 'Je n’ai rien modifié : cette formulation pose une question, pas une commande sur LANGUES.';
+    }
+    if (intent.invalid) {
+        return 'Je n’ai rien modifié : citez chaque langue et son niveau exacts à conserver dans LANGUES.';
+    }
+
+    if (intent.type === 'retain_only') {
+        const nextValue = intent.lines.join('\n');
+        if (field.value === nextValue) {
+            return `Les seules langues demandées sont déjà présentes : ${intent.lines.join(', ')}. Le CV est resté inchangé.`;
+        }
+        const beforeState = getCvHistoryState();
+        field.value = nextValue;
+        clearEditableOverride('languages');
+        renderLanguageEditor({ normalizeField: false });
+        updateCvPreview({ preserveDensity: true });
+        commitCvHistoryTransition(beforeState);
+        scheduleCvDraftSave();
+        setCvStatus('Langues conservées');
+        return `Langues conservées uniquement : ${intent.lines.join(', ')}. Aucun autre contenu n’a été modifié.`;
+    }
+
+    const targetKey = getExactLanguageLineKey(intent.target);
+    const sourceLines = String(field.value || '').split(/\r?\n/);
+    const matchingLines = sourceLines.filter((line) => getExactLanguageLineKey(line) === targetKey);
+    if (!matchingLines.length) {
+        hideKirbyCvProposal();
+        setCvStatus('Langue introuvable : CV inchangé');
+        return `Je n’ai rien modifié : « ${intent.target} » n’est pas présente exactement dans LANGUES. Vous pouvez envoyer une nouvelle commande immédiatement.`;
+    }
+
+    const beforeState = getCvHistoryState();
+    field.value = sourceLines
+        .filter((line) => getExactLanguageLineKey(line) !== targetKey)
+        .join('\n')
+        .replace(/^\n+|\n+$/g, '');
+    clearEditableOverride('languages');
+    renderLanguageEditor({ normalizeField: false });
+    updateCvPreview({ preserveDensity: true });
+    commitCvHistoryTransition(beforeState);
+    scheduleCvDraftSave();
+    setCvStatus('Langue supprimée');
+    return `Langue supprimée : « ${matchingLines[0].trim()} ». Aucun autre contenu n’a été modifié.`;
+};
+
 const applyQuickLanguageCorrections = (message = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(message));
+    if (/\b(?:supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|remove|delete|conserve|conserver|garde|garder|keep|retain)\b/.test(source)) {
+        return '';
+    }
     const corrections = getQuickLanguageCorrections(message);
     if (!corrections.length || !cvForm) {
         return '';
@@ -16275,7 +16493,7 @@ const getExplicitSkillAdditionIntent = (message = '') => {
         || /\bje\s+pourrais\s+(?:ajouter|rajouter|inserer)\b/.test(instructionSource)
         || /\bi\s+(?:could|would)\s+(?:add|insert)\b/.test(instructionSource)
     );
-    const nonCommandQuestion = explicitlyTargetsSkills && /^(?:pourquoi|why|faut(?:-|\s+)il|dois(?:-|\s+)je|devrais(?:-|\s+)je|should\s+i|puis(?:-|\s+)je|may\s+i|can\s+i)\b[\s\S]{0,180}\b(?:ajout|inser|add|insert)/.test(instructionSource);
+    const nonCommandQuestion = explicitlyTargetsSkills && /^(?:comment(?:\s+(?:faire\s+pour|puis(?:-|\s+)je|peut(?:-|\s+)on))?|how\s+(?:do|can|could|would|should)\s+(?:i|we|one)|pourquoi|why|faut(?:-|\s+)il|dois(?:-|\s+)je|devrais(?:-|\s+)je|should\s+i|puis(?:-|\s+)je|may\s+i|can\s+i)\b[\s\S]{0,180}\b(?:ajout|inser|add|insert)/.test(instructionSource);
     if (negatesAddition || hypotheticalAddition || nonCommandQuestion) {
         return {
             matched: true,
@@ -16387,6 +16605,11 @@ const applyQuickKirbyCorrection = (message = '') => {
         return explicitSkillAdditionReply;
     }
 
+    const explicitLanguageMutationReply = applyQuickExplicitLanguageMutation(message);
+    if (explicitLanguageMutationReply) {
+        return explicitLanguageMutationReply;
+    }
+
     const explicitHeadlineReply = applyQuickExplicitHeadlineCorrection(message);
     if (explicitHeadlineReply) {
         return explicitHeadlineReply;
@@ -16419,7 +16642,7 @@ const applyQuickKirbyCorrection = (message = '') => {
 };
 
 const isQuickKirbyMutationReply = (reply = '') =>
-    /^(CV corrigé|CV complété|Coordonnées mises à jour|Langues mises à jour|Compétence ajoutée|Titre appliqué|Titre mis à jour|Profil raccourci|Date mise à jour|Mois retirés|Expériences rangées|Mention supprimée|Doublons supprimés|Expérience supprimée|CV recentré)/i.test(String(reply || '').trim());
+    /^(CV corrigé|CV complété|Coordonnées mises à jour|Langues mises à jour|Langues conservées|Langue supprimée|Compétence ajoutée|Titre appliqué|Titre mis à jour|Profil raccourci|Date mise à jour|Mois retirés|Expériences rangées|Mention supprimée|Doublons supprimés|Expérience supprimée|CV recentré)/i.test(String(reply || '').trim());
 
 const reorderExistingExperiences = (order = []) => {
     const field = getExperienceField();
@@ -17075,12 +17298,28 @@ const formatKirbyBugReportReply = (report = {}) => [
     report.expectedAction ? `Action attendue : ${report.expectedAction}.` : '',
 ].filter(Boolean).join(' ');
 
-const getOperationTargetText = (operation = {}) => [
-    operation.target?.label,
-    operation.target?.title,
-    operation.target?.organization,
-    operation.target?.currentValue,
-].filter(Boolean).join(' ');
+const getOperationTargetText = (operation = {}) => {
+    const currentValue = String(operation.target?.currentValue || '').trim();
+    if (currentValue
+        && operation.field === 'languages'
+        && ['replace_text', 'remove_text'].includes(operation.type)) {
+        return currentValue;
+    }
+
+    const parts = [
+        operation.target?.label,
+        operation.target?.title,
+        operation.target?.organization,
+        currentValue,
+    ].map((part) => String(part || '').trim()).filter(Boolean);
+
+    return parts.filter((part, index) => {
+        const key = normalizeForMatch(part).replace(/\s+/g, ' ').trim();
+        return key && parts.findIndex((candidate) =>
+            normalizeForMatch(candidate).replace(/\s+/g, ' ').trim() === key
+        ) === index;
+    }).join(' ');
+};
 
 const getOperationTargetScore = (entry = {}, operation = {}) => {
     const target = normalizeForMatch(getOperationTargetText(operation));
@@ -18200,6 +18439,120 @@ const getKirbyApplyFailureReply = (result = {}, instruction = '') => {
     return reply;
 };
 
+const getFullCvTranslationExtractionIssue = (extracted = {}, sourceCv = {}) => {
+    if (!extracted || typeof extracted !== 'object') {
+        return 'résultat structuré absent';
+    }
+
+    const scalarFields = ['fullName', 'location', 'phone', 'email', 'permit', 'headline', 'summary'];
+    for (const fieldName of scalarFields) {
+        const sourceValue = String(sourceCv?.[fieldName] || '').trim();
+        const translatedValue = String(extracted?.[fieldName] || '').trim();
+        if (Boolean(sourceValue) !== Boolean(translatedValue)) {
+            return `rubrique ${fieldName} ajoutée ou perdue`;
+        }
+    }
+
+    const immutableComparators = {
+        fullName: (value) => normalizeForMatch(value).replace(/\s+/g, ' ').trim(),
+        location: (value) => normalizeForMatch(value).replace(/\s+/g, ' ').trim(),
+        phone: (value) => String(value || '').replace(/\D/g, ''),
+        email: (value) => String(value || '').trim().toLowerCase(),
+    };
+    for (const [fieldName, normalizeValue] of Object.entries(immutableComparators)) {
+        const sourceValue = String(sourceCv?.[fieldName] || '').trim();
+        if (sourceValue && normalizeValue(sourceValue) !== normalizeValue(extracted?.[fieldName])) {
+            return `information factuelle ${fieldName} modifiée`;
+        }
+    }
+
+    const translatedLists = {
+        skills: getImportedExtractionList(extracted, 'skills'),
+        experience: getImportedExtractionList(
+            { experiences: extracted.experiences ?? extracted.experience },
+            'experiences'
+        ),
+        projects: getImportedExtractionList(extracted, 'projects'),
+        education: [
+            ...getImportedExtractionList(extracted, 'education'),
+            ...getImportedExtractionList(extracted, 'certifications'),
+        ],
+        activities: getImportedExtractionList(extracted, 'activities'),
+        languages: getImportedExtractionList(extracted, 'languages'),
+    };
+    for (const [fieldName, translatedItems] of Object.entries(translatedLists)) {
+        const sourceItems = splitLines(sourceCv?.[fieldName] || '');
+        if (sourceItems.length !== translatedItems.length) {
+            return `nombre d’éléments différent dans ${fieldName}`;
+        }
+    }
+
+    return '';
+};
+
+const getValidatedCvTranslationReplacementLocale = (proposal = {}) => {
+    const replacement = proposal?.documentReplacement;
+    return replacement?.type === 'translation'
+        && replacement?.complete === true
+        && ['en', 'fr'].includes(replacement?.targetLanguage)
+        ? replacement.targetLanguage
+        : '';
+};
+
+const applyFullCvTranslationResult = async (proposal = {}, instruction = '') => {
+    const targetLocale = getFullCvTranslationLocale(instruction)
+        || getValidatedCvTranslationReplacementLocale(proposal);
+    if (!targetLocale) {
+        return '';
+    }
+
+    const replacement = proposal?.documentReplacement;
+    if (replacement?.type !== 'translation'
+        || replacement?.complete !== true
+        || replacement?.targetLanguage !== targetLocale) {
+        hideKirbyCvProposal();
+        setCvStatus('Traduction non validée : CV inchangé');
+        return 'Je n’ai rien modifié : l’API n’a pas validé une traduction complète de toutes les rubriques. Le CV source reste intact et vous pouvez relancer immédiatement.';
+    }
+
+    const sourceCv = getKirbyCvSource({ includeDisplayedValues: true });
+    const issue = getFullCvTranslationExtractionIssue(proposal.extracted, sourceCv);
+    if (issue) {
+        hideKirbyCvProposal();
+        setCvStatus('Traduction refusée : CV inchangé');
+        return `Je n’ai rien modifié : la traduction complète reçue ne préservait pas exactement la structure factuelle du CV (${issue}). Vous pouvez reformuler ou relancer immédiatement.`;
+    }
+
+    const previousLocale = currentCvContentLocale;
+    let changes = [];
+    try {
+        currentCvContentLocale = targetLocale;
+        changes = applyKirbyExtractedCv(proposal.extracted, { replace: true });
+        const translatedHeadline = String(proposal.extracted?.headline || '').trim();
+        if (translatedHeadline && cvForm.elements.jobTarget?.value !== translatedHeadline) {
+            cvForm.elements.jobTarget.value = translatedHeadline;
+            changes.push('jobTarget');
+        }
+        updateCvPreview();
+        renderExperienceEditor();
+        renderLanguageEditor();
+    } catch (error) {
+        currentCvContentLocale = previousLocale;
+        throw error;
+    }
+
+    if (!changes.length && previousLocale === targetLocale) {
+        setCvStatus('CV déjà traduit');
+        return `Le CV est déjà entièrement en ${targetLocale === 'en' ? 'anglais' : 'français'}.`;
+    }
+
+    const persistence = await persistCvDraftImmediately();
+    const languageLabel = targetLocale === 'en' ? 'anglais' : 'français';
+    const detail = formatCvPersistenceDetail(persistence);
+    setCvStatus(`CV remplacé intégralement en ${languageLabel}`);
+    return `CV remplacé intégralement en ${languageLabel} : toutes les rubriques ont été remplacées ensemble, sans ajout de faits. ${detail}`;
+};
+
 const applyKirbyCvResult = async (result, task, instruction = '', options = {}) => {
     const proposal = result?.cv;
 
@@ -18208,6 +18561,11 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
     }
 
     const userInstruction = getKirbyUserInstruction(instruction);
+    const fullTranslationLocale = getFullCvTranslationLocale(userInstruction)
+        || getValidatedCvTranslationReplacementLocale(proposal);
+    if (fullTranslationLocale) {
+        return applyFullCvTranslationResult(proposal, userInstruction);
+    }
     const explicitHeadline = getExplicitHeadlineFromInstruction(userInstruction);
     const languageOnlyIntent = isLanguageFocusedInstruction(userInstruction) && !looksLikePastedCv(userInstruction);
     const singleFieldIntent = getSingleFieldEditIntent(userInstruction);
@@ -18385,12 +18743,17 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
     return buildKirbyPersistenceReply(changes, persistence);
 };
 
-const shouldApplyKirbyResultDirectly = ({ task = '', instruction = '' } = {}) => {
+const shouldApplyKirbyResultDirectly = ({ task = '', instruction = '', result = null } = {}) => {
     const userInstruction = getKirbyUserInstruction(instruction);
     const source = normalizeForMatch(userInstruction);
     const precisionSensitive = /\b(mise en page|aeration|aération|align|alignement|hierarchie|hiérarchie|lisibilite|lisibilité|espace|espacement|marge|padding|colonne|colonnes|section|titre|titres|pdf|a4|export|equilibr|equilibre|equilibree|equilibree|repart|repartition|descend|monte|remonte|decale|decalage|largeur|hauteur|respiration|glass|crystal)\b/.test(source);
     const actionableCvEdit = /\b(cv|document|texte|experience|experiences|mission|missions|puce|puces|ligne|lignes|date|dates|periode|periodes|mois|profil|accroche|competence|competences|formation|formations|rubrique|rubriques)\b/.test(source)
         && /\b(fais|faire|prepare|preparer|adapte|adapter|redige|rediger|ecris|ecrire|reecris|reecrire|ameliore|ameliorer|optimise|optimiser|ajoute|ajouter|rajoute|rajouter|insere|inserer|integre|integrer|supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|modifie|modifier|change|changer|corrige|corriger|remplace|remplacer|deplace|deplacer|monte|descend|range|ranger|reorganise|reorganiser|reformule|reformuler|raccourcis|raccourcir|harmonise|harmoniser|sauvegarde|sauvegarder|applique|appliquer)\b/.test(source);
+
+    if (isFullCvTranslationRequest(userInstruction)
+        || getValidatedCvTranslationReplacementLocale(result?.cv)) {
+        return true;
+    }
 
     if (isLanguageFocusedInstruction(userInstruction)) {
         return true;
@@ -18451,6 +18814,9 @@ const getAffirmativeKirbyInstruction = (instruction = '') => {
 };
 
 const getSingleFieldEditIntent = (instruction = '') => {
+    if (isFullCvTranslationRequest(instruction)) {
+        return '';
+    }
     const source = normalizeForMatch(getAffirmativeKirbyInstruction(instruction));
     const hasEditVerb = /\b(ajoute|ajouter|mets|mettre|met|modifie|modifier|change|changer|corrige|corriger|remplace|remplacer|retire|retirer|supprime|supprimer|reformule|reformuler|raccourcis|raccourcir|condense|condenser|reecris|reecrire|ameliore|ameliorer|optimise|optimiser|rewrite|rephrase|shorten|condense|improve|optimize)\b/.test(source);
 
@@ -18554,14 +18920,20 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
     const snapshot = getKirbyCvSnapshot();
 
     try {
-        const result = await requestKirbyCvAssistant({ task, instruction });
+        const result = await requestKirbyCvAssistant({
+            task,
+            instruction,
+            ...(isFullCvTranslationRequest(instruction)
+                ? { cv: getKirbyCvSource({ includeDisplayedValues: true }) }
+                : {}),
+        });
         const runtimeLabel = getKirbyRuntimeLabel(result);
         const operationDriven = hasKirbyOperations(result);
         const singleFieldDriven = isSingleFieldEditIntent(instruction);
         const implicitTopicDriven = Boolean(getImplicitKirbyCvActionTopic(instruction));
         const currentSnapshot = getKirbyCvSnapshot();
         const sourceChangedDuringRequest = snapshot !== currentSnapshot;
-        const canApplyDirectly = (operationDriven || shouldApplyKirbyResultDirectly({ task, instruction }))
+        const canApplyDirectly = (operationDriven || shouldApplyKirbyResultDirectly({ task, instruction, result }))
             && !sourceChangedDuringRequest;
 
         if (sourceChangedDuringRequest) {
@@ -18626,6 +18998,14 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
         return 'Proposition prête. Vérifiez le résumé puis choisissez « Appliquer au CV ».';
     } catch (error) {
         console.error(error);
+        if (error?.message === 'kirby_cv_operation_transaction_failed'
+            && error.mutationStarted !== true
+            && error.rollbackPerformed !== true) {
+            // Une opération qui n'a touché aucun champ ne laisse ni proposition
+            // ni état de récupération en attente. La commande suivante peut
+            // être exécutée immédiatement sur le CV intact.
+            hideKirbyCvProposal();
+        }
         const message = error?.message === 'kirby_cv_operation_transaction_failed'
             ? getKirbyTransactionFailureMessage(error)
             : error?.message || 'Kirby est momentanément indisponible. Le CV n’a pas été modifié.';
@@ -18818,7 +19198,9 @@ const getAssistantReply = (message) => {
 const shouldUseKirbyCvAssistant = (message = '', mode = activeKirbyMode) => {
     const cleanMessage = String(message || '').trim();
 
-    if (!cleanMessage || isKirbyCvTechnicalOrExplanatoryInstruction(cleanMessage)) {
+    if (!cleanMessage
+        || isNonCommandCvTranslationQuestion(cleanMessage)
+        || isKirbyCvTechnicalOrExplanatoryInstruction(cleanMessage)) {
         return false;
     }
 
@@ -18846,12 +19228,15 @@ const shouldUseKirbyCvAssistant = (message = '', mode = activeKirbyMode) => {
 const getCvDamageDiagnosticReply = (message = '') => {
     const source = normalizeForMatch(message).replace(/[’']/g, ' ');
     const targetsCv = /\b(cv|experience|experiences|rubrique|section)\b/.test(source);
-    const reportsEmptyOrBrokenCv = /\b(vide|vides|supprime|supprimees|supprimer|disparu|disparues|efface|effacees|tout supprimer|tout supprime|casse|bug)\b/.test(source);
-    const asksConcreteRemoval = /\b(?:supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|remove|delete)\s+(?:(?:uniquement|seulement|juste|exclusivement|only)\s+)?(?:(?:cette|cet|ce|la|le|les|une|un|l|this|the)\s+)?(?:experience|experiences|rubrique|section|ligne|poste|mission|puce|puces|bullet|bullets|competence|competences|skill|skills|formation|formations|education|projet|projets|langue|langues|language|languages|date|dates|intitule|titre|accroche|profil|photo|mot|texte|mention|phrase|element)\b/.test(source);
-    const asksConcreteEdit = asksConcreteRemoval
-        || /\b(ajoute|ajouter|deplace|deplacer|place|placer|mets|mettre|corrige|corriger|adapte|adapter|reordonne|reorganise|juste sous|avant|apres|lettre|optimise|optimiser|ameliore|ameliorer|remplace|reformule)\b/.test(source);
+    const reportsDisappearance = /\b(?:tout|le contenu|les donnees|mes informations)\s+(?:a|ont)\s+(?:ete\s+)?(?:supprime|supprimees|efface|effacees|disparu|disparues)\b/.test(source)
+        || /\b(?:tout|le contenu|les donnees|mes informations)\s+(?:est|sont)\s+(?:supprime|supprimees|efface|effacees|vide|vides)\b/.test(source);
+    const reportsBrokenState = /\b(?:cv|experience|experiences|rubrique|section)\b.{0,48}\b(?:est|sont|reste|restent|apparait|apparaissent|semble|semblent|devient|deviennent)\b.{0,24}\b(?:vide|vides|casse|cassee|casses|cassees|incoherent|incoherente|incoherents|incoherentes|illisible|illisibles)\b/.test(source)
+        || /\b(?:cv|experience|experiences|rubrique|section)\s+(?:vide|vides|casse|cassee|casses|cassees|incoherent|incoherente|incoherents|incoherentes)\b/.test(source);
 
-    if (!targetsCv || !reportsEmptyOrBrokenCv || asksConcreteEdit) {
+    // Une forme impérative (« supprime », « conserve uniquement ») décrit une
+    // opération à exécuter. Elle ne prouve jamais que le document est déjà
+    // endommagé et ne doit donc pas déclencher le parcours Annuler/réimporter.
+    if (!targetsCv || (!reportsDisappearance && !reportsBrokenState)) {
         return '';
     }
 

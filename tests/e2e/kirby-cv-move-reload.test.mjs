@@ -8,6 +8,12 @@ const EXPECTS_REMOTE_PERSISTENCE = pageUrl.protocol === 'https:'
     && pageUrl.hostname.replace(/^www\./i, '').toLowerCase() === 'sacreationweb.com';
 const COMMAND = 'Déplace Développement web — depuis 2023 sous Machiniste-receveur et au-dessus des expériences plus anciennes';
 const EXACT_CANVA_COMMAND = 'Dans la rubrique COMPÉTENCES, ajoute uniquement une nouvelle ligne intitulée “Maîtrise de Canva”. Ne modifie rien d’autre.';
+const KEEP_ONLY_LANGUAGES_COMMAND = 'Dans la rubrique LANGUES, conserve uniquement « Français : langue maternelle » et « Anglais : niveau intermédiaire B1 ». Supprime toute autre langue. Ne modifie rien d’autre.';
+const REMOVE_SPANISH_COMMAND = 'supprime Espagnol : notions';
+const REMOVE_MISSING_LANGUAGE_COMMAND = 'Supprime Allemand : notions';
+const REMOVE_ITALIAN_COMMAND = 'Supprime Italien : niveau intermédiaire';
+const FULL_ENGLISH_TRANSLATION_COMMAND = 'Remplace le CV en anglais. Ne conserve aucun texte français.';
+const TRANSLATE_ENGLISH_COMMAND = 'Traduis le CV en anglais.';
 const ELISE_SKILLS = [
     'Excel',
     'Outlook',
@@ -16,6 +22,65 @@ const ELISE_SKILLS = [
     'Organisation des priorités',
     'Travail en équipe',
 ];
+
+const frenchCvForTranslation = {
+    fullName: 'Élise Montbrun',
+    location: 'Angers',
+    phone: '06 00 00 00 05',
+    email: 'elise.montbrun@example.com',
+    permit: 'Permis B',
+    headline: 'Réceptionniste en hôtellerie',
+    summary: 'Je suis organisée, souriante et à l’aise avec les clients.',
+    skills: [
+        'Gestion des réservations',
+        'Facturation',
+        'Transmission des consignes à l’équipe de nuit',
+    ],
+    experiences: [
+        'Réceptionniste — Hôtel Les Rives Dorées, Angers — mars 2025 – aujourd’hui • CDI • Arrivées, départs, réservations et facturation',
+        'Agente d’accueil — Espace Orbel, Angers — février 2022 – novembre 2024 • CDD • Accueil des visiteurs et gestion du standard',
+    ],
+    projects: [],
+    education: [
+        'Bac professionnel accueil — Lycée des Amandiers, Tours — 2017',
+        'Formation de premiers secours — Secours des Rives — avril 2024',
+    ],
+    activities: ['Randonnée', 'Cinéma italien'],
+    languages: [
+        'Français : langue maternelle',
+        'Anglais : niveau intermédiaire B1',
+    ],
+};
+
+const completeEnglishTranslation = {
+    fullName: 'Élise Montbrun',
+    location: 'Angers',
+    phone: '06 00 00 00 05',
+    email: 'elise.montbrun@example.com',
+    permit: 'Driving licence B',
+    headline: 'Hotel receptionist',
+    summary: 'I am organized, friendly and comfortable assisting guests.',
+    skills: [
+        'Reservation management',
+        'Billing',
+        'Handover of instructions to the night team',
+    ],
+    experiences: [
+        'Hotel receptionist — Hôtel Les Rives Dorées, Angers — March 2025 – present • Permanent contract • Check-ins, check-outs, reservations and billing',
+        'Front desk agent — Espace Orbel, Angers — February 2022 – November 2024 • Fixed-term contract • Visitor reception and switchboard management',
+    ],
+    projects: [],
+    education: [
+        'Vocational baccalaureate in reception services — Lycée des Amandiers, Tours — 2017',
+        'First-aid training — Secours des Rives — April 2024',
+    ],
+    certifications: [],
+    activities: ['Hiking', 'Italian cinema'],
+    languages: [
+        { language: 'French', level: 'Native' },
+        { language: 'English', level: 'Intermediate B1' },
+    ],
+};
 
 const narrativeMergeSource = [
     'Depuis mars 2025, je suis réceptionniste à l’Hôtel Démo à Ville-Test, en CDI. Je transmets aussi les consignes à l’équipe de nuit.',
@@ -298,7 +363,41 @@ test('Kirby adds only “Maîtrise de Canva”, then preserves the targeted move
             const narrativeExtraction = String(requestPayload.documentText || '').includes('Kirby Mini')
                 ? partialNarrativeExtraction
                 : validatedNarrativeExtraction;
-            const responsePayload = requestPayload.sourceKind === 'narrative'
+            const isCompleteEnglishTranslation = [
+                FULL_ENGLISH_TRANSLATION_COMMAND,
+                TRANSLATE_ENGLISH_COMMAND,
+            ].includes(requestPayload.instruction);
+            const responsePayload = isCompleteEnglishTranslation
+                ? {
+                    ok: true,
+                    source: 'openai',
+                    model: 'kirby-e2e-model',
+                    cv: {
+                        documentLanguage: 'en',
+                        headline: completeEnglishTranslation.headline,
+                        summary: completeEnglishTranslation.summary,
+                        skills: completeEnglishTranslation.skills,
+                        languages: completeEnglishTranslation.languages,
+                        extracted: completeEnglishTranslation,
+                        operations: [],
+                        operationSafety: {
+                            targetedRequest: false,
+                            filteredAll: false,
+                            rejectedCount: 0,
+                        },
+                        documentReplacement: {
+                            type: 'translation',
+                            sourceLanguage: 'fr',
+                            targetLanguage: 'en',
+                            complete: true,
+                        },
+                        layout: {
+                            reflow: true,
+                            preserveAllContent: true,
+                        },
+                    },
+                }
+                : requestPayload.sourceKind === 'narrative'
                 ? {
                     ok: true,
                     source: 'openai',
@@ -420,6 +519,61 @@ test('Kirby adds only “Maîtrise de Canva”, then preserves the targeted move
         return result.result.value;
     };
 
+    const submitKirbyCommand = async (command, { timeoutMs = 10000 } = {}) => {
+        const before = await evaluate(`(() => ({
+          botCount: document.querySelectorAll('#assistant-thread .assistant-thread-message.is-bot').length,
+          lastBotReply: [...document.querySelectorAll('#assistant-thread .assistant-thread-message.is-bot .assistant-thread-body')]
+            .map((node) => node.textContent.trim())
+            .at(-1) || '',
+          startedAt: performance.now(),
+        }))()`);
+        await evaluate(`
+          (() => {
+            openAssistant();
+            const input = document.querySelector('#assistant-input');
+            input.value = ${JSON.stringify(command)};
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            document.querySelector('#assistant-form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+            return true;
+          })()
+        `);
+
+        const attempts = Math.max(1, Math.ceil(timeoutMs / 100));
+        for (let index = 0; index < attempts; index += 1) {
+            await delay(100);
+            const result = await evaluate(`(() => {
+              const replies = [...document.querySelectorAll('#assistant-thread .assistant-thread-message.is-bot .assistant-thread-body')]
+                .map((node) => node.textContent.trim());
+              const latestReply = replies.at(-1) || '';
+              if (!latestReply || (replies.length === ${before.botCount} && latestReply === ${JSON.stringify(before.lastBotReply)})) return null;
+              const fieldNames = ['fullName', 'location', 'phone', 'email', 'permit', 'headline', 'summary', 'skills', 'experience', 'projects', 'education', 'activities', 'languages'];
+              return {
+                snapshot: getKirbyCvSnapshot(),
+                values: Object.fromEntries(fieldNames.map((name) => [name, cvForm.elements[name]?.value || ''])),
+                previewLanguages: [...document.querySelectorAll('#preview-languages li')]
+                  .map((node) => node.textContent.trim())
+                  .filter(Boolean),
+                previewSkills: [...document.querySelectorAll('#preview-skills > li')]
+                  .map((node) => node.textContent.trim())
+                  .filter(Boolean),
+                previewText: document.querySelector('#cv-preview')?.textContent || '',
+                sectionTitles: Object.fromEntries(
+                  [...document.querySelectorAll('#cv-preview [data-section-title]')]
+                    .map((node) => [node.dataset.sectionTitle, node.textContent.trim()])
+                ),
+                reply: latestReply,
+                elapsedMs: performance.now() - ${before.startedAt},
+                contentLocale: currentCvContentLocale,
+                requestInFlight: isKirbyCvRequestInFlight,
+                hasPendingProposal: Boolean(pendingKirbyCvProposal),
+              };
+            })()`);
+            if (result) return result;
+        }
+
+        throw new Error(`Kirby command timed out: ${command}`);
+    };
+
     try {
         await cdp.send('Page.navigate', { url: PAGE_URL });
         await cdp.waitFor('Page.loadEventFired', () => true, 20000);
@@ -448,8 +602,26 @@ test('Kirby adds only “Maîtrise de Canva”, then preserves the targeted move
             limitedRemovalDamageReply: getCvDamageDiagnosticReply('Retire seulement cette expérience du CV'),
             bulletRemovalDamageReply: getCvDamageDiagnosticReply('Supprime cette puce du CV'),
             skillRemovalDamageReply: getCvDamageDiagnosticReply('Supprime uniquement la compétence Excel du CV'),
+            keepOnlyLanguagesDamageReply: getCvDamageDiagnosticReply(${JSON.stringify(KEEP_ONLY_LANGUAGES_COMMAND)}),
             actualDamageReply: getCvDamageDiagnosticReply('Tout a disparu du CV'),
             destructiveDamageReply: getCvDamageDiagnosticReply('Tout a été supprimé du CV'),
+            languageOperationTarget: getOperationTargetText({
+              type: 'remove_text',
+              field: 'languages',
+              target: {
+                label: 'Espagnol',
+                currentValue: 'Espagnol : Notions',
+              },
+            }),
+            experienceOperationTarget: getOperationTargetText({
+              type: 'remove_text',
+              field: 'experience',
+              target: {
+                title: 'Réceptionniste',
+                organization: 'Hôtel Les Rives Dorées',
+                currentValue: 'Accueil des visiteurs',
+              },
+            }),
             splitTitleWithProgramYear: repairPreviewExperienceItems([
               'Chargée de mission France 2030',
               'Ministère de l’Économie - janvier 2022 – décembre 2024',
@@ -472,8 +644,13 @@ test('Kirby adds only “Maîtrise de Canva”, then preserves the targeted move
         assert.equal(guardResults.limitedRemovalDamageReply, '');
         assert.equal(guardResults.bulletRemovalDamageReply, '');
         assert.equal(guardResults.skillRemovalDamageReply, '');
+        assert.equal(guardResults.keepOnlyLanguagesDamageReply, '');
         assert.match(guardResults.actualDamageReply, /aucune modification automatique/i);
         assert.match(guardResults.destructiveDamageReply, /aucune modification automatique/i);
+        assert.equal(guardResults.languageOperationTarget, 'Espagnol : Notions');
+        assert.match(guardResults.experienceOperationTarget, /Réceptionniste/);
+        assert.match(guardResults.experienceOperationTarget, /Hôtel Les Rives Dorées/);
+        assert.match(guardResults.experienceOperationTarget, /Accueil des visiteurs/);
         assert.equal(guardResults.splitTitleWithProgramYear.length, 1);
         assert.match(guardResults.splitTitleWithProgramYear[0], /Chargée de mission France 2030/);
         assert.match(guardResults.splitTitleWithProgramYear[0], /Ministère de l’Économie/);
@@ -610,6 +787,142 @@ test('Kirby adds only “Maîtrise de Canva”, then preserves the targeted move
         assert.match(partialNarrativeResult.preview, /Test de mise en forme/);
         const kirbyApiCallCountAfterImports = trace.kirbyApiCalls.length;
 
+        const keepOnlyBefore = await evaluate(`
+          (() => {
+            currentCvContentLocale = 'fr';
+            cvForm.elements.languages.value = 'Français : langue maternelle\\nAnglais : niveau intermédiaire B1\\nEspagnol : notions';
+            clearEditableOverride('languages');
+            renderLanguageEditor({ normalizeField: false });
+            updateCvPreview({ preserveDensity: true });
+            return getKirbyCvSnapshot();
+          })()
+        `);
+        const languageQuestionIntents = await evaluate(`[
+          getExplicitLanguageMutationIntent('Comment supprimer Espagnol : notions dans la rubrique LANGUES ?'),
+          getExplicitLanguageMutationIntent('Faut-il supprimer Espagnol : notions dans la rubrique LANGUES ?'),
+          getExplicitLanguageMutationIntent('Est-ce que je peux supprimer Espagnol : notions dans la rubrique LANGUES ?'),
+          getExplicitLanguageMutationIntent('How do I delete Spanish : Basic from LANGUAGES?'),
+        ]`);
+        languageQuestionIntents.forEach((intent) => {
+            assert.deepEqual(intent, { type: 'non_command' });
+        });
+        const unquotedKeepOnlyIntent = await evaluate(`getExplicitLanguageMutationIntent(
+          'Dans LANGUES, conserve uniquement Français : langue maternelle et Anglais : niveau intermédiaire B1. Supprime toute autre langue.'
+        )`);
+        assert.deepEqual(unquotedKeepOnlyIntent, {
+            type: 'retain_only',
+            lines: ['Français : langue maternelle', 'Anglais : niveau intermédiaire B1'],
+        });
+        const languageQuestionResult = await submitKirbyCommand(
+            'Comment supprimer Espagnol : notions dans la rubrique LANGUES ?',
+            { timeoutMs: 4000 },
+        );
+        assert.equal(languageQuestionResult.snapshot, keepOnlyBefore);
+        assert.match(languageQuestionResult.reply, /question.+pas une commande/i);
+        assert.equal(trace.kirbyApiCalls.length, kirbyApiCallCountAfterImports);
+
+        const keepOnlyResult = await submitKirbyCommand(KEEP_ONLY_LANGUAGES_COMMAND, { timeoutMs: 4000 });
+        assert.equal(
+            keepOnlyResult.values.languages,
+            'Français : langue maternelle\nAnglais : niveau intermédiaire B1',
+        );
+        assert.deepEqual(keepOnlyResult.previewLanguages, [
+            'Français : langue maternelle',
+            'Anglais : niveau intermédiaire B1',
+        ]);
+        assert.match(keepOnlyResult.reply, /langues?.+(?:conserv|mise|modifi)/i);
+        assert.doesNotMatch(keepOnlyResult.reply, /annuler|réimport|restaur|ambigu/i);
+        assert.ok(keepOnlyResult.elapsedMs < 3000, `Commande LANGUES déterministe trop lente : ${keepOnlyResult.elapsedMs} ms`);
+        assert.equal(keepOnlyResult.requestInFlight, false);
+        assert.equal(keepOnlyResult.hasPendingProposal, false);
+        const keepOnlyBeforeWithoutLanguages = JSON.parse(keepOnlyBefore);
+        const keepOnlyAfterWithoutLanguages = JSON.parse(keepOnlyResult.snapshot);
+        keepOnlyBeforeWithoutLanguages.cv.languages = '__TARGETED_LANGUAGE_FIELD__';
+        keepOnlyAfterWithoutLanguages.cv.languages = '__TARGETED_LANGUAGE_FIELD__';
+        assert.deepEqual(
+            keepOnlyAfterWithoutLanguages,
+            keepOnlyBeforeWithoutLanguages,
+            'La commande conserve uniquement a modifié une donnée hors LANGUES',
+        );
+        assert.equal(
+            trace.kirbyApiCalls.length,
+            kirbyApiCallCountAfterImports,
+            'La commande LANGUES déterministe ne doit pas appeler /api/kirby-cv',
+        );
+
+        const removeSpanishBefore = await evaluate(`
+          (() => {
+            cvForm.elements.languages.value = 'Français : langue maternelle\\nAnglais : niveau intermédiaire B1\\nESPAGNOL : NOTIONS';
+            clearEditableOverride('languages');
+            renderLanguageEditor({ normalizeField: false });
+            updateCvPreview({ preserveDensity: true });
+            return getKirbyCvSnapshot();
+          })()
+        `);
+        const removeSpanishResult = await submitKirbyCommand(REMOVE_SPANISH_COMMAND, { timeoutMs: 4000 });
+        assert.equal(
+            removeSpanishResult.values.languages,
+            'Français : langue maternelle\nAnglais : niveau intermédiaire B1',
+            'La suppression exacte doit ignorer la casse sans toucher les autres langues',
+        );
+        assert.match(removeSpanishResult.reply, /langue.+supprim/i);
+        assert.doesNotMatch(removeSpanishResult.reply, /annuler|réimport|restaur|ambigu/i);
+        assert.ok(removeSpanishResult.elapsedMs < 3000, `Suppression LANGUES déterministe trop lente : ${removeSpanishResult.elapsedMs} ms`);
+        const removeSpanishBeforeWithoutLanguages = JSON.parse(removeSpanishBefore);
+        const removeSpanishAfterWithoutLanguages = JSON.parse(removeSpanishResult.snapshot);
+        removeSpanishBeforeWithoutLanguages.cv.languages = '__TARGETED_LANGUAGE_FIELD__';
+        removeSpanishAfterWithoutLanguages.cv.languages = '__TARGETED_LANGUAGE_FIELD__';
+        assert.deepEqual(
+            removeSpanishAfterWithoutLanguages,
+            removeSpanishBeforeWithoutLanguages,
+            'La suppression exacte a modifié une donnée hors LANGUES',
+        );
+        assert.equal(trace.kirbyApiCalls.length, kirbyApiCallCountAfterImports);
+
+        const failedRemovalBefore = await evaluate(`
+          (() => {
+            cvForm.elements.languages.value = 'Français : langue maternelle\\nAnglais : niveau intermédiaire B1\\nItalien : niveau intermédiaire';
+            clearEditableOverride('languages');
+            renderLanguageEditor({ normalizeField: false });
+            updateCvPreview({ preserveDensity: true });
+            return getKirbyCvSnapshot();
+          })()
+        `);
+        const failedRemovalRecoveryBefore = await evaluate(`({
+          undoDepth: cvUndoStack.length,
+          undoDisabled: cvUndoButton.disabled,
+        })`);
+        const failedRemovalResult = await submitKirbyCommand(REMOVE_MISSING_LANGUAGE_COMMAND, { timeoutMs: 4000 });
+        assert.equal(failedRemovalResult.snapshot, failedRemovalBefore, 'Une suppression introuvable ne doit amorcer aucune mutation');
+        assert.match(failedRemovalResult.reply, /introuvable|pas trouv|n.est pas présente|absente|déjà absente|inchang/i);
+        assert.doesNotMatch(failedRemovalResult.reply, /annuler|réimport|restaur/i);
+        assert.ok(failedRemovalResult.elapsedMs < 3000, `Refus de suppression trop lent : ${failedRemovalResult.elapsedMs} ms`);
+        assert.equal(failedRemovalResult.requestInFlight, false);
+        assert.equal(failedRemovalResult.hasPendingProposal, false);
+        const failedRemovalRecoveryAfter = await evaluate(`({
+          undoDepth: cvUndoStack.length,
+          undoDisabled: cvUndoButton.disabled,
+        })`);
+        assert.deepEqual(
+            failedRemovalRecoveryAfter,
+            failedRemovalRecoveryBefore,
+            'Une suppression introuvable ne doit créer aucun état Annuler/récupération',
+        );
+        assert.equal(trace.kirbyApiCalls.length, kirbyApiCallCountAfterImports);
+
+        const validRemovalAfterFailure = await submitKirbyCommand(REMOVE_ITALIAN_COMMAND, { timeoutMs: 4000 });
+        assert.equal(
+            validRemovalAfterFailure.values.languages,
+            'Français : langue maternelle\nAnglais : niveau intermédiaire B1',
+            'Une commande valide doit fonctionner immédiatement après la suppression introuvable',
+        );
+        assert.match(validRemovalAfterFailure.reply, /langue.+supprim/i);
+        assert.doesNotMatch(validRemovalAfterFailure.reply, /annuler|réimport|restaur|ambigu/i);
+        assert.ok(validRemovalAfterFailure.elapsedMs < 3000, `Commande suivant le refus trop lente : ${validRemovalAfterFailure.elapsedMs} ms`);
+        assert.equal(validRemovalAfterFailure.requestInFlight, false);
+        assert.equal(validRemovalAfterFailure.hasPendingProposal, false);
+        assert.equal(trace.kirbyApiCalls.length, kirbyApiCallCountAfterImports);
+
         const canvaBefore = await evaluate(`
           (() => {
             const skills = cvForm.elements.skills;
@@ -661,6 +974,8 @@ test('Kirby adds only “Maîtrise de Canva”, then preserves the targeted move
               questionIntents: [
                 getExplicitSkillAdditionIntent('Pourquoi ajouter « Maîtrise de Canva » dans COMPÉTENCES ?'),
                 getExplicitSkillAdditionIntent('Faut-il ajouter « Maîtrise de Canva » dans COMPÉTENCES ?'),
+                getExplicitSkillAdditionIntent('Comment ajouter « Maîtrise de Canva » dans COMPÉTENCES ?'),
+                getExplicitSkillAdditionIntent('How do I add “Maîtrise de Canva” to SKILLS?'),
               ],
               unrelatedRefusals: [
                 getExplicitSkillAdditionIntent('N’ajoute pas cette expérience.'),
@@ -676,7 +991,6 @@ test('Kirby adds only “Maîtrise de Canva”, then preserves the targeted move
                 new Error('kirby_cv_operation_transaction_failed'),
                 { mutationStarted: false, rollbackPerformed: false },
               )),
-              startedAt: performance.now(),
             };
           })()
         `);
@@ -715,40 +1029,12 @@ test('Kirby adds only “Maîtrise de Canva”, then preserves the targeted move
         assert.deepEqual(canvaBefore.quotedWithoutIntent, { matched: true, value: 'Communication sans violence' });
         assert.doesNotMatch(canvaBefore.noMutationFailure, /ambigu|restaur/i);
 
-        await evaluate(`
-          (() => {
-            document.querySelector('#assistant-toggle')?.click();
-            const input = document.querySelector('#assistant-input');
-            input.value = ${JSON.stringify(EXACT_CANVA_COMMAND)};
-            input.dispatchEvent(new Event('input', { bubbles: true }));
-            document.querySelector('#assistant-form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-            return true;
-          })()
-        `);
-
-        let canvaAfter = null;
-        for (let index = 0; index < 20; index += 1) {
-            await delay(100);
-            canvaAfter = await evaluate(`
-              (() => {
-                const replies = [...document.querySelectorAll('#assistant-thread .assistant-thread-message.is-bot .assistant-thread-body')]
-                  .map((node) => node.textContent.trim());
-                const skills = cvForm.elements.skills.value.split(/\\n+/).filter(Boolean);
-                if (replies.length <= ${canvaBefore.botCount} || !skills.includes('Maîtrise de Canva')) return null;
-                return {
-                  snapshot: JSON.parse(getKirbyCvSnapshot()),
-                  skills,
-                  previewSkills: [...document.querySelectorAll('#preview-skills > li')]
-                    .map((node) => node.textContent.trim())
-                    .filter(Boolean),
-                  reply: replies.at(-1) || '',
-                  elapsedMs: performance.now() - ${canvaBefore.startedAt},
-                };
-              })()
-            `);
-            if (canvaAfter) break;
-        }
-        assert.ok(canvaAfter, 'La commande Canva ciblée n’a pas été appliquée dans l’interface');
+        const canvaCommandResult = await submitKirbyCommand(EXACT_CANVA_COMMAND, { timeoutMs: 4000 });
+        const canvaAfter = {
+            ...canvaCommandResult,
+            snapshot: JSON.parse(canvaCommandResult.snapshot),
+            skills: canvaCommandResult.values.skills.split(/\n+/).filter(Boolean),
+        };
         assert.deepEqual(canvaAfter.skills, [...ELISE_SKILLS, 'Maîtrise de Canva']);
         assert.deepEqual(canvaAfter.previewSkills, [...ELISE_SKILLS, 'Maîtrise de Canva']);
         assert.match(canvaAfter.reply, /Compétence ajoutée.+Maîtrise de Canva/is);
@@ -762,37 +1048,9 @@ test('Kirby adds only “Maîtrise de Canva”, then preserves the targeted move
         afterWithoutSkill.cv.skills = '__TARGETED_SKILL_FIELD__';
         assert.deepEqual(afterWithoutSkill, beforeWithoutSkill, 'Une donnée hors COMPÉTENCES a changé');
 
-        const refusalBefore = await evaluate(`(() => ({
-          snapshot: getKirbyCvSnapshot(),
-          botCount: document.querySelectorAll('#assistant-thread .assistant-thread-message.is-bot').length,
-          startedAt: performance.now(),
-        }))()`);
-        await evaluate(`
-          (() => {
-            const input = document.querySelector('#assistant-input');
-            input.value = 'Ajoute une ligne dans COMPÉTENCES.';
-            input.dispatchEvent(new Event('input', { bubbles: true }));
-            document.querySelector('#assistant-form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-            return true;
-          })()
-        `);
-        let refusalAfter = null;
-        for (let index = 0; index < 20; index += 1) {
-            await delay(100);
-            refusalAfter = await evaluate(`(() => {
-              const replies = [...document.querySelectorAll('#assistant-thread .assistant-thread-message.is-bot .assistant-thread-body')]
-                .map((node) => node.textContent.trim());
-              if (replies.length <= ${refusalBefore.botCount}) return null;
-              return {
-                snapshot: getKirbyCvSnapshot(),
-                reply: replies.at(-1) || '',
-                elapsedMs: performance.now() - ${refusalBefore.startedAt},
-              };
-            })()`);
-            if (refusalAfter) break;
-        }
-        assert.ok(refusalAfter, 'Le refus déterministe incomplet n’a pas répondu');
-        assert.equal(refusalAfter.snapshot, refusalBefore.snapshot);
+        const refusalBeforeSnapshot = await evaluate('getKirbyCvSnapshot()');
+        const refusalAfter = await submitKirbyCommand('Ajoute une ligne dans COMPÉTENCES.', { timeoutMs: 4000 });
+        assert.equal(refusalAfter.snapshot, refusalBeforeSnapshot);
         assert.match(refusalAfter.reply, /indiquez une seule compétence exacte/i);
         assert.doesNotMatch(refusalAfter.reply, /ambigu|restaur/i);
         assert.ok(refusalAfter.elapsedMs < 3000, `Refus déterministe trop lent : ${refusalAfter.elapsedMs} ms`);
@@ -995,6 +1253,193 @@ test('Kirby adds only “Maîtrise de Canva”, then preserves the targeted move
         assert.equal((finalState.writes || []).length, writesBeforeNoop);
         assert.equal((finalState.localWrites || []).length, localWritesBeforeNoop);
         assert.equal(trace.kirbyApiCalls.length, kirbyApiCallCountAfterImports);
+
+        await evaluate(`
+          (() => {
+            const source = ${JSON.stringify(frenchCvForTranslation)};
+            const listFields = new Set(['skills', 'experience', 'projects', 'education', 'activities', 'languages']);
+            const sourceByField = {
+              ...source,
+              experience: source.experiences,
+            };
+            delete sourceByField.experiences;
+            Object.entries(sourceByField).forEach(([name, value]) => {
+              if (!cvForm.elements[name]) return;
+              cvForm.elements[name].value = listFields.has(name) && Array.isArray(value)
+                ? value.join('\\n')
+                : String(value || '');
+            });
+            if (cvForm.elements.jobTarget) cvForm.elements.jobTarget.value = source.headline;
+            currentCvContentLocale = 'fr';
+            clearEditableOverrides();
+            renderExperienceEditor();
+            renderLanguageEditor({ normalizeField: false });
+            updateCvPreview({ preserveDensity: true });
+            setKirbyMode('optimize');
+            return true;
+          })()
+        `);
+        const translationGuards = await evaluate(`
+          (async () => {
+            const beforeSnapshot = getKirbyCvSnapshot();
+            const fallbackReply = await applyKirbyCvResult({
+              cv: {
+                documentLanguage: 'fr',
+                extracted: ${JSON.stringify({
+                    ...frenchCvForTranslation,
+                    experiences: frenchCvForTranslation.experiences,
+                    skills: frenchCvForTranslation.skills,
+                    projects: frenchCvForTranslation.projects,
+                    education: frenchCvForTranslation.education,
+                    certifications: [],
+                    activities: frenchCvForTranslation.activities,
+                    languages: frenchCvForTranslation.languages,
+                })},
+                operations: [],
+              },
+            }, 'optimize', 'Remplace le CV en English.');
+            return {
+              englishLocale: getFullCvTranslationLocale('Remplace le CV en English.'),
+              politeEnglishLocale: getFullCvTranslationLocale('Mettez le CV en anglais.'),
+              collectiveEnglishLocale: getFullCvTranslationLocale('Traduisons le CV en anglais.'),
+              languageBeforeWholeCvLocale: getFullCvTranslationLocale('Mets en anglais tout le CV.'),
+              languageBeforeOwnedCvLocale: getFullCvTranslationLocale('Traduis en anglais mon CV.'),
+              languageBeforeOwnedWholeCvLocale: getFullCvTranslationLocale('Translate to English my whole CV.'),
+              putEnglishLocale: getFullCvTranslationLocale('Put my CV in English.'),
+              englishVersionWithPrepositionLocale: getFullCvTranslationLocale('Je veux une version en anglais de mon CV.'),
+              targetedProfileLocale: getFullCvTranslationLocale('Dans mon CV, traduis uniquement le profil en anglais.'),
+              targetedProfileAfterActionLocale: getFullCvTranslationLocale('Traduis dans mon CV uniquement le profil en anglais.'),
+              targetedProfileWithoutOnlyLocale: getFullCvTranslationLocale('Traduis le profil de mon CV en anglais.'),
+              targetedSkillsWithoutOnlyLocale: getFullCvTranslationLocale('Traduis les compétences de mon CV en anglais.'),
+              targetedDatesWithoutOnlyLocale: getFullCvTranslationLocale('Traduis les dates de mon CV en anglais.'),
+              targetedProfileThenSaveLocale: getFullCvTranslationLocale('Traduis le profil en anglais puis sauvegarde mon CV.'),
+              explanatoryTranslationLocale: getFullCvTranslationLocale('Comment traduire tout le CV en anglais ?'),
+              permissionTranslationLocale: getFullCvTranslationLocale('Puis-je traduire tout le CV en anglais ?'),
+              estCeTranslationLocale: getFullCvTranslationLocale('Est-ce que je peux traduire tout le CV en anglais ?'),
+              politeTranslationLocale: getFullCvTranslationLocale('Pouvez-vous traduire tout le CV en anglais ?'),
+              wholeCvBeforeActionLocale: getFullCvTranslationLocale('Dans mon CV, traduis tout en anglais.'),
+              translationRoutesToApi: shouldUseKirbyCvAssistant('Traduis le CV en anglais.', 'optimize'),
+              conversionRoutesToApi: shouldUseKirbyCvAssistant('Convertis mon CV en anglais.', 'optimize'),
+              englishVersionRoutesToApi: shouldUseKirbyCvAssistant('Je veux une version anglaise de mon CV.', 'optimize'),
+              serverMarkerLocale: getValidatedCvTranslationReplacementLocale({
+                documentReplacement: { type: 'translation', complete: true, targetLanguage: 'en' },
+              }),
+              serverMarkerAppliesDirectly: shouldApplyKirbyResultDirectly({
+                task: 'optimize',
+                instruction: 'Localisez intégralement ce document.',
+                result: { cv: { documentReplacement: { type: 'translation', complete: true, targetLanguage: 'en' } } },
+              }),
+              fallbackReply,
+              beforeSnapshot,
+              afterSnapshot: getKirbyCvSnapshot(),
+              contentLocale: currentCvContentLocale,
+            };
+          })()
+        `);
+        assert.equal(translationGuards.englishLocale, 'en');
+        assert.equal(translationGuards.politeEnglishLocale, 'en');
+        assert.equal(translationGuards.collectiveEnglishLocale, 'en');
+        assert.equal(translationGuards.languageBeforeWholeCvLocale, 'en');
+        assert.equal(translationGuards.languageBeforeOwnedCvLocale, 'en');
+        assert.equal(translationGuards.languageBeforeOwnedWholeCvLocale, 'en');
+        assert.equal(translationGuards.putEnglishLocale, 'en');
+        assert.equal(translationGuards.englishVersionWithPrepositionLocale, 'en');
+        assert.equal(translationGuards.targetedProfileLocale, '');
+        assert.equal(translationGuards.targetedProfileAfterActionLocale, '');
+        assert.equal(translationGuards.targetedProfileWithoutOnlyLocale, '');
+        assert.equal(translationGuards.targetedSkillsWithoutOnlyLocale, '');
+        assert.equal(translationGuards.targetedDatesWithoutOnlyLocale, '');
+        assert.equal(translationGuards.targetedProfileThenSaveLocale, '');
+        assert.equal(translationGuards.explanatoryTranslationLocale, '');
+        assert.equal(translationGuards.permissionTranslationLocale, '');
+        assert.equal(translationGuards.estCeTranslationLocale, '');
+        assert.equal(translationGuards.politeTranslationLocale, 'en');
+        assert.equal(translationGuards.wholeCvBeforeActionLocale, 'en');
+        assert.equal(translationGuards.translationRoutesToApi, true);
+        assert.equal(translationGuards.conversionRoutesToApi, true);
+        assert.equal(translationGuards.englishVersionRoutesToApi, true);
+        assert.equal(translationGuards.serverMarkerLocale, 'en');
+        assert.equal(translationGuards.serverMarkerAppliesDirectly, true);
+        assert.equal(translationGuards.afterSnapshot, translationGuards.beforeSnapshot);
+        assert.equal(translationGuards.contentLocale, 'fr');
+        assert.match(translationGuards.fallbackReply, /n.a pas validé une traduction complète/i);
+        assert.doesNotMatch(translationGuards.fallbackReply, /annuler|réimport|restaur/i);
+
+        const translationQuestionSnapshot = await evaluate('getKirbyCvSnapshot()');
+        const translationQuestionResult = await submitKirbyCommand(
+            'Comment traduire tout le CV en anglais ?',
+            { timeoutMs: 4000 },
+        );
+        assert.equal(translationQuestionResult.snapshot, translationQuestionSnapshot);
+        assert.equal(trace.kirbyApiCalls.length, kirbyApiCallCountAfterImports);
+
+        const estCeTranslationQuestionSnapshot = await evaluate('getKirbyCvSnapshot()');
+        const estCeTranslationQuestionResult = await submitKirbyCommand(
+            'Est-ce que je peux traduire tout le CV en anglais ?',
+            { timeoutMs: 4000 },
+        );
+        assert.equal(estCeTranslationQuestionResult.snapshot, estCeTranslationQuestionSnapshot);
+        assert.equal(trace.kirbyApiCalls.length, kirbyApiCallCountAfterImports);
+
+        const translationResult = await submitKirbyCommand(FULL_ENGLISH_TRANSLATION_COMMAND, { timeoutMs: 10000 });
+        assert.equal(
+            trace.kirbyApiCalls.length,
+            kirbyApiCallCountAfterImports + 1,
+            JSON.stringify({ translationResult, calls: trace.kirbyApiCalls.length, baseline: kirbyApiCallCountAfterImports }),
+        );
+        const translationRequest = JSON.parse(trace.kirbyApiCalls.at(-1));
+        assert.equal(translationRequest.instruction, FULL_ENGLISH_TRANSLATION_COMMAND);
+        assert.equal(translationRequest.documentLanguage, 'fr');
+        assert.equal(translationRequest.cv.headline, frenchCvForTranslation.headline);
+        assert.equal(translationResult.contentLocale, 'en', JSON.stringify(translationResult));
+        assert.equal(translationResult.requestInFlight, false);
+        assert.equal(translationResult.hasPendingProposal, false);
+        assert.doesNotMatch(translationResult.reply, /annuler|réimport|restaur|proposition prête|non appliqu/i);
+        assert.deepEqual(translationResult.sectionTitles, {
+            summary: 'Profile',
+            skills: 'Skills',
+            experience: 'Professional experience',
+            projects: 'Projects',
+            education: 'Education & certifications',
+            activities: 'Activities & interests',
+            languages: 'Languages',
+        });
+        assert.deepEqual(translationResult.values, {
+            fullName: completeEnglishTranslation.fullName,
+            location: completeEnglishTranslation.location,
+            phone: completeEnglishTranslation.phone,
+            email: completeEnglishTranslation.email,
+            permit: completeEnglishTranslation.permit,
+            headline: completeEnglishTranslation.headline,
+            summary: completeEnglishTranslation.summary,
+            skills: completeEnglishTranslation.skills.join('\n'),
+            experience: completeEnglishTranslation.experiences.join('\n'),
+            projects: '',
+            education: completeEnglishTranslation.education.join('\n'),
+            activities: completeEnglishTranslation.activities.join('\n'),
+            languages: 'French : Native\nEnglish : Intermediate B1',
+        });
+        assert.doesNotMatch(
+            [
+                translationResult.values.headline,
+                translationResult.values.summary,
+                translationResult.values.skills,
+                translationResult.values.experience,
+                translationResult.values.education,
+                translationResult.values.activities,
+            ].join('\n'),
+            /Réceptionniste|Je suis|Gestion des réservations|Facturation|Transmission des consignes|Arrivées|Agente d’accueil|Accueil des visiteurs|Bac professionnel|Formation de premiers secours|Randonnée|Cinéma italien/i,
+            'La traduction complète ne doit pas conserver une seconde version française des contenus traduisibles',
+        );
+        assert.match(translationResult.values.experience, /Hôtel Les Rives Dorées/);
+        assert.match(translationResult.values.experience, /Espace Orbel/);
+        assert.match(translationResult.values.experience, /2025/);
+        assert.match(translationResult.values.experience, /2022/);
+        assert.match(translationResult.values.experience, /2024/);
+        assert.match(translationResult.values.education, /Lycée des Amandiers/);
+        assert.match(translationResult.values.education, /Secours des Rives/);
+        assert.match(translationResult.values.education, /2017/);
+        assert.match(translationResult.values.education, /2024/);
     } finally {
         await cdp.send('Page.close').catch(() => {});
         cdp.close();
