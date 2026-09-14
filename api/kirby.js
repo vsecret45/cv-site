@@ -14185,14 +14185,34 @@ module.exports = async (request, response) => {
                     documentLanguage,
                     interaction,
                 });
-                return json(response, 200, {
-                    ok: true,
-                    source: 'openai',
-                    model: openAiResult.model,
-                    cv: requestedSourceKind === 'narrative'
-                        ? reconcileNarratedCvAssistantResult(completeResult, documentText)
-                        : completeResult,
-                });
+                // Le récit a déjà été validé champ par champ dans
+                // candidateResult. La complétion générique peut fusionner une
+                // extraction locale moins précise ; conserver donc l'extraction
+                // validée, puis revalider exactement la réponse qui sera envoyée
+                // avant d'autoriser le client à lui faire confiance.
+                const responseResult = requestedSourceKind === 'narrative'
+                    ? reconcileNarratedCvAssistantResult({
+                        ...completeResult,
+                        extracted: {
+                            ...candidateResult.extracted,
+                            experiences: sortCvExperiencesNewestFirst(candidateResult.extracted.experiences),
+                        },
+                    }, documentText)
+                    : completeResult;
+                const responseIsSafe = requestedSourceKind !== 'narrative'
+                    || hasCompleteNarratedCvExtraction(
+                        responseResult.extracted,
+                        documentText,
+                        validationDiagnostics,
+                    );
+                if (responseIsSafe) {
+                    return json(response, 200, {
+                        ok: true,
+                        source: 'openai',
+                        model: openAiResult.model,
+                        cv: responseResult,
+                    });
+                }
             }
             if (openAiResult) {
                 const failedChecks = Array.isArray(validationDiagnostics.failedChecks)

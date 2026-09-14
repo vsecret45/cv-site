@@ -8607,12 +8607,18 @@ const yearLeadingRangeRegex = new RegExp(
     'i'
 );
 
+const hasInlineImportedExperienceDate = (value = '') => new RegExp(
+    `\\s[–—-]\\s*${cvDatedTokenPattern}`,
+    'i'
+).test(value);
+
 const isSplitExperienceTitle = (line) => {
     const item = cleanImportedSectionLine(line);
 
     return (
         item.length > 3 &&
         item.length < 70 &&
+        !hasInlineImportedExperienceDate(item) &&
         !standaloneDateRegex.test(item) &&
         !looksLikeSectionHeading(item) &&
         !/[,@]|https?:|www\./i.test(item) &&
@@ -8670,6 +8676,7 @@ const normalizeExperienceImportItems = (items) => {
     const isLooseSplitTitle = (value) =>
         value.length > 2 &&
         value.length < 72 &&
+        !hasInlineImportedExperienceDate(value) &&
         !standaloneDateRegex.test(value) &&
         !looksLikeSectionHeading(value) &&
         !/[,@]|https?:|www\.|\b(?:service|gestion|analyse|accueil|accompagnement|contrats?|procedures|procédures)\b/i.test(value);
@@ -9697,6 +9704,33 @@ const isNarratedImportedListItemGrounded = (fieldName = '', value = '', sourceTe
     return getImportedGroundingCoverage(candidate, sourceText) >= (fieldName === 'activities' ? 0.75 : 0.55);
 };
 
+// Une extraction narrative marquée comme validée a déjà franchi le
+// validateur strict de /api/kirby-cv. Le navigateur ne doit pas refaire une
+// comparaison lexicale plus faible : elle rejetterait notamment les dates
+// normalisées ("Depuis mars 2025" -> "mars 2025 – aujourd’hui") et les
+// niveaux de langue accordés ("débutante" -> "Débutant"). On conserve ici
+// uniquement des garde-fous de dernière ligne qui ne dépendent pas d'une
+// reformulation : fuite de consigne, année absente de la source et coordonnées
+// rangées parmi les compétences.
+const isValidatedNarratedAssistantValueSafe = (fieldName = '', value = '', sourceText = '') => {
+    const candidate = normalizeCvSentenceText(value);
+    if (!candidate || looksLikeNarratedCvInstructionLeak(candidate) || !hasOnlyImportedSourceYears(candidate, sourceText)) {
+        return false;
+    }
+    if (fieldName === 'email') {
+        const normalizedSource = String(sourceText || '').replace(/\\@/g, '@');
+        return normalizeForMatch(normalizedSource).includes(normalizeForMatch(candidate));
+    }
+    if (fieldName === 'phone') {
+        const digits = candidate.replace(/\D/g, '');
+        return digits.length >= 8 && String(sourceText || '').replace(/\D/g, '').includes(digits);
+    }
+    if (fieldName === 'skills' && (emailPattern.test(candidate) || Boolean(extractImportedPhone([candidate])))) {
+        return false;
+    }
+    return true;
+};
+
 const hasMeaningfulNarratedCvExtraction = (extracted = {}) => {
     const stats = getImportedCvExtractionStats(extracted);
     const identityScore = Number(stats.hasName) + Number(stats.hasContact) + Number(stats.hasHeadline);
@@ -9790,7 +9824,7 @@ const mergeImportedCvExtractions = (
     localExtraction = {},
     assistantExtraction = {},
     sourceText = '',
-    { sourceKind = 'document' } = {},
+    { sourceKind = 'document', validatedNarrativeAssistant = false } = {},
 ) => {
     const merged = {};
     const narratedSource = sourceKind === 'narrative';
@@ -9805,7 +9839,9 @@ const mergeImportedCvExtractions = (
         const localValue = normalizeCvSentenceText(localExtraction?.[fieldName] || '');
         const assistantValue = normalizeCvSentenceText(assistantExtraction?.[fieldName] || '');
         if (narratedSource) {
-            const safeAssistantValue = isNarratedImportedTextFieldGrounded(fieldName, assistantValue, sourceText)
+            const safeAssistantValue = (validatedNarrativeAssistant
+                ? isValidatedNarratedAssistantValueSafe(fieldName, assistantValue, sourceText)
+                : isNarratedImportedTextFieldGrounded(fieldName, assistantValue, sourceText))
                 ? assistantValue
                 : '';
             const safeLocalValue = ['fullName', 'location', 'phone', 'email', 'permit'].includes(fieldName)
@@ -9827,7 +9863,9 @@ const mergeImportedCvExtractions = (
         const localItems = narratedSource ? [] : localItemsByField[fieldName];
         const assistantItems = getImportedExtractionList(assistantExtraction, fieldName)
             .filter((item) => narratedSource
-                ? isNarratedImportedListItemGrounded(fieldName, item, sourceText)
+                ? validatedNarrativeAssistant
+                    ? isValidatedNarratedAssistantValueSafe(fieldName, item, sourceText)
+                    : isNarratedImportedListItemGrounded(fieldName, item, sourceText)
                 : fieldName === 'experiences'
                     ? isImportedExperienceGrounded(item, sourceText)
                     : isImportedValueGrounded(item, sourceText))
@@ -10175,7 +10213,12 @@ const importCvTextWithKirby = async (
         console.warn('Kirby CV import fallback local:', error);
     }
 
-    const extracted = mergeImportedCvExtractions(localImport.extracted, assistantExtraction, text, { sourceKind });
+    const extracted = mergeImportedCvExtractions(localImport.extracted, assistantExtraction, text, {
+        sourceKind,
+        // Pour un récit, results ne contient que les réponses source=openai
+        // que le serveur a déjà validées comme extraction substantielle.
+        validatedNarrativeAssistant: narratedSource && usedAssistant,
+    });
     const mergedExtractionReady = narratedSource
         ? hasMeaningfulNarratedCvExtraction(extracted)
         : hasMeaningfulImportedCvExtraction(extracted);

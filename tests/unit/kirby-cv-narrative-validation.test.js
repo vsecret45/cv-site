@@ -340,6 +340,25 @@ test('CV raconté : apparie « stagiaire accueil » avec le stage d’accueil d�
     assert.match(body.cv.extracted.experiences.at(-1), /^Stagiaire accueil/);
 });
 
+test('CV raconté : classe une extraction fidèle mais désordonnée de la plus récente à la plus ancienne', async () => {
+    const experiences = [
+        expectedEliseExtraction.experiences[3],
+        expectedEliseExtraction.experiences[0],
+        expectedEliseExtraction.experiences[4],
+        expectedEliseExtraction.experiences[2],
+        expectedEliseExtraction.experiences[1],
+    ];
+    const extraction = { ...expectedEliseExtraction, experiences };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative: eliseNarrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.deepEqual(body.cv.extracted.experiences, expectedEliseExtraction.experiences);
+});
+
 test('CV raconté : la dernière déclaration de nom explicite prévaut', async () => {
     const narrative = eliseNarrative.replace(
         'Mon nom est Élise Montbrun.',

@@ -8,6 +8,38 @@ const EXPECTS_REMOTE_PERSISTENCE = pageUrl.protocol === 'https:'
     && pageUrl.hostname.replace(/^www\./i, '').toLowerCase() === 'sacreationweb.com';
 const COMMAND = 'Déplace Développement web — depuis 2023 sous Machiniste-receveur et au-dessus des expériences plus anciennes';
 
+const narrativeMergeSource = [
+    'Depuis mars 2025, je suis réceptionniste à l’Hôtel Démo à Ville-Test, en CDI. Je transmets aussi les consignes à l’équipe de nuit.',
+    'De 02/2022 à 11/2024, j’étais agente d’accueil au Centre Démo à Ville-Test, en CDD.',
+    'Entre janvier 2020 et janvier 2022, j’étais employée de restauration au Restaurant Démo. Je ne me rappelle plus du type de contrat, ne le devine pas.',
+    'De septembre 2017 à décembre 2019, j’étais vendeuse à la Librairie Démo, en CDI.',
+    'Pendant mon bac, j’ai fait un stage d’accueil à la Résidence Démo, de mai à juin 2016.',
+    'Je parle français couramment et italien à un niveau intermédiaire. Pour l’anglais, je suis débutante.',
+    'Je cherche un poste de réceptionniste en hôtellerie.',
+    'Je suis organisée et à l’aise avec les clients.',
+    'Mon nom est Kirby Test. Mon mail est kirby.test\\@example.test et mon téléphone est 06 00 00 00 05.',
+].join('\n');
+
+const validatedNarrativeExtraction = {
+    fullName: 'Kirby Test',
+    email: 'kirby.test@example.test',
+    phone: '06 00 00 00 05',
+    headline: 'Réceptionniste en hôtellerie',
+    summary: 'Je suis organisée et à l’aise avec les clients.',
+    experiences: [
+        'Réceptionniste — Hôtel Démo, Ville-Test — mars 2025 – aujourd’hui • Transmission des consignes à l’équipe de nuit • CDI',
+        'Agente d’accueil — Centre Démo, Ville-Test — février 2022 – novembre 2024 • CDD',
+        'Employée de restauration — Restaurant Démo — janvier 2020 – janvier 2022',
+        'Vendeuse — Librairie Démo — septembre 2017 – décembre 2019 • CDI',
+        'Stagiaire en accueil — Résidence Démo — mai 2016 – juin 2016',
+    ],
+    languages: [
+        { language: 'Français', level: 'Courant' },
+        { language: 'Italien', level: 'Niveau intermédiaire' },
+        { language: 'Anglais', level: 'Débutant' },
+    ],
+};
+
 const runId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const userId = `kirby-e2e-${runId}`;
 const userEmail = `kirby-e2e-${runId}@example.test`;
@@ -236,12 +268,25 @@ test('Kirby moves Développement web under Machiniste-receveur and keeps the DOM
         }
 
         if (url.includes('/api/kirby-cv')) {
-            trace.kirbyApiCalls.push(params.request.postData || '');
+            const postData = params.request.postData || '';
+            trace.kirbyApiCalls.push(postData);
+            let requestPayload = {};
+            try {
+                requestPayload = JSON.parse(postData);
+            } catch {}
+            const responsePayload = requestPayload.sourceKind === 'narrative'
+                ? {
+                    ok: true,
+                    source: 'openai',
+                    model: 'kirby-e2e-model',
+                    cv: { extracted: validatedNarrativeExtraction },
+                }
+                : { reply: 'Aucune modification API appliquée dans le test.' };
             await cdp.send('Fetch.fulfillRequest', {
                 requestId: params.requestId,
                 responseCode: 200,
                 responseHeaders: [{ name: 'content-type', value: 'application/json' }],
-                body: toBase64(JSON.stringify({ reply: 'Aucune modification API appliquée dans le test.' })),
+                body: toBase64(JSON.stringify(responsePayload)),
             });
             return;
         }
@@ -381,6 +426,10 @@ test('Kirby moves Développement web under Machiniste-receveur and keeps the DOM
             skillRemovalDamageReply: getCvDamageDiagnosticReply('Supprime uniquement la compétence Excel du CV'),
             actualDamageReply: getCvDamageDiagnosticReply('Tout a disparu du CV'),
             destructiveDamageReply: getCvDamageDiagnosticReply('Tout a été supprimé du CV'),
+            splitTitleWithProgramYear: repairPreviewExperienceItems([
+              'Chargée de mission France 2030',
+              'Ministère de l’Économie - janvier 2022 – décembre 2024',
+            ]),
           }))()
         `);
         assert.deepEqual(guardResults.parsedMove, {
@@ -401,6 +450,92 @@ test('Kirby moves Développement web under Machiniste-receveur and keeps the DOM
         assert.equal(guardResults.skillRemovalDamageReply, '');
         assert.match(guardResults.actualDamageReply, /aucune modification automatique/i);
         assert.match(guardResults.destructiveDamageReply, /aucune modification automatique/i);
+        assert.equal(guardResults.splitTitleWithProgramYear.length, 1);
+        assert.match(guardResults.splitTitleWithProgramYear[0], /Chargée de mission France 2030/);
+        assert.match(guardResults.splitTitleWithProgramYear[0], /Ministère de l’Économie/);
+        assert.match(guardResults.splitTitleWithProgramYear[0], /janvier 2022.+décembre 2024/);
+
+        const narrativeMergeResult = await evaluate(`
+          (async () => {
+            const fieldNames = ['fullName', 'location', 'phone', 'email', 'permit', 'headline', 'summary', 'skills', 'experience', 'projects', 'education', 'activities', 'languages'];
+            const previousValues = Object.fromEntries(fieldNames.map((name) => [name, cvForm.elements[name]?.value || '']));
+            const source = ${JSON.stringify(narrativeMergeSource)};
+            const extraction = ${JSON.stringify(validatedNarrativeExtraction)};
+            const guarded = mergeImportedCvExtractions({}, {
+              fullName: extraction.fullName,
+              experiences: ['Directrice — Entreprise inventée — 2035'],
+              education: ['Ne mets pas cette consigne dans le CV'],
+              skills: ['kirby.test@example.test'],
+            }, source, {
+              sourceKind: 'narrative',
+              validatedNarrativeAssistant: true,
+            });
+            try {
+              const importResult = await importCvTextWithKirby(source, { sourceKind: 'narrative' });
+              const merged = importResult.extracted;
+              return {
+                importSource: importResult.source,
+                mergedExperiences: merged.experiences,
+                mergedLanguages: merged.languages,
+                guarded,
+                formExperiences: cvForm.elements.experience.value.split(/\\n+/).filter(Boolean),
+                formLanguages: cvForm.elements.languages.value.split(/\\n+/).filter(Boolean),
+                formEmail: cvForm.elements.email.value,
+                repairedExperiences: repairPreviewExperienceItems(
+                  cvForm.elements.experience.value.split(/\\n+/).filter(Boolean),
+                ),
+                domExperienceTitles: [...document.querySelectorAll('#preview-experience .cv-experience-title')]
+                  .map((node) => node.textContent.trim()),
+                previewExperiences: document.querySelector('#preview-experience')?.textContent || '',
+                previewLanguages: document.querySelector('#preview-languages')?.textContent || '',
+              };
+            } finally {
+              Object.entries(previousValues).forEach(([name, value]) => {
+                if (cvForm.elements[name]) cvForm.elements[name].value = value;
+              });
+              clearEditableOverrides();
+              updateCvPreview();
+              renderExperienceEditor();
+              renderLanguageEditor();
+            }
+          })()
+        `);
+        const kirbyApiCallCountAfterNarrative = trace.kirbyApiCalls.length;
+        assert.equal(narrativeMergeResult.importSource, 'kirby');
+        assert.ok(kirbyApiCallCountAfterNarrative >= 1);
+        assert.equal(narrativeMergeResult.mergedExperiences.length, 5);
+        assert.deepEqual(narrativeMergeResult.mergedLanguages, [
+            'Français: Courant',
+            'Italien: intermédiaire',
+            'Anglais: Débutant',
+        ]);
+        assert.equal(narrativeMergeResult.formExperiences.length, 5);
+        assert.deepEqual(narrativeMergeResult.formLanguages, [
+            'Français : Courant',
+            'Italien : intermédiaire',
+            'Anglais : Débutant',
+        ]);
+        assert.equal(narrativeMergeResult.formEmail, 'kirby.test@example.test');
+        assert.equal(
+            narrativeMergeResult.repairedExperiences.length,
+            5,
+            JSON.stringify(narrativeMergeResult.repairedExperiences),
+        );
+        assert.deepEqual(narrativeMergeResult.domExperienceTitles, [
+            'Réceptionniste',
+            'Agente d’accueil',
+            'Employée de restauration',
+            'Vendeuse',
+            'Stagiaire en accueil',
+        ]);
+        assert.match(narrativeMergeResult.previewExperiences, /Hôtel Démo/);
+        assert.match(narrativeMergeResult.previewExperiences, /Centre Démo/);
+        assert.match(narrativeMergeResult.previewLanguages, /Français/);
+        assert.match(narrativeMergeResult.previewLanguages, /Italien/);
+        assert.match(narrativeMergeResult.previewLanguages, /Anglais/);
+        assert.deepEqual(narrativeMergeResult.guarded.experiences, []);
+        assert.deepEqual(narrativeMergeResult.guarded.education, []);
+        assert.deepEqual(narrativeMergeResult.guarded.skills, []);
 
         const unrelatedPlacement = await evaluate(`
           (async () => {
@@ -504,7 +639,7 @@ test('Kirby moves Développement web under Machiniste-receveur and keeps the DOM
         const finalState = await evaluate(`JSON.parse(JSON.stringify(window.__KIRBY_E2E_STATE))`);
         assert.equal((finalState.writes || []).length, writesBeforeNoop);
         assert.equal((finalState.localWrites || []).length, localWritesBeforeNoop);
-        assert.equal(trace.kirbyApiCalls.length, 0);
+        assert.equal(trace.kirbyApiCalls.length, kirbyApiCallCountAfterNarrative);
     } finally {
         await cdp.send('Page.close').catch(() => {});
         cdp.close();
