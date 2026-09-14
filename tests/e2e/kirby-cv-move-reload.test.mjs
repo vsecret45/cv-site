@@ -40,6 +40,18 @@ const validatedNarrativeExtraction = {
     ],
 };
 
+const partialNarrativeMergeSource = [
+    'Mon nom est Kirby Mini.',
+    'Le titre du CV est « Test de mise en forme ».',
+    'Pour la mise en forme partielle, ma compétence est R.',
+].join('\n');
+
+const partialNarrativeExtraction = {
+    fullName: 'Kirby Mini',
+    headline: 'Test de mise en forme',
+    skills: ['R'],
+};
+
 const runId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const userId = `kirby-e2e-${runId}`;
 const userEmail = `kirby-e2e-${runId}@example.test`;
@@ -274,12 +286,15 @@ test('Kirby moves Développement web under Machiniste-receveur and keeps the DOM
             try {
                 requestPayload = JSON.parse(postData);
             } catch {}
+            const narrativeExtraction = String(requestPayload.documentText || '').includes('Kirby Mini')
+                ? partialNarrativeExtraction
+                : validatedNarrativeExtraction;
             const responsePayload = requestPayload.sourceKind === 'narrative'
                 ? {
                     ok: true,
                     source: 'openai',
                     model: 'kirby-e2e-model',
-                    cv: { extracted: validatedNarrativeExtraction },
+                    cv: { extracted: narrativeExtraction },
                 }
                 : { reply: 'Aucune modification API appliquée dans le test.' };
             await cdp.send('Fetch.fulfillRequest', {
@@ -463,10 +478,18 @@ test('Kirby moves Développement web under Machiniste-receveur and keeps the DOM
             const extraction = ${JSON.stringify(validatedNarrativeExtraction)};
             const guarded = mergeImportedCvExtractions({}, {
               fullName: extraction.fullName,
+              email: 'invented@example.test',
+              phone: '06 00 00 00 99',
               experiences: ['Directrice — Entreprise inventée — 2035'],
               education: ['Ne mets pas cette consigne dans le CV'],
               skills: ['kirby.test@example.test'],
             }, source, {
+              sourceKind: 'narrative',
+              validatedNarrativeAssistant: true,
+            });
+            const trustedFormattingItems = mergeImportedCvExtractions({}, {
+              skills: ['R', 'Recherche', 'Gestion de projet', 'Gestion de projet agile'],
+            }, 'Compétences : R, Recherche, Gestion de projet et Gestion de projet agile.', {
               sourceKind: 'narrative',
               validatedNarrativeAssistant: true,
             });
@@ -478,6 +501,7 @@ test('Kirby moves Développement web under Machiniste-receveur and keeps the DOM
                 mergedExperiences: merged.experiences,
                 mergedLanguages: merged.languages,
                 guarded,
+                trustedFormattingItems,
                 formExperiences: cvForm.elements.experience.value.split(/\\n+/).filter(Boolean),
                 formLanguages: cvForm.elements.languages.value.split(/\\n+/).filter(Boolean),
                 formEmail: cvForm.elements.email.value,
@@ -536,6 +560,46 @@ test('Kirby moves Développement web under Machiniste-receveur and keeps the DOM
         assert.deepEqual(narrativeMergeResult.guarded.experiences, []);
         assert.deepEqual(narrativeMergeResult.guarded.education, []);
         assert.deepEqual(narrativeMergeResult.guarded.skills, []);
+        assert.equal(narrativeMergeResult.guarded.email, '');
+        assert.equal(narrativeMergeResult.guarded.phone, '');
+        assert.deepEqual(narrativeMergeResult.trustedFormattingItems.skills, [
+            'R',
+            'Recherche',
+            'Gestion de projet',
+            'Gestion de projet agile',
+        ]);
+
+        const partialNarrativeResult = await evaluate(`
+          (async () => {
+            const fieldNames = ['fullName', 'location', 'phone', 'email', 'permit', 'headline', 'summary', 'skills', 'experience', 'projects', 'education', 'activities', 'languages'];
+            const previousValues = Object.fromEntries(fieldNames.map((name) => [name, cvForm.elements[name]?.value || '']));
+            try {
+              const result = await importCvTextWithKirby(${JSON.stringify(partialNarrativeMergeSource)}, { sourceKind: 'narrative' });
+              return {
+                source: result.source,
+                fullName: cvForm.elements.fullName.value,
+                headline: cvForm.elements.headline.value,
+                skills: cvForm.elements.skills.value.split(/\\n+/).filter(Boolean),
+                preview: document.querySelector('#cv-preview')?.textContent || '',
+              };
+            } finally {
+              Object.entries(previousValues).forEach(([name, value]) => {
+                if (cvForm.elements[name]) cvForm.elements[name].value = value;
+              });
+              clearEditableOverrides();
+              updateCvPreview();
+              renderExperienceEditor();
+              renderLanguageEditor();
+            }
+          })()
+        `);
+        assert.equal(partialNarrativeResult.source, 'kirby');
+        assert.equal(partialNarrativeResult.fullName, 'Kirby Mini');
+        assert.equal(partialNarrativeResult.headline, 'Test de mise en forme');
+        assert.deepEqual(partialNarrativeResult.skills, ['R']);
+        assert.match(partialNarrativeResult.preview, /Kirby Mini/);
+        assert.match(partialNarrativeResult.preview, /Test de mise en forme/);
+        const kirbyApiCallCountAfterImports = trace.kirbyApiCalls.length;
 
         const unrelatedPlacement = await evaluate(`
           (async () => {
@@ -639,7 +703,7 @@ test('Kirby moves Développement web under Machiniste-receveur and keeps the DOM
         const finalState = await evaluate(`JSON.parse(JSON.stringify(window.__KIRBY_E2E_STATE))`);
         assert.equal((finalState.writes || []).length, writesBeforeNoop);
         assert.equal((finalState.localWrites || []).length, localWritesBeforeNoop);
-        assert.equal(trace.kirbyApiCalls.length, kirbyApiCallCountAfterNarrative);
+        assert.equal(trace.kirbyApiCalls.length, kirbyApiCallCountAfterImports);
     } finally {
         await cdp.send('Page.close').catch(() => {});
         cdp.close();

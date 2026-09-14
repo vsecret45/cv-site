@@ -9014,6 +9014,9 @@ const getNarratedCvWorkRecords = (records = []) => {
     const directWorkIndexes = new Set(records
         .filter(({ text }) => isNarratedCvWorkSegment(text))
         .map(({ index }) => index));
+    const undatedWorkIndexes = new Set(records
+        .filter(({ text }) => isNarratedCvUndatedWorkSegment(text))
+        .map(({ index }) => index));
     const syntheticPeriodByWorkIndex = new Map();
     records
         .filter((record) => !directWorkIndexes.has(record.index) && isNarratedCvStandaloneWorkPeriod(record.text))
@@ -9030,7 +9033,18 @@ const getNarratedCvWorkRecords = (records = []) => {
     return records.flatMap((record) => {
         if (directWorkIndexes.has(record.index)) return [record];
         const periodRecord = syntheticPeriodByWorkIndex.get(record.index);
-        return periodRecord ? [{ ...record, text: `${record.text} ${periodRecord.text}` }] : [];
+        if (periodRecord) return [{ ...record, text: `${record.text} ${periodRecord.text}` }];
+        if (!undatedWorkIndexes.has(record.index)) return [];
+        // Un lead-in (« j'ai travaillé dans une librairie ») reste rattaché à
+        // la phrase datée qui le suit. Sans épisode daté voisin, une expérience
+        // explicitement professionnelle reste néanmoins valable sans date.
+        const followingDatedWork = records.some((candidate) =>
+            candidate.paragraphIndex === record.paragraphIndex
+            && candidate.index > record.index
+            && candidate.index <= record.index + 3
+            && directWorkIndexes.has(candidate.index)
+        );
+        return followingDatedWork ? [] : [record];
     });
 };
 
@@ -9083,6 +9097,9 @@ const getNarratedCvTokenStem = (value = '') => {
     if (/^(?:stage|stages|stagiaire|stagiaires|intern|interns|internship|internships)$/.test(token)) {
         return 'cvstage';
     }
+    if (/^(?:gestion|gerer|gere|geres|gerons|gerent|gerais|gerait|geraient|occupe|occupes|occupait|occupais|occupent)$/.test(token)) {
+        return 'cvmanage';
+    }
     return token.length > 5 && token.endsWith('s') ? token.slice(0, -1) : token;
 };
 
@@ -9119,7 +9136,7 @@ const getNarratedCvOrderedMonthDates = (value = '') => {
     const rawSource = stripAccents(normalizeText(value));
     const source = rawSource.toLowerCase();
     const dates = [];
-    for (const match of source.matchAll(/\b(0?[1-9]|1[0-2])[/.]((?:19|20)\d{2})\b/g)) {
+    for (const match of source.matchAll(/\b(0?[1-9]|1[0-2])[\/.-]((?:19|20)\d{2})\b/g)) {
         dates.push({ index: match.index, end: match.index + match[0].length, month: Number.parseInt(match[1], 10), year: match[2] });
     }
     const namedMonthPattern = /\b(?:janv?(?:ier)?|january|fevr?(?:ier)?|february|mars|march|avr(?:il)?|april|mai|may|juin|june|juil(?:let)?|july|aout|august|sep(?:t)?(?:\.|(?=\s+(?:19|20)\d{2}\b))|septembre|september|oct(?:obre)?|october|nov(?:embre)?|november|dec(?:embre)?|december)\.?\s*((?:19|20)\d{2})?\b/g;
@@ -9162,12 +9179,78 @@ const getNarratedCvOrderedMonthDates = (value = '') => {
     }).filter(Boolean);
 };
 
+const getNarratedCvOrderedTemporalTokens = (value = '', { affirmedOnly = false } = {}) => {
+    const rawSource = normalizeText(value);
+    const source = stripAccents(rawSource).toLowerCase();
+    const tokens = [];
+    for (const match of source.matchAll(/\b(0?[1-9]|1[0-2])[\/.-](?=(?:19|20)\d{2}\b)/g)) {
+        tokens.push({ kind: 'month', index: match.index, length: match[0].length, token: `month:${Number.parseInt(match[1], 10)}` });
+    }
+    NARRATED_CV_MONTH_ALIASES.forEach(([, pattern], monthIndex) => {
+        pattern.lastIndex = 0;
+        for (const match of source.matchAll(pattern)) {
+            const originalMonthText = rawSource.slice(match.index, match.index + match[0].length);
+            const ambiguousEnglishMay = monthIndex === 4
+                && /^may$/i.test(match[0])
+                && !/^May$/.test(originalMonthText);
+            if (!ambiguousEnglishMay) {
+                tokens.push({ kind: 'month', index: match.index, length: match[0].length, token: `month:${monthIndex + 1}` });
+            }
+        }
+        pattern.lastIndex = 0;
+    });
+    for (const match of source.matchAll(/\b(?:19|20)\d{2}\b/g)) {
+        tokens.push({ kind: 'year', index: match.index, length: match[0].length, token: `year:${match[0]}` });
+    }
+    const monthTokens = tokens.filter(({ kind }) => kind === 'month');
+    const yearTokens = tokens.filter(({ kind }) => kind === 'year');
+    const directYearByMonth = new Map();
+    monthTokens.forEach((monthToken) => {
+        const directYear = yearTokens.find((yearToken) =>
+            yearToken.index >= monthToken.index + monthToken.length
+            && /^\s*$/.test(source.slice(monthToken.index + monthToken.length, yearToken.index))
+        );
+        if (directYear) directYearByMonth.set(monthToken, directYear);
+    });
+    monthTokens.forEach((monthToken) => {
+        if (directYearByMonth.has(monthToken)) return;
+        const linkedDatedMonth = monthTokens
+            .filter((candidate) => directYearByMonth.has(candidate))
+            .map((candidate) => ({
+                candidate,
+                distance: Math.abs(candidate.index - monthToken.index),
+            }))
+            .sort((left, right) => left.distance - right.distance)
+            .find(({ candidate }) => {
+                const between = monthToken.index < candidate.index
+                    ? source.slice(monthToken.index + monthToken.length, candidate.index)
+                    : source.slice(candidate.index + candidate.length, monthToken.index);
+                return /^\s*(?:[–—-]|a|au|et|jusqu a|to|and|until|through)\s*$/.test(between);
+            });
+        if (!linkedDatedMonth) return;
+        const linkedYear = directYearByMonth.get(linkedDatedMonth.candidate);
+        tokens.push({
+            kind: 'year',
+            index: monthToken.index + monthToken.length - 0.01,
+            length: monthToken.length,
+            token: linkedYear.token,
+            negated: isNarratedCvSensitiveClaimNegated(source, monthToken.index, monthToken.length)
+                || isNarratedCvSensitiveClaimNegated(source, linkedYear.index, linkedYear.length),
+        });
+    });
+    return tokens
+        .filter(({ index, length, negated = false }) => !affirmedOnly
+            || (!negated && !isNarratedCvSensitiveClaimNegated(source, index, length)))
+        .sort((left, right) => left.index - right.index)
+        .map(({ token }) => token);
+};
+
 const getNarratedCvOrderedStandaloneYears = (value = '') => {
     const source = stripAccents(normalizeText(value).toLowerCase());
     return [...source.matchAll(/\b(?:19|20)\d{2}\b/g)]
         .filter((match) => {
             const prefix = source.slice(Math.max(0, match.index - 24), match.index);
-            return !/(?:\b(?:janv?(?:ier)?|january|fevr?(?:ier)?|february|mars|march|avr(?:il)?|april|mai|may|juin|june|juil(?:let)?|july|aout|august|sept?(?:embre)?|september|oct(?:obre)?|october|nov(?:embre)?|november|dec(?:embre)?|december)\.?\s*|\b(?:0?[1-9]|1[0-2])[/.])$/.test(prefix);
+            return !/(?:\b(?:janv?(?:ier)?|january|fevr?(?:ier)?|february|mars|march|avr(?:il)?|april|mai|may|juin|june|juil(?:let)?|july|aout|august|sept?(?:embre)?|september|oct(?:obre)?|october|nov(?:embre)?|november|dec(?:embre)?|december)\.?\s*|\b(?:0?[1-9]|1[0-2])[\/.-])$/.test(prefix);
         })
         .map((match) => match[0]);
 };
@@ -9175,7 +9258,7 @@ const getNarratedCvOrderedStandaloneYears = (value = '') => {
 const getNarratedCvNumericFacts = (value = '') => {
     const source = stripAccents(normalizeText(value).toLowerCase());
     const withoutDates = source
-        .replace(/\b(?:0?[1-9]|1[0-2])[/.](?:19|20)\d{2}\b/g, ' ')
+        .replace(/\b(?:0?[1-9]|1[0-2])[\/.-](?:19|20)\d{2}\b/g, ' ')
         .replace(/\b(?:janv?(?:ier)?|january|fevr?(?:ier)?|february|mars|march|avr(?:il)?|april|mai|may|juin|june|juil(?:let)?|july|aout|august|sept?(?:embre)?|september|oct(?:obre)?|october|nov(?:embre)?|november|dec(?:embre)?|december)\.?\s*(?:19|20)\d{2}\b/g, ' ')
         .replace(/\b(?:19|20)\d{2}\b/g, ' ');
     const digits = withoutDates.match(/\b\d+(?:[.,]\d+)?\b/g) || [];
@@ -9195,35 +9278,62 @@ const getNarratedCvNumericFacts = (value = '') => {
 const hasNarratedCvDateAndQuantityGrounding = (sourceValue = '', outputValue = '') => {
     const sourceDates = getNarratedCvOrderedMonthDates(sourceValue);
     const outputDates = getNarratedCvOrderedMonthDates(outputValue);
-    const sourceStandaloneYears = getNarratedCvOrderedStandaloneYears(sourceValue);
+    const sourceYears = getNarratedCvYears(sourceValue);
     const outputStandaloneYears = getNarratedCvOrderedStandaloneYears(outputValue);
-    const datesMatch = sourceDates.length === outputDates.length
-        && sourceDates.every((date, index) => outputDates[index] === date)
-        && sourceStandaloneYears.length === outputStandaloneYears.length
-        && sourceStandaloneYears.every((year, index) => outputStandaloneYears[index] === year);
+    const sourceTemporalTokens = getNarratedCvOrderedTemporalTokens(sourceValue, { affirmedOnly: true });
+    const outputTemporalTokens = getNarratedCvOrderedTemporalTokens(outputValue);
+    const isOrderedSubset = (items = [], sourceItems = []) => {
+        let sourceIndex = 0;
+        return items.every((item) => {
+            const matchedIndex = sourceItems.indexOf(item, sourceIndex);
+            if (matchedIndex < 0) return false;
+            sourceIndex = matchedIndex + 1;
+            return true;
+        });
+    };
+    // Une date omise n'est pas une date inventée. Les dates effectivement
+    // produites doivent en revanche exister dans la source et garder leur ordre.
+    const datesMatch = isOrderedSubset(outputDates, sourceDates)
+        // Afficher seulement l'année d'un mois-année déclaré est une réduction
+        // de précision fidèle, pas l'ajout d'une nouvelle date.
+        && isOrderedSubset(outputStandaloneYears, sourceYears)
+        // Une seule séquence mois/années évite qu'une comparaison séparée
+        // accepte deux dates exactes mais remises dans l'ordre inverse.
+        && isOrderedSubset(outputTemporalTokens, sourceTemporalTokens);
     const sourceFacts = getNarratedCvNumericFacts(sourceValue);
     const outputFacts = getNarratedCvNumericFacts(outputValue);
     const quantitiesGrounded = [...outputFacts].every((fact) => sourceFacts.has(fact));
     return datesMatch && quantitiesGrounded;
 };
 
+const NARRATED_CV_CONTRACT_PATTERNS = new Map([
+    ['permanent', /\b(?:cdi|contrat a duree indeterminee|contrat permanent|poste permanent|permanent contract)\b/],
+    ['fixed-term', /\b(?:cdd|contrat a duree determinee|fixed[- ]term contract)\b/],
+    ['temporary', /\b(?:interim|temporaire|temporary contract|temp contract)\b/],
+    ['work-study', /\b(?:alternance|apprentissage|work[- ]study|apprenticeship)\b/],
+    ['freelance', /\b(?:freelance|independant(?:e)?|self[- ]employed)\b/],
+    ['internship', /\b(?:stage|stagiaire|internship|intern)\b/],
+]);
+
 const getNarratedCvContractKinds = (value = '') => {
     const source = stripAccents(normalizeText(value).toLowerCase()).replace(/[’']/g, ' ');
-    const contracts = new Set();
-    if (/\b(?:cdi|contrat a duree indeterminee|contrat permanent|poste permanent|permanent contract)\b/.test(source)) contracts.add('permanent');
-    if (/\b(?:cdd|contrat a duree determinee|fixed[- ]term contract)\b/.test(source)) contracts.add('fixed-term');
-    if (/\b(?:interim|temporaire|temporary contract|temp contract)\b/.test(source)) contracts.add('temporary');
-    if (/\b(?:alternance|apprentissage|work[- ]study|apprenticeship)\b/.test(source)) contracts.add('work-study');
-    if (/\b(?:freelance|independant(?:e)?|self[- ]employed)\b/.test(source)) contracts.add('freelance');
-    if (/\b(?:stage|stagiaire|internship|intern)\b/.test(source)) contracts.add('internship');
-    return contracts;
+    return new Set([...NARRATED_CV_CONTRACT_PATTERNS]
+        .filter(([, pattern]) => pattern.test(source))
+        .map(([kind]) => kind));
 };
 
 const hasNarratedCvContractGrounding = (sourceValue = '', outputValue = '') => {
     const sourceContracts = getNarratedCvContractKinds(sourceValue);
     const outputContracts = getNarratedCvContractKinds(outputValue);
-    return sourceContracts.size === outputContracts.size
-        && [...sourceContracts].every((contract) => outputContracts.has(contract));
+    const affirmedSource = stripAccents(normalizeText(sourceValue).toLowerCase()).replace(/[’']/g, ' ');
+    // L'absence de contrat dans la sortie est autorisée. Tout contrat affiché
+    // doit toutefois être explicitement affirmé dans le récit.
+    return [...outputContracts].every((contract) => {
+        const sourcePattern = NARRATED_CV_CONTRACT_PATTERNS.get(contract);
+        return sourceContracts.has(contract)
+            && sourcePattern
+            && hasNarratedCvAffirmedSensitiveClaim(affirmedSource, sourcePattern);
+    });
 };
 
 const isNarratedCvItemGrounded = (
@@ -9335,6 +9445,266 @@ const hasNarratedCvGranularCollectionGrounding = (items = [], sourceSegments = [
     ));
 };
 
+const NARRATED_CV_QUALIFICATION_PATTERNS = new Map([
+    ['bac', /\b(?:bac|baccalaureat)\b/],
+    ['bep', /\b(?:bep|brevet d etudes professionnelles)\b/],
+    ['cap', /\b(?:cap|certificat d aptitude professionnelle)\b/],
+    ['bts', /\b(?:bts|brevet de technicien superieur)\b/],
+    ['dut', /\b(?:dut|diplome universitaire de technologie)\b/],
+    ['licence', /\b(?:licence|bachelor)\b/],
+    ['master', /\b(?:master|mastere|mba)\b/],
+    ['doctorate', /\b(?:doctorat|ph\.?d\.?)\b/],
+]);
+
+const getNarratedCvFormalQualificationKinds = (value = '') => {
+    const source = stripAccents(normalizeText(value).toLowerCase()).replace(/[’']/g, ' ');
+    return new Set([...NARRATED_CV_QUALIFICATION_PATTERNS]
+        .filter(([, pattern]) => pattern.test(source))
+        .map(([kind]) => kind));
+};
+
+const hasNarratedCvFormalQualificationGrounding = (value = '', sourceValue = '') => {
+    const outputKinds = getNarratedCvFormalQualificationKinds(value);
+    if (!outputKinds.size) return true;
+    const sourceKinds = getNarratedCvFormalQualificationKinds(sourceValue);
+    const affirmedSource = stripAccents(normalizeText(sourceValue).toLowerCase()).replace(/[’']/g, ' ');
+    return [...outputKinds].every((kind) => {
+        const sourcePattern = NARRATED_CV_QUALIFICATION_PATTERNS.get(kind);
+        return sourceKinds.has(kind)
+            && sourcePattern
+            && hasNarratedCvAffirmedSensitiveClaim(affirmedSource, sourcePattern);
+    });
+};
+
+const NARRATED_CV_CREDENTIAL_NATURE_PATTERNS = new Map([
+    ['training', /\b(?:formation|training|course)\b/],
+    ['certification', /\b(?:certification|certificat|certificate|certified)\b/],
+    ['attestation', /\b(?:attestation)\b/],
+    ['diploma', /\b(?:diplome|diploma|degree|graduated)\b/],
+]);
+
+const getNarratedCvCredentialNatureKinds = (value = '') => {
+    const source = stripAccents(normalizeText(value).toLowerCase()).replace(/[’']/g, ' ');
+    return new Set([...NARRATED_CV_CREDENTIAL_NATURE_PATTERNS]
+        .filter(([, pattern]) => pattern.test(source))
+        .map(([kind]) => kind));
+};
+
+const hasNarratedCvCredentialNatureGrounding = (value = '', sourceValue = '') => {
+    const outputKinds = getNarratedCvCredentialNatureKinds(value);
+    if (!outputKinds.size) return true;
+    const sourceKinds = getNarratedCvCredentialNatureKinds(sourceValue);
+    const affirmedSource = stripAccents(normalizeText(sourceValue).toLowerCase()).replace(/[’']/g, ' ');
+    return [...outputKinds].every((kind) => {
+        const sourcePattern = NARRATED_CV_CREDENTIAL_NATURE_PATTERNS.get(kind);
+        return sourceKinds.has(kind)
+            && sourcePattern
+            && hasNarratedCvAffirmedSensitiveClaim(affirmedSource, sourcePattern);
+    });
+};
+
+const NARRATED_CV_GENERIC_ENTITY_TOKENS = new Set([
+    'association', 'associations', 'business', 'cabinet', 'centre', 'centres', 'college', 'company',
+    'ecole', 'ecoles', 'entreprise', 'entreprises', 'etablissement', 'etablissements', 'fictif', 'fictive',
+    'groupe', 'group', 'hotel', 'hotels', 'lycee', 'lycees', 'residence', 'residences', 'restaurant',
+    'restaurants', 'societe', 'societes', 'store', 'universite', 'universites', 'affaire', 'affaires',
+]);
+
+const NARRATED_CV_ENTITY_DESIGNATORS = new Set([
+    'association', 'business', 'cabinet', 'centre', 'college', 'company', 'ecole', 'entreprise',
+    'etablissement', 'groupe', 'group', 'hotel', 'lycee', 'residence', 'restaurant', 'societe',
+    'store', 'universite',
+]);
+
+const getNarratedCvEntityDesignatorPairs = (value = '') => {
+    const words = stripAccents(normalizeText(value).toLowerCase())
+        .replace(/[’']/g, ' ')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+    const ignored = new Set([
+        ...NARRATED_CV_GENERIC_ENTITY_TOKENS,
+        'a', 'at', 'au', 'aux', 'chez', 'd', 'de', 'des', 'du', 'for', 'from', 'in', 'l', 'la', 'le',
+        'les', 'near', 'of', 'the', 'with',
+    ]);
+    return words.flatMap((word, index) => {
+        if (!NARRATED_CV_ENTITY_DESIGNATORS.has(word)) return [];
+        const distinctive = words.slice(index + 1).find((candidate) =>
+            !ignored.has(candidate)
+            && !/^\d+$/.test(candidate)
+            && !NARRATED_CV_MONTH_TOKENS.has(candidate)
+        );
+        return distinctive ? [`${word}:${distinctive}`] : [];
+    });
+};
+
+const getNarratedCvPrimaryEntityTokens = (value = '') => {
+    const source = stripAccents(normalizeText(value).toLowerCase()).replace(/[’']/g, ' ');
+    if (!source) return [];
+    const markerPatterns = [
+        /\b(?:chez|au\s+sein\s+de|at(?:\s+the)?|(?:s\s+)?appelait|(?:was\s+)?(?:called|named))\s+/g,
+        new RegExp(`\\b(?:${[...NARRATED_CV_ENTITY_DESIGNATORS].join('|')})\\b`, 'g'),
+        /\b(?:pour|with)\s+/g,
+    ];
+    const markers = markerPatterns
+        .flatMap((pattern, priority) => [...source.matchAll(pattern)]
+            .map((match) => ({
+                index: match.index,
+                end: match.index + match[0].length,
+                marker: match[0],
+                priority,
+            })))
+        .sort((left, right) => left.index - right.index || left.priority - right.priority);
+    const structuralTokens = new Set([
+        'appele', 'appelee', 'called', 'named', 'nomme', 'nommee', 'was', 'were', 'etait', 'est',
+    ]);
+    const weakActionTokens = new Set([
+        'accueillir', 'aider', 'conseiller', 'gerer', 'organiser', 'preparer', 'repondre', 'servir',
+        'assist', 'help', 'manage', 'organize', 'prepare', 'serve', 'support',
+    ]);
+    const getEntityTokens = (text = '') => getNarratedCvAnchorTokens(text)
+        .filter((token) => !NARRATED_CV_GENERIC_ENTITY_TOKENS.has(token))
+        .filter((token) => !structuralTokens.has(token));
+    const getBoundedFollowingSpan = (startIndex) => {
+        const tail = source.slice(startIndex);
+        const boundary = tail.search(/[,.;!?]|\s+[–—]\s+|\b(?:a|in)\b|\b(?:ou|where|qui|option)\b|\b(?:et|and)\s+(?:je|j|i|we)\b|\b(?:avec|with|pour|for)\s+(?:(?:les?|des?|the|our)\s+)?(?:clients?|customers?)\b/);
+        return tail.slice(0, boundary >= 0 ? boundary : tail.length).trim();
+    };
+
+    for (const marker of markers) {
+        let span = getBoundedFollowingSpan(marker.end);
+        let tokens = getEntityTokens(span);
+        const designatorOnly = NARRATED_CV_ENTITY_DESIGNATORS.has(marker.marker.trim());
+        // Le nom peut précéder son type en anglais (« North Hotel »).
+        if (designatorOnly && !tokens.length) {
+            const prefix = source.slice(0, marker.index).split(/[,.;!?]|\b(?:chez|at|pour|with)\b/).pop() || '';
+            tokens = getEntityTokens(prefix).slice(-3);
+            span = prefix;
+        }
+        if (!tokens.length) continue;
+        if (marker.priority === 2 && weakActionTokens.has(tokens[0])) continue;
+        const firstTokenIndex = source.indexOf(tokens[0], Math.max(marker.index, marker.end - marker.marker.length));
+        if (firstTokenIndex >= 0
+            && isNarratedCvSensitiveClaimNegated(source, firstTokenIndex, tokens[0].length)) {
+            continue;
+        }
+        return tokens;
+    }
+    return [];
+};
+
+const getNarratedCvEntityLocationTokens = (value = '') => {
+    const source = normalizeText(value);
+    const locations = [];
+    for (const match of source.matchAll(/(?:^|[\s,(])(?:à|in)\s+(?:(?:la|le|l[’']|the)\s+)?(\p{Lu}[\p{L}\p{M}'’.-]*(?:\s+\p{Lu}[\p{L}\p{M}'’.-]*){0,2})/gu)) {
+        locations.push(...getNarratedCvAnchorTokens(match[1]));
+    }
+    return [...new Set(locations)]
+        .filter((token) => !NARRATED_CV_GENERIC_ENTITY_TOKENS.has(token));
+};
+
+const getNarratedCvDashedEntityTokens = (header = '') => {
+    const parts = normalizeText(header).split(/\s+[–—-]\s+/);
+    if (parts.length < 2) return [];
+    const entityZone = parts[1] || '';
+    const normalizedZone = stripAccents(entityZone.toLowerCase()).replace(/[’']/g, ' ');
+    if (!normalizedZone
+        || /^(?:(?:19|20)\d{2}|(?:janv(?:ier)?|fevr(?:ier)?|mars|avr(?:il)?|mai|juin|juil(?:let)?|aout|sept(?:embre)?|oct(?:obre)?|nov(?:embre)?|dec(?:embre)?|jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?:\s+(?:19|20)\d{2})?|cdi|cdd|interim|freelance|stage|internship|present|current|aujourd hui)$/i.test(normalizedZone)) {
+        return [];
+    }
+    return getNarratedCvAnchorTokens(entityZone)
+        .filter((token) => !NARRATED_CV_GENERIC_ENTITY_TOKENS.has(token))
+        .filter((token) => !/^(?:cdi|cdd|interim|freelance|internship|stage|present|current)$/.test(token));
+};
+
+const hasNarratedCvExactEntityGrounding = (value = '', sourceValue = '') => {
+    const header = normalizeText(value).split(/\s*•\s*|\r?\n/, 1)[0];
+    const parts = header.split(/\s+[–—-]\s+/);
+    const separatedTokens = parts.length < 2
+        ? []
+        : getNarratedCvAnchorTokens(parts.slice(1).join(' '))
+            .filter((token) => !NARRATED_CV_GENERIC_ENTITY_TOKENS.has(token));
+    const capitalizedTokens = [...header.matchAll(/(?<![\p{L}\p{M}])\p{Lu}[\p{L}\p{M}'’.-]*/gu)]
+        .filter((match) => match.index > 0)
+        .flatMap((match) => match[0].split(/[’'.-]+/))
+        .map((token) => stripAccents(token.toLowerCase()))
+        .filter((token) => token.length >= 2)
+        .filter((token) => !NARRATED_CV_MONTH_TOKENS.has(token))
+        .filter((token) => !NARRATED_CV_NON_ANCHOR_TOKENS.has(token))
+        .filter((token) => !NARRATED_CV_GENERIC_ENTITY_TOKENS.has(token));
+    const entityTokens = [...new Set([...separatedTokens, ...capitalizedTokens])];
+    const source = stripAccents(normalizeText(sourceValue).toLowerCase()).replace(/[’']/g, ' ');
+    const tokensGrounded = entityTokens.every((token) => {
+        const escapedToken = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const matches = [...source.matchAll(new RegExp(`\\b${escapedToken}\\b`, 'g'))];
+        const lastMatch = matches.at(-1);
+        return lastMatch
+            && !isNarratedCvSensitiveClaimNegated(source, lastMatch.index, lastMatch[0].length);
+    });
+    if (!tokensGrounded) return false;
+    const dashedEntityTokens = getNarratedCvDashedEntityTokens(header);
+    const primarySourceEntityTokens = getNarratedCvPrimaryEntityTokens(sourceValue);
+    if (dashedEntityTokens.length && primarySourceEntityTokens.length) {
+        const allowedSourceEntityTokens = [
+            ...primarySourceEntityTokens,
+            ...getNarratedCvEntityLocationTokens(sourceValue),
+        ];
+        const hasPrimaryEntityToken = dashedEntityTokens.some((token) =>
+            primarySourceEntityTokens.some((sourceToken) => narratedCvTokensMatch(token, sourceToken))
+        );
+        const onlyUsesEntityOrLocationTokens = dashedEntityTokens.every((token) =>
+            allowedSourceEntityTokens.some((sourceToken) => narratedCvTokensMatch(token, sourceToken))
+        );
+        if (!hasPrimaryEntityToken || !onlyUsesEntityOrLocationTokens) return false;
+    }
+    const outputDesignatorPairs = getNarratedCvEntityDesignatorPairs(header);
+    if (!outputDesignatorPairs.length) return true;
+    const sourceDesignatorPairs = new Set(getNarratedCvEntityDesignatorPairs(sourceValue));
+    return outputDesignatorPairs.every((pair) => sourceDesignatorPairs.has(pair));
+};
+
+const hasNarratedCvFormalEducationGrounding = (items = [], sourceSegments = []) => {
+    const values = Array.isArray(items) ? items.filter(Boolean) : [];
+    const segments = sourceSegments.filter(Boolean);
+    if (!values.length) return true;
+    if (!segments.length) return false;
+    return values.every((item) => segments.some((segment) =>
+        hasNarratedCvClauseGrounding(item, segment)
+        && hasNarratedCvFormalQualificationGrounding(item, segment)
+        && hasNarratedCvExactEntityGrounding(item, segment)
+    ));
+};
+
+const hasNarratedCvCertificationGrounding = (items = [], sourceSegments = []) => {
+    const values = Array.isArray(items) ? items.filter(Boolean) : [];
+    const segments = sourceSegments.filter(Boolean);
+    if (!values.length) return true;
+    if (!segments.length) return false;
+    return values.every((item) => segments.some((segment) =>
+        hasNarratedCvClauseGrounding(item, segment)
+        && hasNarratedCvCredentialNatureGrounding(item, segment)
+        && hasNarratedCvExactEntityGrounding(item, segment)
+    ));
+};
+
+const isNarratedCvEducationOrCertificationSegment = (value = '') => {
+    const source = stripAccents(normalizeText(value).toLowerCase()).replace(/[’']/g, ' ');
+    const educationSignal = /\b(?:formation|diplome|certificat|certification|attestation|cap|bts|bac|baccalaureat|bep|dut|licence|bachelor|master|mastere|mba|doctorat|ph\.?d\.?|ecole|lycee|cfa|universite|training|degree|certificate|school|university|college)\b/.test(source);
+    return educationSignal && !isNarratedCvWorkSegment(value);
+};
+
+const isNarratedCvGeneralProfileSegment = (value = '') => {
+    const source = stripAccents(normalizeText(value).toLowerCase()).replace(/[’']/g, ' ');
+    return isNarratedCvEducationOrCertificationSegment(value)
+        || isNarratedCvLanguageStatement(value)
+        || isNarratedCvActivityStatement(value)
+        || (isNarratedCvSummaryQualitySource(value) && !hasNarratedCvFollowUpReference(value))
+        || /\b(?:je sais|je maitrise|mes competences|j utilise|mes outils|mon savoir faire|i can|i know|i use|i master|my skills?|my tools?)\b/.test(source)
+        || /\b(?:mon projet|mes projets|projet benevole|projets? personnels?|portfolio|my project|my projects|volunteer project|personal projects?)\b/.test(source)
+        || /\b(?:mon nom|nom\s*:|je m appelle|my name|name\s*:|mon telephone|telephone\s*:|phone\s*:|mon mail|mon email|e ?mail\s*:|j habite|je vis|je reside|i live|permis [a-z]|driving licen[cs]e)\b/.test(source);
+};
+
 const getNarratedCvRecordContext = (record, records = [], workRecords = []) => {
     const nextWorkIndex = workRecords
         .filter((candidate) => candidate.paragraphIndex === record.paragraphIndex && candidate.index > record.index)
@@ -9344,6 +9714,7 @@ const getNarratedCvRecordContext = (record, records = [], workRecords = []) => {
         .filter((candidate) => candidate.paragraphIndex === record.paragraphIndex)
         .filter((candidate) => candidate.index >= record.index && (!Number.isInteger(nextWorkIndex) || candidate.index < nextWorkIndex))
         .filter((candidate) => !isNarratedCvEditorialSegment(candidate.text) && !isNarratedCvGapSegment(candidate.text))
+        .filter((candidate) => candidate.index === record.index || !isNarratedCvGeneralProfileSegment(candidate.text))
         .map((candidate) => candidate.text)
         .join(' ');
 };
@@ -9370,6 +9741,35 @@ const getNarratedCvRecordIdentityContext = (record, records = [], workRecords = 
         .filter((candidate) => !Number.isInteger(nextWorkIndex) || candidate.index < nextWorkIndex)
         .filter((candidate) => candidate.index >= record.index || isNarratedCvWorkIdentityLeadIn(candidate.text))
         .filter((candidate) => !isNarratedCvEditorialSegment(candidate.text) && !isNarratedCvGapSegment(candidate.text))
+        .filter((candidate) => candidate.index === record.index || !isNarratedCvGeneralProfileSegment(candidate.text))
+        .map((candidate) => candidate.text)
+        .join(' ');
+};
+
+const isNarratedCvWorkEntityContinuation = (value = '') => {
+    const source = stripAccents(normalizeText(value).toLowerCase()).replace(/[’']/g, ' ');
+    return /\b(?:(?:elle|il|l entreprise|la societe|l etablissement|mon employeur)\s+(?:s appelait|etait (?:nomme|nommee|appele|appelee))|(?:it|the company|the business|my employer)\s+was\s+(?:called|named))\b/.test(source);
+};
+
+const getNarratedCvRecordEntityContext = (record, records = [], workRecords = []) => {
+    const sameParagraphWorkRecords = workRecords
+        .filter((candidate) => candidate.paragraphIndex === record.paragraphIndex);
+    const previousWorkIndex = sameParagraphWorkRecords
+        .filter((candidate) => candidate.index < record.index)
+        .map((candidate) => candidate.index)
+        .sort((left, right) => right - left)[0];
+    const nextWorkIndex = sameParagraphWorkRecords
+        .filter((candidate) => candidate.index > record.index)
+        .map((candidate) => candidate.index)
+        .sort((left, right) => left - right)[0];
+    return records
+        .filter((candidate) => candidate.paragraphIndex === record.paragraphIndex)
+        .filter((candidate) => !Number.isInteger(previousWorkIndex) || candidate.index > previousWorkIndex)
+        .filter((candidate) => !Number.isInteger(nextWorkIndex) || candidate.index < nextWorkIndex)
+        .filter((candidate) => candidate.index === record.index
+            || (candidate.index < record.index && isNarratedCvWorkIdentityLeadIn(candidate.text))
+            || (candidate.index > record.index && isNarratedCvWorkEntityContinuation(candidate.text)))
+        .filter((candidate) => !isNarratedCvEditorialSegment(candidate.text) && !isNarratedCvGapSegment(candidate.text))
         .map((candidate) => candidate.text)
         .join(' ');
 };
@@ -9380,14 +9780,14 @@ const getNarratedCvEpisodeCandidateIndexes = (record = {}, experiences = []) => 
     const identityContext = typeof record === 'string' ? record : record.identityContext || sourceContext;
     const segmentTokens = getNarratedCvAnchorTokens(segment);
     const sourceContextTokens = getNarratedCvAnchorTokens(identityContext);
-    const segmentYears = getNarratedCvYears(segment);
+    const sourceYears = new Set(getNarratedCvYears(sourceContext));
     return experiences.reduce((matches, experience, index) => {
         const candidateTokens = getNarratedCvAnchorTokens(experience);
         const candidateHeaderTokens = getNarratedCvAnchorTokens(String(experience || '').split(/[•\n]/, 1)[0]);
         const tokenMatches = getNarratedCvTokenMatchCount(segmentTokens, candidateTokens);
         const groundedHeaderTokens = getNarratedCvTokenMatchCount(candidateHeaderTokens, sourceContextTokens);
-        const yearsMatch = segmentYears.every((year) => String(experience || '').includes(year));
-        const identityMatch = tokenMatches >= Math.min(2, Math.max(segmentTokens.length, 1));
+        const yearsMatch = getNarratedCvYears(experience).every((year) => sourceYears.has(year));
+        const identityMatch = tokenMatches >= Math.min(1, Math.max(segmentTokens.length, 1));
         const headerGrounded = candidateHeaderTokens.length > 0
             && groundedHeaderTokens === candidateHeaderTokens.length;
         if (yearsMatch && identityMatch && headerGrounded) {
@@ -9400,27 +9800,37 @@ const getNarratedCvEpisodeCandidateIndexes = (record = {}, experiences = []) => 
 const hasNarratedCvEpisodeCoverage = (segment = '', experiences = []) =>
     getNarratedCvEpisodeCandidateIndexes(segment, experiences).length > 0;
 
-const getNarratedCvEpisodeAssignment = (workRecords = [], experiences = []) => {
-    if (workRecords.length !== experiences.length) return null;
-    const candidates = workRecords.map((record) => getNarratedCvEpisodeCandidateIndexes(record, experiences));
+const getNarratedCvEpisodeAssignment = (workRecords = [], experiences = [], isGroundedForWork = null) => {
+    if (experiences.length > workRecords.length) return null;
+    if (!experiences.length) return [];
+    // La sortie peut volontairement être partielle pour tester une mise en
+    // forme. On affecte donc chaque expérience produite à un épisode source
+    // unique, sans exiger que tous les épisodes source aient été reproduits.
+    const candidates = experiences.map((experience) => workRecords.reduce((indexes, record, workIndex) => {
+        if (getNarratedCvEpisodeCandidateIndexes(record, [experience]).length
+            && (!isGroundedForWork || isGroundedForWork(experience, workIndex))) {
+            indexes.push(workIndex);
+        }
+        return indexes;
+    }, []));
     if (candidates.some((indexes) => !indexes.length)) return null;
 
-    const assignment = new Array(workRecords.length).fill(-1);
+    const assignment = new Array(experiences.length).fill(-1);
     const used = new Set();
     const visit = (position) => {
         if (position >= candidates.length) return true;
-        const sourceIndex = candidates
+        const outputIndex = candidates
             .map((indexes, index) => ({ index, size: indexes.filter((candidate) => !used.has(candidate)).length }))
             .filter(({ index }) => assignment[index] === -1)
             .sort((left, right) => left.size - right.size)[0]?.index;
-        if (!Number.isInteger(sourceIndex)) return true;
-        for (const candidateIndex of candidates[sourceIndex]) {
-            if (used.has(candidateIndex)) continue;
-            used.add(candidateIndex);
-            assignment[sourceIndex] = candidateIndex;
+        if (!Number.isInteger(outputIndex)) return true;
+        for (const workIndex of candidates[outputIndex]) {
+            if (used.has(workIndex)) continue;
+            used.add(workIndex);
+            assignment[outputIndex] = workIndex;
             if (visit(position + 1)) return true;
-            assignment[sourceIndex] = -1;
-            used.delete(candidateIndex);
+            assignment[outputIndex] = -1;
+            used.delete(workIndex);
         }
         return false;
     };
@@ -10139,6 +10549,130 @@ const hasNarratedCvSkillAggregateCoverage = (items = [], sourceSegments = [], mi
     return matches / sourceTokens.length >= minimumRatio;
 };
 
+const NARRATED_CV_LANGUAGE_ALIASES = [
+    ['francais', 'french'],
+    ['anglais', 'english'],
+    ['arabe', 'arabic'],
+    ['espagnol', 'espagnole', 'spanish'],
+    ['italien', 'italienne', 'italian'],
+    ['allemand', 'allemande', 'german'],
+    ['portugais', 'portugaise', 'portuguese'],
+    ['neerlandais', 'neerlandaise', 'dutch'],
+    ['chinois', 'chinoise', 'chinese', 'mandarin'],
+    ['japonais', 'japonaise', 'japanese'],
+    ['polonais', 'polonaise', 'polish'],
+    ['russe', 'russian'],
+    ['turc', 'turque', 'turkish'],
+];
+
+const getNarratedCvLanguageAliases = (value = '') => {
+    const key = stripAccents(normalizeText(value).toLowerCase());
+    return NARRATED_CV_LANGUAGE_ALIASES.find((aliases) => aliases.includes(key)) || [key];
+};
+
+const getNarratedCvLanguageClaimRecords = (language = '', source = '') => {
+    const targetAliases = new Set(getNarratedCvLanguageAliases(language));
+    const aliasGroups = NARRATED_CV_LANGUAGE_ALIASES.some((aliases) =>
+        aliases.some((alias) => targetAliases.has(alias)))
+        ? NARRATED_CV_LANGUAGE_ALIASES
+        : [...NARRATED_CV_LANGUAGE_ALIASES, [...targetAliases].filter(Boolean)];
+    return getNarratedCvSegmentRecords(source)
+        .filter(({ text }) => isNarratedCvLanguageStatement(text))
+        .flatMap(({ text, index: recordIndex }) => {
+            const normalized = stripAccents(normalizeText(text).toLowerCase()).replace(/[’']/g, ' ');
+            return aliasGroups
+                .flatMap((aliases) => {
+                    const pattern = new RegExp(`\\b(?:${aliases.join('|')})\\b`, 'g');
+                    return [...normalized.matchAll(pattern)].map((match) => ({
+                        text: normalized,
+                        recordIndex,
+                        index: match.index,
+                        end: match.index + match[0].length,
+                        target: aliases.some((alias) => targetAliases.has(alias)),
+                    }));
+                })
+                .sort((left, right) => left.index - right.index);
+        })
+        .sort((left, right) => left.recordIndex - right.recordIndex || left.index - right.index);
+};
+
+const hasNarratedCvAffirmedLanguageClaim = (language = '', source = '') => {
+    const targetClaims = getNarratedCvLanguageClaimRecords(language, source).filter(({ target }) => target);
+    const lastClaim = targetClaims.at(-1);
+    return Boolean(lastClaim)
+        && !isNarratedCvSensitiveClaimNegated(
+            lastClaim.text,
+            lastClaim.index,
+            lastClaim.end - lastClaim.index,
+        );
+};
+
+const NARRATED_CV_LANGUAGE_LEVEL_PATTERNS = [
+    /\b(?:langue maternelle|maternelle|native speaker|native)\b/g,
+    /\b(?:bilingual|bilingue)\b/g,
+    /\b(?:fluent|courant(?:e)?|couramment)\b/g,
+    /\b(?:professional working proficiency|working proficiency|niveau professionnel|professionnel(?:le)?)\b/g,
+    /\b(?:intermediate|niveau intermediaire|intermediaire)\b/g,
+    /\b(?:elementary level|elementary|bases solides)\b/g,
+    /\b(?:beginner|debutant(?:e)?)\b/g,
+    /\b(?:basic english|basic knowledge|basic proficiency|basic|bases?|notions?)\b/g,
+    /\b(?:niveau\s+)?[abc][12]\b/g,
+];
+
+const getNarratedCvAffirmedLanguageLevel = (language = '', source = '', documentLanguage = 'fr') => {
+    const claims = getNarratedCvLanguageClaimRecords(language, source);
+    const targetClaims = claims.filter(({ target }) => target);
+    const levelClaims = [];
+    targetClaims.forEach((claim) => {
+        const sameRecordClaims = claims.filter(({ recordIndex }) => recordIndex === claim.recordIndex);
+        const position = sameRecordClaims.findIndex((candidate) => candidate === claim);
+        const start = position > 0 ? sameRecordClaims[position - 1].end : 0;
+        const end = position >= 0 && position < sameRecordClaims.length - 1
+            ? sameRecordClaims[position + 1].index
+            : claim.text.length;
+        NARRATED_CV_LANGUAGE_LEVEL_PATTERNS.forEach((levelPattern) => {
+            levelPattern.lastIndex = 0;
+            for (const match of claim.text.matchAll(levelPattern)) {
+                if (match.index < start || match.index >= end) continue;
+                if (isNarratedCvSensitiveClaimNegated(claim.text, match.index, match[0].length)) continue;
+                const matchEnd = match.index + match[0].length;
+                const beforeLanguage = matchEnd <= claim.index;
+                const afterLanguage = match.index >= claim.end;
+                const between = beforeLanguage
+                    ? claim.text.slice(matchEnd, claim.index)
+                    : afterLanguage
+                        ? claim.text.slice(claim.end, match.index)
+                        : '';
+                const related = beforeLanguage
+                    ? /^\s*(?:(?:en|in)\s*)?$/.test(between)
+                    : afterLanguage
+                        ? !/\b(?:et|and)\b/.test(between)
+                        : true;
+                if (!related) continue;
+                const distance = beforeLanguage
+                    ? claim.index - matchEnd
+                    : afterLanguage
+                        ? match.index - claim.end
+                        : 0;
+                levelClaims.push({
+                    recordIndex: claim.recordIndex,
+                    index: match.index,
+                    distance,
+                    sidePriority: afterLanguage ? 0 : 1,
+                    level: normalizeCvLanguageLevel(match[0], documentLanguage),
+                });
+            }
+            levelPattern.lastIndex = 0;
+        });
+    });
+    return levelClaims
+        .sort((left, right) => left.recordIndex - right.recordIndex
+            || right.sidePriority - left.sidePriority
+            || right.distance - left.distance
+            || left.index - right.index)
+        .at(-1)?.level || '';
+};
+
 const hasNarratedCvLanguageGrounding = (languages = [], source = '', documentLanguage = 'fr') => {
     const outputLanguages = Array.isArray(languages) ? languages : [];
     const sourceLanguages = getCvLanguagesFromText(source, documentLanguage, { requireContext: true });
@@ -10146,19 +10680,24 @@ const hasNarratedCvLanguageGrounding = (languages = [], source = '', documentLan
         return outputLanguages.every((item) =>
             isNarratedCvScalarGrounded(item.language, source)
             && !normalizeCvLanguageLevel(item.level, documentLanguage)
+            && hasNarratedCvAffirmedLanguageClaim(item.language, source)
         );
     }
-    if (outputLanguages.length !== sourceLanguages.length) return false;
-
     return outputLanguages.every((item) => {
         const languageKey = stripAccents(normalizeText(item.language).toLowerCase());
         const sourceItem = sourceLanguages.find((candidate) =>
             stripAccents(normalizeText(candidate.language).toLowerCase()) === languageKey
         );
         if (!sourceItem) return false;
+        if (!hasNarratedCvAffirmedLanguageClaim(item.language, source)) return false;
         const expectedLevel = normalizeCvLanguageLevel(sourceItem.level, documentLanguage);
+        const affirmedLevel = getNarratedCvAffirmedLanguageLevel(item.language, source, documentLanguage);
         const outputLevel = normalizeCvLanguageLevel(item.level, documentLanguage);
-        return expectedLevel ? outputLevel === expectedLevel : !outputLevel;
+        // Une langue ou un niveau peut être omis pour une maquette. Un niveau
+        // affiché doit, lui, correspondre exactement au niveau déclaré.
+        return !outputLevel || (affirmedLevel
+            ? outputLevel === affirmedLevel
+            : expectedLevel ? outputLevel === expectedLevel : false);
     });
 };
 
@@ -10958,7 +11497,7 @@ const reconcileNarratedCvAssistantResult = (result, documentText = '') => {
     };
 };
 
-const hasCompleteNarratedCvExtraction = (value, documentText = '', diagnostics = null) => {
+const hasGroundedNarratedCvExtraction = (value, documentText = '', diagnostics = null) => {
     const reject = (reason, failedChecks = []) =>
         rejectNarratedCvValidation(reason, failedChecks, diagnostics);
     const documentLanguage = detectCvDocumentLanguage({}, documentText);
@@ -10971,6 +11510,7 @@ const hasCompleteNarratedCvExtraction = (value, documentText = '', diagnostics =
         ...record,
         context: getNarratedCvRecordContext(record, segmentRecords, rawWorkRecords),
         identityContext: getNarratedCvRecordIdentityContext(record, segmentRecords, rawWorkRecords),
+        entityContext: getNarratedCvRecordEntityContext(record, segmentRecords, rawWorkRecords),
     }));
     const experiences = Array.isArray(extracted.experiences) ? extracted.experiences : [];
     const educationSegments = segmentRecords
@@ -11037,7 +11577,9 @@ const hasCompleteNarratedCvExtraction = (value, documentText = '', diagnostics =
         ? [explicitPermitState.evidence || explicitPermitState.value]
         : [];
     const sourceEmail = source.match(/\b[^\s@:|]+@[^\s@|]+\.[^\s@,;|]+\b/)?.[0] || '';
-    const sourcePhone = (source.match(/(?:\+?\d[\s().-]*){8,}/g) || [])
+    // Ne jamais laisser un saut de ligne rattacher le début d'une période
+    // numérique au numéro placé sur la ligne précédente.
+    const sourcePhone = (source.match(/(?:\+?\d[ \t().-]*){8,}/g) || [])
         .map((phone) => phone.trim())
         .find((phone) => phone.replace(/\D/g, '').length >= 8
             && !/^\d{1,2}[/.]\d{1,2}[/.](?:19|20)\d{2}$/.test(phone)
@@ -11057,8 +11599,6 @@ const hasCompleteNarratedCvExtraction = (value, documentText = '', diagnostics =
     ].some((item) => /\b(?:demande moi|demandez moi|a verifier|n invente|ne mets? pas|ne (?:le )?devine pas|do not invent|ask me|must appear|kirby ne doit)\b/.test(
         stripAccents(normalizeText(item).toLowerCase()).replace(/[’']/g, ' '),
     ) || isNarratedCvTechnicalAside(item));
-    const firstPersonRequested = /\b(?:premiere personne|first person)\b/.test(normalizedSource);
-    const summaryUsesFirstPerson = /\b(?:je|j['’]|i|my)\b/i.test(extracted.summary || '');
     const forbiddenTokens = getNarratedCvForbiddenTokens(source);
     const extractedContentTokens = new Set(getNarratedCvFactTokens([
         extracted.headline,
@@ -11075,53 +11615,46 @@ const hasCompleteNarratedCvExtraction = (value, documentText = '', diagnostics =
         { value: extracted.location, segments: locationSegments },
         { value: extracted.permit, segments: permitSegments, includeShortTokens: true },
     ].every(({ value: fieldValue, segments, includeShortTokens = false }) => {
-        if (!segments.length) return !normalize(fieldValue);
-        if (!normalize(fieldValue)) return false;
+        if (!normalize(fieldValue)) return true;
+        if (!segments.length) return false;
         return isNarratedCvScalarGrounded(
             fieldValue,
             segments.join(' '),
             { includeShortTokens },
         );
     });
-    const headlineGrounded = isNarratedCvItemGrounded(extracted.headline, source, {
+    const hasHeadline = Boolean(normalize(extracted.headline));
+    const hasSummary = Boolean(normalize(extracted.summary));
+    const normalizedHeadline = stripAccents(normalize(extracted.headline).toLowerCase()).replace(/[’']/g, ' ');
+    const normalizedSummary = stripAccents(normalize(extracted.summary).toLowerCase()).replace(/[’']/g, ' ');
+    const headlineGrounded = !hasHeadline || isNarratedCvItemGrounded(extracted.headline, source, {
         minimumMatches: 1,
         minimumOutputRatio: 0.7,
     });
-    const summaryNumbersGrounded = hasNarratedCvSummaryNumbersGrounded(extracted.summary, source);
-    const summaryGrounded = isNarratedCvItemGrounded(extracted.summary, source, {
+    const summaryNumbersGrounded = !hasSummary || hasNarratedCvSummaryNumbersGrounded(extracted.summary, source);
+    const summaryGrounded = !hasSummary || isNarratedCvItemGrounded(extracted.summary, source, {
         minimumMatches: 2,
         minimumOutputRatio: 0.35,
     }) || hasNarratedCvSummaryTokensGrounded(extracted.summary, source);
-    const summaryClausesGrounded = hasNarratedCvSummaryClauseGrounding(extracted.summary, source);
-    const summaryTokensGrounded = hasNarratedCvSummaryTokensGrounded(extracted.summary, source);
+    const summaryClausesGrounded = !hasSummary || hasNarratedCvSummaryClauseGrounding(extracted.summary, source);
+    const summaryTokensGrounded = !hasSummary || hasNarratedCvSummaryTokensGrounded(extracted.summary, source);
     const skillsGrounded = hasNarratedCvSkillCollectionGrounding(
         extracted.skills || [],
         skillSourceSegments,
         allSkillAssertionSegments,
-    )
-        && (!explicitSkillSegments.length
-            || hasNarratedCvSkillAggregateCoverage(extracted.skills || [], explicitSkillSegments, 0.55));
-    const activitiesGrounded = activitySegments.length
-        ? hasNarratedCvCollectionGrounding(extracted.activities || [], activitySegments, { requireAllSourceSegments: true })
-            && hasNarratedCvAggregateCoverage(extracted.activities || [], activitySegments, 0.5)
-        : !(extracted.activities || []).length;
-    const projectsGrounded = projectSegments.length
-        ? hasNarratedCvCollectionGrounding(extracted.projects || [], projectSegments, { requireAllSourceSegments: true })
-        : !(extracted.projects || []).length;
-    const educationGrounded = hasNarratedCvCollectionGrounding(extracted.education || [], formalEducationSegments, {
-        minimumSourceCoverage: 0.25,
-        requireAllSourceSegments: true,
-    }) && hasNarratedCvCollectionGrounding(extracted.certifications || [], certificationSegments, {
-        minimumSourceCoverage: 0.25,
-        requireAllSourceSegments: true,
-    });
-    const educationClausesGrounded = hasNarratedCvGranularCollectionGrounding(
-        extracted.education || [],
-        formalEducationSegments,
-    ) && hasNarratedCvGranularCollectionGrounding(
-        extracted.certifications || [],
-        certificationSegments,
     );
+    const activitiesGrounded = !(extracted.activities || []).length
+        || hasNarratedCvCollectionGrounding(extracted.activities || [], activitySegments);
+    const projectsGrounded = !(extracted.projects || []).length
+        || hasNarratedCvCollectionGrounding(extracted.projects || [], projectSegments);
+    const educationGrounded = (!(extracted.education || []).length
+        || hasNarratedCvCollectionGrounding(extracted.education || [], formalEducationSegments))
+        && (!(extracted.certifications || []).length
+            || hasNarratedCvCollectionGrounding(extracted.certifications || [], certificationSegments));
+    const educationClausesGrounded = (!(extracted.education || []).length
+        || hasNarratedCvFormalEducationGrounding(extracted.education || [], formalEducationSegments))
+        && (!(extracted.certifications || []).length
+            || hasNarratedCvCertificationGrounding(extracted.certifications || [], certificationSegments));
     const noPermitAsEducation = [...(extracted.education || []), ...(extracted.certifications || [])]
         .every((item) => !getNarratedCvPermitClaimsFromSegment(item).length);
     const languagesGrounded = hasNarratedCvLanguageGrounding(extracted.languages || [], source, documentLanguage);
@@ -11132,8 +11665,14 @@ const hasCompleteNarratedCvExtraction = (value, documentText = '', diagnostics =
         noContactInSkills: !skillsContainContact,
         noGapAsExperience: !experiences.some(isNarratedCvGapSegment),
         noForbiddenContent: !forbiddenTokens.some((token) => extractedContentTokens.has(token)),
-        safeHeadline: isSafeExtractedCvHeadline(extracted.headline),
-        safeSummary: isSafeExtractedCvSummary(extracted.summary),
+        // Les préférences de forme (ponctuation, première personne, etc.) ne
+        // doivent pas bloquer un libellé explicitement fourni par l'utilisateur.
+        safeHeadline: !hasHeadline
+            || isSafeExtractedCvHeadline(extracted.headline)
+            || normalizedSource.includes(normalizedHeadline),
+        safeSummary: !hasSummary
+            || isSafeExtractedCvSummary(extracted.summary)
+            || normalizedSource.includes(normalizedSummary),
         scalarFieldsGrounded,
         headlineGrounded,
         summaryGrounded,
@@ -11156,34 +11695,12 @@ const hasCompleteNarratedCvExtraction = (value, documentText = '', diagnostics =
     }
     const extractedEmail = normalize(extracted.email);
     const extractedPhone = normalize(extracted.phone);
-    if (Boolean(sourceEmail) !== Boolean(extractedEmail)) return reject('email_presence');
-    if (sourceEmail && extractedEmail.toLowerCase() !== sourceEmail.toLowerCase()) return reject('email_value');
-    if (Boolean(sourcePhone) !== Boolean(extractedPhone)) return reject('phone_presence');
-    if (sourcePhone && !areNarratedCvPhonesEquivalent(extractedPhone, sourcePhone)) return reject('phone_value');
-    const episodeAssignment = getNarratedCvEpisodeAssignment(workRecords, experiences);
-    if (workRecords.length && !episodeAssignment) return reject('experience_assignment');
+    if (extractedEmail && !sourceEmail) return reject('email_presence');
+    if (extractedEmail && extractedEmail.toLowerCase() !== sourceEmail.toLowerCase()) return reject('email_value');
+    if (extractedPhone && !sourcePhone) return reject('phone_presence');
+    if (extractedPhone && !areNarratedCvPhonesEquivalent(extractedPhone, sourcePhone)) return reject('phone_value');
     if (!workRecords.length && experiences.length) return reject('unexpected_experience');
-    if (episodeAssignment) {
-        const episodeStructuredFactsGrounded = workRecords.every((record, index) => {
-            const sourceContext = record.context || record.text;
-            const outputExperience = experiences[episodeAssignment[index]];
-            return hasNarratedCvContractGrounding(
-                sourceContext,
-                outputExperience,
-            )
-                && hasNarratedCvDateAndQuantityGrounding(sourceContext, outputExperience)
-                && hasNarratedCvOngoingSignal(sourceContext) === hasNarratedCvOngoingSignal(outputExperience);
-        });
-        if (!episodeStructuredFactsGrounded) return reject('experience_structured_facts');
-
-        const episodeFactsGrounded = workRecords.every((record, index) =>
-            isNarratedCvItemGrounded(experiences[episodeAssignment[index]], record.context || record.text, {
-                minimumMatches: 2,
-                minimumOutputRatio: 0.6,
-                minimumSourceRatio: 0.45,
-            })
-        );
-        if (!episodeFactsGrounded) return reject('experience_fact_coverage');
+    if (experiences.length) {
         const ongoingWorkIndexes = new Set();
         workRecords.forEach((record, index) => {
             if (hasNarratedCvOngoingSignal(record.text)) ongoingWorkIndexes.add(index);
@@ -11196,10 +11713,6 @@ const hasCompleteNarratedCvExtraction = (value, documentText = '', diagnostics =
                 workRecord.index < record.index ? index : nearest, -1);
             if (precedingIndex >= 0) ongoingWorkIndexes.add(precedingIndex);
         });
-        if ([...ongoingWorkIndexes].some((index) => !hasNarratedCvOngoingSignal(experiences[episodeAssignment[index]]))) {
-            return reject('experience_ongoing_status');
-        }
-
         const currentWorkIndexes = [...ongoingWorkIndexes];
         const supplementalContextByWorkIndex = new Map();
         for (const record of segmentRecords) {
@@ -11210,30 +11723,48 @@ const hasCompleteNarratedCvExtraction = (value, documentText = '', diagnostics =
             const sourceWorkIndex = explicitlyCurrent && currentWorkIndexes.length === 1
                 ? currentWorkIndexes[0]
                 : workRecords.reduce((nearest, workRecord, index) => workRecord.index < record.index ? index : nearest, -1);
-            if (sourceWorkIndex < 0 || !hasNarratedCvFollowUpCoverage(record.text, experiences[episodeAssignment[sourceWorkIndex]])) {
-                return reject('experience_follow_up');
-            }
+            if (sourceWorkIndex < 0) continue;
             supplementalContextByWorkIndex.set(
                 sourceWorkIndex,
                 `${supplementalContextByWorkIndex.get(sourceWorkIndex) || ''} ${record.text}`.trim(),
             );
         }
-        const episodeClausesGrounded = workRecords.every((record, index) =>
-            hasNarratedCvClauseGrounding(
-                experiences[episodeAssignment[index]],
-                `${record.identityContext || ''} ${record.context || record.text} ${supplementalContextByWorkIndex.get(index) || ''}`.trim(),
-            )
+        const isExperienceGroundedForWork = (outputExperience, workIndex) => {
+            const record = workRecords[workIndex];
+            if (!record) return false;
+            const structuredSourceContext = [
+                record.context || record.text,
+                supplementalContextByWorkIndex.get(workIndex) || '',
+            ].filter(Boolean).join(' ');
+            const semanticSourceContext = [
+                record.identityContext || '',
+                structuredSourceContext,
+            ].filter(Boolean).join(' ');
+            const contractGrounded = hasNarratedCvContractGrounding(structuredSourceContext, outputExperience);
+            const dateGrounded = hasNarratedCvDateAndQuantityGrounding(structuredSourceContext, outputExperience);
+            const ongoingGrounded = !hasNarratedCvOngoingSignal(outputExperience) || hasNarratedCvOngoingSignal(structuredSourceContext);
+            const itemGrounded = isNarratedCvItemGrounded(outputExperience, semanticSourceContext, {
+                minimumMatches: 2,
+                minimumOutputRatio: 0.6,
+            });
+            const entityGrounded = hasNarratedCvExactEntityGrounding(
+                outputExperience,
+                record.entityContext || record.text,
+            );
+            const clausesGrounded = hasNarratedCvClauseGrounding(outputExperience, semanticSourceContext);
+            return contractGrounded && dateGrounded && ongoingGrounded
+                && itemGrounded && entityGrounded && clausesGrounded;
+        };
+        // Lorsqu'un même intitulé apparaît plusieurs fois, l'affectation doit
+        // choisir l'épisode qui porte réellement les missions et les dates de
+        // la sortie, au lieu de s'arrêter au premier intitulé ressemblant.
+        const episodeAssignment = getNarratedCvEpisodeAssignment(
+            workRecords,
+            experiences,
+            isExperienceGroundedForWork,
         );
-        if (!episodeClausesGrounded) return reject('experience_clause_grounding');
+        if (!episodeAssignment) return reject('experience_assignment');
     }
-    if (/\b(?:je sais|mes competences|skills?|competences?|outil|tools?)\b/.test(normalizedSource) && !(extracted.skills || []).length) {
-        return reject('missing_skills');
-    }
-    if (getCvLanguagesFromText(source, documentLanguage, { requireContext: true }).length && !(extracted.languages || []).length) {
-        return reject('missing_languages');
-    }
-    if (activitySegments.length && !(extracted.activities || []).length) return reject('missing_activities');
-    if (firstPersonRequested && !summaryUsesFirstPerson) return reject('summary_person');
     return true;
 };
 
@@ -11241,7 +11772,7 @@ const hasMeaningfulCvAssistantResult = (
     result,
     {
         requireStructuredExtraction = false,
-        requireNarratedCoverage = false,
+        requireNarratedGrounding = false,
         documentText = '',
         diagnostics = null,
     } = {},
@@ -11256,7 +11787,7 @@ const hasMeaningfulCvAssistantResult = (
     if (requireStructuredExtraction && !hasStructuredCvExtraction(result.extracted)) {
         return reject('structured_extraction');
     }
-    if (requireNarratedCoverage && !hasCompleteNarratedCvExtraction(result.extracted, documentText, diagnostics)) {
+    if (requireNarratedGrounding && !hasGroundedNarratedCvExtraction(result.extracted, documentText, diagnostics)) {
         return false;
     }
 
@@ -14170,7 +14701,7 @@ module.exports = async (request, response) => {
                 (deterministicHeadline && requestedSourceKind !== 'narrative')
                 || hasMeaningfulCvAssistantResult(candidateResult, {
                     requireStructuredExtraction: task === 'autofill' || task === 'create',
-                    requireNarratedCoverage: requestedSourceKind === 'narrative',
+                    requireNarratedGrounding: requestedSourceKind === 'narrative',
                     documentText,
                     diagnostics: validationDiagnostics,
                 })
@@ -14200,7 +14731,7 @@ module.exports = async (request, response) => {
                     }, documentText)
                     : completeResult;
                 const responseIsSafe = requestedSourceKind !== 'narrative'
-                    || hasCompleteNarratedCvExtraction(
+                    || hasGroundedNarratedCvExtraction(
                         responseResult.extracted,
                         documentText,
                         validationDiagnostics,

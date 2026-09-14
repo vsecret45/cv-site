@@ -92,6 +92,23 @@ const expectedEliseExtraction = {
     ],
 };
 
+const emptyEliseExtraction = {
+    fullName: '',
+    location: '',
+    phone: '',
+    email: '',
+    permit: '',
+    headline: '',
+    summary: '',
+    skills: [],
+    experiences: [],
+    projects: [],
+    education: [],
+    certifications: [],
+    activities: [],
+    languages: [],
+};
+
 const emptyCvPayload = {
     documentLanguage: 'fr',
     headline: '',
@@ -2832,16 +2849,172 @@ test('CV raconté : accepte une mention de diplôme explicitement déclarée', a
     assert.match(body.cv.extracted.education[0], /mention très bien/i);
 });
 
-test('CV raconté : exige les loisirs explicitement fournis', async () => {
+test('CV raconté : accepte une extraction fidèle qui omet les loisirs', async () => {
     const { statusCode, body } = await callKirbyNarrative({
         narrative: eliseNarrative,
         assistantResult: buildAssistantResult({ ...expectedEliseExtraction, activities: [] }),
     });
 
     assert.equal(statusCode, 200);
-    assert.equal(body.source, 'deterministic-fallback');
-    assert.equal(body.warning, 'empty_openai_result');
+    assert.equal(body.source, 'openai');
+    assert.deepEqual(body.cv.extracted.activities, []);
 });
+
+const groundedPartialExtractionCases = [
+    {
+        name: 'une seule compétence',
+        extraction: { ...emptyEliseExtraction, skills: ['Excel'] },
+        verify: (extracted) => assert.deepEqual(extracted.skills, ['Excel']),
+    },
+    {
+        name: 'un sous-ensemble des expériences',
+        extraction: { ...emptyEliseExtraction, experiences: expectedEliseExtraction.experiences.slice(0, 4) },
+        verify: (extracted) => assert.equal(extracted.experiences.length, 4),
+    },
+    {
+        name: 'une seule langue sans niveau affiché',
+        extraction: { ...emptyEliseExtraction, languages: [{ language: 'Italien', level: '' }] },
+        verify: (extracted) => assert.deepEqual(extracted.languages, [{ language: 'Italien', level: '' }]),
+    },
+    {
+        name: 'un seul loisir',
+        extraction: { ...emptyEliseExtraction, activities: ['Randonnée'] },
+        verify: (extracted) => assert.deepEqual(extracted.activities, ['Randonnée']),
+    },
+    {
+        name: 'le titre seul pour préparer une mise en forme',
+        extraction: { ...emptyEliseExtraction, headline: 'Réceptionniste en hôtellerie' },
+        verify: (extracted) => assert.equal(extracted.headline, 'Réceptionniste en hôtellerie'),
+    },
+];
+
+for (const fixture of groundedPartialExtractionCases) {
+    test(`CV raconté : accepte ${fixture.name} quand chaque fait est sourcé`, async () => {
+        const assistantResult = buildAssistantResult(fixture.extraction);
+        if (/mise en forme/.test(fixture.name)) {
+            assistantResult.layout = {
+                ...emptyCvPayload.layout,
+                template: 'creative',
+                palette: 'rose',
+                density: 'compact',
+            };
+        }
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative: eliseNarrative,
+            assistantResult,
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'openai', `sous-ensemble fidèle rejeté (${body.warning || 'raison inconnue'})`);
+        assert.equal(body.warning, undefined);
+        fixture.verify(body.cv.extracted);
+        if (/mise en forme/.test(fixture.name)) {
+            assert.equal(body.cv.layout.template, 'creative');
+            assert.equal(body.cv.layout.palette, 'rose');
+            assert.equal(body.cv.layout.density, 'compact');
+        }
+    });
+}
+
+for (const experience of [
+    'Vendeuse — La Page Vagabonde',
+    'Vendeuse — La Page Vagabonde — septembre',
+    'Vendeuse — La Page Vagabonde • Conseil aux clients',
+    'Réceptionniste — Hôtel Les Rives Dorées • Gestion des arrivées',
+]) {
+    test(`CV raconté : accepte l’expérience abrégée et fidèle « ${experience} »`, async () => {
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative: eliseNarrative,
+            assistantResult: buildAssistantResult({
+                ...emptyEliseExtraction,
+                experiences: [experience],
+            }),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'openai', `expérience fidèle rejetée (${body.warning || 'raison inconnue'})`);
+        assert.deepEqual(body.cv.extracted.experiences, [experience]);
+    });
+}
+
+test('CV raconté : accepte un titre de mise en forme inhabituel lorsqu’il est demandé mot pour mot', async () => {
+    const narrative = eliseNarrative.replace(
+        'Le titre de mon CV doit être « Réceptionniste en hôtellerie ».',
+        'Le titre de mon CV doit être « Je suis réceptionniste ! ».',
+    );
+    const extraction = { ...expectedEliseExtraction, headline: 'Je suis réceptionniste !' };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.extracted.headline, 'Je suis réceptionniste !');
+});
+
+test('CV raconté : une date numérique après la ligne téléphone ne rejoint pas le numéro', async () => {
+    const narrative = eliseNarrative.replace(
+        "Avant, j’ai travaillé dans une librairie à Tours. Elle s’appelait La Page Vagabonde. De septembre 2017 à décembre 2019, vendeuse en CDI. Conseil aux clients, encaissement, réception des livres et préparation des commandes.Et pourtant j'ai mis le token dans .env.",
+        '09-2017 → 12-2019 | Vendeuse, CDI | La Page Vagabonde (librairie, Tours) | conseil aux clients / encaissement / réception des livres / préparation des commandes.',
+    );
+    const extraction = {
+        ...expectedEliseExtraction,
+        experiences: expectedEliseExtraction.experiences.map((item) =>
+            /Page Vagabonde/i.test(item)
+                ? 'Vendeuse — La Page Vagabonde, Tours — 09/2017 – 12/2019 • Conseil aux clients • Encaissement • Réception des livres • Préparation des commandes • CDI'
+                : item
+        ),
+    };
+    const { statusCode, body } = await callKirbyNarrative({
+        narrative,
+        assistantResult: buildAssistantResult(extraction),
+    });
+
+    assert.equal(statusCode, 200);
+    assert.equal(body.source, 'openai', `téléphone ou dates mal lus (${body.warning || 'raison inconnue'})`);
+    assert.equal(body.cv.extracted.phone, '06 00 00 00 05');
+});
+
+const partialInventionCases = [
+    {
+        name: 'un employeur absent',
+        extraction: { ...emptyEliseExtraction, experiences: ['Vendeuse — Hôtel du Parc — septembre 2017 – décembre 2019'] },
+    },
+    {
+        name: 'un CDI absent pour la restauration',
+        extraction: { ...emptyEliseExtraction, experiences: ['Employée de restauration — Le Comptoir des Tilleuls — janvier 2020 – janvier 2022 • CDI'] },
+    },
+    {
+        name: 'un mois de début différent',
+        extraction: { ...emptyEliseExtraction, experiences: ['Vendeuse — La Page Vagabonde — mars 2017 – décembre 2019'] },
+    },
+    {
+        name: 'un mois isolé différent',
+        extraction: { ...emptyEliseExtraction, experiences: ['Vendeuse — La Page Vagabonde — mars'] },
+    },
+    {
+        name: 'un niveau courant inventé pour l’italien',
+        extraction: { ...emptyEliseExtraction, languages: [{ language: 'Italien', level: 'Courant' }] },
+    },
+    {
+        name: 'un diplôme absent du récit',
+        extraction: { ...emptyEliseExtraction, education: ['Master management hôtelier — 2023'] },
+    },
+];
+
+for (const fixture of partialInventionCases) {
+    test(`CV raconté : une extraction partielle rejette toujours ${fixture.name}`, async () => {
+        const { statusCode, body } = await callKirbyNarrative({
+            narrative: eliseNarrative,
+            assistantResult: buildAssistantResult(fixture.extraction),
+        });
+
+        assert.equal(statusCode, 200);
+        assert.equal(body.source, 'deterministic-fallback');
+        assert.equal(body.warning, 'empty_openai_result');
+    });
+}
 
 test('CV raconté : rejette des coordonnées ajoutées quand le récit n’en donne aucune', async () => {
     const narrativeWithoutContacts = eliseNarrative

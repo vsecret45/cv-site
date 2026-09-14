@@ -9731,21 +9731,9 @@ const isValidatedNarratedAssistantValueSafe = (fieldName = '', value = '', sourc
     return true;
 };
 
-const hasMeaningfulNarratedCvExtraction = (extracted = {}) => {
-    const stats = getImportedCvExtractionStats(extracted);
-    const identityScore = Number(stats.hasName) + Number(stats.hasContact) + Number(stats.hasHeadline);
-    const structuredSections = [
-        stats.experiences,
-        stats.skills,
-        stats.education + stats.certifications,
-        stats.languages,
-        stats.activities,
-    ].filter((count) => count > 0).length;
-
-    return identityScore >= 1
-        && structuredSections >= 2
-        && (stats.experiences > 0 || stats.education + stats.certifications > 0);
-};
+const hasUsableNarratedCvExtraction = (extracted = {}) =>
+    CV_IMPORT_TEXT_FIELDS.some((fieldName) => Boolean(normalizeCvSentenceText(extracted?.[fieldName] || '')))
+    || CV_IMPORT_LIST_FIELDS.some((fieldName) => getImportedExtractionList(extracted, fieldName).length > 0);
 
 const isImportedExperienceGrounded = (value = '', sourceText = '') => {
     if (!isImportedValueGrounded(value, sourceText)) {
@@ -9869,14 +9857,18 @@ const mergeImportedCvExtractions = (
                 : fieldName === 'experiences'
                     ? isImportedExperienceGrounded(item, sourceText)
                     : isImportedValueGrounded(item, sourceText))
-            .filter((item) => isImportedAssistantItemCompatible(fieldName, item, compatibilityItemsByField));
+            .filter((item) => validatedNarrativeAssistant
+                || isImportedAssistantItemCompatible(fieldName, item, compatibilityItemsByField));
         const combined = [...localItems];
         assistantItems.forEach((item) => {
-            if (!combined.some((candidate) => importedItemsReferToSameFact(candidate, item))) {
+            const alreadyPresent = validatedNarrativeAssistant
+                ? combined.some((candidate) => normalizeForMatch(candidate) === normalizeForMatch(item))
+                : combined.some((candidate) => importedItemsReferToSameFact(candidate, item));
+            if (!alreadyPresent) {
                 combined.push(item);
             }
         });
-        merged[fieldName] = fieldName === 'skills'
+        merged[fieldName] = fieldName === 'skills' && !validatedNarrativeAssistant
             ? dedupeCvSkillItems(combined)
             : dedupeImportedItems(combined);
     });
@@ -10198,7 +10190,7 @@ const importCvTextWithKirby = async (
                     Array.isArray(value) ? value.length > 0 : String(value || '').trim().length > 0
                 ));
             const isAssistantExtraction = narratedSource
-                ? result?.source === 'openai' && hasMeaningfulNarratedCvExtraction(result.cv.extracted)
+                ? result?.source === 'openai' && hasStructuredExtraction
                 : result?.source === 'openai' || hasStructuredExtraction;
             if (isAssistantExtraction && hasStructuredExtraction) {
                 results.push(result.cv.extracted);
@@ -10220,7 +10212,7 @@ const importCvTextWithKirby = async (
         validatedNarrativeAssistant: narratedSource && usedAssistant,
     });
     const mergedExtractionReady = narratedSource
-        ? hasMeaningfulNarratedCvExtraction(extracted)
+        ? hasUsableNarratedCvExtraction(extracted)
         : hasMeaningfulImportedCvExtraction(extracted);
     const sourceChangedDuringAnalysis = importSnapshot !== getKirbyCvSnapshot();
 
@@ -10234,7 +10226,7 @@ const importCvTextWithKirby = async (
         setCvProfilePhoto(profilePhoto || null, { refresh: false });
         renderImportedCv({
             locale: localImport.locale,
-            status: 'CV analysé et remis en forme par Kirby. Tous les éléments importés ont été conservés.',
+            status: 'CV analysé et remis en forme par Kirby. Tous les éléments validés ont été mis en forme.',
             resetStructure: narratedSource,
         });
         importSnapshot = getKirbyCvSnapshot();
@@ -12741,7 +12733,6 @@ const getKirbyCvSnapshot = () => {
             sectionOrder: cvSectionOrder,
             contentLocale: currentCvContentLocale,
             preserveEmptyLanguages: preserveEmptyImportedLanguages,
-            density: previewNodes.preview?.dataset?.cvDensity || '',
         },
     });
 };
