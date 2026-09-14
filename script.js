@@ -6592,8 +6592,7 @@ const hasExplicitExperienceOrderCommand = (message = '') => {
         /\b(?:plus\s+recent|plus\s+recente|plus\s+ancien|plus\s+ancienne)\s+(?:a|vers|au|en\s+premier|en\s+dernier).*\b(?:experience|experiences|parcours)\b/,
         /\b(?:experience|experiences|parcours).*\b(?:plus\s+recent|plus\s+recente|plus\s+ancien|plus\s+ancienne)\b/,
         /\b(?:sort|reorder|order|organize|organise)\s+(?:my\s+|the\s+)?(?:professional\s+experience|work\s+experience|employment\s+history|career\s+history|experience)\b/,
-        /\b(?:professional\s+experience|work\s+experience|employment\s+history|career\s+history|experience)\b.*\b(?:date|chronological|newest|most recent|oldest|ascending|descending)\b/,
-        /\b(?:dates?|chronolog(?:ique|ical)?)\b.*\b(?:experience|experiences|parcours|employment|career)\b/,
+        /\b(?:professional\s+experience|work\s+experience|employment\s+history|career\s+history|experience)\b.*\b(?:chronological|newest|most recent|oldest|ascending|descending)\b/,
     ].some((pattern) => pattern.test(source));
 };
 
@@ -13085,7 +13084,7 @@ const isNonCommandCvTranslationQuestion = (message = '') => {
         .replace(/\s+/g, ' ')
         .trim();
 
-    return /^(?:comment(?:\s+(?:faire\s+pour|puis(?:-|\s+)je|peut(?:-|\s+)on))?|how\s+(?:do|can|could|would|should)\s+(?:i|we|one)|pourquoi|why|faut(?:-|\s+)il|dois(?:-|\s+)je|devrais(?:-|\s+)je|should\s+i|puis(?:-|\s+)je|may\s+i|can\s+i|est(?:-|\s+)ce que je peux)\b[\s\S]{0,220}\b(?:tradui(?:s|t|re|sez|sons)|translat(?:e|es|ed|ing)|remplac(?:e|er|ez|ons)|replac(?:e|es|ed|ing)|converti(?:s|t|r|ssez|ssons)|convert(?:s|ed|ing)?|met(?:s|tez|tons|tre)|put)\b/.test(source);
+    return /^(?:comment(?:\s+(?:faire\s+pour|puis(?:-|\s+)je|peut(?:-|\s+)on))?|how\s+(?:do|can|could|would|should)\s+(?:i|we|one)|pourquoi|why|faut(?:-|\s+)il|dois(?:-|\s+)je|devrais(?:-|\s+)je|should\s+i|puis(?:-|\s+)je|may\s+i|can\s+i|est(?:-|\s+)ce que je peux)\b[\s\S]{0,220}\b(?:tradui(?:s|t|re|sez|sons)|translat(?:e|es|ed|ing)|remplac(?:e|er|ez|ons)|replac(?:e|es|ed|ing)|converti(?:s|t|r|ssez|ssons)|convert(?:s|ed|ing)?|adapt(?:e|es|er|ez|ons)?|met(?:s|tez|tons|tre)|put)\b/.test(source);
 };
 
 const getFullCvTranslationLocale = (message = '') => {
@@ -13101,13 +13100,13 @@ const getFullCvTranslationLocale = (message = '') => {
         return '';
     }
 
-    const negated = /\bne\b.{0,32}\b(?:tradui(?:s|t|re|sez|sons)|remplac(?:e|er|ez|ons)|converti(?:s|t|r|ssez|ssons)|met(?:s|tez|tons|tre))\b.{0,24}\b(?:pas|plus|jamais)\b/.test(source)
-        || /\b(?:do not|don t|dont|never)\b.{0,24}\b(?:translate|replace|convert)\b/.test(source);
+    const negated = /\bne\b.{0,32}\b(?:tradui(?:s|t|re|sez|sons)|remplac(?:e|er|ez|ons)|converti(?:s|t|r|ssez|ssons)|adapt(?:e|es|er|ez|ons)?|met(?:s|tez|tons|tre))\b.{0,24}\b(?:pas|plus|jamais)\b/.test(source)
+        || /\b(?:do not|don t|dont|never)\b.{0,24}\b(?:translate|replace|convert|adapt)\b/.test(source);
     if (negated) {
         return '';
     }
 
-    const action = '(?:tradui(?:s|t|re|sez|sons)|translat(?:e|es|ed|ing)|remplac(?:e|er|ez|ons)|replac(?:e|es|ed|ing)|converti(?:s|t|r|ssez|ssons)|convert(?:s|ed|ing)?|met(?:s|tez|tons|tre)|put)';
+    const action = '(?:tradui(?:s|t|re|sez|sons)|translat(?:e|es|ed|ing)|remplac(?:e|er|ez|ons)|replac(?:e|es|ed|ing)|converti(?:s|t|r|ssez|ssons)|convert(?:s|ed|ing)?|adapt(?:e|es|er|ez|ons)?|adapt(?:s|ed|ing)?|met(?:s|tez|tons|tre)|put)';
     const cvTarget = '(?:(?:(?:tout|toute|entier|entiere|complet|complete|whole|entire)\\s+(?:(?:le|la|mon|ma|the|my)\\s+)?|(?:(?:le|la|mon|ma|the|my)\\s+)(?:(?:tout|toute|entier|entiere|complet|complete|whole|entire)\\s+)?))?(?:cv|curriculum vitae|document)(?:\\s+(?:entier|entiere|complet|complete|whole|entire))?';
     const targetedScope = '(?:profil|profile|accroche|summary|titre|headline|competence|competences|skills?|experience|experiences|formation|formations|education|langue|langues|languages?|activite|activites|activities|date|dates|coordonnees|contact|rubrique|section|champ|field|ligne|line)';
     const limitsTranslationToOneScope = new RegExp(
@@ -13332,10 +13331,10 @@ const isStructurallySafeHeadlineCandidate = (value = '') => {
         || /^j\s/.test(source)) {
         return false;
     }
-    if (/^(?:titre|intitule|poste|metier|change|modifie|remplace|mets|applique|deplace|ajoute|supprime|retire|enleve|title|job|role|change|modify|replace|set|apply|move|add|remove|delete)\b/.test(source)) {
+    if (/^(?:titre|intitule|poste|metier|change|modifie|remplace|mets|applique|deplace|ajoute|supprime|retire|enleve|title|job|role|change|modify|replace|set|apply|move|add|remove|delete|suppression|correction|ajout|insertion|modification|remplacement|deplacement|retrait|rectification|deletion|removal|addition|replacement|insertion|update)\b/.test(source)) {
         return false;
     }
-    if (/\b(?:deplace|deplacer|ajoute|ajouter|supprime|supprimer|retire|retirer|enleve|enlever|modifie|modifier|remplace|remplacer|mets|mettre|applique|appliquer|corrige|corriger|rectifie|rectifier|harmonise|harmoniser|normalise|normaliser|move|add|remove|delete|modify|replace|apply|correct|fix|normalize|standardize)\b/.test(source)) {
+    if (/\b(?:deplace|deplacer|ajoute|ajouter|supprime|supprimer|retire|retirer|enleve|enlever|modifie|modifier|remplace|remplacer|mets|mettre|applique|appliquer|corrige|corriger|rectifie|rectifier|harmonise|harmoniser|normalise|normaliser|move|add|remove|delete|modify|replace|apply|correct|fix|normalize|standardize|suppression|correction|ajout|insertion|modification|remplacement|deplacement|retrait|rectification|deletion|removal|addition|replacement)\b/.test(source)) {
         return false;
     }
     if (/\b(?:je|nous|on|tu|vous|i|we)\b/.test(source)

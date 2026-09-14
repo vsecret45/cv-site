@@ -6465,11 +6465,11 @@ const detectCvDocumentLanguage = (cv = {}, rawText = '') => {
 
 const getRequestedCvTranslationLanguage = (instruction = '') => {
     const source = stripAccents(normalizeText(instruction).toLowerCase());
-    const translationRequested = /\b(tradui(?:s|t|re|sez|sons)|traduction|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|translat(?:e|es|ed|ing|ion)|convert(?:s|ed|ing)?|put|version)\b/.test(source);
+    const translationRequested = /\b(tradui(?:s|t|re|sez|sons)|traduction|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|adapt(?:e|es|er|ez|ons)?|translat(?:e|es|ed|ing|ion)|convert(?:s|ed|ing)?|put|version)\b/.test(source);
     const fullCvReplacementRequested = /\b(?:remplac(?:e|es|ons|ez|er)|replac(?:e|es|ed|ing))\b[^.;!?]{0,100}\b(?:cv|curriculum vitae|document)\b/.test(source);
-    const negatedTranslation = /\b(?:ne|n)\s+(?:me\s+|le\s+|la\s+|les\s+)?(?:tradui(?:s|t|re|sez|sons)|remplac(?:e|es|ons|ez|er))\b[^.;!?]{0,32}\b(?:pas|plus|jamais)\b/.test(source)
-        || /\b(?:do not|don t|dont|never)\s+(?:translate|replace)\b/.test(source)
-        || /\b(?:sans|without)\s+(?:traduire|translate|remplacer|replacing)\b/.test(source);
+    const negatedTranslation = /\b(?:ne|n)\s+(?:me\s+|le\s+|la\s+|les\s+)?(?:tradui(?:s|t|re|sez|sons)|remplac(?:e|es|ons|ez|er)|adapt(?:e|es|er|ez|ons)?)\b[^.;!?]{0,32}\b(?:pas|plus|jamais)\b/.test(source)
+        || /\b(?:do not|don t|dont|never)\s+(?:translate|replace|adapt)\b/.test(source)
+        || /\b(?:sans|without)\s+(?:traduire|translate|remplacer|replacing|adapter|adapt)\b/.test(source);
 
     if ((!translationRequested && !fullCvReplacementRequested) || negatedTranslation) return '';
     if (/\b(?:en|vers|into|to|in)\s+(?:anglais|english)\b|\b(?:english version|version anglaise?)\b/.test(source)) return 'en';
@@ -6485,19 +6485,19 @@ const getFullCvTranslationLanguage = (instruction = '') => {
         .replace(/[’']/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
-    const asksForTranslationInstructions = /^(?:comment(?:\s+(?:faire\s+pour|puis[- ]je|peut[- ]on))?|how\s+(?:do|can|could|would|should)\s+(?:i|we|one)|pourquoi|why|faut[- ]il|dois[- ]je|devrais[- ]je|should\s+i|puis[- ]je|may\s+i|can\s+i|est[- ]ce que je peux)\b[^.!?]{0,220}\b(?:tradui(?:re|s|t)|translat(?:e|es|ed|ing)|remplac(?:e|er|ez|ons)|replac(?:e|es|ed|ing)|converti(?:s|t|r|ssez|ssons)|convert(?:s|ed|ing)?|met(?:s|tez|tons|tre)|put)\b/.test(source);
+    const asksForTranslationInstructions = /^(?:comment(?:\s+(?:faire\s+pour|puis[- ]je|peut[- ]on))?|how\s+(?:do|can|could|would|should)\s+(?:i|we|one)|pourquoi|why|faut[- ]il|dois[- ]je|devrais[- ]je|should\s+i|puis[- ]je|may\s+i|can\s+i|est[- ]ce que je peux)\b[^.!?]{0,220}\b(?:tradui(?:re|s|t)|translat(?:e|es|ed|ing)|remplac(?:e|er|ez|ons)|replac(?:e|es|ed|ing)|converti(?:s|t|r|ssez|ssons)|convert(?:s|ed|ing)?|adapt(?:e|es|er|ez|ons)?|met(?:s|tez|tons|tre)|put)\b/.test(source);
     if (asksForTranslationInstructions) return '';
-    const actionTargetsWholeCv = /\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?|remplac(?:e|es|ons|ez|er)|replac(?:e|es|ed|ing))\b(?:[- ]+(?:le|la|les|it))?\s+(?:(?:entierement|completement|fully|entirely)\s+)?(?:(?:tout|toute|entier|entiere|complet|complete|whole|entire)\s+)?(?:(?:le|la|mon|ma|the|my)\s+)?(?:cv|curriculum vitae|document)(?:\s+(?:entier|entiere|complet|complete|whole|entire))?\b|\b(?:translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?|replac(?:e|es|ed|ing))\b\s+(?:(?:the|my)\s+)(?:whole|entire|complete)\s+(?:cv|curriculum vitae|document)\b/.test(source);
-    const languageBeforeWholeCv = /\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?)\b\s+(?:en|vers|into|to|in)\s+(?:anglais|english|francais|french)\s+(?:(?:tout|toute|entier|entiere|complet|complete|whole|entire)\s+)?(?:(?:le|la|mon|ma|the|my)\s+)?(?:cv|curriculum vitae|document)\b/.test(source);
-    const languageBeforeDeterminedWholeCv = /\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?)\b\s+(?:en|vers|into|to|in)\s+(?:anglais|english|francais|french)\s+(?:(?:le|la|mon|ma|the|my)\s+)(?:tout|toute|entier|entiere|complet|complete|whole|entire)\s+(?:cv|curriculum vitae|document)\b/.test(source);
-    const wholeActionAfterCvAntecedent = /\b(?:cv|curriculum vitae|document)\b[^.;!?]{0,100}\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?)\b\s+(?:tout|entierement|completement|all|entirely|fully)\b/.test(source);
+    const actionTargetsWholeCv = /\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|adapt(?:e|es|er|ez|ons)?|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?|remplac(?:e|es|ons|ez|er)|replac(?:e|es|ed|ing)|adapt(?:s|ed|ing)?)\b(?:[- ]+(?:le|la|les|it))?\s+(?:(?:entierement|completement|fully|entirely)\s+)?(?:(?:tout|toute|entier|entiere|complet|complete|whole|entire)\s+)?(?:(?:le|la|mon|ma|the|my)\s+)?(?:cv|curriculum vitae|document)(?:\s+(?:entier|entiere|complet|complete|whole|entire))?\b|\b(?:translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?|replac(?:e|es|ed|ing)|adapt(?:s|ed|ing)?)\b\s+(?:(?:the|my)\s+)(?:whole|entire|complete)\s+(?:cv|curriculum vitae|document)\b/.test(source);
+    const languageBeforeWholeCv = /\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|adapt(?:e|es|er|ez|ons)?|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?|adapt(?:s|ed|ing)?)\b\s+(?:en|vers|into|to|in)\s+(?:anglais|english|francais|french)\s+(?:(?:tout|toute|entier|entiere|complet|complete|whole|entire)\s+)?(?:(?:le|la|mon|ma|the|my)\s+)?(?:cv|curriculum vitae|document)\b/.test(source);
+    const languageBeforeDeterminedWholeCv = /\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|adapt(?:e|es|er|ez|ons)?|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?|adapt(?:s|ed|ing)?)\b\s+(?:en|vers|into|to|in)\s+(?:anglais|english|francais|french)\s+(?:(?:le|la|mon|ma|the|my)\s+)(?:tout|toute|entier|entiere|complet|complete|whole|entire)\s+(?:cv|curriculum vitae|document)\b/.test(source);
+    const wholeActionAfterCvAntecedent = /\b(?:cv|curriculum vitae|document)\b[^.;!?]{0,100}\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|adapt(?:e|es|er|ez|ons)?|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?|adapt(?:s|ed|ing)?)\b\s+(?:tout|entierement|completement|all|entirely|fully)\b/.test(source);
     const wholeCvVersionRequested = /\b(?:version\s+(?:anglaise?|english|francaise?|french)|(?:english|french)\s+version)\b[^.;!?]{0,80}\b(?:de|du|of)\s+(?:(?:mon|le|the|my)\s+)?(?:cv|curriculum vitae|document)\b/.test(source);
     const wholeCvVersionWithPreposition = /\bversion\s+(?:en|in)\s+(?:anglais|english|francais|french)\b[^.;!?]{0,80}\b(?:de|du|of)\s+(?:(?:mon|le|the|my)\s+)?(?:cv|curriculum vitae|document)\b/.test(source);
     const putWholeCvInLanguage = /\bput\b\s+(?:(?:the|my)\s+)?(?:(?:whole|entire|complete)\s+)?(?:cv|curriculum vitae|document)\s+(?:in|into|to)\s+(?:english|french)\b/.test(source);
     const rebuildsWholeCvThenTranslates = /\b(?:refais|refaire|reconstruis|reconstruire|rebuild|recreate|redo)\b[^.;!?]{0,100}\b(?:tout|toute|entier|entiere|complet|complete|whole|entire)\s+(?:(?:le|la|mon|ma|the|my)\s+)?(?:cv|curriculum vitae|document)\b[^.;!?]{0,80}\b(?:tradui(?:s|t|re|sez|sons)|translat(?:e|es|ed|ing))\b/.test(source);
-    const wholeCvContentTargeted = /\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?|remplac(?:e|es|ons|ez|er)|replac(?:e|es|ed|ing))\b[^.;!?]{0,48}\b(?:(?:tout|toute|entier|entiere|complet|complete|whole|entire)\s+)?(?:le\s+|la\s+|l\s+|the\s+|my\s+)?(?:contenu|integralite|content)\b[^.;!?]{0,48}\b(?:du|de|of)\s+(?:(?:mon|ma|le|la|the|my)\s+)?(?:cv|curriculum vitae|document)\b/.test(source);
-    const targetsOnlyPart = /\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?)\b[^.;!?]{0,100}\b(?:uniquement|seulement|only|just)\b[^.;!?]{0,60}\b(?:profil|profile|resume|summary|rubrique|section|titre|headline|competences?|skills?|experience|formation|education|langues?|languages?|dates?)\b/.test(source);
-    const targetsNamedPartBeforeCv = /\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?)\b[^.;!?]{0,80}\b(?:profil|profile|resume|summary|rubrique|section|titre|headline|competences?|skills?|experiences?|formation|education|langues?|languages?|dates?)\b[^.;!?]{0,80}\b(?:cv|curriculum vitae|document)\b/.test(source);
+    const wholeCvContentTargeted = /\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|adapt(?:e|es|er|ez|ons)?|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?|remplac(?:e|es|ons|ez|er)|replac(?:e|es|ed|ing)|adapt(?:s|ed|ing)?)\b[^.;!?]{0,48}\b(?:(?:tout|toute|entier|entiere|complet|complete|whole|entire)\s+)?(?:le\s+|la\s+|l\s+|the\s+|my\s+)?(?:contenu|integralite|content)\b[^.;!?]{0,48}\b(?:du|de|of)\s+(?:(?:mon|ma|le|la|the|my)\s+)?(?:cv|curriculum vitae|document)\b/.test(source);
+    const targetsOnlyPart = /\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|adapt(?:e|es|er|ez|ons)?|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?|adapt(?:s|ed|ing)?)\b[^.;!?]{0,100}\b(?:uniquement|seulement|only|just)\b[^.;!?]{0,60}\b(?:profil|profile|resume|summary|rubrique|section|titre|headline|competences?|skills?|experience|formation|education|langues?|languages?|dates?)\b/.test(source);
+    const targetsNamedPartBeforeCv = /\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|adapt(?:e|es|er|ez|ons)?|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?|adapt(?:s|ed|ing)?)\b[^.;!?]{0,80}\b(?:profil|profile|resume|summary|rubrique|section|titre|headline|competences?|skills?|experiences?|formation|education|langues?|languages?|dates?)\b[^.;!?]{0,80}\b(?:cv|curriculum vitae|document)\b/.test(source);
 
     if (targetsOnlyPart || targetsNamedPartBeforeCv) return '';
 
@@ -6516,6 +6516,40 @@ const getFullCvTranslationLanguage = (instruction = '') => {
 
 const getCvOutputLanguage = ({ cv = {}, instruction = '' } = {}) =>
     getRequestedCvTranslationLanguage(instruction) || detectCvDocumentLanguage(cv, instruction);
+
+const CV_TRANSLATION_COLLECTION_FIELD_LABELS = {
+    skills: 'competences',
+    experiences: 'experiences',
+    projects: 'projets',
+    education: 'formations',
+    certifications: 'certifications',
+    activities: 'activites',
+    languages: 'langues',
+};
+
+// Transforme le diagnostic de rejet (ex. "collection_shape:experiences:2->4")
+// en une consigne corrective precise pour une seconde tentative de traduction.
+const getCvTranslationCorrectiveInstruction = (baseInstruction = '', validationReason = '') => {
+    const mismatch = String(validationReason || '').match(/^collection_shape:([a-zA-Z]+):(\d+)->(\d+)$/);
+    const experienceMismatch = String(validationReason || '').match(/^experience_semantics:(\d+):(organization|contract)$/);
+    const detail = mismatch
+        ? `La reponse precedente contenait ${mismatch[3]} elements dans la rubrique ${CV_TRANSLATION_COLLECTION_FIELD_LABELS[mismatch[1]] || mismatch[1]} au lieu de ${mismatch[2]}. Renvoie exactement ${mismatch[2]} elements dans cette rubrique, un element traduit pour un element source, sans fusionner ni diviser aucune entree.`
+        : experienceMismatch
+            ? experienceMismatch[2] === 'organization'
+                ? `La reponse precedente a modifie l employeur de l experience #${Number(experienceMismatch[1]) + 1}. Conserve exactement les noms d entreprise/organisme source, au meme index, sans les traduire ni les remplacer.`
+                : `La reponse precedente a modifie la nature du contrat de l experience #${Number(experienceMismatch[1]) + 1}. Conserve strictement la meme nature de contrat (CDI, CDD, etc.) au meme index.`
+        : validationReason === 'education_semantics'
+            ? 'La reponse precedente a modifie ou invente une information de formation/certification. Conserve strictement les etablissements et organismes source (si presents) au meme index, n en invente aucun, et traduis uniquement l intitule de formation.'
+        : 'La reponse precedente ne respectait pas exactement la structure du CV source (meme nombre d\'elements dans chaque rubrique). Renvoie une traduction strictement alignee, un element traduit pour un element source, sans fusionner ni diviser aucune entree.';
+    return `${baseInstruction}\n\nCONSIGNE DE CORRECTION (traduction precedente rejetee) : ${detail}`;
+};
+
+const isRetryableCvTranslationValidationReason = (validationReason = '') => {
+    const reason = String(validationReason || '');
+    return reason.startsWith('collection_shape')
+        || /^experience_semantics:\d+:(?:organization|contract|title)$/.test(reason)
+        || reason === 'education_semantics';
+};
 
 const isFullCvBuildRequest = ({ task = '', instruction = '' } = {}) => {
     if (task === 'autofill' || task === 'create') {
@@ -7206,7 +7240,7 @@ const normalizeCvOperationIntentText = (value = '') =>
 
 const CV_REMOVE_ACTION_PATTERN = /\b(?:supprim(?:e|es|ons|ez|er)|retir(?:e|es|ons|ez|er)|enlev(?:e|es|ons|ez|er)|effac(?:e|es|ons|ez|er)|remov(?:e|es|ed|ing)|delet(?:e|es|ed|ing)|drop(?:s|ped|ping)?)\b|\bpas besoin de\b/i;
 const CV_ADD_ACTION_PATTERN = /\b(?:ajout(?:e|es|ons|ez|er)|rajout(?:e|es|ons|ez|er)|inser(?:e|es|ons|ez|er)|add(?:s|ed|ing)?|insert(?:s|ed|ing)?)\b/i;
-const CV_ORDER_ACTION_PATTERN = /\b(?:tri(?:e|es|ons|ez|er)|class(?:e|es|ons|ez|er)|ordonn(?:e|es|ons|ez|er)|reordonn(?:e|es|ons|ez|er)|reorganis(?:e|es|ons|ez|er)|deplac(?:e|es|ons|ez|er)|remont(?:e|es|ons|ez|er)|descend(?:s|re|ez|ons)?|sort(?:s|ed|ing)?|order(?:s|ed|ing)?|reorder(?:s|ed|ing)?|mov(?:e|es|ed|ing))\b/i;
+const CV_ORDER_ACTION_PATTERN = /\b(?:rang(?:e|es|ons|ez|er)|tri(?:e|es|ons|ez|er)|class(?:e|es|ons|ez|er)|ordonn(?:e|es|ons|ez|er)|reordonn(?:e|es|ons|ez|er)|reorganis(?:e|es|ons|ez|er)|deplac(?:e|es|ons|ez|er)|remont(?:e|es|ons|ez|er)|descend(?:s|re|ez|ons)?|sort(?:s|ed|ing)?|order(?:s|ed|ing)?|reorder(?:s|ed|ing)?|mov(?:e|es|ed|ing))\b/i;
 const CV_CORRECTION_ACTION_PATTERN = /\b(?:corrig(?:e|es|eons|ez|er)|modifi(?:e|es|ons|ez|er)|chang(?:e|es|ons|ez|er)|remplac(?:e|es|ons|ez|er)|reformul(?:e|es|ons|ez|er)|amelior(?:e|es|ons|ez|er)|raccourci(?:s|r|e|es|ons|ez)|condens(?:e|es|ons|ez|er)|actualis(?:e|es|ons|ez|er)|normalis(?:e|es|ons|ez|er)|uniformis(?:e|es|ons|ez|er)|harmonis(?:e|es|ons|ez|er)|reecri(?:s|re|vez)|refai(?:s|re|tes)|met(?:s|tre|tez)|edit(?:s|ed|ing)?|chang(?:e|es|ed|ing)|replac(?:e|es|ed|ing)|set(?:s|ting)?|updat(?:e|es|ed|ing)|rewrit(?:e|es|ten|ing)|improv(?:e|es|ed|ing)|shorten(?:s|ed|ing)?|condens(?:e|es|ed|ing)|normaliz(?:e|es|ed|ing)|standardiz(?:e|es|ed|ing)|harmoniz(?:e|es|ed|ing)|proofread(?:s|ing)?|fix(?:es|ed|ing)?)\b/i;
 
 const isCvActionNegated = (source, match) => {
@@ -8117,7 +8151,15 @@ const cvCorrectionOperationMatchesIntent = (operation, intent) => {
         return Boolean(operation.value) && (hasScope('languages')
             || intent.additionContexts.some((context) => CV_CORRECTION_SCOPE_PATTERNS.languages.test(context)));
     case 'set_field': {
-        if (!operation.value || operation.field === 'experience') return false;
+        if (operation.field === 'experience') return false;
+        if (!operation.value) {
+            // Une valeur vide vide un champ existant (permis, coordonnees,
+            // etc.) : c'est une suppression, elle doit etre explicitement
+            // demandee et ancree dans le texte de la consigne comme un
+            // remove_text, jamais acceptee par defaut.
+            return intent.removalContexts.length > 0
+                && cvOperationTargetsAffirmativeContext(operation, intent.removalContexts);
+        }
         const scope = CV_OPERATION_FIELD_SCOPES[operation.field];
         return Boolean(scope && (hasScope(scope) || intent.generalCorrection));
     }
@@ -8156,6 +8198,263 @@ const cvOperationMatchesExplicitIntent = (operation, intent) => {
     if (['reorder_experiences', 'sort_experiences'].includes(operation.type)) return intent.orderExperiences;
     if (operation.type === 'reorder_skills') return intent.orderSkills && operation.items.length > 0;
     return cvCorrectionOperationMatchesIntent(operation, intent);
+};
+
+const CV_INTENT_FALLBACK_QUESTION_PATTERN = /^(?:comment|how|pourquoi|why|faut[- ]il|dois[- ]je|devrais[- ]je|should\s+i|can\s+i|may\s+i|est[- ]ce que je peux)\b/;
+const CV_INTENT_FALLBACK_HIDE_PATTERN = /\b(?:ne\s+veux?\s+plus|ne\s+souhaite\s+plus|do\s+not\s+want|don\s*t\s+want|without)\b[^.;!?\n]{0,80}\b(?:affich(?:e|er|ez|ons)|display|show|visible|montr(?:e|er|ez|ons))\b/;
+const CV_INTENT_FALLBACK_ACTIVITY_SCOPE = /\b(?:activites?|loisirs?|interets?|activities|interests|hobbies)\b/;
+const CV_INTENT_FALLBACK_LANGUAGE_SCOPE = /\b(?:langues?|languages?)\b/;
+const CV_INTENT_FALLBACK_PHONE_SCOPE = /\b(?:telephone|tel|mobile|phone|numero)\b/;
+const CV_INTENT_FALLBACK_EMAIL_SCOPE = /\b(?:courriel|email|e-mail|mail)\b/;
+const CV_INTENT_FALLBACK_PERMIT_SCOPE = /\b(?:permis|licen[cs]e|driving)\b/;
+const CV_INTENT_FALLBACK_LOCATION_SCOPE = /\b(?:adresse|ville|location|localisation|city)\b/;
+const CV_INTENT_FALLBACK_NAME_SCOPE = /\b(?:nom|prenom|name|full\s*name)\b/;
+const CV_INTENT_FALLBACK_SEMANTIC_STOP_WORDS = new Set([
+    'dans', 'pour', 'avec', 'sans', 'des', 'les', 'une', 'mon', 'ma', 'mes', 'du', 'de', 'le', 'la', 'the', 'my',
+    'sur', 'cette', 'ce', 'cet', 'that', 'this', 'rubrique', 'section', 'ligne', 'line',
+    'activite', 'activites', 'activity', 'activities', 'loisir', 'loisirs', 'interest', 'interests', 'hobby', 'hobbies',
+    'langue', 'langues', 'language', 'languages', 'mention', 'informations', 'information', 'cv', 'resume',
+]);
+const CV_INTENT_FALLBACK_LANGUAGE_VARIANTS = new Map([
+    ['french', ['french', 'francais', 'francaise']],
+    ['english', ['english', 'anglais', 'anglaise']],
+    ['italian', ['italian', 'italien', 'italienne']],
+    ['spanish', ['spanish', 'espagnol', 'espagnole']],
+    ['german', ['german', 'allemand', 'allemande']],
+    ['portuguese', ['portuguese', 'portugais', 'portugaise']],
+    ['arabic', ['arabic', 'arabe']],
+]);
+const CV_INTENT_FALLBACK_TOKEN_ALIASES = new Map([
+    ['films', 'cinema'],
+    ['film', 'cinema'],
+    ['movie', 'cinema'],
+    ['movies', 'cinema'],
+    ['hiking', 'randonnee'],
+    ['trekking', 'randonnee'],
+]);
+
+const splitCvMultilineEntries = (value = '') =>
+    normalize(value)
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+const hasCvOperationForField = (operations = [], field = '') =>
+    operations.some((operation) => operation && operation.field === field);
+
+const hasCvExperienceOrderOperation = (operations = []) =>
+    operations.some((operation) => operation && ['reorder_experiences', 'sort_experiences'].includes(operation.type));
+
+const isCvQuestionLikeIntent = (source = '') =>
+    CV_INTENT_FALLBACK_QUESTION_PATTERN.test(source)
+    || /\?\s*$/.test(source);
+
+const getCvIntentLanguageKey = (value = '') => {
+    const source = normalizeCvOperationIntentText(value);
+    for (const [key, variants] of CV_INTENT_FALLBACK_LANGUAGE_VARIANTS.entries()) {
+        if (variants.some((variant) => new RegExp(`(?:^| )${variant}(?: |$)`).test(source))) {
+            return key;
+        }
+    }
+    return '';
+};
+
+const getCvIntentSemanticTokens = (value = '') =>
+    normalizeCvOperationIntentText(value)
+        .replace(/[^a-z0-9\s-]+/g, ' ')
+        .split(/\s+/)
+        .filter((token) => token.length >= 3)
+        .filter((token) => !CV_INTENT_FALLBACK_SEMANTIC_STOP_WORDS.has(token))
+        .map((token) => CV_INTENT_FALLBACK_TOKEN_ALIASES.get(token) || token);
+
+const selectBestCvLineBySemanticOverlap = (lines = [], context = '') => {
+    const contextTokens = new Set(getCvIntentSemanticTokens(context));
+    if (!contextTokens.size || !lines.length) return '';
+
+    const scored = lines
+        .map((line) => {
+            const lineTokens = new Set(getCvIntentSemanticTokens(line));
+            const score = [...lineTokens].filter((token) => contextTokens.has(token)).length;
+            return { line, score };
+        })
+        .filter((item) => item.score > 0)
+        .sort((left, right) => right.score - left.score);
+
+    if (!scored.length) return '';
+    if (scored.length > 1 && scored[0].score === scored[1].score) return '';
+    return scored[0].line;
+};
+
+const getDeterministicCvLanguageRemovalLine = (cv = {}, context = '') => {
+    const lines = splitCvMultilineEntries(cv.languages);
+    if (!lines.length || !CV_INTENT_FALLBACK_LANGUAGE_SCOPE.test(context)) return '';
+
+    const requestedLanguage = getCvIntentLanguageKey(context);
+    if (requestedLanguage) {
+        const matches = lines.filter((line) => {
+            const label = String(line).split(/\s*[:–—-]\s*/)[0] || '';
+            return getCvIntentLanguageKey(label) === requestedLanguage;
+        });
+        if (matches.length === 1) return matches[0];
+    }
+
+    return selectBestCvLineBySemanticOverlap(lines, context);
+};
+
+const getDeterministicCvActivityRemovalLine = (cv = {}, context = '') => {
+    const lines = splitCvMultilineEntries(cv.activities);
+    if (!lines.length || !CV_INTENT_FALLBACK_ACTIVITY_SCOPE.test(context)) return '';
+    return selectBestCvLineBySemanticOverlap(lines, context);
+};
+
+const withDeterministicCvIntentOperations = ({
+    operations = [],
+    cv = {},
+    instruction = '',
+    intent = null,
+} = {}) => {
+    const resolvedIntent = intent || getCvOperationIntent(instruction, cv);
+    const source = normalizeCvOperationIntentText(instruction || resolvedIntent.source);
+    if (!source || isCvQuestionLikeIntent(source)) {
+        return Array.isArray(operations) ? operations : [];
+    }
+
+    const safeOperations = Array.isArray(operations) ? [...operations] : [];
+    const existingSignatures = new Set(
+        safeOperations.map((operation) => [
+            operation.type,
+            operation.field,
+            normalizeCvOperationIntentText(operation.value),
+            normalizeCvOperationIntentText(operation.target && operation.target.currentValue),
+        ].join('|')),
+    );
+    const addFallbackOperation = (candidate) => {
+        const sanitized = sanitizeCvOperation(candidate);
+        if (!sanitized) return;
+        const signature = [
+            sanitized.type,
+            sanitized.field,
+            normalizeCvOperationIntentText(sanitized.value),
+            normalizeCvOperationIntentText(sanitized.target && sanitized.target.currentValue),
+        ].join('|');
+        if (existingSignatures.has(signature)) return;
+        existingSignatures.add(signature);
+        safeOperations.push(sanitized);
+    };
+
+    const contexts = [
+        ...(Array.isArray(resolvedIntent.removalContexts) ? resolvedIntent.removalContexts : []),
+        source,
+    ].filter(Boolean).join(' ');
+    const directFieldRemovalVerb = /\b(?:supprim(?:e|es|ons|ez|er)|retir(?:e|es|ons|ez|er)|enlev(?:e|es|ons|ez|er)|effac(?:e|es|ons|ez|er)|remov(?:e|es|ed|ing)|delet(?:e|es|ed|ing)|drop(?:s|ped|ping)?)\b(?![^.;!?\n]{0,24}\b(?:pas|not|never|jamais)\b)[^.;!?\n]{0,140}\b(?:permis|licen[cs]e|telephone|tel|mobile|phone|numero|courriel|email|e-mail|mail|adresse|ville|location|localisation|nom|prenom|name|langues?|languages?|activites?|activities|loisirs?|interets?|hobb(?:y|ies)|interest(?:s)?)\b/;
+    const hasRemovalIntent = Boolean((resolvedIntent.removalContexts || []).length)
+        || CV_INTENT_FALLBACK_HIDE_PATTERN.test(source)
+        || directFieldRemovalVerb.test(source);
+
+    if (hasRemovalIntent) {
+        if (!hasCvOperationForField(safeOperations, 'permit')
+            && cv.permit
+            && CV_INTENT_FALLBACK_PERMIT_SCOPE.test(contexts)) {
+            addFallbackOperation({
+                type: 'set_field',
+                field: 'permit',
+                target: { label: 'Permis', currentValue: cv.permit },
+                value: '',
+                reason: 'Suppression du permis demandee explicitement.',
+            });
+        }
+        if (!hasCvOperationForField(safeOperations, 'phone')
+            && cv.phone
+            && CV_INTENT_FALLBACK_PHONE_SCOPE.test(contexts)) {
+            addFallbackOperation({
+                type: 'set_field',
+                field: 'phone',
+                target: { label: 'Telephone', currentValue: cv.phone },
+                value: '',
+                reason: 'Suppression du telephone demandee explicitement.',
+            });
+        }
+        if (!hasCvOperationForField(safeOperations, 'email')
+            && cv.email
+            && CV_INTENT_FALLBACK_EMAIL_SCOPE.test(contexts)) {
+            addFallbackOperation({
+                type: 'set_field',
+                field: 'email',
+                target: { label: 'Email', currentValue: cv.email },
+                value: '',
+                reason: 'Suppression de l email demandee explicitement.',
+            });
+        }
+        if (!hasCvOperationForField(safeOperations, 'location')
+            && cv.location
+            && CV_INTENT_FALLBACK_LOCATION_SCOPE.test(contexts)) {
+            addFallbackOperation({
+                type: 'set_field',
+                field: 'location',
+                target: { label: 'Ville', currentValue: cv.location },
+                value: '',
+                reason: 'Suppression de la localisation demandee explicitement.',
+            });
+        }
+        if (!hasCvOperationForField(safeOperations, 'fullName')
+            && cv.fullName
+            && CV_INTENT_FALLBACK_NAME_SCOPE.test(contexts)) {
+            addFallbackOperation({
+                type: 'set_field',
+                field: 'fullName',
+                target: { label: 'Nom', currentValue: cv.fullName },
+                value: '',
+                reason: 'Suppression du nom demandee explicitement.',
+            });
+        }
+        if (!hasCvOperationForField(safeOperations, 'languages')) {
+            const languageLine = getDeterministicCvLanguageRemovalLine(cv, contexts);
+            if (languageLine) {
+                addFallbackOperation({
+                    type: 'remove_text',
+                    field: 'languages',
+                    target: { currentValue: languageLine },
+                    value: '',
+                    reason: 'Suppression semantique d une ligne de langue demandee.',
+                });
+            }
+        }
+        if (!hasCvOperationForField(safeOperations, 'activities')) {
+            const activityLine = getDeterministicCvActivityRemovalLine(cv, contexts);
+            if (activityLine) {
+                addFallbackOperation({
+                    type: 'remove_text',
+                    field: 'activities',
+                    target: { currentValue: activityLine },
+                    value: '',
+                    reason: 'Suppression semantique d une activite demandee.',
+                });
+            }
+        }
+    }
+
+    const asksChronologicalOrder = /\b(?:plus\s+recent|plus\s+recente|plus\s+ancien|plus\s+ancienne|chronolog|newest|most\s+recent|oldest|ascending|descending|croissant|decroissant)\b/.test(source);
+    const explicitNewestToOldest = /\b(?:plus\s+recent|plus\s+recente|newest|most\s+recent)\b[^.;!?]{0,48}\b(?:plus\s+ancien|plus\s+ancienne|oldest)\b/.test(source)
+        || /\b(?:newest|most\s+recent)\b[^.;!?]{0,24}\b(?:to|vers|a|->)\b[^.;!?]{0,24}\boldest\b/.test(source)
+        || /\b(?:decroissant|descending)\b/.test(source);
+    const explicitOldestToNewest = /\b(?:plus\s+ancien|plus\s+ancienne|oldest)\b[^.;!?]{0,48}\b(?:plus\s+recent|plus\s+recente|newest|most\s+recent)\b/.test(source)
+        || /\boldest\b[^.;!?]{0,24}\b(?:to|vers|a|->)\b[^.;!?]{0,24}\b(?:newest|most\s+recent)\b/.test(source)
+        || /\b(?:croissant|ascending)\b/.test(source);
+    const sortDirection = explicitOldestToNewest && !explicitNewestToOldest ? 'oldest_first' : 'newest_first';
+    const experienceCount = getCvExperienceTitles(cv && cv.experience).length;
+    if (resolvedIntent.orderExperiences
+        && asksChronologicalOrder
+        && !hasCvExperienceOrderOperation(safeOperations)
+        && experienceCount >= 2) {
+        addFallbackOperation({
+            type: 'sort_experiences',
+            field: 'experience',
+            value: sortDirection,
+            reason: 'Tri chronologique des experiences explicitement demande.',
+        });
+    }
+
+    return safeOperations.slice(0, 32);
 };
 
 const sanitizeCvOperations = (value, { instruction = '', intent = null } = {}) => {
@@ -8330,7 +8629,13 @@ const sanitizeCvAssistantResult = (result, cv = {}, { instruction = '', interact
         lastEdit: interaction && interaction.lastEdit ? interaction.lastEdit : null,
     });
     const rawOperations = Array.isArray(result && result.operations) ? result.operations : [];
-    const operations = sanitizeCvOperations(rawOperations, { instruction, intent: operationIntent });
+    const sanitizedOperations = sanitizeCvOperations(rawOperations, { instruction, intent: operationIntent });
+    const operations = withDeterministicCvIntentOperations({
+        operations: sanitizedOperations,
+        cv,
+        instruction,
+        intent: operationIntent,
+    });
     const targetedRequest = Boolean(
         operationIntent.singlePage
         || operationIntent.removalContexts.length
@@ -8341,8 +8646,8 @@ const sanitizeCvAssistantResult = (result, cv = {}, { instruction = '', interact
     );
     const operationSafety = {
         targetedRequest,
-        filteredAll: targetedRequest && rawOperations.length > 0 && operations.length === 0,
-        rejectedCount: Math.max(0, rawOperations.length - operations.length),
+        filteredAll: targetedRequest && rawOperations.length > 0 && sanitizedOperations.length === 0 && operations.length === 0,
+        rejectedCount: Math.max(0, rawOperations.length - sanitizedOperations.length),
     };
     const sourceExperienceTitles = getCvExperienceTitles(cv.experience);
     const sourceTitlesByNormalized = new Map(
@@ -8641,7 +8946,7 @@ const getExplicitCvHeadline = (instruction = '', currentHeadline = '', documentL
     const labelsAnotherElement = /\b(?:ligne|line|element|item)\s+(?:intitulee?|nommee?|appelee?|titled|called)\b/.test(normalizedSource);
     const explicitlyTargetsHeadline = /\b(?:titre\s+(?:(?:du|de mon|de ce)\s+)?(?:cv|poste|metier)|intitule\s+(?:du|de mon|de ce)\s+(?:cv|poste|metier)|poste\s+vise|headline|job\s+title|target\s+role)\b/.test(normalizedSource);
     const headlineActionMatch = source.match(
-        /(?:change|changer|modifie|modifier|remplace|remplacer|mets|mettre|modify|replace|correct|set|update)\s+(?:(?:le|mon|the|my)\s+)?(?:titre|intitul[ée]|poste\s+vis[ée]|headline|job\s+title|target\s+role)(?:\s+(?:sous\s+(?:mon|le)\s+nom|under\s+(?:my|the)\s+name))?\s*(?:par|en|vers|pour|with|to|as|by|:)?\s+([\s\S]+)/i,
+        /(?:change|changer|modifie|modifier|remplace|remplacer|mets|mettre|modify|replace|correct|set|update)\s+(?:(?:le|mon|the|my)\s+)?(?:titre|intitul[ée]|poste\s+vis[ée]|headline|job\s+title|target\s+role)(?:\s+(?:du|de\s+mon|de\s+ce)\s+(?:cv|m[ée]tier|poste))?(?:\s+(?:sous\s+(?:mon|le)\s+nom|under\s+(?:my|the)\s+name))?\s*(?:par|en|vers|pour|with|to|as|by|:)?\s+([\s\S]+)/i,
     );
     if (labelsAnotherElement && !explicitlyTargetsHeadline && !headlineActionMatch) {
         return '';
@@ -8678,7 +8983,7 @@ const getExplicitCvHeadline = (instruction = '', currentHeadline = '', documentL
     }
 
     const match = source.match(
-        /(?:change|changer|modifie|modifier|remplace|remplacer|mets|mettre|modify|replace|correct|set|update)\s+(?:(?:le|mon|the|my)\s+)?(?:titre|intitul[ée]|poste\s+vis[ée]|headline|job\s+title|target\s+role)(?:\s+(?:sous\s+(?:mon|le)\s+nom|under\s+(?:my|the)\s+name))?\s*(?:par|en|vers|pour|with|to|as|by|:)?\s+([^.!?]+)/i,
+        /(?:change|changer|modifie|modifier|remplace|remplacer|mets|mettre|modify|replace|correct|set|update)\s+(?:(?:le|mon|the|my)\s+)?(?:titre|intitul[ée]|poste\s+vis[ée]|headline|job\s+title|target\s+role)(?:\s+(?:du|de\s+mon|de\s+ce)\s+(?:cv|m[ée]tier|poste))?(?:\s+(?:sous\s+(?:mon|le)\s+nom|under\s+(?:my|the)\s+name))?\s*(?:par|en|vers|pour|with|to|as|by|:)?\s+([^.!?]+)/i,
     );
     const candidate = cleanExplicitCvHeadline((match?.[1] || '')
         .replace(/\s*,?\s*(?:avec|en\s+gardant|tout\s+en\s+gardant)\s+(?:cette|la)?\s*(?:casse|capitalisation|majuscule(?:s)?|minuscule(?:s)?)[\s\S]*$/i, '')
@@ -9590,7 +9895,7 @@ const getNarratedCvOrderedTemporalTokens = (value = '', { affirmedOnly = false, 
     const tokens = [];
     if (includeOngoing) {
         const ongoingSource = source.replace(/[’']/g, ' ');
-        for (const match of ongoingSource.matchAll(/\b(?:aujourd hui|present|now|current|actuel|actuellement|en cours|to date)\b/g)) {
+        for (const match of ongoingSource.matchAll(/\b(?:aujourd hui|present|now|current|actuel|actuellement|en cours|to date|today)\b/g)) {
             tokens.push({ kind: 'ongoing', index: match.index, length: match[0].length, token: 'ongoing' });
         }
     }
@@ -12260,6 +12565,44 @@ const getCvTranslationOrganizationAnchor = (value = '') =>
         .replace(/\s+/g, ' ')
         .trim();
 
+const CV_TRANSLATION_GENERIC_ORGANIZATION_SUFFIX_TOKENS = new Set([
+    'group', 'groupe', 'company', 'co', 'inc', 'corp', 'corporation', 'llc',
+    'ltd', 'limited', 'plc', 'sas', 'sa', 'sarl', 'eurl', 'ag', 'bv',
+]);
+
+const normalizeCvTranslationOrganizationTokens = (value = '') =>
+    getCvTranslationOrganizationAnchor(value)
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((token) => {
+            if (token.length > 3 && /s$/.test(token) && !/ss$/.test(token)) {
+                return token.slice(0, -1);
+            }
+            return token;
+        });
+
+const areCvTranslationOrganizationsEquivalent = (sourceValue = '', translatedValue = '') => {
+    const sourceTokens = normalizeCvTranslationOrganizationTokens(sourceValue);
+    const translatedTokens = normalizeCvTranslationOrganizationTokens(translatedValue);
+    if (!sourceTokens.length || !translatedTokens.length) {
+        return sourceTokens.length === translatedTokens.length;
+    }
+
+    const sourceSet = new Set(sourceTokens);
+    const translatedSet = new Set(translatedTokens);
+    const sameCore = sourceTokens.every((token) => translatedSet.has(token))
+        && translatedTokens.every((token) => sourceSet.has(token));
+    if (sameCore) return true;
+
+    const translatedAddsOnlyGenericSuffixes = sourceTokens.every((token) => translatedSet.has(token))
+        && translatedTokens.every((token) => sourceSet.has(token) || CV_TRANSLATION_GENERIC_ORGANIZATION_SUFFIX_TOKENS.has(token));
+    if (translatedAddsOnlyGenericSuffixes) return true;
+
+    const sourceAddsOnlyGenericSuffixes = translatedTokens.every((token) => sourceSet.has(token))
+        && sourceTokens.every((token) => translatedSet.has(token) || CV_TRANSLATION_GENERIC_ORGANIZATION_SUFFIX_TOKENS.has(token));
+    return sourceAddsOnlyGenericSuffixes;
+};
+
 const cvTokenListsEqual = (left = [], right = []) =>
     left.length === right.length && left.every((value, index) => value === right[index]);
 
@@ -12343,6 +12686,20 @@ const getCvTranslationInstitutionAnchors = (value = '') => {
         .filter((tokens) => tokens.length)
         .filter((tokens, index, list) => list.findIndex((entry) => entry.join(' ') === tokens.join(' ')) === index);
 };
+
+const CV_TRANSLATION_GENERIC_INSTITUTION_DETAIL_TOKENS = new Set([
+    'diploma', 'diplomas', 'degree', 'degrees', 'certificate', 'certificates', 'certification', 'certifications',
+    'qualification', 'qualifications', 'training', 'trainings', 'course', 'courses', 'program', 'programme',
+    'specialization', 'specialisation', 'vocational', 'professional', 'baccalaureate', 'bachelor', 'master',
+    'doctorate', 'doctoral', 'first', 'aid', 'customer', 'reception', 'service', 'services',
+    'business', 'commerce', 'management', 'health', 'care', 'support',
+]);
+
+const normalizeCvTranslationInstitutionAnchors = (anchors = []) =>
+    (Array.isArray(anchors) ? anchors : [])
+        .map((tokens) => (Array.isArray(tokens) ? tokens : []).filter((token) => !CV_TRANSLATION_GENERIC_INSTITUTION_DETAIL_TOKENS.has(token)))
+        .filter((tokens) => tokens.length)
+        .filter((tokens, index, list) => list.findIndex((entry) => entry.join(' ') === tokens.join(' ')) === index);
 
 const getCvTranslationLanguageCheckText = (extracted = {}) => {
     const experienceText = (extracted.experiences || []).flatMap((line, index) => {
@@ -12448,6 +12805,23 @@ const CV_TRANSLATION_SEMANTIC_TOKEN_ALIASES = new Map(Object.entries({
     handing: 'handover',
     expert: 'expert_level', expertise: 'expert_level',
     cours: 'training', course: 'training', trekking: 'hiking', film: 'cinema', films: 'cinema',
+    // Descripteurs de profil courants (accroche/résumé) : le dictionnaire
+    // ci-dessus couvrait surtout les métiers/missions ; ces qualificatifs
+    // reviennent dans presque tous les profils et bloquaient une traduction
+    // fidèle faute d'alias bilingue (ex. « sérieuse » / « reliable »).
+    serieux: 'diligence', serieuse: 'diligence', serious: 'diligence', reliable: 'diligence',
+    rigoureux: 'diligence', rigoureuse: 'diligence', rigorous: 'diligence',
+    motive: 'motivation', motivee: 'motivation', motivated: 'motivation', motivation: 'motivation',
+    dynamique: 'dynamism', dynamic: 'dynamism',
+    competence: 'skill', competences: 'skill', skill: 'skill', skills: 'skill',
+    entreprise: 'company', company: 'company', societe: 'company',
+    apprecie: 'enjoyment', apprecier: 'enjoyment', enjoy: 'enjoyment', enjoys: 'enjoyment', enjoying: 'enjoyment',
+    integre: 'adaptation', integrer: 'adaptation', adapt: 'adaptation', adapts: 'adaptation',
+    adapting: 'adaptation', adapte: 'adaptation',
+    telephonique: 'telephone', telephonic: 'telephone',
+    pack: 'office_suite', office: 'office_suite',
+    agenda: 'schedule', agendas: 'schedule', schedule: 'schedule', schedules: 'schedule', scheduling: 'schedule',
+    diary: 'schedule', diaries: 'schedule', calendar: 'schedule', calendars: 'schedule',
 }));
 
 const CV_TRANSLATION_SEMANTIC_GENERIC_TOKENS = new Set([
@@ -12461,6 +12835,9 @@ const CV_TRANSLATION_SEMANTIC_IGNORED_TOKENS = new Set([
     'can', 'part',
     'in', 'en', 'au', 'out', 'up', 'through', 'within', 'across', 'including', 'include',
     'high', 'level', 'niveau',
+    // Adverbes et verbes de souhait neutres : ils n'ajoutent ni ne retirent
+    // aucun fait et varient librement d'une traduction fidèle à l'autre.
+    'rapidement', 'quickly', 'souhaite', 'souhaiter', 'wish', 'would', 'like', 'likes',
 ]);
 
 const getCvTranslationSemanticConcepts = (value = '', { context = 'content' } = {}) => {
@@ -12489,10 +12866,27 @@ const getCvTranslationSemanticConcepts = (value = '', { context = 'content' } = 
         add(aliasedConcept || `literal:${token}`);
     });
 
+    // « Pack Office » désigne en pratique toujours la suite Microsoft : nommer
+    // explicitement l'éditeur dans la traduction précise le même fait, ce
+    // n'est pas une invention à signaler.
+    if (concepts.has('microsoft') && concepts.has('office_suite')) {
+        concepts.delete('microsoft');
+    }
+
     if (/\bfront desk\b/.test(normalized)) {
         concepts.delete('literal:front');
         concepts.delete('literal:desk');
         concepts.add('reception');
+    }
+    if (/\bin[- ]person\b|\baccueil physique\b/.test(normalized)) {
+        concepts.delete('literal:in');
+        concepts.delete('literal:person');
+        concepts.delete('literal:physique');
+        concepts.add('in_person');
+    }
+    if (/\b(?:sens du contact|interpersonal (?:abilities|skills)|people skills)\b/.test(normalized)) {
+        ['literal:sens', 'literal:contact', 'literal:interpersonal', 'literal:abilities', 'literal:people', 'skill'].forEach((concept) => concepts.delete(concept));
+        concepts.add('interpersonal_skills');
     }
     if (/\b(?:food service|service de restauration)\b/.test(normalized)) {
         concepts.delete('literal:food');
@@ -12669,6 +13063,45 @@ const getCvTranslationRelationSignatures = (value = '') => {
     return [...new Set(signatures)].sort();
 };
 
+// Une accroche/profil est un texte libre : contrairement à un intitulé de
+// poste ou une compétence (vocabulaire borné), presque chaque mot peut varier
+// d'une traduction fidèle à l'autre (idiome perdu, reformulation). Exiger une
+// égalité stricte de concepts hors dictionnaire rejette alors des traductions
+// correctes. On tolère donc un petit écart de concepts connus, tout en
+// continuant à rejeter un profil réécrit avec un tout autre contenu.
+const getCvTranslationProseSemanticComparison = (sourceValue = '', translatedValue = '', { context = 'content' } = {}) => {
+    const sourceText = normalizeText(sourceValue);
+    const translatedText = normalizeText(translatedValue);
+    if (!sourceText || !translatedText) {
+        return sourceText === translatedText ? CV_TRANSLATION_EQUIVALENT : CV_TRANSLATION_MISMATCH;
+    }
+    const sourceContracts = getCvTranslationContractKeys(sourceText);
+    const translatedContracts = getCvTranslationContractKeys(translatedText);
+    if (sourceContracts.length || translatedContracts.length) {
+        if (!cvTokenListsEqual(sourceContracts, translatedContracts)) return CV_TRANSLATION_MISMATCH;
+    }
+    const sourceRelations = getCvTranslationRelationSignatures(sourceText);
+    const translatedRelations = getCvTranslationRelationSignatures(translatedText);
+    if ((sourceRelations.length || translatedRelations.length)
+        && !cvTokenListsEqual(sourceRelations, translatedRelations)) return CV_TRANSLATION_MISMATCH;
+    const knownOnly = (value) => new Set(
+        [...getCvTranslationSemanticConcepts(value, { context })].filter((concept) => !concept.startsWith('literal:'))
+    );
+    const sourceConcepts = knownOnly(sourceText);
+    const translatedConcepts = knownOnly(translatedText);
+    if (!sourceConcepts.size && !translatedConcepts.size) {
+        return normalizeCvLanguageLineForMatch(sourceText) === normalizeCvLanguageLineForMatch(translatedText)
+            ? CV_TRANSLATION_EQUIVALENT
+            : CV_TRANSLATION_MISMATCH;
+    }
+    const missingFromTranslation = [...sourceConcepts].filter((concept) => !translatedConcepts.has(concept));
+    const addedInTranslation = [...translatedConcepts].filter((concept) => !sourceConcepts.has(concept));
+    const tolerance = Math.max(1, Math.ceil(sourceConcepts.size * 0.25));
+    return missingFromTranslation.length <= tolerance && addedInTranslation.length <= tolerance
+        ? CV_TRANSLATION_EQUIVALENT
+        : CV_TRANSLATION_MISMATCH;
+};
+
 const getCvTranslationSemanticComparison = (
     sourceValue = '',
     translatedValue = '',
@@ -12802,13 +13235,19 @@ const assessCompleteCvTranslation = ({
         return reject('permit');
     }
 
+    let collectionShapeMismatch = '';
     const preservesCollectionShape = collectionFields.every((field) => {
         const sourceItems = Array.isArray(source[field]) ? source[field] : [];
         const translatedItems = Array.isArray(translated[field]) ? translated[field] : [];
-        return sourceItems.length === translatedItems.length;
+        const matches = sourceItems.length === translatedItems.length;
+        if (!matches && !collectionShapeMismatch) {
+            collectionShapeMismatch = `${field}:${sourceItems.length}->${translatedItems.length}`;
+        }
+        return matches;
     });
-    if (!preservesCollectionShape) return reject('collection_shape');
+    if (!preservesCollectionShape) return reject(`collection_shape:${collectionShapeMismatch}`);
 
+    let pairedFactsMismatch = '';
     const pairedCollectionFactsMatch = collectionFields.every((field) => {
         const sourceItems = Array.isArray(source[field]) ? source[field] : [];
         const translatedItems = Array.isArray(translated[field]) ? translated[field] : [];
@@ -12819,11 +13258,15 @@ const assessCompleteCvTranslation = ({
             const translatedValue = field === 'languages'
                 ? `${translatedItems[index] && translatedItems[index].language || ''} ${translatedItems[index] && translatedItems[index].level || ''}`
                 : translatedItems[index];
-            return cvTokenListsEqual(getCvTranslationTemporalTokens(sourceValue), getCvTranslationTemporalTokens(translatedValue))
-                && cvTokenListsEqual(getCvTranslationQuantityConceptPairs(sourceValue), getCvTranslationQuantityConceptPairs(translatedValue));
+            const temporalMatches = cvTokenListsEqual(getCvTranslationTemporalTokens(sourceValue), getCvTranslationTemporalTokens(translatedValue));
+            const quantityMatches = cvTokenListsEqual(getCvTranslationQuantityConceptPairs(sourceValue), getCvTranslationQuantityConceptPairs(translatedValue));
+            if ((!temporalMatches || !quantityMatches) && !pairedFactsMismatch) {
+                pairedFactsMismatch = `${field}.${index}:${!temporalMatches ? 'temporal' : 'quantity'}`;
+            }
+            return temporalMatches && quantityMatches;
         });
     });
-    if (!pairedCollectionFactsMatch) return reject('paired_facts');
+    if (!pairedCollectionFactsMatch) return reject(`paired_facts:${pairedFactsMismatch}`);
 
     const scalarSourceText = [source.headline, source.summary, source.permit].filter(Boolean).join('\n');
     const scalarTranslatedText = [translated.headline, translated.summary, translated.permit].filter(Boolean).join('\n');
@@ -12835,7 +13278,7 @@ const assessCompleteCvTranslation = ({
     if (!compareSemanticPair('headline', source.headline, translated.headline, 'headline')) {
         return reject('headline_semantics');
     }
-    if (!compareSemanticPair('summary', source.summary, translated.summary, 'summary')) {
+    if (getCvTranslationProseSemanticComparison(source.summary, translated.summary, { context: 'summary' }) !== CV_TRANSLATION_EQUIVALENT) {
         return reject('summary_semantics');
     }
 
@@ -12851,9 +13294,7 @@ const assessCompleteCvTranslation = ({
     let experienceFailure = '';
     const preservesExperienceOrder = sourceExperiences.every((entry, index) => {
         const translatedEntry = parseCvDocumentExperience(translatedExperiences[index] || '', index);
-        const sourceOrganization = getCvTranslationOrganizationAnchor(entry && entry.organization);
-        const translatedOrganization = getCvTranslationOrganizationAnchor(translatedEntry && translatedEntry.organization);
-        if (sourceOrganization !== translatedOrganization) {
+        if (!areCvTranslationOrganizationsEquivalent(entry && entry.organization, translatedEntry && translatedEntry.organization)) {
             experienceFailure = `${index}:organization`;
             return false;
         }
@@ -12915,9 +13356,19 @@ const assessCompleteCvTranslation = ({
         const sourceItems = Array.isArray(source[field]) ? source[field] : [];
         const translatedItems = Array.isArray(translated[field]) ? translated[field] : [];
         return sourceItems.every((item, index) => {
-            const sourceAnchors = getCvTranslationInstitutionAnchors(item).map((anchor) => anchor.join(' ')).sort();
-            const translatedAnchors = getCvTranslationInstitutionAnchors(translatedItems[index]).map((anchor) => anchor.join(' ')).sort();
-            if (!cvTokenListsEqual(sourceAnchors, translatedAnchors)) return false;
+            const sourceAnchors = normalizeCvTranslationInstitutionAnchors(getCvTranslationInstitutionAnchors(item))
+                .map((anchor) => anchor.join(' '))
+                .sort();
+            const translatedAnchors = normalizeCvTranslationInstitutionAnchors(getCvTranslationInstitutionAnchors(translatedItems[index]))
+                .map((anchor) => anchor.join(' '))
+                .sort();
+            if (sourceAnchors.length) {
+                if (!cvTokenListsEqual(sourceAnchors, translatedAnchors)) return false;
+            } else if (translatedAnchors.length) {
+                // La source ne cite aucun etablissement: introduire un ancrage
+                // institutionnel specifique dans la traduction serait invente.
+                return false;
+            }
             return compareSemanticPair(
                 `${field}.${index}`,
                 getCvTranslationEducationTitle(item),
@@ -15859,12 +16310,16 @@ module.exports = async (request, response) => {
 
         let fallbackReason = 'no_openai_api_key';
         let fallbackDiagnostic = '';
+        const isTranslationRequest = Boolean(getFullCvTranslationLanguage(instruction));
+        const maxAttempts = isTranslationRequest ? 3 : 1;
+        let currentInstruction = instruction;
         try {
+            for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
             const openAiResult = await callOpenAiCvAssistant({
                 task,
                 cv,
                 jobOffer,
-                instruction,
+                instruction: currentInstruction,
                 documentText,
                 documentLanguage,
                 letter,
@@ -15885,16 +16340,34 @@ module.exports = async (request, response) => {
                     diagnostics: validationDiagnostics,
                 })
             )) {
-                const completeResult = ensureCompleteCvAssistantResult({
-                    result: candidateResult,
-                    cv,
-                    task,
-                    jobOffer,
-                    instruction,
-                    documentText,
-                    documentLanguage,
-                    interaction,
-                });
+                let completeResult;
+                try {
+                    completeResult = ensureCompleteCvAssistantResult({
+                        result: candidateResult,
+                        cv,
+                        task,
+                        jobOffer,
+                        instruction,
+                        documentText,
+                        documentLanguage,
+                        interaction,
+                    });
+                } catch (translationError) {
+                    // Une traduction rejetee pour une forme incorrecte (nombre
+                    // d'elements different) merite une seconde chance avec une
+                    // consigne corrective precise, avant de renoncer au CV source.
+                    if (isTranslationRequest
+                        && translationError?.code === 'incomplete_cv_translation'
+                        && isRetryableCvTranslationValidationReason(translationError.validationReason)
+                        && attempt < maxAttempts - 1) {
+                        currentInstruction = getCvTranslationCorrectiveInstruction(
+                            instruction,
+                            translationError.validationReason,
+                        );
+                        continue;
+                    }
+                    throw translationError;
+                }
                 // Le récit a déjà été validé champ par champ dans
                 // candidateResult. La complétion générique peut fusionner une
                 // extraction locale moins précise ; conserver donc l'extraction
@@ -15939,6 +16412,8 @@ module.exports = async (request, response) => {
                         code: fallbackDiagnostic,
                     });
                 }
+            }
+            break;
             }
         } catch (error) {
             fallbackReason = error && error.message ? error.message : 'openai_cv_request_failed';

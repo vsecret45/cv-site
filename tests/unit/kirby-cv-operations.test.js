@@ -655,6 +655,7 @@ const completeEnglishTranslation = {
 };
 
 for (const instruction of [
+    'Traduis mon CV en anglais',
     'Remplace le CV en English.',
     'Remplace tout le CV par une version en anglais.',
     'Refais tout le CV et traduis-le en anglais.',
@@ -662,6 +663,8 @@ for (const instruction of [
     'Convertis mon CV en anglais.',
     'Mets le CV en anglais.',
     'Je veux une version anglaise de mon CV.',
+    'Je veux une version anglaise complète de mon CV.',
+    'Je postule en Angleterre, adapte tout mon CV en anglais.',
     'Dans mon CV, traduis tout en anglais.',
     'Mets en anglais tout le CV.',
     'Traduis en anglais mon CV.',
@@ -755,6 +758,67 @@ test('CV traduction complète : refuse une extraction anglaise incomplète sans 
     assert.deepEqual(body.cv.operations, []);
     assert.deepEqual(body.cv.extracted.experiences, frenchCvForTranslation.experience.split('\n'));
     assert.deepEqual(body.cv.extracted.skills, frenchCvForTranslation.skills.split('\n'));
+});
+
+test('CV traduction complète : une seconde tentative avec la forme correcte est acceptée après un rejet de forme', async () => {
+    const originalFetch = global.fetch;
+    const originalKey = process.env.KIRBY_CV_OPENAI_API_KEY;
+    let fetchCount = 0;
+    process.env.KIRBY_CV_OPENAI_API_KEY = 'sk-test-key';
+    const malformedResponse = {
+        ...completeEnglishTranslation,
+        skills: ['Customer reception'],
+        extracted: {
+            ...completeEnglishTranslation.extracted,
+            skills: ['Customer reception'],
+            experiences: [completeEnglishTranslation.extracted.experiences[0]],
+        },
+    };
+    global.fetch = async (_url, options = {}) => {
+        fetchCount += 1;
+        const requestBody = JSON.parse(options.body || '{}');
+        const secondCorrective = requestBody?.messages?.[1]?.content?.includes('CONSIGNE DE CORRECTION');
+        return {
+            ok: true,
+            json: async () => ({
+                choices: [{
+                    message: {
+                        content: JSON.stringify({
+                            ...emptyCvPayload,
+                            ...(fetchCount === 1 || !secondCorrective ? malformedResponse : completeEnglishTranslation),
+                        }),
+                    },
+                }],
+            }),
+        };
+    };
+
+    try {
+        const request = new MockRequest({
+            mode: 'cv',
+            task: 'assistant',
+            cv: frenchCvForTranslation,
+            instruction: 'Remplace le CV en English.',
+        });
+        const response = new MockResponse();
+        const finished = new Promise((resolve) => response.once('finish', resolve));
+        await handler(request, response);
+        await finished;
+        const body = JSON.parse(response.body);
+
+        assert.equal(fetchCount, 2, 'une seconde tentative corrective doit être envoyée après un rejet de forme');
+        assert.equal(body.source, 'openai');
+        assert.equal(body.cv.documentReplacement?.type, 'translation');
+        assert.equal(body.cv.documentReplacement?.complete, true);
+        assert.deepEqual(body.cv.extracted.experiences, completeEnglishTranslation.extracted.experiences);
+    } finally {
+        global.fetch = originalFetch;
+        if (originalKey === undefined) {
+            delete process.env.KIRBY_CV_OPENAI_API_KEY;
+        } else {
+            process.env.KIRBY_CV_OPENAI_API_KEY = originalKey;
+        }
+    }
 });
 
 test('CV traduction complète : refuse une traduction qui altère un employeur factuel', async () => {
@@ -1926,3 +1990,181 @@ test('CV langues : canonicalise aussi une cible de remplacement sans préfixer s
     assert.equal(body.cv.operations[0].target.currentValue, 'ESPAGNOL : NOTIONS');
     assert.equal(body.cv.operations[0].value, 'Espagnol : intermédiaire');
 });
+
+// Régression : un set_field avec value vide (suppression d'un champ) était
+// systématiquement rejeté par cvCorrectionOperationMatchesIntent, quelle que
+// soit la formulation utilisée par l'utilisateur pour désigner la cible.
+const permitDeletionPhrasings = [
+    { label: '« Permis B »', instruction: 'Supprime Permis B', currentValue: 'Permis B' },
+    { label: '« Permis : B »', instruction: 'Supprime le permis : B', currentValue: 'Permis B' },
+    { label: '« Permis: B » (sans espace)', instruction: 'Supprime le permis: B', currentValue: 'Permis B' },
+    { label: '« Permis de conduire B »', instruction: 'Supprime le permis de conduire B', currentValue: 'Permis B' },
+];
+
+for (const fixture of permitDeletionPhrasings) {
+    test(`CV permis : « Supprime ${fixture.label} » applique la suppression du champ permis`, async () => {
+        const { body } = await callKirbyCv({
+            cv: { permit: 'Permis B' },
+            instruction: fixture.instruction,
+            openAiCv: {
+                operations: [{
+                    type: 'set_field',
+                    field: 'permit',
+                    target: { label: 'Permis', currentValue: fixture.currentValue },
+                    value: '',
+                }],
+            },
+        });
+
+        assert.equal(body.cv.operations.length, 1, 'la suppression doit être conservée après sanitisation');
+        assert.equal(body.cv.operations[0].type, 'set_field');
+        assert.equal(body.cv.operations[0].field, 'permit');
+        assert.equal(body.cv.operations[0].value, '');
+    });
+}
+
+test('CV permis : une suppression sans rapport avec le permis affiché n’est pas appliquée', async () => {
+    const { body } = await callKirbyCv({
+        cv: { permit: 'Permis B' },
+        instruction: 'Corrige les fautes du CV.',
+        openAiCv: {
+            operations: [{
+                type: 'set_field',
+                field: 'permit',
+                target: { label: 'Permis', currentValue: 'Permis B' },
+                value: '',
+            }],
+        },
+    });
+
+    assert.deepEqual(body.cv.operations, [], 'sans demande explicite de suppression, le champ ne doit pas être vidé');
+});
+
+test('CV coordonnées : « Supprime le téléphone » applique la suppression du champ phone', async () => {
+    const { body } = await callKirbyCv({
+        cv: { phone: '06 00 00 00 00' },
+        instruction: 'Supprime le téléphone',
+        openAiCv: {
+            operations: [{
+                type: 'set_field',
+                field: 'phone',
+                target: { label: 'Téléphone', currentValue: '06 00 00 00 00' },
+                value: '',
+            }],
+        },
+    });
+
+    assert.equal(body.cv.operations.length, 1);
+    assert.equal(body.cv.operations[0].field, 'phone');
+    assert.equal(body.cv.operations[0].value, '');
+});
+
+test('CV suppression sémantique : retire le permis même sans correspondance textuelle exacte', async () => {
+    const { body } = await callKirbyCv({
+        cv: { permit: 'Permis B' },
+        instruction: 'Je ne conduis pas pour ce poste, enlève la mention du permis.',
+        openAiCv: {
+            suggestions: ['Suppression demandée'],
+            operations: [],
+        },
+    });
+
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.operations.length, 1);
+    assert.equal(body.cv.operations[0].type, 'set_field');
+    assert.equal(body.cv.operations[0].field, 'permit');
+    assert.equal(body.cv.operations[0].value, '');
+});
+
+test('CV suppression sémantique : retire le téléphone quand la consigne demande de ne plus l’afficher', async () => {
+    const { body } = await callKirbyCv({
+        cv: { phone: '06 10 20 30 40' },
+        instruction: 'Je ne veux plus afficher mon numero de telephone dans le CV.',
+        openAiCv: {
+            suggestions: ['Suppression demandée'],
+            operations: [],
+        },
+    });
+
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.operations.length, 1);
+    assert.equal(body.cv.operations[0].type, 'set_field');
+    assert.equal(body.cv.operations[0].field, 'phone');
+    assert.equal(body.cv.operations[0].value, '');
+});
+
+test('CV suppression sémantique : retire une langue ciblée avec une formulation naturelle', async () => {
+    const { body } = await callKirbyCv({
+        cv: { languages: 'Français : langue maternelle\nItalien : notions\nAnglais : B1' },
+        instruction: 'Retire la langue italienne de mon CV.',
+        openAiCv: {
+            suggestions: ['Suppression demandée'],
+            operations: [],
+        },
+    });
+
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.operations.length, 1);
+    assert.equal(body.cv.operations[0].type, 'remove_text');
+    assert.equal(body.cv.operations[0].field, 'languages');
+    assert.equal(body.cv.operations[0].target.currentValue, 'Italien : notions');
+});
+
+test('CV suppression sémantique : retire une activité ciblée par son thème', async () => {
+    const { body } = await callKirbyCv({
+        cv: { activities: 'Randonnée\nCinéma italien' },
+        instruction: 'Supprime le loisir lié au cinéma dans la rubrique activités.',
+        openAiCv: {
+            suggestions: ['Suppression demandée'],
+            operations: [],
+        },
+    });
+
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.operations.length, 1);
+    assert.equal(body.cv.operations[0].type, 'remove_text');
+    assert.equal(body.cv.operations[0].field, 'activities');
+    assert.equal(body.cv.operations[0].target.currentValue, 'Cinéma italien');
+});
+
+test('CV tri chronologique : ajoute une opération de tri quand la consigne est explicite et le modèle muet', async () => {
+    const { body } = await callKirbyCv({
+        cv: {
+            experience: [
+                'Secrétaire polyvalente - Horizon Conseil - 2020 - 2022 • Gestion du courrier',
+                'Assistante administrative - Nova Services - avril 2023 - aujourd’hui • Accueil des clients',
+            ].join('\n'),
+        },
+        instruction: 'Range les experiences de la plus recente a la plus ancienne.',
+        openAiCv: {
+            suggestions: ['Tri demandé'],
+            operations: [],
+        },
+    });
+
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.operations.length, 1);
+    assert.equal(body.cv.operations[0].type, 'sort_experiences');
+    assert.equal(body.cv.operations[0].field, 'experience');
+    assert.equal(body.cv.operations[0].value, 'newest_first');
+});
+
+test('CV titre : « Remplace le titre du CV par … » extrait uniquement la valeur cible', async () => {
+    const { body } = await callKirbyCv({
+        cv: { headline: 'Assistante administrative' },
+        instruction: 'Remplace le titre du CV par Responsable accueil.',
+        openAiCv: {
+            operations: [
+                { type: 'set_field', field: 'headline', value: 'du CV par Responsable accueil' },
+            ],
+        },
+    });
+
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.headline, 'Responsable accueil');
+    assert.equal(body.cv.jobTarget, 'Responsable accueil');
+    assert.equal(body.cv.operations[0].type, 'set_field');
+    assert.equal(body.cv.operations[0].field, 'headline');
+    assert.equal(body.cv.operations[0].value, 'Responsable accueil');
+});
+
