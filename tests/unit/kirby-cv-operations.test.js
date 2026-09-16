@@ -664,6 +664,7 @@ for (const instruction of [
     'Mets le CV en anglais.',
     'Je veux une version anglaise de mon CV.',
     'Je veux une version anglaise complète de mon CV.',
+    'Je veux la traduction complète du CV en anglais.',
     'Je postule en Angleterre, adapte tout mon CV en anglais.',
     'Dans mon CV, traduis tout en anglais.',
     'Mets en anglais tout le CV.',
@@ -2125,6 +2126,42 @@ test('CV suppression sémantique : retire une activité ciblée par son thème',
     assert.equal(body.cv.operations[0].type, 'remove_text');
     assert.equal(body.cv.operations[0].field, 'activities');
     assert.equal(body.cv.operations[0].target.currentValue, 'Cinéma italien');
+});
+
+test('CV suppression sémantique : supprime toute la rubrique expériences quand la consigne est explicite', async () => {
+    const { body } = await callKirbyCv({
+        cv: {
+            experience: 'Assistante administrative - Cabinet Armand & Associés - 2022 - 2024 • Gestion appels',
+            summary: 'Profil administratif',
+        },
+        instruction: 'Supprime mes expériences du CV.',
+        openAiCv: {
+            suggestions: ['Suppression demandée'],
+            operations: [],
+        },
+    });
+
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.operations.length, 1);
+    assert.equal(body.cv.operations[0].type, 'remove_section');
+    assert.equal(body.cv.operations[0].field, 'experience');
+});
+
+test('CV permis : fallback garde la suppression quand le modèle oublie les opérations', async () => {
+    const { body } = await callKirbyCv({
+        cv: { permit: 'Permis B' },
+        instruction: 'Supprime le permis B.',
+        openAiCv: {
+            suggestions: ['Suppression demandée'],
+            operations: [],
+        },
+    });
+
+    assert.equal(body.source, 'openai');
+    assert.equal(body.cv.operations.length, 1);
+    assert.equal(body.cv.operations[0].type, 'set_field');
+    assert.equal(body.cv.operations[0].field, 'permit');
+    assert.equal(body.cv.operations[0].value, '');
 });
 
 test('CV tri chronologique : ajoute une opération de tri quand la consigne est explicite et le modèle muet', async () => {

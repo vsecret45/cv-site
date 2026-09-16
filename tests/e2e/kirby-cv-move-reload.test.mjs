@@ -1307,6 +1307,7 @@ test('Kirby adds only “Maîtrise de Canva”, then preserves the targeted move
               languageBeforeOwnedWholeCvLocale: getFullCvTranslationLocale('Translate to English my whole CV.'),
               putEnglishLocale: getFullCvTranslationLocale('Put my CV in English.'),
               englishVersionWithPrepositionLocale: getFullCvTranslationLocale('Je veux une version en anglais de mon CV.'),
+              translationNounLocale: getFullCvTranslationLocale('Je veux la traduction complète du CV en anglais.'),
               targetedProfileLocale: getFullCvTranslationLocale('Dans mon CV, traduis uniquement le profil en anglais.'),
               targetedProfileAfterActionLocale: getFullCvTranslationLocale('Traduis dans mon CV uniquement le profil en anglais.'),
               targetedProfileWithoutOnlyLocale: getFullCvTranslationLocale('Traduis le profil de mon CV en anglais.'),
@@ -1344,6 +1345,7 @@ test('Kirby adds only “Maîtrise de Canva”, then preserves the targeted move
         assert.equal(translationGuards.languageBeforeOwnedWholeCvLocale, 'en');
         assert.equal(translationGuards.putEnglishLocale, 'en');
         assert.equal(translationGuards.englishVersionWithPrepositionLocale, 'en');
+        assert.equal(translationGuards.translationNounLocale, 'en');
         assert.equal(translationGuards.targetedProfileLocale, '');
         assert.equal(translationGuards.targetedProfileAfterActionLocale, '');
         assert.equal(translationGuards.targetedProfileWithoutOnlyLocale, '');

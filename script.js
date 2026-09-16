@@ -225,6 +225,7 @@ let pendingKirbyCvProposal = null;
 let queuedAssistantPrompt = '';
 let activeKirbyMode = 'optimize';
 let cvContentMigrations = [];
+const hasModelCvContent = () => cvContentMigrations.includes('cv-model-v1');
 let cvProfilePhoto = null;
 let pendingNewCvRollbackState = '';
 
@@ -1057,6 +1058,7 @@ const getComparableCvDraftPayload = (payload = {}) => {
     const source = payload && typeof payload === 'object' ? payload : {};
     return {
         values: source.values && typeof source.values === 'object' ? source.values : {},
+        contentMigrations: Array.isArray(source.contentMigrations) ? source.contentMigrations : [],
         editableContent: source.editableContent && typeof source.editableContent === 'object' ? source.editableContent : {},
         sectionTitleStyles: source.sectionTitleStyles && typeof source.sectionTitleStyles === 'object' ? source.sectionTitleStyles : {},
         sectionOrder: Array.isArray(source.sectionOrder) ? source.sectionOrder : [],
@@ -2711,21 +2713,21 @@ const persistCvDraftImmediately = async () => {
 
 const buildKirbyPersistenceReply = (changes = [], persistence = {}) => {
     const detail = formatCvPersistenceDetail(persistence);
+    const normalizedChanges = [...new Set(getKirbyCvArray(changes).map((item) => String(item || '').trim()).filter(Boolean))];
+    const changeSummary = normalizedChanges.length ? `CV mis à jour : ${normalizedChanges.join(', ')}` : '';
 
     if (isCvLocalPreviewPersistence(persistence)) {
-        setCvStatus('Modification appliquée au CV affiché.');
-        return detail;
+        setCvStatus(changeSummary || 'Modification appliquée au CV affiché.');
+        return changeSummary ? `${changeSummary}. ${detail}` : detail;
     }
 
     if (!isCvPersistenceConfirmed(persistence)) {
-        setCvStatus('Modification appliquée, enregistrement non confirmé.');
-        return detail;
+        setCvStatus(changeSummary || 'Modification appliquée, enregistrement non confirmé.');
+        return changeSummary ? `${changeSummary}. ${detail}` : detail;
     }
 
-    const prefix = 'CV mis à jour';
-
-    setCvStatus(`${prefix} : ${changes.join(', ')}`);
-    return `${prefix} : ${changes.join(', ')}. ${detail}`;
+    setCvStatus(changeSummary || 'CV mis à jour');
+    return changeSummary ? `${changeSummary}. ${detail}` : detail;
 };
 
 const buildKirbyQuickPersistenceReply = (quickReply = '', persistence = {}) => {
@@ -2774,6 +2776,7 @@ const getCvHistoryState = () => {
 
     return JSON.stringify({
         values,
+        contentMigrations: [...cvContentMigrations],
         editableContent: cvEditableContent,
         sectionTitleStyles: cvSectionTitleStyles,
         sectionOrder: cvSectionOrder,
@@ -2940,6 +2943,7 @@ const restorePreviousCvVersion = () => {
             }
         });
 
+        cvContentMigrations = Array.isArray(state?.contentMigrations) ? [...state.contentMigrations] : [];
         cvEditableContent = sanitizeCvEditableContent(state?.editableContent);
         cvSectionTitleStyles = sanitizeCvSectionTitleStyles(state?.sectionTitleStyles);
         cvSectionOrder = Array.isArray(state?.sectionOrder) && state.sectionOrder.length
@@ -2998,6 +3002,7 @@ const restoreCvHistorySnapshot = (stateJson = '', status = '') => {
             }
         });
 
+        cvContentMigrations = Array.isArray(state?.contentMigrations) ? [...state.contentMigrations] : [];
         cvEditableContent = sanitizeCvEditableContent(state?.editableContent);
         cvSectionTitleStyles = sanitizeCvSectionTitleStyles(state?.sectionTitleStyles);
         cvSectionOrder = Array.isArray(state?.sectionOrder) && state.sectionOrder.length
@@ -4351,6 +4356,8 @@ const extractExperienceDateMatch = (line = '') => {
 };
 
 const parseExperienceEntry = (line) => {
+    const structured = window.KirbyCvContract?.parseEntry(line);
+    if (structured) return structured;
     const cleanLine = line
         .replace(/^(?:(?:[•\-\u2022]|→)\s*)+/g, '')
         .replace(/\s{2,}/g, ' ')
@@ -5236,6 +5243,9 @@ const getReadyCvAssistantReply = (result) => {
 };
 
 const serializeExperienceEntry = (entry) => {
+    if (hasModelCvContent() && window.KirbyCvContract) return window.KirbyCvContract.serializeEntry({
+        title: entry.title || '', organization: entry.meta || '', period: entry.date || '', details: entry.bullets || [],
+    });
     const header = [entry.title, entry.meta, entry.date]
         .map((item, index) => index === 2
             ? normalizeExperienceDateText(item || '')
@@ -5596,6 +5606,11 @@ const normalizeLanguageLevel = (value = '') => {
 };
 
 const parseLanguageEntry = (line = '') => {
+    if (hasModelCvContent()) {
+        const index = String(line).indexOf(':');
+        return index < 0 ? { language: String(line).trim(), level: '' }
+            : { language: String(line).slice(0, index).trim(), level: String(line).slice(index + 1).trim() };
+    }
     const [language = '', ...levelParts] = String(line).split(/\s*[:–—-]\s*/);
     const cleanLanguage = normalizeCvLanguageName(language);
 
@@ -5606,6 +5621,7 @@ const parseLanguageEntry = (line = '') => {
 };
 
 const serializeLanguageEntry = (entry = {}) => {
+    if (hasModelCvContent()) return entry.language ? `${entry.language}${entry.level ? ' : ' + entry.level : ''}` : '';
     const language = normalizeCvLanguageName(entry.language || '');
     const level = normalizeLanguageLevel(entry.level || '');
 
@@ -5657,6 +5673,8 @@ const getLanguageSourceEntries = () => {
         return [];
     }
 
+    if (hasModelCvContent()) return splitLines(field.value).map(parseLanguageEntry);
+
     return dedupeLanguageEntriesByCanonicalKey(splitLines(field.value)
         .map(parseLanguageEntry)
         .filter((entry) => entry.language));
@@ -5672,7 +5690,7 @@ const renderLanguageEditor = (options = {}) => {
     const entries = getLanguageSourceEntries();
     const normalizedValue = entries.map(serializeLanguageEntry).filter(Boolean).join('\n');
     const languageField = getLanguageField();
-    const shouldNormalizeField = options?.normalizeField !== false;
+    const shouldNormalizeField = !hasModelCvContent() && options?.normalizeField !== false;
     const didNormalizeLanguageValue = Boolean(
         shouldNormalizeField
         && languageField
@@ -5923,7 +5941,7 @@ const renderEditableContactNode = (node, values) => {
         return;
     }
 
-    values = recoverMergedContactValues(values);
+    if (!hasModelCvContent()) values = recoverMergedContactValues(values);
 
     const cleanContactValue = (value = '') => String(value)
         .replace(/[⌖✆✉▣⊕⊙□■]/g, '')
@@ -5946,10 +5964,10 @@ const renderEditableContactNode = (node, values) => {
         return prefixes[type] ? cleanValue.replace(prefixes[type], '').trim() : cleanValue;
     };
     const contactValues = {
-        location: cleanLocationValue(values.location),
-        phone: cleanTypedContactValue('phone', values.phone),
-        email: cleanTypedContactValue('email', values.email),
-        permit: cleanTypedContactValue('permit', values.permit),
+        location: hasModelCvContent() ? values.location : cleanLocationValue(values.location),
+        phone: hasModelCvContent() ? values.phone : cleanTypedContactValue('phone', values.phone),
+        email: hasModelCvContent() ? values.email : cleanTypedContactValue('email', values.email),
+        permit: hasModelCvContent() ? values.permit : cleanTypedContactValue('permit', values.permit),
     };
     Object.entries(contactValues).forEach(([key, value]) => {
         if (cvForm?.elements[key] && cvForm.elements[key].value !== value) {
@@ -6028,6 +6046,7 @@ const renderEditableListNode = (node, target, renderFallback) => {
 };
 
 const repairPreviewExperienceItems = (items) => {
+    if (hasModelCvContent()) return items;
     const repaired = [];
     const clean = (line) =>
         (line || '')
@@ -7035,7 +7054,7 @@ const updateCvPreview = ({ preserveDensity = false } = {}) => {
     previewNodes.preview.dataset.cvLayout = usesStructuredCvLayout(values.layoutTheme)
         ? 'structured'
         : 'native';
-    const detectedContentLocale = detectImportedCvLocale([
+    const detectedContentLocale = hasModelCvContent() ? currentCvContentLocale : detectImportedCvLocale([
         values.headline,
         values.summary,
         values.skills,
@@ -7056,7 +7075,7 @@ const updateCvPreview = ({ preserveDensity = false } = {}) => {
         }
     });
 
-    const safeFullName = getSafeFullNameValue(values.fullName || '');
+    const safeFullName = hasModelCvContent() ? values.fullName || '' : getSafeFullNameValue(values.fullName || '');
     if (values.fullName && !safeFullName && cvForm.elements.fullName) {
         cvForm.elements.fullName.value = '';
     } else if (safeFullName && values.fullName !== safeFullName && cvForm.elements.fullName) {
@@ -7080,7 +7099,7 @@ const updateCvPreview = ({ preserveDensity = false } = {}) => {
     const projectItems = mergeStandaloneDateItems(dedupeImportedItems(rawProjectItems));
     const rawEducationItems = splitLines(values.education || '').filter((item) => !/^[-–—]?\s*\)?$/.test(item.trim()));
     const educationItems = normalizeImportedEducationItems(rawEducationItems);
-    const rawLanguageItems = splitMergedLanguageItems(splitLines(values.languages || ''));
+    const rawLanguageItems = hasModelCvContent() ? splitLines(values.languages || '') : splitMergedLanguageItems(splitLines(values.languages || ''));
     const languageItems = dedupeImportedItems(rawLanguageItems);
     const rawActivityItems = splitLines(values.activities || '');
     const activityItems = dedupeImportedItems(rawActivityItems);
@@ -8068,25 +8087,25 @@ const importedCvSectionPatterns = {
         /^(?:profil|profile|professional profile|resume|summary|professional summary|career summary|objectif|objective|about me|a propos)$/,
     ],
     skills: [
-        /^(?:competences?(?: (?:cles?|techniques?|professionnelles?))?|skills?|key skills?|professional skills?|technical skills?|core expertise|areas? of expertise|expertise|atouts?|savoir(?: |-)?faire|outils?(?: et technologies?)?|tools?(?: and technologies?)?|tech(?:nical)? stack)$/,
+        /^(?:competences?(?: (?:cles?|techniques?|professionnelles?|numeriques?))?|skills?|key skills?|professional skills?|technical skills?|digital skills?|computer skills?|core expertise|areas? of expertise|expertise|atouts?|savoir(?: |-)?faire|outils?(?: et technologies?)?|outils? informatiques?|tools?(?: and technologies?)?|tech(?:nical)? stack|informatique|bureautique)$/,
     ],
     experience: [
         /^(?:experiences?(?: professionnelles?)?|professional experience|work experience|employment history|work history|career history|experience|parcours professionnel|parcours pro|academic appointments?|professional appointments?)$/,
     ],
     education: [
-        /^(?:formations?(?: (?:&|et) certifications?)?|education(?: (?:&|and) certifications?)?|academic background|parcours academique|cursus|diplomes?|degrees?|diplomas?|qualifications?|certifications?|training(?: (?:&|and) certifications?)?)$/,
+        /^(?:formations?(?: (?:&|et) certifications?| complementaires?)?|education(?: (?:&|and) certifications?)?|academic background|parcours academique|cursus|diplomes?|degrees?|diplomas?|qualifications?|certifications?|training(?: (?:&|and) certifications?)?)$/,
     ],
     projects: [
         /^(?:projets?(?: professionnels?|personnels?)?|projects?|selected projects?|key projects?|research(?: experience| projects?)?|recherche(?: et developpement)?|publications?|selected publications?)$/,
     ],
     languagesActivities: [
-        /^(?:langues?\s*(?:&|et)\s*(?:centres? d['’]? ?interets?|activites?|loisirs?)|(?:centres? d['’]? ?interets?|activites?|loisirs?)\s*(?:&|et)\s*langues?|languages?\s*(?:&|and)\s*(?:activities|interests|hobbies)|(?:activities|interests|hobbies)\s*(?:&|and)\s*languages?)$/,
+        /^(?:langues?\s*(?:&|et)\s*(?:centres?\s+(?:d['’]?\s*)?interets?|activites?|loisirs?)|(?:centres?\s+(?:d['’]?\s*)?interets?|activites?|loisirs?)\s*(?:&|et)\s*langues?|languages?\s*(?:&|and)\s*(?:activities|interests|hobbies)|(?:activities|interests|hobbies)\s*(?:&|and)\s*languages?)$/,
     ],
     languages: [
         /^(?:langues?|languages?)$/,
     ],
     activities: [
-        /^(?:activites?(?: (?:&|et) interets?)?|centres? d['’]? ?interets?|activities(?: (?:&|and) interests?)?|interests?|hobbies(?: (?:&|and) interests?)?|extracurricular activities?)$/,
+        /^(?:activites?(?: (?:&|et) interets?)?|centres?\s+(?:d['’]?\s*)?interets?|activities(?: (?:&|and) interests?)?|interests?|hobbies(?: (?:&|and) interests?)?|extracurricular activities?)$/,
     ],
 };
 
@@ -8372,6 +8391,7 @@ const pickPreferredDate = (currentDate, incomingDate) => {
 };
 
 const mergeStandaloneDateItems = (items) => {
+    if (hasModelCvContent()) return items;
     const merged = [];
 
     items.forEach((rawItem) => {
@@ -8529,7 +8549,7 @@ const normalizeStructuredItems = (items, type) => {
 
 const looksLikeImportedExperienceRole = (line = '') => {
     const compact = line.replace(/\s{2,}/g, ' ').trim();
-    return /\b(?:machiniste|receveur|conseill(?:er|[èe]re)|commerciale?|responsable|charg[ée]e|conduct(?:eur|rice)|d[ée]veloppeu(?:r|se)|assistante?|agents?|consultant|manager|analyst|auditor|engineer|developer|designer|photographer|photographe|accountant|specialist|director|officer|coordinator|coordinateur|coordinatrice|lead|advisor|associate|vendeur|vendeuse|technicien|technicienne|secr[ée]taire|administrateur|administratrice|architecte?|chef|directeur|directrice|op[ée]rateur|op[ée]ratrice|receptionist|r[ée]ceptionniste|representative|repr[ée]sentant|repr[ée]sentante|teacher|enseignant|enseignante|driver|chauffeur|recruiter|recruteur|recruteuse|controller|contr[oô]leur|contr[oô]leuse)\b/i.test(compact);
+    return /\b(?:machiniste|receveur|conseill(?:er|[èe]re)|commerciale?|responsable|charg[ée]e|conduct(?:eur|rice)|d[ée]veloppeu(?:r|se)|assistante?|agents?|consultant|manager|analyst|auditor|engineer|developer|designer|photographer|photographe|accountant|specialist|director|officer|coordinator|coordinateur|coordinatrice|lead|advisor|associate|vendeur|vendeuse|technicien|technicienne|secr[ée]taire|administrateur|administratrice|architecte?|chef|directeur|directrice|op[ée]rateur|op[ée]ratrice|receptionist|r[ée]ceptionniste|representative|repr[ée]sentant|repr[ée]sentante|teacher|enseignant|enseignante|driver|chauffeur|recruiter|recruteur|recruteuse|controller|contr[oô]leur|contr[oô]leuse|h[ôo]tesse|hote|employ[ée]e?)\b/i.test(compact);
 };
 
 const isLikelyExperienceHeader = (line) => {
@@ -8556,6 +8576,7 @@ const normalizeSkillItems = (items) =>
     );
 
 const normalizeImportedEducationItems = (items = []) => {
+    if (hasModelCvContent()) return items;
     const organizationPattern = /\b(?:school|university|college|institute|academy|business school|école|ecole|universit[eé]|lyc[ée]e|institut|acad[ée]mie|campus|centre de formation)\b/i;
     const organizationStartPattern = /^(?:centre de formation|training cent(?:er|re)|institut|institute|universit[eé]|university|[ée]cole|school|college|academy|acad[ée]mie|campus)\b/i;
     const qualificationPattern = /\b(?:master|bachelor|licen[cs]e|degree|dipl[oô]me|certificat(?:ion)?|qualification|bac|bts|mba|msc|phd|doctorat|formation)\b/i;
@@ -8636,6 +8657,7 @@ const normalizeEducationDisplayItem = (item = '') => cleanCvText(item);
 
 const normalizeEducationItems = (items) =>
     (() => {
+        if (hasModelCvContent()) return items;
         const educationEntryStartRegex = /\b(?:permis|dipl[oô]me|formation|certification|bac|bts|master|licence|niveau|ecole|école|universit[eé])\b/i;
         const preparedItems = items
             .map((item) => item.replace(/^[-•]\s*/, '').replace(/\s{2,}/g, ' ').trim())
@@ -8811,6 +8833,273 @@ const importedExperienceDateLineRegex = new RegExp(
     `^${cvDatedTokenPattern}(?:\\s*[–-]\\s*${cvDateTokenPattern})?(?:\\s*\\([^)]*\\))?$`,
     'i'
 );
+
+const importedExperienceContractPattern = /\b(?:stage|internship|alternance|apprentissage|cdi|cdd|int[ée]rim|freelance|full[- ]?time|part[- ]?time)\b/i;
+const importedExperienceOrganizationPattern = /\b(?:entreprise|soci[ée]t[ée]|company|corporation|groupe|group|mairie|cabinet|centre|agency|agence|association|hospital|h[ôo]pital|clinic|clinique|store|shop|restaurant|hotel|hôtel)\b/i;
+const importedEducationLinePattern = /\b(?:bac(?:calaur[ée]at)?|bts|master|licen[cs]e|dipl[oô]me|certificat(?:ion)?|formation|lyc[ée]e|ecole|école|universit[eé]|college|academy|campus|institut|institute)\b/i;
+
+const isLikelyImportedEducationLine = (value = '') => {
+    const cleanValue = cleanImportedSectionLine(value);
+    if (!cleanValue) {
+        return false;
+    }
+    return importedEducationLinePattern.test(cleanValue) || /^\s*(?:19|20)\d{2}\s*$/.test(cleanValue);
+};
+
+const isImportedExperienceDateAnchor = (value = '') => {
+    const cleanValue = cleanImportedSectionLine(value);
+    if (!cleanValue || !importedExperienceDateLineRegex.test(cleanValue)) {
+        const normalizedLoose = normalizeForMatch(cleanValue).replace(/[’']/g, ' ');
+        return /\b(?:janv?|jan(?:uary)?|fev(?:rier)?|feb(?:ruary)?|mars?|mar(?:ch)?|avr(?:il)?|apr(?:il)?|mai|may|juin|jun(?:e)?|juil(?:let)?|jul(?:y)?|aout|aug(?:ust)?|sept(?:embre)?|sep(?:tember)?|oct(?:obre)?|oct(?:ober)?|nov(?:embre)?|nov(?:ember)?|dec(?:embre)?|dec(?:ember)?)\s+(?:19|20)\d{2}\s+(?:a|to)\s+(?:(?:19|20)\d{2}|aujourd hui|present|current|now)\b/.test(normalizedLoose);
+    }
+
+    const normalized = normalizeForMatch(cleanValue).replace(/[’']/g, ' ');
+    const hasMonth = /\b(?:janv?|jan(?:uary)?|fev(?:rier)?|feb(?:ruary)?|mars?|mar(?:ch)?|avr(?:il)?|apr(?:il)?|mai|may|juin|jun(?:e)?|juil(?:let)?|jul(?:y)?|aout|aug(?:ust)?|sept(?:embre)?|sep(?:tember)?|oct(?:obre)?|oct(?:ober)?|nov(?:embre)?|nov(?:ember)?|dec(?:embre)?|dec(?:ember)?)\b/.test(normalized);
+    const hasRange = /[–-]/.test(cleanValue);
+    const isCurrentMarker = /\b(?:aujourd|present|current|now)\b/.test(normalized);
+    return hasMonth || hasRange || isCurrentMarker;
+};
+
+const looksLikeImportedExperienceMetadataHint = (value = '') => {
+    const cleanValue = cleanImportedSectionLine(value);
+    if (!cleanValue || looksLikeImportedLanguageItem(cleanValue) || looksLikeContactLine(cleanValue)) {
+        return false;
+    }
+
+    return importedExperienceContractPattern.test(cleanValue)
+        || importedExperienceOrganizationPattern.test(cleanValue)
+        || (looksLikeExperienceDetailLine(cleanValue) && /[|,–-]|\b(?:de|d')\b/i.test(cleanValue));
+};
+
+const getImportedLineCounterKey = (line = '') => normalizeForMatch(cleanImportedSectionLine(line)).replace(/\s+/g, ' ').trim();
+
+const buildImportedLineMultiset = (items = []) => {
+    const counts = new Map();
+    (Array.isArray(items) ? items : []).forEach((item) => {
+        const key = getImportedLineCounterKey(item);
+        if (!key) {
+            return;
+        }
+        counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    return counts;
+};
+
+const subtractImportedLineMultiset = (items = [], multiset = new Map()) =>
+    (Array.isArray(items) ? items : []).filter((item) => {
+        const key = getImportedLineCounterKey(item);
+        const remaining = multiset.get(key) || 0;
+        if (!remaining) {
+            return true;
+        }
+        multiset.set(key, remaining - 1);
+        return false;
+    });
+
+const extractImplicitImportedExperiences = (lines = []) => {
+    const preparedLines = [];
+    let currentSection = 'preamble';
+    (Array.isArray(lines) ? lines : []).forEach((rawLine, index) => {
+        const heading = getSectionKey(rawLine);
+        if (heading) {
+            currentSection = heading;
+        }
+        preparedLines.push({
+            index,
+            raw: String(rawLine || ''),
+            text: cleanImportedSectionLine(rawLine),
+            heading,
+            section: currentSection,
+        });
+    });
+
+    const dateAnchors = preparedLines
+        .filter((line) => !line.heading && line.section !== 'experience' && line.text && isImportedExperienceDateAnchor(line.text))
+        .map((line) => line.index);
+
+    if (!dateAnchors.length) {
+        return { experiences: [], consumedLines: [] };
+    }
+
+    const experiences = [];
+    const consumedIndexes = new Set();
+
+    dateAnchors.forEach((anchorIndex, anchorPosition) => {
+        if (consumedIndexes.has(anchorIndex)) {
+            return;
+        }
+
+        const anchorLine = preparedLines[anchorIndex];
+        if (!anchorLine || !anchorLine.text) {
+            return;
+        }
+
+        const sectionName = anchorLine.section;
+        let sectionStart = anchorIndex;
+        while (
+            sectionStart > 0
+            && !preparedLines[sectionStart - 1].heading
+            && preparedLines[sectionStart - 1].section === sectionName
+        ) {
+            sectionStart -= 1;
+        }
+
+        let sectionEnd = anchorIndex;
+        while (
+            sectionEnd + 1 < preparedLines.length
+            && !preparedLines[sectionEnd + 1].heading
+            && preparedLines[sectionEnd + 1].section === sectionName
+        ) {
+            sectionEnd += 1;
+        }
+
+        const nextAnchorInSection = dateAnchors.find((candidateIndex, candidatePosition) =>
+            candidatePosition > anchorPosition
+            && candidateIndex > anchorIndex
+            && candidateIndex <= sectionEnd
+            && preparedLines[candidateIndex]?.section === sectionName
+        );
+        const rawBlockEnd = nextAnchorInSection ? nextAnchorInSection - 1 : sectionEnd;
+        const searchStart = Math.max(sectionStart, anchorIndex - 4);
+        const searchEnd = Math.min(rawBlockEnd, anchorIndex + 4);
+
+        let roleBeforeIndex = -1;
+        for (let index = anchorIndex - 1; index >= searchStart; index -= 1) {
+            if (looksLikeImportedExperienceRole(preparedLines[index]?.text || '')) {
+                roleBeforeIndex = index;
+                break;
+            }
+        }
+
+        let roleAfterIndex = -1;
+        if (roleBeforeIndex < 0) {
+            for (let index = anchorIndex + 1; index <= searchEnd; index += 1) {
+                if (looksLikeImportedExperienceRole(preparedLines[index]?.text || '')) {
+                    roleAfterIndex = index;
+                    break;
+                }
+            }
+        }
+
+        const titleGlobalIndex = roleBeforeIndex >= 0 ? roleBeforeIndex : roleAfterIndex;
+        if (titleGlobalIndex < 0) {
+            return;
+        }
+
+        const blockStart = titleGlobalIndex < anchorIndex ? titleGlobalIndex : anchorIndex;
+        const blockEntries = preparedLines
+            .slice(blockStart, rawBlockEnd + 1)
+            .filter((line) => !line.heading && line.text);
+        const localDateIndex = blockEntries.findIndex((line) => line.index === anchorIndex);
+        const localTitleIndex = blockEntries.findIndex((line) => line.index === titleGlobalIndex);
+
+        if (localDateIndex < 0 || localTitleIndex < 0) {
+            return;
+        }
+
+        const metadataParts = [];
+        let metadataTailIndex = Math.max(localDateIndex, localTitleIndex);
+
+        if (localTitleIndex < localDateIndex) {
+            for (let index = localTitleIndex + 1; index < localDateIndex; index += 1) {
+                const candidate = blockEntries[index]?.text || '';
+                if (!candidate || looksLikeImportedLanguageItem(candidate) || looksLikeContactLine(candidate)) {
+                    continue;
+                }
+                if (looksLikePersonNameLine(candidate) && !looksLikeImportedExperienceMetadataHint(candidate)) {
+                    continue;
+                }
+                metadataParts.push(candidate);
+                metadataTailIndex = index;
+            }
+        } else if (localTitleIndex > localDateIndex) {
+            for (let index = localTitleIndex + 1; index < blockEntries.length; index += 1) {
+                const candidate = blockEntries[index]?.text || '';
+                if (!candidate || looksLikeSectionHeading(candidate) || isImportedExperienceDateAnchor(candidate) || looksLikeImportedExperienceRole(candidate)) {
+                    break;
+                }
+                if (!looksLikeImportedExperienceMetadataHint(candidate)) {
+                    break;
+                }
+                metadataParts.push(candidate);
+                metadataTailIndex = index;
+            }
+        }
+
+        const detailsStart = Math.max(localDateIndex, localTitleIndex, metadataTailIndex) + 1;
+        const details = [];
+        let consumedUntilLocalIndex = Math.max(localDateIndex, localTitleIndex, metadataTailIndex);
+
+        for (let index = detailsStart; index < blockEntries.length; index += 1) {
+            const candidate = blockEntries[index]?.text || '';
+            if (!candidate || looksLikeSectionHeading(candidate) || isImportedExperienceDateAnchor(candidate)) {
+                break;
+            }
+
+            const looksLikeStandalonePersonName = looksLikePersonNameLine(candidate)
+                && candidate.trim().split(/\s+/).length >= 2;
+            const stopsAsTailNoise = details.length > 0
+                && (looksLikeStandalonePersonName || looksLikeImportedLanguageItem(candidate) || looksLikeContactLine(candidate));
+            if (stopsAsTailNoise) {
+                break;
+            }
+
+            const likelyNextExperienceHeader = details.length > 0
+                && looksLikeImportedExperienceRole(candidate)
+                && blockEntries[index + 1]
+                && isImportedExperienceDateAnchor(blockEntries[index + 1].text || '');
+            if (likelyNextExperienceHeader) {
+                break;
+            }
+
+            details.push(candidate);
+            consumedUntilLocalIndex = index;
+        }
+
+        const title = blockEntries[localTitleIndex]?.text || '';
+        const date = normalizeStandaloneDate(blockEntries[localDateIndex]?.text || '');
+        const metadata = dedupeImportedItems(metadataParts.map((item) => cleanImportedSectionLine(item)).filter(Boolean)).join(' | ');
+        const normalizedExperience = [
+            [title, metadata, date].filter(Boolean).join(' - '),
+            ...details,
+        ]
+            .filter(Boolean)
+            .join(' • ')
+            .replace(/\s{2,}/g, ' ')
+            .trim();
+        if (!normalizedExperience) {
+            return;
+        }
+
+        const parsedExperience = parseExperienceEntry(normalizedExperience);
+        const hasRole = looksLikeImportedExperienceRole(parsedExperience.title || title);
+        const hasDate = Boolean(parsedExperience.date);
+        const hasEmploymentContext = importedExperienceContractPattern.test(metadata)
+            || importedExperienceOrganizationPattern.test(metadata)
+            || details.length > 0;
+
+        if (!hasRole || !hasDate || !hasEmploymentContext) {
+            return;
+        }
+
+        experiences.push(normalizedExperience);
+        const consumedStart = blockEntries[0]?.index ?? anchorIndex;
+        const consumedEnd = blockEntries[consumedUntilLocalIndex]?.index ?? anchorIndex;
+        for (let index = consumedStart; index <= consumedEnd; index += 1) {
+            if (!preparedLines[index]?.heading) {
+                consumedIndexes.add(index);
+            }
+        }
+    });
+
+    return {
+        experiences: dedupeImportedItems(experiences),
+        consumedLines: [...consumedIndexes]
+            .sort((left, right) => left - right)
+            .map((index) => preparedLines[index]?.raw || '')
+            .filter(Boolean),
+    };
+};
 
 // Un CV peut présenter chaque poste dans n'importe quel ordre. Quand une date
 // ouvre clairement un bloc (début de rubrique, après une puce, ou après un
@@ -9246,6 +9535,7 @@ const cleanupImportedEducationField = () => {
 
 const CV_AUTOPILOT_IMPORT_INSTRUCTION = [
     "Prends le CV importé en main comme un CV rapide prêt à l'emploi.",
+    "Quand la demande vise une remise au propre globale (mise en page pro, CV complet), traite-la comme un pilotage complet sans exiger de micro-ciblage.",
     "Nettoie la structure, harmonise les titres, les langues, les compétences et la rubrique Formations & certifications.",
     "Conserve strictement l'ordre des expériences tel qu'il apparaît dans le CV, sauf si l'utilisateur demande explicitement un rangement.",
     "Détecte les périodes vides sans réorganiser ni fusionner les expériences.",
@@ -9253,11 +9543,47 @@ const CV_AUTOPILOT_IMPORT_INSTRUCTION = [
     "Propose les compétences utiles liées aux expériences générées. L'utilisateur validera les ajouts de fond avant insertion.",
 ].join(' ');
 
+const isGlobalCvCleanupIntent = (message = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(message))
+        .replace(/[’']/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    if (!source || isFullCvTranslationRequest(message)) {
+        return false;
+    }
+
+    const asksRemoval = hasExplicitDestructiveCvRemoval(message);
+    const asksQuestion = /^(?:comment|pourquoi|why|how|est[\s-]ce\s+que|faut[\s-]il|dois[\s-]je|devrais[\s-]je|should\s+i|can\s+i|may\s+i)\b/.test(source);
+    const wholeCvScope = /\b(?:tout|toute|entier|entiere|complet|complete|global|de a z|a z)\b[^.;!?]{0,42}\b(?:cv|resume|curriculum vitae|document)\b|\b(?:cv|resume|curriculum vitae|document)\b[^.;!?]{0,42}\b(?:tout|toute|entier|entiere|complet|complete|global|de a z|a z)\b/.test(source);
+    const commandVerb = /\b(?:remets?|remettre|refais|refaire|reconstruis|reconstruire|fais|faire|prepare|preparer|optimise|optimiser|ameliore|ameliorer|harmonise|harmoniser|nettoie|nettoyer|corrige|corriger|rends?|rendre|professionnalise|professionalise|rework|revamp|rebuild|redo|reformat|format|proofread|fix)\b/.test(source);
+    const readyToUseSignal = /\b(?:cv pret|pret a l emploi|pret a l'emploi|ready to use|job ready)\b/.test(source);
+    const proLayoutSignal = /\b(?:mise en page|mise en forme|layout|presentation|format)\b[^.;!?]{0,24}\b(?:pro|professionnel|professionnelle|professional)\b/.test(source)
+        || /\b(?:remets?|remettre)\s+au\s+propre\b/.test(source)
+        || /\b(?:plus\s+pro|professionnel(?:le)?)\b/.test(source)
+        || /\b(?:rends?|rendre|mets?|mettre|fais|faire)\b[^.;!?]{0,48}\b(?:profil|cv|resume|document|accroche)\b[^.;!?]{0,28}\b(?:plus\s+pro|professionnel(?:le)?)\b/.test(source)
+        || /\b(?:au\s+propre|clean\s+up|cleanup)\b[^.;!?]{0,24}\b(?:cv|resume|document|mise en page|mise en forme)\b/.test(source);
+
+    if (asksRemoval && !wholeCvScope && !readyToUseSignal && !proLayoutSignal) {
+        return false;
+    }
+
+    if (asksQuestion && !wholeCvScope && !proLayoutSignal && !readyToUseSignal) {
+        return false;
+    }
+
+    return readyToUseSignal || proLayoutSignal || (commandVerb && wholeCvScope);
+};
+
 const shouldRunCvAutopilotMode = (message = '') => {
     const source = normalizeForMatch(message);
 
     if (hasExplicitDestructiveCvRemoval(message)) {
         return false;
+    }
+
+    if (isGlobalCvCleanupIntent(message)) {
+        return true;
     }
 
     return /\b(prend|prends|prendre|pilote|autopilote|cv pret|pret a l emploi|pret a l'emploi|auto organise|auto-organise|organise tout|range tout|ranger tout|remplis|remplir|mise en forme|met en forme|mets en forme|bouche|boucher|combler|trou|periode vide|periode non renseignee|periode non renseigne)\b/.test(source);
@@ -9386,6 +9712,130 @@ const partitionImportedLanguagesAndActivities = (lines = []) => {
     };
 };
 
+const importedLanguageLevelHintPattern = /\b(?:langue\s+maternelle|native(?:\s+speaker)?|bilingue|bilingual|courant(?:e)?|fluent|conversationnel|conversational|niveau|level|[A-C][12]\b|d[ée]butant|beginner|interm[ée]diaire|intermediate|professionnel(?:le)?|professional|avanc[ée]|advanced|working\s+proficiency|notions?|basic|elementary|bases?\s+solides)\b/i;
+
+const looksLikeImportedLanguageItemLoose = (value = '') => {
+    const item = cleanImportedListItem(value);
+    if (!item) {
+        return false;
+    }
+    if (looksLikeImportedLanguageItem(item)) {
+        return true;
+    }
+
+    const structuredMatch = item.match(/^([^:–—-]{2,48})\s*[:–—-]\s*(.+)$/);
+    if (!structuredMatch) {
+        return false;
+    }
+
+    const languageLabel = structuredMatch[1].trim();
+    const levelLabel = structuredMatch[2].trim();
+    if (!languageLabel || !levelLabel || languageLabel.split(/\s+/).length > 3) {
+        return false;
+    }
+
+    return importedLanguageLevelHintPattern.test(levelLabel);
+};
+
+const normalizeImportedLanguageItems = (items = []) => {
+    const entries = splitMergedLanguageItems(Array.isArray(items) ? items : [])
+        .flatMap((item) => splitImportedCombinedListItems([item]))
+        .map(cleanImportedListItem)
+        .filter(looksLikeImportedLanguageItemLoose)
+        .map(parseLanguageEntry)
+        .filter((entry) => entry.language);
+
+    return dedupeLanguageEntriesByCanonicalKey(entries)
+        .map(serializeLanguageEntry)
+        .filter(Boolean);
+};
+
+const normalizeImportedActivityItems = (items = []) => dedupeImportedItems(
+    (Array.isArray(items) ? items : [])
+        .flatMap((item) => splitImportedActivityItem(item))
+        .map(cleanImportedListItem)
+        .filter((item) => item && !looksLikeImportedLanguageItemLoose(item))
+);
+
+const rebalanceImportedLanguagesAndActivities = ({ languages = [], activities = [] } = {}) => {
+    const sourceLanguages = Array.isArray(languages) ? languages : [];
+    const sourceActivities = Array.isArray(activities) ? activities : [];
+    const partitioned = partitionImportedLanguagesAndActivities([
+        ...splitMergedLanguageItems(sourceLanguages),
+        ...sourceActivities,
+    ]);
+
+    const normalizedLanguages = normalizeImportedLanguageItems([
+        ...partitioned.languages,
+        ...sourceLanguages.filter((item) => looksLikeImportedLanguageItemLoose(item)),
+        ...sourceActivities.filter((item) => looksLikeImportedLanguageItemLoose(item)),
+    ]);
+    const normalizedActivities = normalizeImportedActivityItems([
+        ...partitioned.activities,
+        ...sourceLanguages.filter((item) => !looksLikeImportedLanguageItemLoose(item)),
+        ...sourceActivities.filter((item) => !looksLikeImportedLanguageItemLoose(item)),
+    ]);
+
+    return {
+        languages: normalizedLanguages,
+        activities: normalizedActivities,
+        movedFromActivities: sourceActivities.filter((item) => looksLikeImportedLanguageItemLoose(item)).length,
+        movedFromLanguages: sourceLanguages
+            .map(cleanImportedListItem)
+            .filter((item) => item && !looksLikeImportedLanguageItemLoose(item)).length,
+    };
+};
+
+const harmonizeCvLanguageActivityFields = () => {
+    const languageField = getLanguageField();
+    const activitiesField = cvForm?.elements?.activities;
+
+    if (!languageField || !activitiesField) {
+        return {
+            changed: false,
+            languagesChanged: false,
+            activitiesChanged: false,
+            movedFromActivities: 0,
+            movedFromLanguages: 0,
+        };
+    }
+
+    const currentLanguages = isDefaultCvFieldValue('languages', languageField.value)
+        ? []
+        : splitLines(languageField.value || '');
+    const currentActivities = isDefaultCvFieldValue('activities', activitiesField.value)
+        ? []
+        : splitLines(activitiesField.value || '');
+    const rebalanced = rebalanceImportedLanguagesAndActivities({
+        languages: currentLanguages,
+        activities: currentActivities,
+    });
+
+    const currentLanguagesValue = currentLanguages.join('\n');
+    const currentActivitiesValue = currentActivities.join('\n');
+    const nextLanguagesValue = rebalanced.languages.join('\n');
+    const nextActivitiesValue = rebalanced.activities.join('\n');
+    const languagesChanged = nextLanguagesValue !== currentLanguagesValue;
+    const activitiesChanged = nextActivitiesValue !== currentActivitiesValue;
+
+    if (languagesChanged) {
+        languageField.value = nextLanguagesValue;
+        clearEditableOverride('languages');
+    }
+    if (activitiesChanged) {
+        activitiesField.value = nextActivitiesValue;
+        clearEditableOverride('activities');
+    }
+
+    return {
+        changed: languagesChanged || activitiesChanged,
+        languagesChanged,
+        activitiesChanged,
+        movedFromActivities: rebalanced.movedFromActivities,
+        movedFromLanguages: rebalanced.movedFromLanguages,
+    };
+};
+
 const extractImportedPhone = (lines = []) => {
     for (const line of lines) {
         const candidates = String(line || '').match(/(?:\+\d{1,3}[\s().-]*)?(?:\(?\d{2,4}\)?[\s.-]*){2,5}\d{2,4}/g) || [];
@@ -9496,6 +9946,162 @@ const extractImportedLocation = ({ lines = [], name = '', email = '', phone = ''
         .find(({ raw, clean }) => clean && looksLikeImportedLocationCandidate(raw))?.clean || '';
 };
 
+const extractImportedCityFallback = ({ lines = [], fullName = '', email = '', phone = '', permit = '' } = {}) => {
+    const fullNameKey = normalizeForMatch(fullName || '');
+    const permitKey = normalizeForMatch(permit || '');
+
+    for (const rawLine of lines) {
+        const clean = cleanImportedLocationLine(rawLine, { name: fullName, email, phone });
+        const normalized = normalizeForMatch(clean);
+
+        if (!clean || !normalized) {
+            continue;
+        }
+        if (normalized === fullNameKey || (permitKey && normalized === permitKey)) {
+            continue;
+        }
+        if (looksLikeContactLine(clean) || emailPattern.test(clean) || /\b(?:permis|driving licen[cs]e)\b/i.test(clean)) {
+            continue;
+        }
+        if (looksLikeSectionHeading(clean) || looksLikeImportedHeaderDateMetadata(clean) || looksLikeImportedLanguageItem(clean)) {
+            continue;
+        }
+        if (/^\s*(?:19|20)\d{2}\s*$/.test(clean) || importedExperienceDateLineRegex.test(clean)) {
+            continue;
+        }
+
+        if (/^[A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÖØ-öø-ÿ'’.-]+(?:\s+[A-ZÀ-ÖØ-Ý][A-Za-zÀ-ÖØ-öø-ÿ'’.-]+){0,2}$/u.test(clean)) {
+            return clean;
+        }
+    }
+
+    return '';
+};
+
+const shouldReplaceImportedHeadline = ({ headline = '', location = '' } = {}) => {
+    const clean = cleanImportedSectionLine(headline);
+    const normalized = normalizeForMatch(clean);
+    const locationNormalized = normalizeForMatch(location || '');
+
+    if (!clean || !normalized) {
+        return true;
+    }
+
+    if (locationNormalized && normalized === locationNormalized) {
+        return true;
+    }
+
+    return looksLikeImportedLocationCandidate(clean)
+        || looksLikeContactLine(clean)
+        || looksLikeImportedLanguageItem(clean)
+        || importedExperienceDateLineRegex.test(clean)
+        || (clean.trim().split(/\s+/).length <= 2 && !looksLikeImportedExperienceRole(clean));
+};
+
+const inferImportedHeadlineFromCvLines = ({
+    lines = [],
+    fullName = '',
+    location = '',
+    permit = '',
+    email = '',
+    phone = '',
+    consumedLines = [],
+    experiences = [],
+} = {}) => {
+    const blockedValues = new Set(
+        [fullName, location, permit, email, phone]
+            .map((item) => normalizeForMatch(item || ''))
+            .filter(Boolean)
+    );
+    const consumedSet = new Set(
+        (Array.isArray(consumedLines) ? consumedLines : [])
+            .map((item) => getImportedLineCounterKey(item))
+            .filter(Boolean)
+    );
+
+    const candidates = [];
+
+    lines.forEach((rawLine, index) => {
+        const clean = cleanImportedSectionLine(rawLine);
+        const normalized = normalizeForMatch(clean);
+
+        if (!clean || !normalized || blockedValues.has(normalized) || consumedSet.has(getImportedLineCounterKey(clean))) {
+            return;
+        }
+
+        if (
+            looksLikeSectionHeading(clean)
+            || looksLikeContactLine(clean)
+            || emailPattern.test(clean)
+            || looksLikeImportedLanguageItem(clean)
+            || importedExperienceDateLineRegex.test(clean)
+            || isLikelyImportedEducationLine(clean)
+            || looksLikeImportedLocationCandidate(clean)
+            || !looksLikeImportedExperienceRole(clean)
+        ) {
+            return;
+        }
+
+        const tokenCount = clean.split(/\s+/).length;
+        let score = Math.min(5, tokenCount);
+        if (/\bet\b/i.test(normalized)) {
+            score += 3;
+        }
+        if (clean.length >= 28) {
+            score += 1;
+        }
+        if (!/[.!?]$/.test(clean)) {
+            score += 1;
+        }
+
+        candidates.push({ clean, score, index });
+    });
+
+    if (candidates.length) {
+        candidates.sort((left, right) => right.score - left.score || left.index - right.index);
+        return candidates[0].clean;
+    }
+
+    const latestExperienceTitle = parseExperienceEntry(experiences[0] || '').title;
+    return latestExperienceTitle || '';
+};
+
+const isImportedStandaloneYearLine = (value = '') => /^\s*(?:19|20)\d{2}\s*$/.test(cleanImportedSectionLine(value));
+
+const splitImportedActivityEducationSpillover = (items = []) => {
+    const source = Array.isArray(items) ? items : [];
+    const activities = [];
+    const education = [];
+
+    source.forEach((rawItem, index) => {
+        const clean = cleanImportedSectionLine(rawItem);
+        if (!clean) {
+            return;
+        }
+
+        const yearOnly = isImportedStandaloneYearLine(clean);
+        const previous = cleanImportedSectionLine(source[index - 1] || '');
+        const next = cleanImportedSectionLine(source[index + 1] || '');
+        const nearEducationLine = [previous, next].some((line) =>
+            line
+            && isLikelyImportedEducationLine(line)
+            && !isImportedStandaloneYearLine(line)
+        );
+        const shouldMoveToEducation = yearOnly
+            ? nearEducationLine
+            : isLikelyImportedEducationLine(clean);
+
+        if (shouldMoveToEducation) {
+            education.push(rawItem);
+            return;
+        }
+
+        activities.push(rawItem);
+    });
+
+    return { activities, education };
+};
+
 const getImportedHeaderCandidates = ({ lines = [], fullName = '', location = '', email = '', phone = '', permitLine = '' } = {}) =>
     lines
         .map(cleanImportedHeaderLine)
@@ -9521,7 +10127,14 @@ const buildLocalImportedCvExtraction = (text = '') => {
     const phone = extractImportedPhone(preamble.length ? preamble : cleanLines);
     const permitLine = cleanLines.find((line) => /\b(?:permis|driving licen[cs]e)\b/i.test(line)) || '';
     const permit = extractPermitValue(permitLine) || permitLine.replace(/^\s*(?:driving licen[cs]e|permis)\s*:?\s*/i, '').trim();
-    const location = extractImportedLocation({ lines: preamble, name: fullName, email, phone });
+    const location = extractImportedLocation({ lines: preamble, name: fullName, email, phone })
+        || extractImportedCityFallback({
+            lines: preamble,
+            fullName,
+            email,
+            phone,
+            permit,
+        });
     const headerCandidates = getImportedHeaderCandidates({
         lines: preambleHeaderLines,
         fullName,
@@ -9550,12 +10163,12 @@ const buildLocalImportedCvExtraction = (text = '') => {
         };
     });
     const headlineLine = logicalPreambleLines.find(({ value }) => value && value.length <= 180);
-    const headline = headlineLine?.value || headerCandidates.find((line) => line.length <= 180) || '';
+    const rawHeadline = headlineLine?.value || headerCandidates.find((line) => line.length <= 180) || '';
     const inferredSummaryLines = headlineLine
         ? logicalPreambleLines
             .filter(({ index, value }) => index > headlineLine.index && value)
             .map(({ value }) => value)
-        : headerCandidates.filter((line) => line !== headline);
+        : headerCandidates.filter((line) => line !== rawHeadline);
     const summary = (sections.summary.length
         ? sections.summary
         : inferredSummaryLines)
@@ -9563,9 +10176,98 @@ const buildLocalImportedCvExtraction = (text = '') => {
         .replace(/\s+([,.;:!?])/g, '$1')
         .replace(/\s{2,}/g, ' ')
         .trim();
-    const rawExperienceItems = splitImportedItems(sections.experience.join('\n'));
+    const implicitExperienceExtraction = extractImplicitImportedExperiences(cleanLines);
+    const consumedLineMultiset = buildImportedLineMultiset(implicitExperienceExtraction.consumedLines);
+    const cleanedSections = {
+        preamble: subtractImportedLineMultiset(sections.preamble, consumedLineMultiset),
+        summary: subtractImportedLineMultiset(sections.summary, consumedLineMultiset),
+        skills: subtractImportedLineMultiset(sections.skills, consumedLineMultiset),
+        experience: sections.experience,
+        projects: subtractImportedLineMultiset(sections.projects, consumedLineMultiset),
+        education: subtractImportedLineMultiset(sections.education, consumedLineMultiset),
+        languagesActivities: subtractImportedLineMultiset(sections.languagesActivities, consumedLineMultiset),
+        languages: subtractImportedLineMultiset(sections.languages, consumedLineMultiset),
+        activities: subtractImportedLineMultiset(sections.activities, consumedLineMultiset),
+    };
+
+    const languageSectionLines = cleanedSections.languages || [];
+    const strictLanguageLines = languageSectionLines.filter((line) => looksLikeImportedLanguageItem(line));
+    const languageSpilloverLines = languageSectionLines.filter((line) => !looksLikeImportedLanguageItem(line));
+    if (languageSpilloverLines.length) {
+        cleanedSections.education = [
+            ...cleanedSections.education,
+            ...languageSpilloverLines.filter((line) => isLikelyImportedEducationLine(line)),
+        ];
+        cleanedSections.activities = [
+            ...cleanedSections.activities,
+            ...languageSpilloverLines.filter((line) => !isLikelyImportedEducationLine(line)),
+        ];
+    }
+    cleanedSections.languages = strictLanguageLines;
+
+    const activityEducationSplit = splitImportedActivityEducationSpillover(cleanedSections.activities);
+    if (activityEducationSplit.education.length) {
+        cleanedSections.education = [
+            ...cleanedSections.education,
+            ...activityEducationSplit.education,
+        ];
+    }
+    cleanedSections.activities = activityEducationSplit.activities;
+
+    const rawExperienceItems = splitImportedItems(cleanedSections.experience.join('\n'));
     const groupedExperiences = groupImportedExperiences(rawExperienceItems);
-    const combinedLanguagesAndActivities = partitionImportedLanguagesAndActivities(sections.languagesActivities);
+    const extractedExperiences = sortTimelineEntriesNewestFirst(
+        dedupeImportedItems([
+            ...groupedExperiences,
+            ...implicitExperienceExtraction.experiences,
+        ])
+    );
+    const headline = shouldReplaceImportedHeadline({ headline: rawHeadline, location })
+        ? inferImportedHeadlineFromCvLines({
+            lines: cleanLines,
+            fullName,
+            location,
+            permit,
+            email,
+            phone,
+            consumedLines: implicitExperienceExtraction.consumedLines,
+            experiences: extractedExperiences,
+        }) || rawHeadline
+        : rawHeadline;
+    const extractedExperienceTitles = new Set(
+        extractedExperiences
+            .map((entry) => normalizeForMatch(parseExperienceEntry(entry).title || ''))
+            .filter(Boolean)
+    );
+    const importedSkillItems = getImportedSkillItems(cleanedSections.skills);
+    const importedSkillLanguageItems = importedSkillItems.filter((item) => looksLikeImportedLanguageItem(item));
+    const blockedImportedSkillValues = new Set(
+        [fullName, location, email, phone, permit, headline]
+            .map((item) => normalizeForMatch(item || ''))
+            .filter(Boolean)
+    );
+    const cleanedImportedSkillItems = importedSkillItems.filter((item) => {
+        const normalized = normalizeForMatch(item);
+        if (!normalized) {
+            return false;
+        }
+        if (extractedExperienceTitles.has(normalized) || blockedImportedSkillValues.has(normalized)) {
+            return false;
+        }
+        return !looksLikeImportedLanguageItem(item) && !looksLikeContactLine(item);
+    });
+    const combinedLanguagesAndActivities = partitionImportedLanguagesAndActivities(cleanedSections.languagesActivities);
+    const normalizedLanguageActivities = rebalanceImportedLanguagesAndActivities({
+        activities: dedupeImportedItems([
+            ...getImportedActivityItems(cleanedSections.activities),
+            ...combinedLanguagesAndActivities.activities,
+        ]),
+        languages: dedupeImportedItems([
+            ...getImportedLanguageItems(cleanedSections.languages),
+            ...combinedLanguagesAndActivities.languages,
+            ...importedSkillLanguageItems,
+        ]),
+    });
 
     return {
         locale: detectImportedCvLocale(normalizedText),
@@ -9577,19 +10279,15 @@ const buildLocalImportedCvExtraction = (text = '') => {
             permit,
             headline,
             summary,
-            skills: normalizeSkillItems(getImportedSkillItems(sections.skills)),
-            experiences: groupedExperiences.length ? groupedExperiences : dedupeImportedItems(rawExperienceItems),
-            projects: mergeStandaloneDateItems(getImportedListItems(sections.projects)),
-            education: normalizeImportedEducationItems(getImportedListItems(sections.education)),
+            skills: normalizeSkillItems(cleanedImportedSkillItems),
+            experiences: extractedExperiences.length ? extractedExperiences : dedupeImportedItems(rawExperienceItems),
+            projects: mergeStandaloneDateItems(getImportedListItems(cleanedSections.projects)),
+            education: sortTimelineEntriesNewestFirst(
+                normalizeImportedEducationItems(getImportedListItems(cleanedSections.education))
+            ),
             certifications: [],
-            activities: dedupeImportedItems([
-                ...getImportedActivityItems(sections.activities),
-                ...combinedLanguagesAndActivities.activities,
-            ]),
-            languages: dedupeImportedItems([
-                ...getImportedLanguageItems(sections.languages),
-                ...combinedLanguagesAndActivities.languages,
-            ]),
+            activities: normalizedLanguageActivities.activities,
+            languages: normalizedLanguageActivities.languages,
         },
     };
 };
@@ -9961,6 +10659,13 @@ const mergeImportedCvExtractions = (
             : dedupeImportedItems(combined);
     });
 
+    const normalizedLanguageActivities = rebalanceImportedLanguagesAndActivities({
+        languages: merged.languages,
+        activities: merged.activities,
+    });
+    merged.languages = normalizedLanguageActivities.languages;
+    merged.activities = normalizedLanguageActivities.activities;
+
     return merged;
 };
 
@@ -10205,6 +10910,7 @@ const importCvTextWithKirby = async (
     text = '',
     { onProgress = null, onLocalReady = null, profilePhoto = null, sourceKind = 'document' } = {},
 ) => {
+    if (window.KirbyCvContract) return importCvTextWithModel(text, { onProgress, profilePhoto, sourceKind });
     const narratedSource = sourceKind === 'narrative';
     const reportProgress = (message) => {
         if (typeof onProgress === 'function') {
@@ -10381,6 +11087,9 @@ const getImportedCvReadySummary = (extracted = {}, locale = 'fr') => {
         ...getImportedExtractionList(extracted, 'certifications'),
     ]).length;
     const missing = [];
+    if (window.KirbyCvContract) return locale === 'en'
+        ? `CV structured: ${experienceCount} experience(s), ${skillCount} skill(s), ${educationCount} education item(s).`
+        : `CV structuré : ${experienceCount} expérience(s), ${skillCount} compétence(s), ${educationCount} formation(s).`;
     if (!normalizeCvSentenceText(extracted?.fullName || '')) missing.push(locale === 'en' ? 'your full name' : 'vos nom et prénom');
     if (!normalizeCvSentenceText(extracted?.email || '') && !normalizeCvSentenceText(extracted?.phone || '')) {
         missing.push(locale === 'en' ? 'an email address or phone number' : 'un e-mail ou un téléphone');
@@ -10448,6 +11157,10 @@ const importPastedCvWithKirby = async (text = '', { sourceKind = 'document' } = 
         return `${summary}${pageFitSuffix}${persistenceSuffix}`;
     } catch (error) {
         console.error('Import du CV collé impossible', error);
+        if (window.KirbyCvContract) {
+            setAssistantActivity(error.message, false);
+            return error.message;
+        }
         restoreCvHistorySnapshot(historyBeforeImport, 'Import du texte impossible : CV précédent restauré');
         pendingNewCvRollbackState = '';
         setAssistantActivity('Le texte n’a pas pu être importé. Le CV précédent a été restauré.', false);
@@ -10522,6 +11235,7 @@ const cleanExportLocation = (value = '') => cleanExportText(value)
     .trim();
 
 const splitExportItems = (value, options = {}) => {
+    if (hasModelCvContent()) return Array.isArray(value) ? [...value] : splitLines(String(value || ''));
     const {
         splitSlash = false,
         splitHyphen = false,
@@ -10547,6 +11261,7 @@ const splitExportItems = (value, options = {}) => {
 };
 
 const normalizeExportTimelineEntries = (items, type = 'experience') => {
+    if (hasModelCvContent()) return items.map(parseExperienceEntry);
     const sourceItems = type === 'education'
         ? normalizeEducationItems(mergeStandaloneDateItems(items))
         : type === 'projects'
@@ -12886,6 +13601,139 @@ const getKirbyLetterSource = () => ({
     style: letterStyleField?.value || 'classic',
 });
 
+// Conversation is contextual only; every request also sends the complete
+// current document. Never reuse an old generated document as current state.
+let kirbyModelConversation = [];
+const getKirbyModelPresentation = () => {
+    const snapshot = JSON.parse(getKirbyCvSnapshot());
+    return {
+        ...snapshot.presentation,
+        photo: { present: Boolean(cvProfilePhoto), signature: snapshot.photoSignature },
+        visibleText: previewNodes.preview?.innerText || '',
+    };
+};
+
+const applyKirbyModelResult = async (result, { snapshot, imported = false, profilePhoto = null } = {}) => {
+    const contract = window.KirbyCvContract;
+    if (!contract || result?.protocol !== contract.protocol || result?.source !== 'openai') {
+        throw new Error('Kirby n’a pas renvoyé une transaction exploitable. Le CV est inchangé.');
+    }
+    if (snapshot !== getKirbyCvSnapshot()) {
+        throw new Error('Le CV a changé pendant l’analyse. Cette réponse a été ignorée ; relancez votre demande.');
+    }
+    const action = result.cv?.modelAction;
+    const transaction = contract.plan(action, result.base);
+    if (!imported && JSON.stringify(contract.state(getKirbyCvSource({ includeDisplayedValues: true }))) !== JSON.stringify(transaction.before)) {
+        throw new Error('La réponse concerne une autre version du CV. Aucun changement appliqué.');
+    }
+    if (['answer', 'clarify'].includes(action.action)) return action.message;
+    if (action.action === 'letter') {
+        applyKirbyLetter(action.letter);
+        setPreviewMode('letter');
+        return action.message;
+    }
+    const beforeState = getCvHistoryState();
+    const beforeValues = getKirbyCvSource({ includeDisplayedValues: true });
+    const changed = contract.fields.filter((field) => beforeValues[field] !== transaction.after[field]);
+    const layoutChanged = action.layout.reflow || action.layout.compact !== null || action.layout.sectionOrder.length > 0;
+    if (!changed.length && !layoutChanged && currentCvContentLocale === action.documentLanguage) return action.message;
+    isApplyingKirbyCvChange = true;
+    try {
+        // Validate all targets before touching any field; never partially apply.
+        if (changed.some((field) => !cvForm.elements[field])) throw new Error('Un champ du CV est indisponible.');
+        cvContentMigrations = [...new Set([...cvContentMigrations, contract.protocol])];
+        changed.forEach((field) => {
+            cvForm.elements[field].value = transaction.after[field];
+            clearEditableOverride(['location', 'phone', 'email', 'permit'].includes(field) ? 'location' : field);
+        });
+        currentCvContentLocale = action.documentLanguage;
+        preserveEmptyImportedLanguages = !transaction.after.languages;
+        if (action.layout.sectionOrder.length) cvSectionOrder = [...action.layout.sectionOrder];
+        if (action.layout.compact === true) applyCompactCvLayout();
+        if (action.layout.compact === false && cvForm.elements.lineSpacing) cvForm.elements.lineSpacing.value = 'normal';
+        if (imported) setCvProfilePhoto(profilePhoto, { refresh: false });
+        updateCvPreview({ preserveDensity: !layoutChanged });
+        renderExperienceEditor();
+        renderLanguageEditor({ normalizeField: false });
+        setPreviewMode('cv');
+        // Rendering must not silently rewrite the model's document.
+        const displayed = getKirbyCvSource({ includeDisplayedValues: true });
+        if (contract.fields.some((field) => displayed[field] !== transaction.after[field])) {
+            throw new Error('L’affichage a altéré le document ; la modification a été annulée.');
+        }
+    } catch (error) {
+        restoreCvHistorySnapshot(beforeState, 'Modification annulée : CV précédent restauré');
+        throw error;
+    } finally {
+        isApplyingKirbyCvChange = false;
+    }
+    commitCvHistoryTransition(beforeState);
+    const previousLayoutPersistence = forceNextCvDraftLayoutPersistence;
+    let persistence;
+    try {
+        if (layoutChanged) forceNextCvDraftLayoutPersistence = true;
+        persistence = await persistCvDraftImmediately();
+    } finally {
+        forceNextCvDraftLayoutPersistence = previousLayoutPersistence;
+    }
+    setCvStatus(changed.length ? 'Modifications appliquées au CV' : 'Mise en page actualisée');
+    return `${action.message} ${formatCvPersistenceDetail(persistence)}`.trim();
+};
+
+const runKirbyModelAssistant = async ({ task = 'assistant', instruction = '' } = {}) => {
+    if (!cvForm) return 'Le formulaire CV est indisponible.';
+    if (isKirbyCvRequestInFlight) {
+        queuedAssistantPrompt = instruction;
+        return 'Demande enregistrée ; Kirby termine l’analyse en cours.';
+    }
+    setKirbyCvRequestInFlight(true);
+    hideKirbyCvProposal();
+    setAssistantActivity('Kirby lit le CV et votre demande…', true);
+    const snapshot = getKirbyCvSnapshot();
+    try {
+        const result = await requestKirbyCvAssistant({ task, instruction, cv: getKirbyCvSource({ includeDisplayedValues: true }) });
+        const reply = await applyKirbyModelResult(result, { snapshot });
+        const action = result.cv.modelAction;
+        if (action.action === 'replace_document') kirbyModelConversation = [];
+        kirbyModelConversation.push({ role: 'user', content: instruction }, { role: 'assistant', content: action.message });
+        kirbyModelConversation = kirbyModelConversation.slice(-8);
+        setAssistantActivity(result.changedFields?.length ? 'Modification appliquée. Retour permet d’annuler.' : 'Analyse terminée.', false);
+        return reply;
+    } catch (error) {
+        const message = error?.message || 'Kirby est indisponible ; aucun changement appliqué.';
+        setCvStatus(message);
+        setAssistantActivity(message, false);
+        return message;
+    } finally {
+        setKirbyCvRequestInFlight(false);
+        const queued = queuedAssistantPrompt;
+        queuedAssistantPrompt = '';
+        if (queued) window.setTimeout(() => { void handleAssistantPrompt(queued, activeKirbyMode); }, 0);
+    }
+};
+
+const importCvTextWithModel = async (text, { onProgress, profilePhoto = null, sourceKind = 'document' } = {}) => {
+    const roundTrip = getCvRoundTripPayloadFromText(text);
+    if (roundTrip && restoreCvPayloadToEditor(roundTrip, { profilePhoto })) {
+        return { source: 'round-trip', restoredRoundTrip: true };
+    }
+    const snapshot = getKirbyCvSnapshot();
+    onProgress?.('Kirby lit le document entier et identifie ses rubriques…');
+    const result = await requestKirbyCvAssistant({
+        task: 'autofill', instruction: 'Construis le CV à partir de ce document, en conservant tous ses faits et en séparant correctement chaque élément.',
+        documentText: text, sourceKind, cv: window.KirbyCvContract.state(), jobOffer: '', timeoutMs: 190000,
+    });
+    if (result.cv?.modelAction?.action !== 'replace_document') throw new Error('Kirby n’a pas pu structurer ce document. Le CV est conservé.');
+    await applyKirbyModelResult(result, { snapshot, imported: true, profilePhoto });
+    kirbyModelConversation = [];
+    const values = window.KirbyCvContract.plan(result.cv.modelAction, result.base).after;
+    return {
+        source: 'kirby', restoredRoundTrip: false, locale: result.cv.modelAction.documentLanguage,
+        extracted: { ...values, experiences: splitLines(values.experience), skills: splitLines(values.skills), education: splitLines(values.education), activities: splitLines(values.activities), languages: splitLines(values.languages) },
+        pageFitNotice: '', sourceChangedDuringAnalysis: false,
+    };
+};
+
 const requestKirbyCvAssistant = async ({
     task,
     instruction = '',
@@ -12924,9 +13772,14 @@ const requestKirbyCvAssistant = async ({
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
+                ...(window.KirbyCvContract ? {
+                    protocol: window.KirbyCvContract.protocol,
+                    presentation: getKirbyModelPresentation(),
+                    conversation: documentText ? [] : kirbyModelConversation,
+                } : {}),
                 mode: 'cv',
                 task,
-                cv: cv && typeof cv === 'object' ? cv : getKirbyCvSource(),
+                cv: cv && typeof cv === 'object' ? cv : getKirbyCvSource({ includeDisplayedValues: Boolean(window.KirbyCvContract) }),
                 jobOffer: typeof jobOffer === 'string' ? jobOffer : jobOfferField?.value || '',
                 instruction,
                 documentText: typeof documentText === 'string' ? documentText : '',
@@ -13167,7 +14020,24 @@ const isNonCommandCvTranslationQuestion = (message = '') => {
         .replace(/\s+/g, ' ')
         .trim();
 
-    return /^(?:comment(?:\s+(?:faire\s+pour|puis(?:-|\s+)je|peut(?:-|\s+)on))?|how\s+(?:do|can|could|would|should)\s+(?:i|we|one)|pourquoi|why|faut(?:-|\s+)il|dois(?:-|\s+)je|devrais(?:-|\s+)je|should\s+i|puis(?:-|\s+)je|may\s+i|can\s+i|est(?:-|\s+)ce que je peux)\b[\s\S]{0,220}\b(?:tradui(?:s|t|re|sez|sons)|translat(?:e|es|ed|ing)|remplac(?:e|er|ez|ons)|replac(?:e|es|ed|ing)|converti(?:s|t|r|ssez|ssons)|convert(?:s|ed|ing)?|adapt(?:e|es|er|ez|ons)?|met(?:s|tez|tons|tre)|put)\b/.test(source);
+    return /^(?:comment(?:\s+(?:faire\s+pour|puis(?:-|\s+)je|peut(?:-|\s+)on))?|how\s+(?:do|can|could|would|should)\s+(?:i|we|one)|pourquoi|why|faut(?:-|\s+)il|dois(?:-|\s+)je|devrais(?:-|\s+)je|should\s+i|puis(?:-|\s+)je|may\s+i|can\s+i|est(?:-|\s+)ce que je peux)\b[\s\S]{0,220}\b(?:tradui(?:s|t|re|sez|sons)|translat(?:e|es|ed|ing)|remplac(?:e|er|ez|ons)|replac(?:e|es|ed|ing)|converti(?:s|t|r|ssez|ssons)|convert(?:s|ed|ing)?|adapt(?:e|es|er|ez|ons)?|met(?:s|tez|tons|tre)|put|traduction|translation)\b/.test(source);
+};
+
+const shouldTrustValidatedCvTranslationReplacement = (message = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(message))
+        .replace(/[’']/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!source || isNonCommandCvTranslationQuestion(message)) {
+        return false;
+    }
+
+    const hasTranslationVerb = /\b(?:tradui(?:s|t|re|sez|sons)|translat(?:e|es|ed|ing)|traduction|translation|converti(?:s|t|r|ssez|ssons)|convert(?:s|ed|ing)?|adapt(?:e|es|er|ez|ons)?|replac(?:e|es|ed|ing)|remplac(?:e|er|ez|ons)|switch|passe|passer|met(?:s|tez|tons|tre)|put)\b/.test(source);
+    const hasTargetLanguage = /\b(?:en|vers|into|to|in)\s+(?:anglais|english|francais|français|french)\b|\b(?:version\s+(?:(?:en|in)\s+)?(?:anglaise?|anglais|english|francaise?|francais|french)|english\s+version|french\s+version)\b/.test(source);
+    const hasGlobalScope = /\b(?:cv|curriculum vitae|document)\b/.test(source)
+        && /\b(?:tout|toute|entier|entiere|complet|complete|whole|entire|integralite|full|global)\b/.test(source);
+
+    return hasTargetLanguage && (hasTranslationVerb || hasGlobalScope);
 };
 
 const getFullCvTranslationLocale = (message = '') => {
@@ -13189,7 +14059,17 @@ const getFullCvTranslationLocale = (message = '') => {
         return '';
     }
 
-    const action = '(?:tradui(?:s|t|re|sez|sons)|translat(?:e|es|ed|ing)|remplac(?:e|er|ez|ons)|replac(?:e|es|ed|ing)|converti(?:s|t|r|ssez|ssons)|convert(?:s|ed|ing)?|adapt(?:e|es|er|ez|ons)?|adapt(?:s|ed|ing)?|met(?:s|tez|tons|tre)|put)';
+    const action = '(?:tradui(?:s|t|re|sez|sons)|translat(?:e|es|ed|ing)|remplac(?:e|er|ez|ons)|replac(?:e|es|ed|ing)|converti(?:s|t|r|ssez|ssons)|convert(?:s|ed|ing)?|adapt(?:e|es|er|ez|ons)?|adapt(?:s|ed|ing)?|met(?:s|tez|tons|tre)|put|traduction|translation)';
+    const explicitWholeCvScope = /\b(?:tout|toute|entier|entiere|complet|complete|whole|entire|integralite|full)\b[^.;!?]{0,56}\b(?:cv|curriculum vitae|document)\b|\b(?:cv|curriculum vitae|document)\b[^.;!?]{0,56}\b(?:tout|toute|entierement|completement|whole|entirely|fully|complete)\b/.test(source);
+    if (explicitWholeCvScope && new RegExp(`\\b${action}\\b`).test(source)) {
+        if (/\b(?:en|vers|into|to|in)\s+(?:anglais|english)\b|\b(?:version\s+(?:(?:en|in)\s+)?(?:anglaise?|anglais|english)|english version)\b/.test(source)) {
+            return 'en';
+        }
+        if (/\b(?:en|vers|into|to|in)\s+(?:francais|french)\b|\b(?:version\s+(?:(?:en|in)\s+)?(?:francaise?|francais|french)|french version)\b/.test(source)) {
+            return 'fr';
+        }
+    }
+
     const cvTarget = '(?:(?:(?:tout|toute|entier|entiere|complet|complete|whole|entire)\\s+(?:(?:le|la|mon|ma|the|my)\\s+)?|(?:(?:le|la|mon|ma|the|my)\\s+)(?:(?:tout|toute|entier|entiere|complet|complete|whole|entire)\\s+)?))?(?:cv|curriculum vitae|document)(?:\\s+(?:entier|entiere|complet|complete|whole|entire))?';
     const targetedScope = '(?:profil|profile|accroche|summary|titre|headline|competence|competences|skills?|experience|experiences|formation|formations|education|langue|langues|languages?|activite|activites|activities|date|dates|coordonnees|contact|rubrique|section|champ|field|ligne|line)';
     const limitsTranslationToOneScope = new RegExp(
@@ -13233,9 +14113,29 @@ const isLanguageFocusedInstruction = (message = '') => {
     }
     const source = normalizeForMatch(getKirbyUserInstruction(message));
     const hasLanguageSignal = /\b(langue|langues|francais|anglais|arabe|espagnol|italien|allemand|portugais|french|english|arabic|spanish|italian|german|portuguese|native|basic|beginner|elementary|intermediate|fluent|notions?|courant|bilingue)\b/.test(source);
-    const hasOtherCvScope = /\b(experience|experiences|poste|mission|missions|formation|formations|certification|certifications|ecole|universite|projet|projets|competence|competences|trou|periode|periode vide|autoformation|cv pret|pret a l emploi|pret a l'emploi)\b/.test(source);
+    const hasOtherCvScope = /\b(experience|experiences|poste|mission|missions|formation|formations|certification|certifications|ecole|universite|projet|projets|competence|competences|activite|activites|loisir|loisirs|interets?|hobbies|rubrique|section|melange|mix|confond|trou|periode|periode vide|autoformation|cv pret|pret a l emploi|pret a l'emploi)\b/.test(source);
 
     return hasLanguageSignal && !hasOtherCvScope;
+};
+
+const shouldAskForLanguageLevelClarification = (message = '') => {
+    const instruction = getKirbyUserInstruction(message);
+    const source = normalizeForMatch(instruction)
+        .replace(/[’']/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    if (!source || !isLanguageFocusedInstruction(instruction) || hasLanguageNameInInstruction(instruction)) {
+        return false;
+    }
+
+    const hasLanguageScope = /\b(langue|langues|language|languages)\b/.test(source);
+    const asksToAddOrSet = /\b(ajoute|ajouter|rajoute|rajouter|insere|inserer|renseigne|renseigner|add|insert)\b/.test(source)
+        || /\b(mets?|mettre|set)\b[^.!?]{0,48}\b(langue|langues|language|languages)\b/.test(source)
+        || /\b(langue|langues|language|languages)\b[^.!?]{0,48}\b(mets?|mettre|set)\b/.test(source);
+    const asksToRemoveOnly = /\b(supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|remove|delete|conserve|conserver|garde|garder|keep|retain)\b/.test(source);
+
+    return hasLanguageScope && asksToAddOrSet && !asksToRemoveOnly;
 };
 
 const looksLikeCvCreationInstruction = (message = '') => {
@@ -13387,6 +14287,66 @@ const applyQuickContactDetailsCorrection = (message = '') => {
     return `Coordonnées mises à jour : ${changed.join(', ')}.`;
 };
 
+const getQuickContactFieldRemovalTargets = (message = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(message)).replace(/[’']/g, ' ');
+    if (!hasExplicitDestructiveCvRemoval(message)) {
+        return [];
+    }
+
+    const matches = [
+        ['permit', /\b(?:permis|driving\s+licen[cs]e)\b/],
+        ['phone', /\b(?:telephone|tel|mobile|phone|numero)\b/],
+        ['email', /\b(?:courriel|email|e-mail|mail)\b/],
+        ['location', /\b(?:adresse|ville|localisation|location|city)\b/],
+        ['fullName', /\b(?:nom|prenom|name|full\s+name)\b/],
+    ];
+
+    return matches
+        .filter(([, pattern]) => pattern.test(source))
+        .map(([fieldName]) => fieldName);
+};
+
+const applyQuickContactFieldRemoval = (message = '') => {
+    if (!cvForm) {
+        return '';
+    }
+
+    const targets = getQuickContactFieldRemovalTargets(message);
+    if (!targets.length) {
+        return '';
+    }
+
+    const labels = {
+        permit: 'permis',
+        phone: 'téléphone',
+        email: 'email',
+        location: 'adresse',
+        fullName: 'nom',
+    };
+    const beforeState = getCvHistoryState();
+    const changed = [];
+
+    targets.forEach((fieldName) => {
+        const field = cvForm.elements[fieldName];
+        if (!field || !String(field.value || '').trim()) {
+            return;
+        }
+        field.value = '';
+        clearContactEditableOverride(fieldName);
+        changed.push(labels[fieldName] || fieldName);
+    });
+
+    if (!changed.length) {
+        return 'Aucune suppression appliquée : les informations ciblées sont déjà absentes.';
+    }
+
+    updateCvPreview({ preserveDensity: true });
+    commitCvHistoryTransition(beforeState);
+    scheduleCvDraftSave();
+    setCvStatus(`Mention supprimée : ${changed.join(', ')}`);
+    return `Mention supprimée : ${changed.join(', ')}.`;
+};
+
 const getNoCvMutationReply = () =>
     "Je n’ai appliqué aucune modification au CV. Votre message ressemble à une consigne ou à un signalement, pas à une correction précise du CV.";
 
@@ -13395,6 +14355,57 @@ const cleanExplicitHeadlineCandidate = (value = '') => String(value || '')
     .replace(/^[\s:;,\-–—«»"“”']+|[\s.!?;,«»"“”']+$/g, '')
     .replace(/\s{2,}/g, ' ')
     .trim();
+
+const CV_OFFICE_SKILL_APP_PATTERNS = [
+    ['word', /\bmicrosoft\s+word\b|\bword\b/],
+    ['excel', /\bmicrosoft\s+excel\b|\bexcel\b/],
+    ['powerpoint', /\bmicrosoft\s+power\s*point\b|\bpower\s*point\b/],
+    ['outlook', /\bmicrosoft\s+outlook\b|\boutlook\b/],
+];
+
+const CV_OFFICE_SKILL_SUITE_PATTERN = /\b(?:pack|suite|microsoft)\s+office\b|\boffice\s*365\b/;
+
+const getOfficeSuiteSkillInfo = (item = '') => {
+    const source = normalizeForMatch(item);
+    if (!source) {
+        return { isOffice: false, hasSuiteLabel: false, appKey: '' };
+    }
+
+    const hasSuiteLabel = CV_OFFICE_SKILL_SUITE_PATTERN.test(source);
+    const appKey = CV_OFFICE_SKILL_APP_PATTERNS.find(([, pattern]) => pattern.test(source))?.[0] || '';
+    return { isOffice: hasSuiteLabel || Boolean(appKey), hasSuiteLabel, appKey };
+};
+
+const collapseOfficeSuiteSkills = (items = []) => {
+    const officeIndexes = [];
+    const appKeys = new Set();
+    let hasSuiteLabel = false;
+
+    items.forEach((item, index) => {
+        const info = getOfficeSuiteSkillInfo(item);
+        if (!info.isOffice) {
+            return;
+        }
+
+        officeIndexes.push(index);
+        if (info.appKey) {
+            appKeys.add(info.appKey);
+        }
+        if (info.hasSuiteLabel) {
+            hasSuiteLabel = true;
+        }
+    });
+
+    if (!officeIndexes.length || (!hasSuiteLabel && appKeys.size < 2)) {
+        return items;
+    }
+
+    const officeLabel = currentCvContentLocale === 'en' ? 'Microsoft Office' : 'Pack Office';
+    const firstOfficeIndex = officeIndexes[0];
+    const normalized = items.filter((_, index) => !officeIndexes.includes(index));
+    normalized.splice(Math.min(firstOfficeIndex, normalized.length), 0, officeLabel);
+    return dedupeImportedItems(normalized);
+};
 
 // Un intitulé de CV n'appartient pas à un dictionnaire fini de métiers. Cette
 // validation ne cherche donc pas un mot comme « assistante » ou « vendeur » :
@@ -13428,6 +14439,7 @@ const isStructurallySafeHeadlineCandidate = (value = '') => {
     }
 
     return true;
+    return collapseOfficeSuiteSkills(unique);
 };
 
 const isProfessionalHeadlineCandidate = (value = '', { allowAnyExplicitValue = false } = {}) => {
@@ -13530,7 +14542,11 @@ const getExplicitHeadlineFromInstruction = (message = '') => {
     const explicitlyEditsHeadline = /\b(?:change|changer|modifie|modifier|remplace|remplacer|corrige|corriger|mets|mettre|met|applique|appliquer|modify|replace|correct|set|update)\s+(?:(?:le|mon|the|my)\s+)?(?:titre|intitule)\b/.test(normalizedInstruction);
     const explicitlyTargetsHeadline = explicitlyEditsHeadline
         || /\b(?:titre\s+(?:(?:du|de mon|de ce)\s+)?(?:cv|poste|metier)|intitule\s+(?:du|de mon|de ce)\s+(?:cv|poste|metier)|poste\s+vise|headline|job\s+title|target\s+role)\b/.test(normalizedInstruction);
+    const targetsAnotherCvField = /\b(?:competence|competences|skill|skills|langue|langues|language|languages|activite|activites|activity|activities|loisir|loisirs|hobby|hobbies|centre d interet|interests?|experience|experiences|formation|formations|education|projet|projets|project|projects|email|mail|telephone|phone|date|dates|profil|summary|accroche)\b/.test(normalizedInstruction);
     if (labelsAnotherElement && !explicitlyTargetsHeadline) {
+        return '';
+    }
+    if (!explicitlyTargetsHeadline && targetsAnotherCvField) {
         return '';
     }
 
@@ -13896,6 +14912,10 @@ const getAssistantTask = (message = '', mode = activeKirbyMode) => {
         return 'letter';
     }
     const source = normalizeForMatch(getKirbyUserInstruction(message));
+    const globalCleanupIntent = isGlobalCvCleanupIntent(message);
+    if (globalCleanupIntent && hasMeaningfulCvContent()) {
+        return 'optimize';
+    }
     const asksExistingCvForRole = hasMeaningfulCvContent()
         && looksLikeCvCreationInstruction(message)
         && /\bcv\s+(?:de|d[’']?|pour|au poste de|adapte a|adapte au)\s*[a-z]/.test(source);
@@ -14335,6 +15355,55 @@ const getCompleteCvSentences = (value = '') =>
         .map((sentence) => sentence.trim())
         .filter(Boolean);
 
+const cvSummaryLooksLikeExperienceSentence = (value = '') => {
+    const sentence = String(value || '').trim();
+    const source = normalizeForMatch(sentence);
+    if (!source) {
+        return false;
+    }
+
+    if (/[•\n]/.test(sentence)) {
+        return true;
+    }
+    if (/^[^.!?]{2,90}\s[–—-]\s[^.!?]{2,90}\s[–—-]\s/.test(sentence)) {
+        return true;
+    }
+    if (/\b(?:19|20)\d{2}\b/.test(source)) {
+        return true;
+    }
+    if (/\b(?:depuis|since|present|aujourd hui|cdi|cdd|stage|alternance|interim)\b/.test(source)
+        && /\b(?:chez|at|for|au sein de|dans|hotel|hôtel|entreprise|company|agence|restaurant|boutique|cabinet|clinic|clinique|studio)\b/.test(source)) {
+        return true;
+    }
+
+    return false;
+};
+
+const compactKirbyProfileSummary = (value = '') => {
+    const summary = normalizeCvSentenceText(value);
+    if (!summary) {
+        return '';
+    }
+
+    const completeSentences = getCompleteCvSentences(summary);
+    const fallbackSegments = summary
+        .split(/\n|;/)
+        .map((segment) => normalizeCvSentenceText(segment))
+        .filter(Boolean);
+    const segments = completeSentences.length ? completeSentences : fallbackSegments;
+    if (!segments.length) {
+        return summary;
+    }
+
+    const cleaned = segments
+        .map((segment) => segment.replace(/^[•\-–—]\s*/g, '').trim())
+        .filter(Boolean);
+    const nonExperience = cleaned.filter((segment) => !cvSummaryLooksLikeExperienceSentence(segment));
+    const selected = (nonExperience.length ? nonExperience : cleaned).slice(0, 2);
+
+    return selected.join(' ').replace(/\s{2,}/g, ' ').trim();
+};
+
 const applyQuickSummarySentenceLimit = (message = '') => {
     const sentenceCount = getRequestedSummarySentenceCount(message);
     const field = cvForm?.elements.summary;
@@ -14729,7 +15798,7 @@ const isKirbyCvDateFollowUpInstruction = (message = '', dateValue = '') => {
     }
 
     const source = normalizeForMatch(getKirbyUserInstruction(message));
-    const namesAnotherTarget = /\b(?:poste|experience|formation|diplome|certification|projet|entreprise|societe|company|role|job)\b/.test(source);
+    const namesAnotherTarget = /\b(?:poste|postes|experience|experiences|emploi|emplois|mission|missions|formation|formations|diplome|diplomes|certification|certifications|projet|projets|entreprise|societe|company|role|roles|job|jobs|work|career)\b/.test(source);
     const explicitFollowUp = /\b(?:finalement|plutot|désormais|maintenant|actually|instead|rather)\b/.test(source)
         || /\b(?:mets?|mettre|change|changer|modifie|modifier|set|change|update)\s*(?:-|\s)*(?:la|le|lui|ça|ca|it|that)\b/.test(source);
     const compactTokens = source.split(/\s+/).filter(Boolean);
@@ -14770,6 +15839,9 @@ const hasQuickExperienceDateIntent = (message = '', dateValue = '') => {
     const hasAdditionVerb = /\b(ajoute|ajouter|rajoute|rajouter|insere|inserer|integre|integrer|cree|creer|add|insert|include|create)\b/.test(source);
     const hasDateTopic = /\b(date|dates|periode|periodes|period|periods|mois|month|months|annee|annees|year|years)\b/.test(source);
     const hasCorrectionVerb = /\b(modifie|modifier|change|changer|corrige|corriger|remplace|remplacer|mets|mettre|met|modify|update|change|correct|replace|set)\b/.test(source);
+    const hasExperienceScope = /\b(experience|experiences|parcours professionnel|poste|postes|emploi|emplois|mission|missions|entreprise|employeur|role|roles|job|jobs|employment|employer|work experience|professional experience|work history|career)\b/.test(source);
+    const hasSelfCorrectionCue = /\b(?:je\s+me\s+suis\s+tromp(?:e|ee)|i\s+was\s+wrong|mistake|erreur|au\s+lieu\s+de|et\s+non|rather\s+than|instead\s+of)\b/.test(source);
+    const hasCompletionCue = /\b(?:termine|terminer|termin[ée]|ended|finished|fini|finie)\b/.test(source);
     const answersPendingDateQuestion = Boolean(dateValue)
         && Number.isInteger(pendingExperienceDateCorrectionIndex)
         && !hasAdditionVerb
@@ -14781,7 +15853,7 @@ const hasQuickExperienceDateIntent = (message = '', dateValue = '') => {
         && (answersPendingDateQuestion
             || continuesRecentDateEdit
             || (hasDateTopic && hasCorrectionVerb)
-            || (Boolean(dateValue) && hasCorrectionVerb));
+            || (Boolean(dateValue) && (hasCorrectionVerb || ((hasSelfCorrectionCue || hasCompletionCue) && hasExperienceScope))));
 };
 
 const getQuickExperienceDateCorrection = (message = '') => {
@@ -16544,7 +17616,7 @@ const appendSkillToEditableOverride = (skill = '') => {
     };
 };
 
-const explicitSkillAdditionActionSource = '(?:ajoute|ajoutes|ajoutez|ajouter|rajoute|rajoutes|rajoutez|rajouter|insere|inseres|inserez|inserer|add|adds|insert|inserts)';
+const explicitSkillAdditionActionSource = '(?:ajoute|ajoutes|ajoutez|ajouter|rajoute|rajoutes|rajoutez|rajouter|insere|inseres|inserez|inserer|met|mets|mettre|add|adds|insert|inserts|put|puts)';
 const hypotheticalSkillAdditionActionSource = '(?:ajoutais|ajoutait|ajoutions|ajoutiez|ajoutaient|inserais|inserait|inserions|inseriez|inseraient|added|inserted)';
 const explicitSkillTargetSource = '(?:competence|competences|skill|skills|savoir[ -]faire)';
 
@@ -16639,12 +17711,22 @@ const getExplicitSkillAdditionIntent = (message = '') => {
     const affirmativeInstruction = getExplicitSkillAffirmativeInstruction(instruction);
     const source = normalizeForMatch(affirmativeInstruction);
     const hasAddAction = new RegExp(`\\b${explicitSkillAdditionActionSource}\\b`).test(source);
-    const hasDifferentAction = /\b(?:remplace|remplacer|supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|replace|remove|delete)\b/.test(source);
-    const targetsSkills = hasExplicitSkillTargetForAction(source);
+    const mentionsSkillsAnywhere = new RegExp(`\\b${explicitSkillTargetSource}\\b`).test(source);
+    const compoundInstruction = hasCompoundKirbyCvInstruction(instruction);
+    const targetsSkills = hasExplicitSkillTargetForAction(source)
+        || (compoundInstruction && mentionsSkillsAnywhere);
 
-    if (!affirmativeInstruction || !hasAddAction || !targetsSkills || hasDifferentAction) {
+    if (!affirmativeInstruction || !hasAddAction || !targetsSkills) {
         return null;
     }
+
+    const actionFirst = affirmativeInstruction.match(
+        /\b(?:ajoute|ajoutes|ajoutez|ajouter|rajoute|rajoutes|rajoutez|rajouter|ins[eè]re|ins[eè]res|ins[eé]rez|ins[eé]rer|met|mets|mettre|add|adds|insert|inserts|put|puts)\b\s+(.+?)\s+(?:dans|[àa]|aux?)\s+(?:(?:la|les|ma|mes|the|my)\s+)?(?:(?:rubrique|section)\s+)?(?:comp[eé]tences?|skills?)\b/i
+    );
+    const sectionFirst = affirmativeInstruction.match(
+        /\b(?:comp[eé]tences?|skills?)\b[^.;!?]{0,120}?\b(?:ajoute|ajoutes|ajoutez|ajouter|rajoute|rajoutes|rajoutez|rajouter|ins[eè]re|ins[eè]res|ins[eé]rez|ins[eé]rer|met|mets|mettre|add|adds|insert|inserts|put|puts)\b\s+([^.;!?]+)(?:[.!?]|$)/i
+    );
+    const contextualRawValue = actionFirst?.[1] || sectionFirst?.[1] || '';
 
     const quotedValues = [...affirmativeInstruction.matchAll(/«([^»]+)»|“([^”]+)”|"([^"]+)"/g)]
         .map((match) => match[1] || match[2] || match[3] || '')
@@ -16654,29 +17736,27 @@ const getExplicitSkillAdditionIntent = (message = '') => {
         quotedValues.map((value) => [normalizeForMatch(value).trim(), value])
     ).values()];
 
-    let rawValue = uniqueQuotedValues.length === 1 ? uniqueQuotedValues[0] : '';
-    if (!rawValue && uniqueQuotedValues.length === 0) {
-        const actionFirst = affirmativeInstruction.match(
-            /\b(?:ajoute|ajoutes|ajoutez|ajouter|rajoute|rajoutes|rajoutez|rajouter|ins[eè]re|ins[eè]res|ins[eé]rez|ins[eé]rer|add|adds|insert|inserts)\b\s+(.+?)\s+(?:dans|[àa]|aux?)\s+(?:(?:la|les|ma|mes|the|my)\s+)?(?:(?:rubrique|section)\s+)?(?:comp[eé]tences?|skills?)\b/i
-        );
-        const sectionFirst = affirmativeInstruction.match(
-            /\b(?:comp[eé]tences?|skills?)\b[^.;!?]{0,120}?\b(?:ajoute|ajoutes|ajoutez|ajouter|rajoute|rajoutes|rajoutez|rajouter|ins[eè]re|ins[eè]res|ins[eé]rez|ins[eé]rer|add|adds|insert|inserts)\b\s+([^.;!?]+)(?:[.!?]|$)/i
-        );
-        rawValue = actionFirst?.[1] || sectionFirst?.[1] || '';
+    let rawValue = contextualRawValue || '';
+    if (!rawValue && uniqueQuotedValues.length === 1) {
+        rawValue = uniqueQuotedValues[0];
     }
 
-    const scopedRawValue = uniqueQuotedValues.length
+    const usesQuotedRawValue = /[«"“]/.test(String(rawValue || ''));
+    const scopedRawValue = usesQuotedRawValue
         ? String(rawValue || '')
         : String(rawValue || '').replace(/^(?:uniquement|seulement|juste|only|just)\s+/i, '');
     const value = normalizeCvSentenceText(scopedRawValue
+        .replace(/^[«"“]\s*/, '')
+        .replace(/\s*[»"”]$/, '')
         .replace(/^[\s,:;=–—-]+/, '')
         .replace(/^(?:(?:uniquement|seulement|juste|only|just)\s+)?(?:(?:une?|one)\s+)?(?:(?:nouvelle?|new)\s+)?(?:ligne|line|competence|comp[eé]tence|skill)(?:\s+(?:intitul[eé]e?|nomm[eé]e?|appel[eé]e?|titled|called))?\s*[:=–—-]?\s*/i, '')
         .replace(/[.!?]+\s*$/, '')
         .trim());
     const normalizedValue = normalizeForMatch(value).replace(/[^a-z0-9]+/g, ' ').trim();
     const normalizedContext = normalizeForMatch(affirmativeInstruction).replace(/[^a-z0-9]+/g, ' ').trim();
+    const hasAmbiguousQuotedValues = uniqueQuotedValues.length > 1 && !contextualRawValue;
     const invalidValue = !value
-        || uniqueQuotedValues.length > 1
+        || hasAmbiguousQuotedValues
         || value.length > 180
         || !normalizedValue
         || !` ${normalizedContext} `.includes(` ${normalizedValue} `)
@@ -16688,21 +17768,327 @@ const getExplicitSkillAdditionIntent = (message = '') => {
     };
 };
 
-const applyQuickExplicitSkillAddition = (message = '') => {
-    const intent = getExplicitSkillAdditionIntent(message);
-    if (!intent) {
+const getImplicitSkillFromMasteryStatement = (message = '') => {
+    const instruction = stripDirectionalFormatting(getKirbyUserInstruction(message)).replace(/\s+/g, ' ').trim();
+    const source = normalizeForMatch(instruction).replace(/[’']/g, ' ');
+
+    if (!source
+        || !/\b(?:comp[eé]tences?|skills?|savoir[ -]faire)\b/.test(source)
+        || !/\b(?:peux(?:-|\s+)tu|tu\s+peux|pouvez(?:-|\s+)vous|vous\s+pouvez|met(?:s|tre)?|ajoute(?:r)?|rajoute(?:r)?|ins[eé]re(?:r)?|int[eé]gre(?:r)?|inclu(?:re|s)?|add|insert|put|include)\b/.test(source)
+        || /^\s*(?:comment|why|pourquoi)\b/.test(source)) {
         return '';
     }
-    if (intent.refusalReason === 'negated') {
+
+    const patterns = [
+        /(?:je\s+ma[iî]trise(?:\s+aussi)?|je\s+suis\s+[àa]\s+l['’]aise\s+avec|j['’]ai\s+de\s+l['’]exp[ée]rience\s+en|j['’]excelle\s+en|i\s+am\s+proficient\s+in|i\s+have\s+experience\s+with|i\s+excel\s+at)\s+(.+?)(?:(?:,\s*(?:et\s+)?)?(?:peux(?:-|\s+)tu|tu\s+peux|pouvez(?:-|\s+)vous|vous\s+pouvez)|(?:\s+(?:pour|dans|in|under)\s+(?:mes?|my)\s+(?:comp[eé]tences?|skills?))|[.!?;]|$)/i,
+        /(?:ajoute|ajouter|rajoute|rajouter|ins[eé]re|ins[eé]rer|int[eé]gre|int[eé]grer|inclu(?:re|s)?|met(?:s|tre)?|add|insert|put|include)\s+(.+?)\s+(?:dans|en|in|to|aux?)\s+(?:(?:mes?|my)\s+)?(?:comp[eé]tences?|skills?)\b/i,
+    ];
+
+    const rawCandidate = patterns
+        .map((pattern) => instruction.match(pattern)?.[1] || '')
+        .find(Boolean);
+    const value = normalizeCvSentenceText(
+        String(rawCandidate || '')
+            .replace(/^[«"“]\s*/, '')
+            .replace(/\s*[»"”]$/, '')
+            .replace(/^\s*(?:aussi|egalement|également|also)\s+/i, '')
+            .replace(/^\s*(?:le|la|les|l['’])\s+/i, '')
+            .replace(/[.!?;:,]+\s*$/, '')
+            .trim()
+    );
+    const normalizedValue = normalizeForMatch(value).replace(/[^a-z0-9]+/g, ' ').trim();
+
+    if (!value
+        || value.length > 180
+        || !normalizedValue
+        || /^(?:le|la|les|l|ca|ça|cela|ceci|it|that|this|competence|competences|skill|skills|ligne|line)$/i.test(normalizedValue)
+        || !` ${source.replace(/[^a-z0-9]+/g, ' ')} `.includes(` ${normalizedValue} `)) {
+        return '';
+    }
+
+    return value;
+};
+
+const getQuickCvListFieldHint = (message = '') => {
+    const source = normalizeForMatch(getKirbyUserInstruction(message)).replace(/[’']/g, ' ');
+    if (/\b(?:comp[eé]tences?|skills?|savoir[ -]faire)\b/.test(source)) return 'skills';
+    if (/\b(?:langues?|languages?)\b/.test(source)) return 'languages';
+    if (/\b(?:activit[eé]s?|centres?\s+d\s*interets?|loisirs?|activities|interests?|hobbies)\b/.test(source)) return 'activities';
+    if (/\b(?:formations?|education|certifications?|diplomes?)\b/.test(source)) return 'education';
+    if (/\b(?:projets?|projects?)\b/.test(source)) return 'projects';
+    if (/\b(?:experiences?|parcours|poste|mission)\b/.test(source)) return 'experience';
+    return '';
+};
+
+const normalizeQuickCvListItemKey = (value = '') => normalizeForMatch(stripBulletPrefix(String(value || '')))
+    .replace(/[.!?]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const parseQuickImplicitRemovalTarget = (message = '') => {
+    const instruction = stripDirectionalFormatting(getKirbyUserInstruction(message)).replace(/\s+/g, ' ').trim();
+    const source = normalizeForMatch(instruction).replace(/[’']/g, ' ');
+    if (!source) {
+        return '';
+    }
+
+    const explicitRemoval = hasExplicitDestructiveCvRemoval(message);
+    const implicitRemoval = /\b(?:ne|n)\s+(?:veux|veut|voulons|want)\s+plus\b[^.!?]{0,120}\b(?:apparai(?:sse|tre)|figure|reste|remain|appear|show|visible)\b/.test(source)
+        || /\b(?:ne|n)\s+(?:doit\s+)?plus\b[^.!?]{0,120}\b(?:figurer|apparai(?:sse|tre)|rester|remain|appear|show|visible)\b/.test(source)
+        || /\b(?:ne|n)\b[^.!?]{0,80}\b(?:figure|figurer|apparai(?:sse|tre)|reste|rester|appear|show|remain)\b[^.!?]{0,20}\bplus\b/.test(source)
+        || /\b(?:should|must|can|could|will|would)\s+no\s+longer\b[^.!?]{0,120}\b(?:appear|show|remain|be\s+visible|visible)\b/.test(source)
+        || /\b(?:no\s+longer\s+want)\b[^.!?]{0,120}\b(?:appear|show|remain|visible)\b/.test(source);
+    if (!explicitRemoval && !implicitRemoval) {
+        return '';
+    }
+
+    const quoted = getQuotedKirbyValues(instruction);
+    const patterns = [
+        /\b(?:ne\s+veux\s+plus|n['’]\s*veux\s+plus|no\s+longer\s+want)\s+que\s+(.+?)\s+(?:apparai(?:sse|tre)|figure|reste|remain|appear|show|visible)\b/i,
+        /\b(?:ne\s+veux\s+plus|n['’]\s*veux\s+plus|no\s+longer\s+want)\s+(.+?)\s+(?:sur|dans|in)\s+(?:mon|ma|mes|my|the)\s+(?:cv|resume|document)\b/i,
+        /(?:^|[,:;.!?]\s*)(.+?)\s+(?:should|must|can|could|will|would)\s+no\s+longer\s+(?:appear|show|remain|be\s+visible|visible)\b/i,
+        /(?:^|[,:;.!?]\s*)(?:je\s+pr[eé]f[eè]re\s+que|je\s+souhaite\s+que|i\s+prefer\s+that\s+)?(.+?)\s+ne\s+(?:(?:doit\s+)?plus\s+)?(?:figurer|figure|apparai(?:sse|tre)|rester|reste|appear|show|remain|be\s+visible)(?:\s+plus)?\b/i,
+        /\b(?:supprime|supprimer|retire|retirer|enl[eè]ve|enlever|efface|effacer|remove|delete|hide)\b\s+(.+?)(?=\s+(?:de|du|des|dans|from|in)\s+(?:(?:mon|ma|mes|my|the)\s+)?(?:cv|comp[eé]tences?|skills?|langues?|languages?|activit[eé]s?|activities|centres?\s+d\s*interets?|interests?|hobbies|loisirs?)|[.!?]|$)/i,
+    ];
+    const rawTarget = quoted[0]
+        || patterns
+            .map((pattern) => instruction.match(pattern)?.[1] || '')
+            .find(Boolean)
+        || '';
+
+    const target = normalizeCvSentenceText(
+        String(rawTarget || '')
+            .replace(/^[«"“]\s*/, '')
+            .replace(/\s*[»"”]$/, '')
+            .replace(/^\s*(?:le|la|les|l['’]|du|de la|des|the)\s+/i, '')
+            .replace(/^\s*(?:ligne|line)\s+/i, '')
+            .replace(/\s+(?:dans|de|du|des|from|in)\s+(?:(?:mes?|my|mon|ma|the)\s+)?(?:activit[eé]s?|activities|loisirs?|hobbies|centres?\s+d\s*int[éeê]r[eê]ts?|interests?)\s*$/i, '')
+            .replace(/[.!?;:,]+\s*$/, '')
+            .trim()
+    );
+    const normalizedTarget = normalizeQuickCvListItemKey(target);
+
+    if (!target
+        || !normalizedTarget
+        || normalizedTarget.length < 2
+        || /^(?:cv|resume|document|competence|competences|skills|skill|activites|activities|langues|languages|formation|formations|education|projets|projects)$/.test(normalizedTarget)) {
+        return '';
+    }
+
+    return target;
+};
+
+const applyQuickImplicitCvItemRemoval = (message = '') => {
+    if (!cvForm) {
+        return '';
+    }
+
+    const target = parseQuickImplicitRemovalTarget(message);
+    if (!target) {
+        return '';
+    }
+
+    const fieldHint = getQuickCvListFieldHint(message);
+    if (fieldHint === 'experience') {
+        return '';
+    }
+
+    const preferredFields = fieldHint
+        ? [fieldHint]
+        : ['skills', 'activities', 'languages', 'projects', 'education'];
+    const targetKey = normalizeQuickCvListItemKey(target);
+    const matches = preferredFields
+        .map((fieldName) => {
+            const field = cvForm.elements[fieldName];
+            const lines = splitLines(field?.value || '');
+            if (!field || !lines.length) {
+                return null;
+            }
+            const indexedMatches = lines
+                .map((line, index) => {
+                    const lineKey = normalizeQuickCvListItemKey(line);
+                    if (!lineKey) {
+                        return null;
+                    }
+                    const exact = lineKey === targetKey;
+                    const contains = !exact && lineKey.includes(targetKey);
+                    const reverseContains = !exact && !contains && targetKey.includes(lineKey) && lineKey.length >= 3;
+                    const score = exact ? 3 : contains ? 2 : reverseContains ? 1 : 0;
+                    return score > 0 ? { index, score } : null;
+                })
+                .filter(Boolean);
+
+            if (!indexedMatches.length) {
+                return null;
+            }
+
+            const bestScore = Math.max(...indexedMatches.map((item) => item.score));
+            const indexes = indexedMatches.filter((item) => item.score === bestScore).map((item) => item.index);
+            return { fieldName, lines, bestScore, indexes };
+        })
+        .filter(Boolean);
+
+    if (!matches.length) {
+        return '';
+    }
+
+    const globalBestScore = Math.max(...matches.map((item) => item.bestScore));
+    const topMatches = matches.filter((item) => item.bestScore === globalBestScore);
+    const uniqueField = topMatches.length === 1
+        ? topMatches[0]
+        : (fieldHint && topMatches.find((item) => item.fieldName === fieldHint)) || null;
+
+    if (!uniqueField) {
+        const fieldLabels = {
+            skills: 'COMPÉTENCES',
+            activities: 'ACTIVITÉS',
+            languages: 'LANGUES',
+            projects: 'PROJETS',
+            education: 'FORMATIONS',
+        };
+        const targets = topMatches.map((item) => fieldLabels[item.fieldName] || item.fieldName).join(', ');
+        return `Je n’ai rien modifié pour éviter une suppression ambiguë de « ${target} ». Précisez la rubrique exacte (${targets}).`;
+    }
+
+    const nextLines = uniqueField.lines.filter((_, index) => !uniqueField.indexes.includes(index));
+    if (nextLines.length === uniqueField.lines.length) {
+        return '';
+    }
+
+    const beforeState = getCvHistoryState();
+    cvForm.elements[uniqueField.fieldName].value = nextLines.join('\n');
+    clearEditableOverride(uniqueField.fieldName);
+    renderExperienceEditor();
+    renderLanguageEditor();
+    updateCvPreview({ preserveDensity: true });
+    commitCvHistoryTransition(beforeState);
+    scheduleCvDraftSave();
+    setCvStatus('Mention supprimée');
+
+    const fieldLabels = {
+        skills: 'COMPÉTENCES',
+        activities: 'ACTIVITÉS',
+        languages: 'LANGUES',
+        projects: 'PROJETS',
+        education: 'FORMATIONS',
+    };
+    return `Mention supprimée dans ${fieldLabels[uniqueField.fieldName] || uniqueField.fieldName} : « ${target} ».`;
+};
+
+const getQuickActivitiesReplacementIntent = (message = '') => {
+    const instruction = stripDirectionalFormatting(getKirbyUserInstruction(message)).replace(/\s+/g, ' ').trim();
+    const source = normalizeForMatch(instruction).replace(/[’']/g, ' ');
+    const targetsActivities = /\b(?:activit[eé]s?|centres?\s+d\s*interets?|loisirs?|activities|interests?|hobbies)\b/.test(source);
+    if (!targetsActivities) {
+        return null;
+    }
+
+    const removeMatch = instruction.match(/\b(?:supprime|supprimer|retire|retirer|enl[eè]ve|enlever|efface|effacer|remove|delete)\b\s+(.+?)(?=\s+(?:de|dans|from|in)\s+(?:mes?|my)\s+(?:centres?\s+d[’']?\s*int[éeê]r[eê]ts?|activit[eé]s?|loisirs?|activities|interests?|hobbies)|\s+et\s+(?:mets?|mettre|ajoute|ajouter|rajoute|rajouter|replace|remplace)\b|\s+and\s+(?:put|add|replace)\b|[.!?]|$)/i);
+    const addMatch = instruction.match(/\b(?:mets?|mettre|ajoute|ajouter|rajoute|rajouter|replace|remplace)\b\s+(.+?)\s+(?:a|à)\s+la\s+place\b/i);
+    const replacePairMatch = instruction.match(/(?:^|[,:;.!?]\s*|\s)(?:remplace|replace|swap|echange|échange|echanger|échanger|echangez|échangez)\s+(.+?)\s+(?:par|with|contre)\s+(.+?)(?=\s+(?:dans|in)\s+(?:mes?|my)\s+(?:centres?\s+d[’']?\s*int[éeê]r[eê]ts?|activit[eé]s?|loisirs?|activities|interests?|hobbies)|[.!?]|$)/i);
+    const quotedValues = getQuotedKirbyValues(instruction);
+
+    const removeValue = normalizeCvSentenceText(
+        String(replacePairMatch?.[1] || removeMatch?.[1] || quotedValues[0] || '')
+            .replace(/^\s*(?:le|la|les|l['’]|the)\s+/i, '')
+            .replace(/[.!?;:,]+\s*$/, '')
+            .trim()
+    );
+    const addValue = normalizeCvSentenceText(
+        String(replacePairMatch?.[2] || addMatch?.[1] || quotedValues[1] || '')
+            .replace(/^\s*(?:le|la|les|l['’]|the)\s+/i, '')
+            .replace(/[.!?;:,]+\s*$/, '')
+            .trim()
+    );
+
+    if (!removeValue || !addValue || normalizeQuickCvListItemKey(removeValue) === normalizeQuickCvListItemKey(addValue)) {
+        return null;
+    }
+
+    return { removeValue, addValue };
+};
+
+const applyQuickActivitiesReplacement = (message = '') => {
+    const intent = getQuickActivitiesReplacementIntent(message);
+    const field = cvForm?.elements?.activities;
+    if (!intent || !field) {
+        return '';
+    }
+
+    const removeKey = normalizeQuickCvListItemKey(intent.removeValue);
+    const addKey = normalizeQuickCvListItemKey(intent.addValue);
+    const lines = splitLines(field.value || '');
+    const indexesToRemove = lines
+        .map((line, index) => ({ line, index, key: normalizeQuickCvListItemKey(line) }))
+        .filter((item) => item.key === removeKey || item.key.includes(removeKey))
+        .map((item) => item.index);
+
+    if (!indexesToRemove.length) {
+        return '';
+    }
+
+    const nextLines = lines.filter((_, index) => !indexesToRemove.includes(index));
+    if (!nextLines.some((line) => normalizeQuickCvListItemKey(line) === addKey)) {
+        nextLines.push(intent.addValue);
+    }
+
+    if (nextLines.join('\n') === lines.join('\n')) {
+        return '';
+    }
+
+    const beforeState = getCvHistoryState();
+    field.value = nextLines.join('\n');
+    clearEditableOverride('activities');
+    updateCvPreview({ preserveDensity: true });
+    commitCvHistoryTransition(beforeState);
+    scheduleCvDraftSave();
+    setCvStatus('Activités mises à jour');
+    return `Activités mises à jour : « ${intent.removeValue} » remplacé par « ${intent.addValue} ».`;
+};
+
+const applyQuickProofreadRequest = (message = '') => {
+    if (!isKirbyProofreadInstruction(message) || !cvForm || !hasMeaningfulCvContent()) {
+        return '';
+    }
+
+    const beforeState = getCvHistoryState();
+    const beforeSnapshot = getKirbyCvSnapshot();
+    proofreadCvTextFields({ silent: true });
+    clearEditableOverrides();
+    renderExperienceEditor();
+    renderLanguageEditor();
+    updateCvPreview({ preserveDensity: true });
+    const afterSnapshot = getKirbyCvSnapshot();
+
+    if (beforeSnapshot === afterSnapshot) {
+        return 'Le CV est déjà propre : aucune faute évidente corrigée.';
+    }
+
+    commitCvHistoryTransition(beforeState);
+    scheduleCvDraftSave();
+    setCvStatus('Fautes corrigées');
+    return 'CV corrigé : fautes de français relues sans changer les informations du contenu.';
+};
+
+const applyQuickExplicitSkillAddition = (message = '') => {
+    const intent = getExplicitSkillAdditionIntent(message);
+    const implicitValue = (!intent || (!intent.value && !intent.refusalReason))
+        ? getImplicitSkillFromMasteryStatement(message)
+        : '';
+    if (!intent && !implicitValue) {
+        return '';
+    }
+    if (intent?.refusalReason === 'negated') {
         return 'Je n’ai rien modifié : la demande indique de ne pas ajouter cette compétence.';
     }
-    if (intent.refusalReason === 'hypothetical') {
+    if (intent?.refusalReason === 'hypothetical') {
         return 'Je n’ai rien modifié : cette formulation décrit une hypothèse, pas une commande d’ajout.';
     }
-    if (intent.refusalReason === 'non_command') {
+    if (intent?.refusalReason === 'non_command') {
         return 'Je n’ai rien modifié : cette formulation pose une question, pas une commande d’ajout.';
     }
-    if (!intent.value) {
+    const resolvedValue = normalizeCvSentenceText(intent?.value || implicitValue || '');
+    if (!resolvedValue) {
         return 'Je n’ai rien modifié : indiquez une seule compétence exacte à ajouter dans la rubrique COMPÉTENCES.';
     }
 
@@ -16712,21 +18098,21 @@ const applyQuickExplicitSkillAddition = (message = '') => {
     }
 
     const existing = splitLines(field.value);
-    const intentKey = getExactSkillLineKey(intent.value);
+    const intentKey = getExactSkillLineKey(resolvedValue);
     if (existing.some((item) => getExactSkillLineKey(item) === intentKey)) {
-        return `La compétence « ${intent.value} » est déjà présente. Le CV est resté inchangé.`;
+        return `La compétence « ${resolvedValue} » est déjà présente. Le CV est resté inchangé.`;
     }
 
     const beforeState = getCvHistoryState();
     field.value = field.value
-        ? `${field.value}${field.value.endsWith('\n') ? '' : '\n'}${intent.value}`
-        : intent.value;
-    appendSkillToEditableOverride(intent.value);
+        ? `${field.value}${field.value.endsWith('\n') ? '' : '\n'}${resolvedValue}`
+        : resolvedValue;
+    appendSkillToEditableOverride(resolvedValue);
     updateCvPreview({ preserveDensity: true });
     commitCvHistoryTransition(beforeState);
     scheduleCvDraftSave();
     setCvStatus('Compétence ajoutée');
-    return `Compétence ajoutée dans COMPÉTENCES : « ${intent.value} ». Aucun autre contenu n’a été modifié.`;
+    return `Compétence ajoutée dans COMPÉTENCES : « ${resolvedValue} ». Aucun autre contenu n’a été modifié.`;
 };
 
 const applyQuickKirbyCorrection = (message = '') => {
@@ -16746,6 +18132,10 @@ const applyQuickKirbyCorrection = (message = '') => {
     }
 
     const directCorrectionHandlers = [
+        applyQuickProofreadRequest,
+        applyQuickActivitiesReplacement,
+        applyQuickContactFieldRemoval,
+        applyQuickImplicitCvItemRemoval,
         applyQuickContactDetailsCorrection,
         applyQuickCvTypographyAdjustment,
         getQuickEditorBugReport,
@@ -17109,9 +18499,32 @@ const kirbySectionActions = [
     { key: 'languages', label: 'langues', aliases: ['langue', 'langues'] },
 ];
 
+const getExplicitLayoutSectionRemovals = (source = '', asksRemoval = false) => {
+    if (!asksRemoval || !source) {
+        return [];
+    }
+
+    const normalizeAliasPattern = (alias = '') => alias
+        .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        .replace(/\s+/g, '\\s+');
+
+    return kirbySectionActions
+        .filter((section) => section.aliases.some((alias) => {
+            const aliasPattern = normalizeAliasPattern(alias);
+            return new RegExp(`\\b(?:section|rubrique|bloc)\\s+(?:des?|de\\s+la|du|the\\s+)?(?:${aliasPattern})\\b`).test(source)
+                || new RegExp(`\\b(?:${aliasPattern})\\s+(?:section|rubrique|bloc)\\b`).test(source);
+        }))
+        .map((section) => section.key);
+};
+
 const hasExplicitDestructiveCvRemoval = (instruction = '') => {
     const source = normalizeForMatch(String(instruction || '')).replace(/[’']/g, ' ');
-    const asksRemoval = /\b(supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|masque|masquer|remove|delete|hide)\b|pas besoin de/.test(source);
+    const asksRemoval = /\b(supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|masque|masquer|remove|delete|hide)\b|pas besoin de/.test(source)
+        || /\b(?:ne|n)\s+(?:veux|veut|voulons|want)\s+plus\b[^.!?]{0,120}\b(?:apparai(?:sse|tre)|figure|reste|remain|appear|show|visible)\b/.test(source)
+        || /\b(?:ne|n)\s+(?:doit\s+)?plus\b[^.!?]{0,120}\b(?:figurer|apparai(?:sse|tre)|rester|remain|appear|show|visible)\b/.test(source)
+        || /\b(?:ne|n)\b[^.!?]{0,80}\b(?:figure|figurer|apparai(?:sse|tre)|reste|rester|appear|show|remain)\b[^.!?]{0,20}\bplus\b/.test(source)
+        || /\b(?:should|must|can|could|will|would)\s+no\s+longer\b[^.!?]{0,120}\b(?:appear|show|remain|be\s+visible|visible)\b/.test(source)
+        || /\bno\s+longer\s+want\b[^.!?]{0,120}\b(?:appear|show|remain|visible)\b/.test(source);
     const negatesRemoval = /\b(ne|n)\s+(?:me\s+)?(?:supprime|retire|enleve|efface)\s+(?:pas|plus|jamais|rien)\b|\b(?:ne|n)\s+(?:rien\s+)?(?:a\s+)?(?:supprimer|retirer|enlever|effacer)\b|\bpas(?:\s+[a-z0-9-]+){0,7}\s+(?:supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer)\b|sans\s+(?:me\s+)?(?:rien\s+)?(?:supprimer|retirer|enlever|effacer)|\b(?:do not|don t|dont|not|never|without)(?:\s+[a-z0-9-]+){0,7}\s+(?:remove|delete|hide)\b|ne touche pas|garde|conserve|keep|preserve/.test(source);
 
     return asksRemoval && !negatesRemoval;
@@ -17123,13 +18536,11 @@ const getKirbyLayoutIntent = (instruction = '', layout = {}) => {
     const removalAsked = hasExplicitDestructiveCvRemoval(instruction);
     const duplicateCleanupAsked = /\b(doublon|doublons|repetition|repetitions)\b/.test(source);
     const sectionRemovalAsked = removalAsked && !duplicateCleanupAsked;
-    const sourceRemovals = sectionRemovalAsked
-        ? kirbySectionActions
-            .filter((section) => section.aliases.some((alias) => source.includes(alias)))
-            .map((section) => section.key)
-        : [];
-    const modelRemovals = sectionRemovalAsked && Array.isArray(layout?.removeSections)
-        ? layout.removeSections.filter((key) => kirbySectionActions.some((section) => section.key === key))
+    const explicitSectionRemovals = getExplicitLayoutSectionRemovals(source, sectionRemovalAsked);
+    const explicitSectionRemovalSet = new Set(explicitSectionRemovals);
+    const sourceRemovals = sectionRemovalAsked ? explicitSectionRemovals : [];
+    const modelRemovals = sectionRemovalAsked && explicitSectionRemovalSet.size > 0 && Array.isArray(layout?.removeSections)
+        ? layout.removeSections.filter((key) => explicitSectionRemovalSet.has(key))
         : [];
     const removeSections = [...new Set([...sourceRemovals, ...modelRemovals])];
     const existingSkills = splitLines(cvForm?.elements.skills?.value || '');
@@ -17249,6 +18660,11 @@ const applyKirbyExtractedCv = (extracted = {}, { replace = false } = {}) => {
         return [];
     }
 
+    const importedLanguageActivities = rebalanceImportedLanguagesAndActivities({
+        languages: getImportedExtractionList(extracted, 'languages'),
+        activities: getImportedExtractionList(extracted, 'activities'),
+    });
+
     if (replace) {
         const fieldMap = {
             fullName: extracted.fullName,
@@ -17268,8 +18684,8 @@ const applyKirbyExtractedCv = (extracted = {}, { replace = false } = {}) => {
                 ...getImportedExtractionList(extracted, 'education'),
                 ...getImportedExtractionList(extracted, 'certifications'),
             ]).join('\n'),
-            activities: getImportedExtractionList(extracted, 'activities').join('\n'),
-            languages: getImportedExtractionList(extracted, 'languages').join('\n'),
+            activities: importedLanguageActivities.activities.join('\n'),
+            languages: importedLanguageActivities.languages.join('\n'),
         };
         const nextValues = Object.entries(fieldMap).reduce((output, [name, value]) => {
             const rawValue = String(value || '');
@@ -17368,10 +18784,18 @@ const applyKirbyExtractedCv = (extracted = {}, { replace = false } = {}) => {
     setListField('experience', extracted.experiences, 'expériences');
     setListField('projects', extracted.projects, 'projets');
     setListField('education', extracted.education, 'formations');
-    setListField('activities', extracted.activities, 'activités');
+    setListField('activities', importedLanguageActivities.activities, 'activités');
 
-    if (mergeKirbyLanguages(extracted.languages)) {
+    if (mergeKirbyLanguages(importedLanguageActivities.languages.map(parseLanguageEntry))) {
         changes.push('langues');
+    }
+
+    const languageActivityFix = harmonizeCvLanguageActivityFields();
+    if (languageActivityFix.languagesChanged) {
+        changes.push('langues');
+    }
+    if (languageActivityFix.activitiesChanged) {
+        changes.push('activités');
     }
 
     return [...new Set(changes)];
@@ -18402,6 +19826,8 @@ const applyKirbyOperationUnsafe = (operation = {}, context = {}) => {
         const fieldName = operation.field;
         const field = fieldName && cvForm?.elements[fieldName];
         const value = String(operation.value || '').trim();
+        const targetCurrentValue = String(operation.target?.currentValue || '').trim();
+        const isClearOperation = value === '';
         const nextValue = fieldName === 'fullName'
             ? getSafeFullNameValue(value)
             : fieldName === 'headline'
@@ -18411,7 +19837,29 @@ const applyKirbyOperationUnsafe = (operation = {}, context = {}) => {
                 : ['email', 'phone'].includes(fieldName)
                     ? value
                     : normalizeCvSentenceText(value);
-        if (!field || !nextValue || !isAllowedKirbyFieldValue(fieldName, value) || field.value.trim() === nextValue) {
+
+        if (!field) {
+            return '';
+        }
+
+        if (isClearOperation) {
+            const clearableFields = new Set(['fullName', 'location', 'phone', 'email', 'permit']);
+            const currentValue = String(field.value || '').trim();
+            if (!clearableFields.has(fieldName)
+                || !currentValue
+                || !targetCurrentValue
+                || normalizeForMatch(currentValue) !== normalizeForMatch(targetCurrentValue)) {
+                return '';
+            }
+            field.value = '';
+            if (fieldName === 'headline' && cvForm.elements.jobTarget) {
+                cvForm.elements.jobTarget.value = '';
+            }
+            clearContactEditableOverride(fieldName);
+            return fieldName;
+        }
+
+        if (!nextValue || !isAllowedKirbyFieldValue(fieldName, value) || field.value.trim() === nextValue) {
             return '';
         }
         field.value = nextValue;
@@ -18626,7 +20074,7 @@ const getKirbyTransactionFailureMessage = (error = {}) => {
         return error?.message || '';
     }
     if (error.rollbackPerformed === true) {
-        return 'La modification n’a pas pu être validée. Les changements commencés ont été annulés et le CV précédent a été restauré.';
+        return 'La modification n’a pas pu être validée. Les changements commencés ont été annulés et l’état du CV affiché juste avant cette commande a été restauré.';
     }
     if (error.mutationStarted === true) {
         return 'La modification n’a pas pu être validée. Kirby n’a pas confirmé la restauration automatique : vérifiez le CV affiché avant de continuer.';
@@ -18640,6 +20088,10 @@ const getKirbyApplyFailureReply = (result = {}, instruction = '') => {
     const target = getOperationTargetText(operation);
 
     if (result?.cv?.operationSafety?.filteredAll === true) {
+        if (isGlobalCvCleanupIntent(instruction)) {
+            setCvStatus('Remise au propre globale : CV préservé');
+            return 'Aucune micro-opération ciblée n’a été appliquée. Kirby est resté en mode remise au propre globale du CV (structure, lisibilité, mise en page) sans toucher à des éléments ambigus.';
+        }
         setCvStatus('Précision nécessaire : CV inchangé');
         const source = normalizeForMatch(getKirbyUserInstruction(instruction));
         const explicitReplacement = getExplicitCvDateReplacement(instruction);
@@ -18763,9 +20215,12 @@ const getValidatedCvTranslationReplacementLocale = (proposal = {}) => {
         : '';
 };
 
-const applyFullCvTranslationResult = async (proposal = {}, instruction = '') => {
-    const targetLocale = getFullCvTranslationLocale(instruction)
-        || getValidatedCvTranslationReplacementLocale(proposal);
+const applyFullCvTranslationResult = async (proposal = {}, instruction = '', options = {}) => {
+    const allowValidatedReplacement = options?.allowValidatedReplacement === true
+        || shouldTrustValidatedCvTranslationReplacement(instruction);
+    const targetLocale = options?.targetLocale
+        || getFullCvTranslationLocale(instruction)
+        || (allowValidatedReplacement ? getValidatedCvTranslationReplacementLocale(proposal) : '');
     if (!targetLocale) {
         return '';
     }
@@ -18825,10 +20280,14 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
     }
 
     const userInstruction = getKirbyUserInstruction(instruction);
+    const allowValidatedTranslationReplacement = shouldTrustValidatedCvTranslationReplacement(userInstruction);
     const fullTranslationLocale = getFullCvTranslationLocale(userInstruction)
-        || getValidatedCvTranslationReplacementLocale(proposal);
+        || (allowValidatedTranslationReplacement ? getValidatedCvTranslationReplacementLocale(proposal) : '');
     if (fullTranslationLocale) {
-        return applyFullCvTranslationResult(proposal, userInstruction);
+        return applyFullCvTranslationResult(proposal, userInstruction, {
+            targetLocale: fullTranslationLocale,
+            allowValidatedReplacement: allowValidatedTranslationReplacement,
+        });
     }
     const explicitHeadline = getExplicitHeadlineFromInstruction(userInstruction);
     const languageOnlyIntent = isLanguageFocusedInstruction(userInstruction) && !looksLikePastedCv(userInstruction);
@@ -18838,12 +20297,13 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
         || proposal?.operationSafety?.targetedRequest === true;
     const explicitlyBuildsDocument = looksLikePastedCv(userInstruction)
         || looksLikeCvCreationInstruction(userInstruction);
+    const globalCleanupIntent = isGlobalCvCleanupIntent(userInstruction);
     const targetedRequest = !explicitlyBuildsDocument && Boolean(
         hasOperationIntent
         || singleFieldIntent
         || languageOnlyIntent
         || implicitTopicIntent
-    );
+    ) && !globalCleanupIntent;
     const shouldApplyExtractedCv = ['autofill', 'create'].includes(task) && !targetedRequest;
     const extractionChanges = shouldApplyExtractedCv
         ? applyKirbyExtractedCv(proposal.extracted)
@@ -18925,7 +20385,9 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
         implicitTopicIntent === 'summary' ||
         (allowGlobalCvRewrite && !singleFieldIntent)
     )) {
-        const summary = normalizeCvSentenceText(proposal.summary);
+        const summary = singleFieldIntent === 'summary' || implicitTopicIntent === 'summary'
+            ? normalizeCvSentenceText(proposal.summary)
+            : compactKirbyProfileSummary(proposal.summary);
         if (summary && summary !== summaryField.value) {
             summaryField.value = summary;
             changes.push('accroche');
@@ -18970,6 +20432,14 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
         changes.push('langues');
     }
 
+    const languageActivityFix = harmonizeCvLanguageActivityFields();
+    if (languageActivityFix.languagesChanged) {
+        changes.push('langues');
+    }
+    if (languageActivityFix.activitiesChanged) {
+        changes.push('activités');
+    }
+
     if ((allowGlobalCvRewrite || singlePageAsked) && !singleFieldIntent) {
         changes.push(...applyKirbyLayoutIntent(layoutIntent));
     }
@@ -19012,12 +20482,18 @@ const applyKirbyCvResult = async (result, task, instruction = '', options = {}) 
 const shouldApplyKirbyResultDirectly = ({ task = '', instruction = '', result = null } = {}) => {
     const userInstruction = getKirbyUserInstruction(instruction);
     const source = normalizeForMatch(userInstruction);
+    if (isGlobalCvCleanupIntent(userInstruction)
+        && !looksLikePastedCv(userInstruction)
+        && !looksLikeJobOffer(userInstruction)) {
+        return true;
+    }
     const precisionSensitive = /\b(mise en page|aeration|aération|align|alignement|hierarchie|hiérarchie|lisibilite|lisibilité|espace|espacement|marge|padding|colonne|colonnes|section|titre|titres|pdf|a4|export|equilibr|equilibre|equilibree|equilibree|repart|repartition|descend|monte|remonte|decale|decalage|largeur|hauteur|respiration|glass|crystal)\b/.test(source);
     const actionableCvEdit = /\b(cv|document|texte|experience|experiences|mission|missions|puce|puces|ligne|lignes|date|dates|periode|periodes|mois|profil|accroche|competence|competences|formation|formations|rubrique|rubriques)\b/.test(source)
         && /\b(fais|faire|prepare|preparer|adapte|adapter|redige|rediger|ecris|ecrire|reecris|reecrire|ameliore|ameliorer|optimise|optimiser|ajoute|ajouter|rajoute|rajouter|insere|inserer|integre|integrer|supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|modifie|modifier|change|changer|corrige|corriger|remplace|remplacer|deplace|deplacer|monte|descend|range|ranger|reorganise|reorganiser|reformule|reformuler|raccourcis|raccourcir|harmonise|harmoniser|sauvegarde|sauvegarder|applique|appliquer)\b/.test(source);
 
     if (isFullCvTranslationRequest(userInstruction)
-        || getValidatedCvTranslationReplacementLocale(result?.cv)) {
+        || (shouldTrustValidatedCvTranslationReplacement(userInstruction)
+            && getValidatedCvTranslationReplacementLocale(result?.cv))) {
         return true;
     }
 
@@ -19059,9 +20535,9 @@ const shouldApplyKirbyResultDirectly = ({ task = '', instruction = '', result = 
         && !looksLikeJobOffer(userInstruction);
 };
 
-const hasKirbyOperations = (result = {}) =>
+const hasKirbyOperations = (result = {}, instruction = '') =>
     getKirbyCvArray(result?.cv?.operations).length > 0
-    || result?.cv?.operationSafety?.filteredAll === true;
+    || (result?.cv?.operationSafety?.filteredAll === true && !isGlobalCvCleanupIntent(instruction));
 
 const getAffirmativeKirbyInstruction = (instruction = '') => {
     const source = getKirbyUserInstruction(instruction).trim();
@@ -19088,7 +20564,7 @@ const isKirbyProofreadInstruction = (instruction = '') => {
         return false;
     }
 
-    const hasProofVerb = /\b(?:relis|relire|relecture|corrige|corriger|corriges|corrigez|proofread|revise|revisez|correct|fix)\b/.test(source);
+    const hasProofVerb = /\b(?:relis|relire|relecture|corrige|corriger|corriges|corrigez|proofread|revise|revisez|revois|revoir|verifie|verifier|v[eé]rifie|v[eé]rifier|passe|passer|correct|fix)\b/.test(source);
     const hasQualityTopic = /\b(?:fautes?|orthographe|grammaire|coquilles?|typos?|spelling|grammar)\b/.test(source);
     return hasProofVerb && hasQualityTopic;
 };
@@ -19185,6 +20661,7 @@ const getImplicitKirbyCvActionTopic = (instruction = '') => {
 };
 
 const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}) => {
+    if (window.KirbyCvContract) return runKirbyModelAssistant({ task, instruction });
     if (!cvForm) {
         return 'Le formulaire CV est indisponible.';
     }
@@ -19233,20 +20710,26 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
     const snapshot = getKirbyCvSnapshot();
 
     try {
+        const includeDisplayedCvValues = isFullCvTranslationRequest(instruction)
+            || hasConcreteKirbyCvEditIntent(instruction)
+            || hasExplicitDestructiveCvRemoval(instruction)
+            || isGlobalCvCleanupIntent(instruction);
         const result = await requestKirbyCvAssistant({
             task,
             instruction,
-            ...(isFullCvTranslationRequest(instruction)
-                ? { cv: getKirbyCvSource({ includeDisplayedValues: true }) }
-                : {}),
+            cv: getKirbyCvSource({ includeDisplayedValues: includeDisplayedCvValues }),
         });
         const runtimeLabel = getKirbyRuntimeLabel(result);
-        const operationDriven = hasKirbyOperations(result);
+        const allowValidatedTranslationReplacement = shouldTrustValidatedCvTranslationReplacement(instruction);
+        const fullTranslationFlow = isFullCvTranslationRequest(instruction)
+            || (allowValidatedTranslationReplacement
+                && Boolean(getValidatedCvTranslationReplacementLocale(result?.cv)));
+        const operationDriven = !fullTranslationFlow && hasKirbyOperations(result, instruction);
         const singleFieldDriven = isSingleFieldEditIntent(instruction);
         const implicitTopicDriven = Boolean(getImplicitKirbyCvActionTopic(instruction));
         const currentSnapshot = getKirbyCvSnapshot();
         const sourceChangedDuringRequest = snapshot !== currentSnapshot;
-        const canApplyDirectly = (operationDriven || shouldApplyKirbyResultDirectly({ task, instruction, result }))
+        const canApplyDirectly = (fullTranslationFlow || operationDriven || shouldApplyKirbyResultDirectly({ task, instruction, result }))
             && !sourceChangedDuringRequest;
 
         if (sourceChangedDuringRequest) {
@@ -19282,7 +20765,9 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
             } finally {
                 isApplyingKirbyCvChange = false;
             }
-            const operationFailed = (operationDriven || singleFieldDriven || implicitTopicDriven)
+            const snapshotChanged = beforeApplySnapshot !== afterApplySnapshot;
+            const operationFailed = !fullTranslationFlow
+                && (operationDriven || singleFieldDriven || implicitTopicDriven)
                 && beforeApplySnapshot === afterApplySnapshot
                 && !isKirbyNoopSuccessReply(reply);
             if (operationFailed) {
@@ -19296,10 +20781,15 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
                 commitCvHistoryTransition(beforeApplyState);
             }
             hideKirbyCvProposal();
-            if (['create', 'autofill'].includes(task) && beforeApplySnapshot !== afterApplySnapshot) {
+            if (['create', 'autofill'].includes(task) && snapshotChanged) {
                 pendingNewCvRollbackState = '';
             }
-            setAssistantActivity(`${runtimeLabel} · Modification appliquée. Retour permet d’annuler.`, false);
+            setAssistantActivity(
+                snapshotChanged
+                    ? `${runtimeLabel} · Modification appliquée. Retour permet d’annuler.`
+                    : `${runtimeLabel} · CV inchangé après vérification.`,
+                false,
+            );
             return reply;
         }
 
@@ -19347,15 +20837,16 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
                     return;
                 }
 
-                const languageFocused = isLanguageFocusedInstruction(queuedMessage);
-                if (languageFocused && !hasLanguageNameInInstruction(queuedMessage)) {
+                if (shouldAskForLanguageLevelClarification(queuedMessage)) {
                     hideKirbyCvProposal();
                     appendAssistantMessage('Quelle langue et quel niveau dois-je ajouter ? Exemple : Français courant, Anglais notions.', 'bot');
                     return;
                 }
 
                 const compoundInstruction = hasCompoundKirbyCvInstruction(queuedMessage);
-                if (!compoundInstruction) {
+                const fullTranslationRequest = isFullCvTranslationRequest(queuedMessage);
+                const proofreadQueuedRequest = isKirbyProofreadInstruction(queuedMessage);
+                if ((!compoundInstruction || proofreadQueuedRequest) && !fullTranslationRequest) {
                     const localOrderReply = await applyExperienceOrderCleanupFromKirby(queuedMessage);
                     if (localOrderReply) {
                         hideKirbyCvProposal();
@@ -19373,6 +20864,15 @@ const runKirbyCvAssistant = async ({ task = 'assistant', instruction = '' } = {}
                     const quickReply = applyQuickKirbyCorrection(queuedMessage);
                     if (quickReply) {
                         hideKirbyCvProposal();
+                        const quickMutationApplied = isQuickKirbyMutationReply(quickReply)
+                            || /^Activit[eé]s mises [àa] jour/i.test(quickReply);
+                        if (quickMutationApplied) {
+                            const languageActivityFix = harmonizeCvLanguageActivityFields();
+                            if (languageActivityFix.changed) {
+                                renderLanguageEditor();
+                                updateCvPreview({ preserveDensity: true });
+                            }
+                        }
                         if (isQuickKirbyMutationReply(quickReply)) {
                             appendQuickKirbyMutationReply(quickReply);
                             return;
@@ -19521,21 +21021,40 @@ const shouldUseKirbyCvAssistant = (message = '', mode = activeKirbyMode) => {
         return /\b(lettre|motivation|redige|rédige|ecris|écris|candidature)\b/i.test(cleanMessage) || looksLikeJobOffer(cleanMessage);
     }
 
-    if (mode === 'create') {
-        return true;
+    return true;
+};
+
+const shouldRunDeterministicLocalKirbyCorrection = (message = '') => {
+    const instruction = getKirbyUserInstruction(message);
+    const source = normalizeForMatch(instruction).replace(/[’']/g, ' ').trim();
+    const proofreadIntent = isKirbyProofreadInstruction(instruction);
+
+    if (!source
+        || isFullCvTranslationRequest(instruction)
+        || isGlobalCvCleanupIntent(instruction)
+        || looksLikeCvSourceText(instruction)
+        || looksLikeJobOffer(instruction)) {
+        return false;
     }
 
-    if (mode === 'adapt') {
-        return looksLikeJobOffer(cleanMessage)
-            || hasConcreteKirbyCvEditIntent(cleanMessage)
-            || Boolean(getImplicitKirbyCvActionTopic(cleanMessage));
+    if (hasCompoundKirbyCvInstruction(instruction) && !proofreadIntent) {
+        return false;
     }
 
-    return hasConcreteKirbyCvEditIntent(cleanMessage)
-        || Boolean(getImplicitKirbyCvActionTopic(cleanMessage))
-        || looksLikePastedCv(cleanMessage)
-        || looksLikeCvCreationInstruction(cleanMessage)
-        || looksLikeJobOffer(cleanMessage);
+    const asksQuestion = /^(?:comment|pourquoi|quel|quelle|quels|quelles|peux tu|peut tu|est ce que|how|why|what|can i|should i|may i)\b/.test(source);
+    if (asksQuestion) {
+        return false;
+    }
+
+    const hasDeterministicAction = /\b(?:supprime|supprimer|retire|retirer|enleve|enlever|efface|effacer|remove|delete|modifie|modifier|corrige|corriger|remplace|remplacer|replace|ajoute|ajouter)\b/.test(source)
+        || hasExplicitDestructiveCvRemoval(instruction)
+        || proofreadIntent;
+    const hasDeterministicTarget = /\b(?:permis|telephone|tel|mobile|phone|courriel|email|mail|ville|adresse|location|nom|prenom|full name|langues?|languages?|activites?|activities|loisirs?|interets?|hobbies|skills?|competences?)\b/.test(source)
+        || isContactDetailsInstruction(instruction)
+        || isLanguageFocusedInstruction(instruction)
+        || proofreadIntent;
+
+    return hasDeterministicAction && hasDeterministicTarget;
 };
 
 const getCvDamageDiagnosticReply = (message = '') => {
@@ -19560,6 +21079,12 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
     const cleanMessage = message.trim();
 
     if (!cleanMessage) {
+        return;
+    }
+
+    if (window.KirbyCvContract) {
+        const reply = await runKirbyModelAssistant({ task: mode === 'letter' ? 'letter' : 'assistant', instruction: cleanMessage });
+        appendAssistantMessage(reply, 'bot');
         return;
     }
 
@@ -19588,16 +21113,13 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
         return;
     }
 
-    const compoundInstruction = hasCompoundKirbyCvInstruction(cleanMessage);
-
     if (isKirbyCvRequestInFlight) {
         queuedAssistantPrompt = cleanMessage;
         setAssistantActivity('Demande enregistrée : Kirby la traitera après l’analyse en cours.', true);
         return;
     }
 
-    const languageFocused = isLanguageFocusedInstruction(cleanMessage);
-    if (languageFocused && !hasLanguageNameInInstruction(cleanMessage)) {
+    if (shouldAskForLanguageLevelClarification(cleanMessage)) {
         hideKirbyCvProposal();
         appendAssistantMessage('Quelle langue et quel niveau dois-je ajouter ? Exemple : Français courant, Anglais notions.', 'bot');
         return;
@@ -19610,24 +21132,19 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
         return;
     }
 
-    if (!compoundInstruction) {
-        const localOrderReply = await applyExperienceOrderCleanupFromKirby(cleanMessage);
-        if (localOrderReply) {
-            hideKirbyCvProposal();
-            appendAssistantMessage(localOrderReply, 'bot');
-            return;
-        }
-
-        const localSkillOrderReply = await applySkillOrderCleanupFromKirby(cleanMessage);
-        if (localSkillOrderReply) {
-            hideKirbyCvProposal();
-            appendAssistantMessage(localSkillOrderReply, 'bot');
-            return;
-        }
-
+    if (shouldRunDeterministicLocalKirbyCorrection(cleanMessage)) {
         const quickReply = applyQuickKirbyCorrection(cleanMessage);
         if (quickReply) {
             hideKirbyCvProposal();
+            const quickMutationApplied = isQuickKirbyMutationReply(quickReply)
+                || /^Activit[eé]s mises [àa] jour/i.test(quickReply);
+            if (quickMutationApplied) {
+                const languageActivityFix = harmonizeCvLanguageActivityFields();
+                if (languageActivityFix.changed) {
+                    renderLanguageEditor();
+                    updateCvPreview({ preserveDensity: true });
+                }
+            }
             if (isQuickKirbyMutationReply(quickReply)) {
                 appendQuickKirbyMutationReply(quickReply);
                 return;
@@ -19636,6 +21153,9 @@ const handleAssistantPrompt = async (message, mode = activeKirbyMode) => {
             return;
         }
     }
+
+    // Les cas simples et déterministes sont traités localement pour éviter
+    // des appels IA inutiles. Les demandes ouvertes restent centralisées côté API.
 
     if (isExplicitCvSaveInstruction(cleanMessage)) {
         hideKirbyCvProposal();
@@ -20956,7 +22476,7 @@ const syncPreviewEditableNode = (node, { refreshPreview = false, normalize = tru
 
     if (target === 'fullName' || target === 'headline' || target === 'summary' || target === 'permit') {
         const textValue = stripDirectionalFormatting(node.innerText || '').trim();
-        field.value = target === 'fullName' ? getSafeFullNameValue(textValue) : textValue;
+        field.value = target === 'fullName' && !hasModelCvContent() ? getSafeFullNameValue(textValue) : textValue;
     } else if (target === 'location') {
         const modernContactValues = [...node.querySelectorAll('[data-contact-value]')]
             .map((item) => ({
@@ -21936,9 +23456,9 @@ if (cvImportInput) {
             setCvStatus(`${fileName} : ${readyMessage}`);
         } catch (error) {
             console.error(error);
-            restoreCvHistorySnapshot(historyBeforeImport, 'Import impossible : CV précédent restauré');
+            if (!window.KirbyCvContract) restoreCvHistorySnapshot(historyBeforeImport, 'Import impossible : CV précédent restauré');
             pendingNewCvRollbackState = '';
-            setCvImportProgress({ fileName, message: 'Import impossible, ancien CV restauré', state: 'error' });
+            setCvImportProgress({ fileName, message: window.KirbyCvContract ? error.message : 'Import impossible, ancien CV restauré', state: 'error' });
             event.target.value = '';
         } finally {
             forceNextCvDraftLayoutPersistence = false;
@@ -22054,7 +23574,7 @@ if (assistantApplyButton) {
         } finally {
             isApplyingKirbyCvChange = false;
         }
-        const operationDriven = hasKirbyOperations(proposalState.result);
+        const operationDriven = hasKirbyOperations(proposalState.result, proposalState.instruction);
         hideKirbyCvProposal();
         if (assistantInput) {
             assistantInput.value = '';

@@ -1801,6 +1801,8 @@ Tu es Kirby, l'assistant CV senior de SA Creation Web. Tu aides a extraire, corr
 
 Kirby est un assistant de redaction et de mise en page qui agit sur le document, pas un chatbot de discussion. Avant chaque action, utilise la representation structuree fournie pour comprendre le metier vise, les experiences, les formations, les competences, les dates et mois, les langues et les certifications. Si la demande est executable avec les informations presentes, retourne les operations necessaires sans demander de confirmation.
 
+Contrat d operations prioritaire : OpenAI est l autorite semantique. Retourne les actions d edition dans un schema compact et generique avec type parmi add, remove, replace, move, correct, translate, restructure. Le serveur normalise ensuite ces operations avant application. N encode jamais de logique locale, de regle de fallback ni d explication a la place d une operation executable.
+
 Principe de generalite : chaque CV peut contenir un metier, un secteur, des intitules, des organismes et une organisation visuelle jamais vus auparavant. Raisonne a partir de la structure du document, des libelles reellement presents, du voisinage des blocs, des dates et de la demande courante. N exige jamais qu un metier appartienne a une liste connue. Tous les exemples de cette consigne illustrent un comportement et ne constituent jamais un vocabulaire ferme, un modele de CV a recopier ni une autorisation de specialiser la reponse.
 
 Regle de verite non negociable : le CV fourni est la seule source des faits. N'invente jamais un employeur, un poste occupe, une date, un diplome, une mission, un resultat, un permis, une langue ou un niveau de langue. Ne transforme jamais une competence attendue dans une offre en experience acquise.
@@ -1970,7 +1972,7 @@ Schema JSON obligatoire :
     "preserveAllContent": true
   },
   "operations": [{
-    "type": "add_experience | add_skill | update_experience_title | update_experience_date | set_experience_bullets | normalize_experience_dates | remove_experience_bullet | upsert_language | set_field | replace_text | remove_text | remove_section | reorder_experiences | reorder_skills | sort_experiences | remove_experience",
+        "type": "add | remove | replace | move | correct | translate | restructure",
     "field": "experience | languages | fullName | location | phone | email | permit | headline | summary | skills | education | activities | projects",
     "target": {
       "index": 0,
@@ -6485,9 +6487,13 @@ const getFullCvTranslationLanguage = (instruction = '') => {
         .replace(/[’']/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
-    const asksForTranslationInstructions = /^(?:comment(?:\s+(?:faire\s+pour|puis[- ]je|peut[- ]on))?|how\s+(?:do|can|could|would|should)\s+(?:i|we|one)|pourquoi|why|faut[- ]il|dois[- ]je|devrais[- ]je|should\s+i|puis[- ]je|may\s+i|can\s+i|est[- ]ce que je peux)\b[^.!?]{0,220}\b(?:tradui(?:re|s|t)|translat(?:e|es|ed|ing)|remplac(?:e|er|ez|ons)|replac(?:e|es|ed|ing)|converti(?:s|t|r|ssez|ssons)|convert(?:s|ed|ing)?|adapt(?:e|es|er|ez|ons)?|met(?:s|tez|tons|tre)|put)\b/.test(source);
+    const asksForTranslationInstructions = /^(?:comment(?:\s+(?:faire\s+pour|puis[- ]je|peut[- ]on))?|how\s+(?:do|can|could|would|should)\s+(?:i|we|one)|pourquoi|why|faut[- ]il|dois[- ]je|devrais[- ]je|should\s+i|puis[- ]je|may\s+i|can\s+i|est[- ]ce que je peux)\b[^.!?]{0,220}\b(?:tradui(?:re|s|t)|translat(?:e|es|ed|ing)|remplac(?:e|er|ez|ons)|replac(?:e|es|ed|ing)|converti(?:s|t|r|ssez|ssons)|convert(?:s|ed|ing)?|adapt(?:e|es|er|ez|ons)?|met(?:s|tez|tons|tre)|put|traduction|translation)\b/.test(source);
     if (asksForTranslationInstructions) return '';
+    const explicitWholeCvScope = /\b(?:tout|toute|entier|entiere|complet|complete|whole|entire|integralite|full)\b[^.;!?]{0,56}\b(?:cv|curriculum vitae|document)\b|\b(?:cv|curriculum vitae|document)\b[^.;!?]{0,56}\b(?:tout|toute|entierement|completement|whole|entirely|fully|complete)\b/.test(source);
+    const hasTranslationAction = /\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|adapt(?:e|es|er|ez|ons)?|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?|remplac(?:e|es|ons|ez|er)|replac(?:e|es|ed|ing)|adapt(?:s|ed|ing)?|traduction|translation)\b/.test(source);
+    if (explicitWholeCvScope && hasTranslationAction) return requestedLanguage;
     const actionTargetsWholeCv = /\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|adapt(?:e|es|er|ez|ons)?|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?|remplac(?:e|es|ons|ez|er)|replac(?:e|es|ed|ing)|adapt(?:s|ed|ing)?)\b(?:[- ]+(?:le|la|les|it))?\s+(?:(?:entierement|completement|fully|entirely)\s+)?(?:(?:tout|toute|entier|entiere|complet|complete|whole|entire)\s+)?(?:(?:le|la|mon|ma|the|my)\s+)?(?:cv|curriculum vitae|document)(?:\s+(?:entier|entiere|complet|complete|whole|entire))?\b|\b(?:translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?|replac(?:e|es|ed|ing)|adapt(?:s|ed|ing)?)\b\s+(?:(?:the|my)\s+)(?:whole|entire|complete)\s+(?:cv|curriculum vitae|document)\b/.test(source);
+    const translationNounTargetsWholeCv = /\b(?:traduction|translation)\b[^.;!?]{0,24}\b(?:complete|complet|entiere?|full|whole|integralite)\b[^.;!?]{0,80}\b(?:cv|curriculum vitae|document)\b|\b(?:traduction|translation)\b[^.;!?]{0,80}\b(?:du|de|of)\s+(?:(?:mon|ma|le|la|the|my)\s+)?(?:cv|curriculum vitae|document)\b[^.;!?]{0,56}\b(?:complete|complet|entiere?|full|whole|integralite)\b/.test(source);
     const languageBeforeWholeCv = /\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|adapt(?:e|es|er|ez|ons)?|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?|adapt(?:s|ed|ing)?)\b\s+(?:en|vers|into|to|in)\s+(?:anglais|english|francais|french)\s+(?:(?:tout|toute|entier|entiere|complet|complete|whole|entire)\s+)?(?:(?:le|la|mon|ma|the|my)\s+)?(?:cv|curriculum vitae|document)\b/.test(source);
     const languageBeforeDeterminedWholeCv = /\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|adapt(?:e|es|er|ez|ons)?|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?|adapt(?:s|ed|ing)?)\b\s+(?:en|vers|into|to|in)\s+(?:anglais|english|francais|french)\s+(?:(?:le|la|mon|ma|the|my)\s+)(?:tout|toute|entier|entiere|complet|complete|whole|entire)\s+(?:cv|curriculum vitae|document)\b/.test(source);
     const wholeActionAfterCvAntecedent = /\b(?:cv|curriculum vitae|document)\b[^.;!?]{0,100}\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|adapt(?:e|es|er|ez|ons)?|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?|adapt(?:s|ed|ing)?)\b\s+(?:tout|entierement|completement|all|entirely|fully)\b/.test(source);
@@ -6496,12 +6502,13 @@ const getFullCvTranslationLanguage = (instruction = '') => {
     const putWholeCvInLanguage = /\bput\b\s+(?:(?:the|my)\s+)?(?:(?:whole|entire|complete)\s+)?(?:cv|curriculum vitae|document)\s+(?:in|into|to)\s+(?:english|french)\b/.test(source);
     const rebuildsWholeCvThenTranslates = /\b(?:refais|refaire|reconstruis|reconstruire|rebuild|recreate|redo)\b[^.;!?]{0,100}\b(?:tout|toute|entier|entiere|complet|complete|whole|entire)\s+(?:(?:le|la|mon|ma|the|my)\s+)?(?:cv|curriculum vitae|document)\b[^.;!?]{0,80}\b(?:tradui(?:s|t|re|sez|sons)|translat(?:e|es|ed|ing))\b/.test(source);
     const wholeCvContentTargeted = /\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|adapt(?:e|es|er|ez|ons)?|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?|remplac(?:e|es|ons|ez|er)|replac(?:e|es|ed|ing)|adapt(?:s|ed|ing)?)\b[^.;!?]{0,48}\b(?:(?:tout|toute|entier|entiere|complet|complete|whole|entire)\s+)?(?:le\s+|la\s+|l\s+|the\s+|my\s+)?(?:contenu|integralite|content)\b[^.;!?]{0,48}\b(?:du|de|of)\s+(?:(?:mon|ma|le|la|the|my)\s+)?(?:cv|curriculum vitae|document)\b/.test(source);
-    const targetsOnlyPart = /\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|adapt(?:e|es|er|ez|ons)?|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?|adapt(?:s|ed|ing)?)\b[^.;!?]{0,100}\b(?:uniquement|seulement|only|just)\b[^.;!?]{0,60}\b(?:profil|profile|resume|summary|rubrique|section|titre|headline|competences?|skills?|experience|formation|education|langues?|languages?|dates?)\b/.test(source);
-    const targetsNamedPartBeforeCv = /\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|adapt(?:e|es|er|ez|ons)?|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?|adapt(?:s|ed|ing)?)\b[^.;!?]{0,80}\b(?:profil|profile|resume|summary|rubrique|section|titre|headline|competences?|skills?|experiences?|formation|education|langues?|languages?|dates?)\b[^.;!?]{0,80}\b(?:cv|curriculum vitae|document)\b/.test(source);
+    const targetsOnlyPart = /\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|adapt(?:e|es|er|ez|ons)?|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?|adapt(?:s|ed|ing)?|traduction|translation)\b[^.;!?]{0,100}\b(?:uniquement|seulement|only|just)\b[^.;!?]{0,60}\b(?:profil|profile|resume|summary|rubrique|section|titre|headline|competences?|skills?|experience|formation|education|langues?|languages?|dates?)\b/.test(source);
+    const targetsNamedPartBeforeCv = /\b(?:tradui(?:s|t|re|sez|sons)|converti(?:s|t|r|re|ssez|ssons)|met(?:s|tez|tons|tre)|adapt(?:e|es|er|ez|ons)?|translat(?:e|es|ed|ing)|convert(?:s|ed|ing)?|adapt(?:s|ed|ing)?|traduction|translation)\b[^.;!?]{0,80}\b(?:profil|profile|resume|summary|rubrique|section|titre|headline|competences?|skills?|experiences?|formation|education|langues?|languages?|dates?)\b[^.;!?]{0,80}\b(?:cv|curriculum vitae|document)\b/.test(source);
 
     if (targetsOnlyPart || targetsNamedPartBeforeCv) return '';
 
     return actionTargetsWholeCv
+        || translationNounTargetsWholeCv
         || languageBeforeWholeCv
         || languageBeforeDeterminedWholeCv
         || wholeActionAfterCvAntecedent
@@ -6551,12 +6558,48 @@ const isRetryableCvTranslationValidationReason = (validationReason = '') => {
         || reason === 'education_semantics';
 };
 
+const isGlobalCvCleanupInstruction = (instruction = '') => {
+    const source = stripAccents(normalizeText(instruction).toLowerCase())
+        .replace(/[’']/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    if (!source || getFullCvTranslationLanguage(instruction)) {
+        return false;
+    }
+
+    const asksRemoval = CV_REMOVE_ACTION_PATTERN.test(source);
+    const asksQuestion = /^(?:comment|pourquoi|why|how|est[\s-]ce\s+que|faut[\s-]il|dois[\s-]je|devrais[\s-]je|should\s+i|can\s+i|may\s+i)\b/.test(source);
+    const wholeCvScope = /\b(?:tout|toute|entier|entiere|complet|complete|global|de a z|a z)\b[^.;!?]{0,42}\b(?:cv|resume|curriculum vitae|document)\b|\b(?:cv|resume|curriculum vitae|document)\b[^.;!?]{0,42}\b(?:tout|toute|entier|entiere|complet|complete|global|de a z|a z)\b/.test(source);
+    const commandVerb = /\b(?:remets?|remettre|refais|refaire|reconstruis|reconstruire|fais|faire|prepare|preparer|optimise|optimiser|ameliore|ameliorer|harmonise|harmoniser|nettoie|nettoyer|rends?|rendre|professionnalise|professionalise|rework|revamp|rebuild|redo|reformat|format)\b/.test(source);
+    const readyToUseSignal = /\b(?:cv pret|pret a l emploi|ready to use|job ready)\b/.test(source);
+    const proLayoutSignal = /\b(?:mise en page|mise en forme|layout|presentation|format)\b[^.;!?]{0,24}\b(?:pro|professionnel|professionnelle|professional)\b/.test(source)
+        || /\b(?:remets?|remettre)\s+au\s+propre\b/.test(source)
+        || /\b(?:plus\s+pro|professionnel(?:le)?)\b/.test(source)
+        || /\b(?:rends?|rendre|mets?|mettre|fais|faire)\b[^.;!?]{0,48}\b(?:profil|cv|resume|document|accroche)\b[^.;!?]{0,28}\b(?:plus\s+pro|professionnel(?:le)?)\b/.test(source)
+        || /\b(?:au\s+propre|clean\s+up|cleanup)\b[^.;!?]{0,24}\b(?:cv|resume|document|mise en page|mise en forme)\b/.test(source);
+
+    if (asksRemoval && !wholeCvScope && !readyToUseSignal && !proLayoutSignal) {
+        return false;
+    }
+
+    if (asksQuestion && !wholeCvScope && !proLayoutSignal && !readyToUseSignal) {
+        return false;
+    }
+
+    return readyToUseSignal || proLayoutSignal || (commandVerb && wholeCvScope);
+};
+
 const isFullCvBuildRequest = ({ task = '', instruction = '' } = {}) => {
     if (task === 'autofill' || task === 'create') {
         return true;
     }
 
     if (getFullCvTranslationLanguage(instruction)) {
+        return true;
+    }
+
+    if (isGlobalCvCleanupInstruction(instruction)) {
         return true;
     }
 
@@ -7348,6 +7391,41 @@ const getExplicitCvSectionRemovalKeys = (instruction = '') => {
     return keys;
 };
 
+const CV_WHOLE_SECTION_REMOVAL_OBJECT_PATTERNS = {
+    summary: /^(?:(?:la|le|mon|ma|the|my)\s+)?(?:(?:rubrique|section)\s+)?(?:profil|accroche|resume|summary|profile)$/,
+    skills: /^(?:(?:les|mes|the|my|toutes?\s+les|all(?:\s+the)?)\s+)?(?:(?:rubrique|section)\s+)?(?:competences?|skills?)$/,
+    experience: /^(?:(?:les|mes|the|my|toutes?\s+les|all(?:\s+the)?)\s+)?(?:(?:rubrique|section)\s+)?(?:experiences?(?:\s+professionnelles?)?|parcours(?:\s+professionnel)?|work\s+experience|professional\s+experience)$/,
+    projects: /^(?:(?:les|mes|the|my|toutes?\s+les|all(?:\s+the)?)\s+)?(?:(?:rubrique|section)\s+)?(?:projets?|projects?)$/,
+    education: /^(?:(?:les|mes|the|my|toutes?\s+les|all(?:\s+the)?)\s+)?(?:(?:rubrique|section)\s+)?(?:formations?|education|certifications?|diplomes?|qualifications?)$/,
+    activities: /^(?:(?:les|mes|the|my|toutes?\s+les|all(?:\s+the)?)\s+)?(?:(?:rubrique|section)\s+)?(?:activites?|loisirs?|interets?|activities|interests|hobbies)$/,
+    languages: /^(?:(?:les|mes|the|my|toutes?\s+les|all(?:\s+the)?)\s+)?(?:(?:rubrique|section)\s+)?(?:langues|languages)$/,
+};
+
+const getCvRemovalObjectSegment = (context = '') => {
+    const source = normalizeCvOperationIntentText(context).replace(/[’']/g, ' ');
+    if (!source) return '';
+
+    const actionMatch = source.match(CV_REMOVE_ACTION_PATTERN);
+    if (!actionMatch) return '';
+
+    const afterAction = source.slice((actionMatch.index || 0) + actionMatch[0].length);
+    const stopMatch = /\b(?:dans|in|from|de|du|des|for|pour|sur|on|under|within)\b/.exec(afterAction);
+    const objectSegment = (stopMatch ? afterAction.slice(0, stopMatch.index) : afterAction)
+        .replace(/^[\s,:;.!?\-–—]+|[\s,:;.!?\-–—]+$/g, '')
+        .trim();
+
+    return objectSegment;
+};
+
+const hasExplicitWholeSectionRemovalIntent = (contexts = [], sectionKey = '') => {
+    const pattern = CV_WHOLE_SECTION_REMOVAL_OBJECT_PATTERNS[sectionKey];
+    if (!(pattern instanceof RegExp) || !Array.isArray(contexts) || !contexts.length) {
+        return false;
+    }
+
+    return contexts.some((context) => pattern.test(getCvRemovalObjectSegment(context)));
+};
+
 const normalizeCvLayoutChoice = (value, allowed, aliases = {}, fallback = 'auto') => {
     const source = stripAccents(normalizeText(value).toLowerCase())
         .replace(/[^a-z0-9]+/g, '-')
@@ -7357,13 +7435,11 @@ const normalizeCvLayoutChoice = (value, allowed, aliases = {}, fallback = 'auto'
     return allowed.has(normalized) ? normalized : fallback;
 };
 
-const sanitizeCvLayout = (value, { instruction = '' } = {}) => {
+const sanitizeCvLayout = (value) => {
     const layout = value && typeof value === 'object' ? value : {};
-    const explicitlyRemovable = getExplicitCvSectionRemovalKeys(instruction);
     const removeSections = (Array.isArray(layout.removeSections) ? layout.removeSections : [])
         .map(normalizeCvLayoutSection)
         .filter(Boolean)
-        .filter((item) => explicitlyRemovable.has(item))
         .filter((item, index, list) => list.indexOf(item) === index)
         .slice(0, 4);
     const template = normalizeCvLayoutChoice(layout.template || layout.templateId || layout.model, CV_LAYOUT_TEMPLATES, {
@@ -7427,18 +7503,450 @@ const CV_OPERATION_TYPES = new Set([
 ]);
 const CV_OPERATION_FIELDS = new Set(['experience', 'languages', 'fullName', 'location', 'phone', 'email', 'permit', 'headline', 'summary', 'skills', 'education', 'activities', 'projects']);
 
-const sanitizeCvOperation = (value) => {
+const CV_GENERIC_OPERATION_KIND_ALIASES = new Map([
+    ['add', 'add'],
+    ['ajouter', 'add'],
+    ['ajout', 'add'],
+    ['insert', 'add'],
+    ['append', 'add'],
+    ['upsert', 'add'],
+    ['remove', 'remove'],
+    ['delete', 'remove'],
+    ['drop', 'remove'],
+    ['supprimer', 'remove'],
+    ['retrait', 'remove'],
+    ['retirer', 'remove'],
+    ['replace', 'replace'],
+    ['swap', 'replace'],
+    ['remplacer', 'replace'],
+    ['move', 'move'],
+    ['reorder', 'move'],
+    ['sort', 'move'],
+    ['deplacer', 'move'],
+    ['placer', 'move'],
+    ['correct', 'correct'],
+    ['update', 'correct'],
+    ['set', 'correct'],
+    ['fix', 'correct'],
+    ['corriger', 'correct'],
+    ['modifier', 'correct'],
+    ['translate', 'translate'],
+    ['traduire', 'translate'],
+    ['translation', 'translate'],
+    ['restructure', 'restructure'],
+    ['layout', 'restructure'],
+    ['format', 'restructure'],
+    ['restructurer', 'restructure'],
+    ['mise_en_page', 'restructure'],
+]);
+
+const CV_OPERATION_FIELD_ALIASES = new Map([
+    ['experience', 'experience'],
+    ['experiences', 'experience'],
+    ['work_experience', 'experience'],
+    ['professional_experience', 'experience'],
+    ['skills', 'skills'],
+    ['skill', 'skills'],
+    ['competence', 'skills'],
+    ['competences', 'skills'],
+    ['languages', 'languages'],
+    ['language', 'languages'],
+    ['langue', 'languages'],
+    ['langues', 'languages'],
+    ['full_name', 'fullName'],
+    ['fullname', 'fullName'],
+    ['name', 'fullName'],
+    ['nom', 'fullName'],
+    ['location', 'location'],
+    ['city', 'location'],
+    ['ville', 'location'],
+    ['phone', 'phone'],
+    ['telephone', 'phone'],
+    ['mobile', 'phone'],
+    ['email', 'email'],
+    ['mail', 'email'],
+    ['permit', 'permit'],
+    ['licence', 'permit'],
+    ['license', 'permit'],
+    ['headline', 'headline'],
+    ['title', 'headline'],
+    ['summary', 'summary'],
+    ['profile', 'summary'],
+    ['education', 'education'],
+    ['formation', 'education'],
+    ['formations', 'education'],
+    ['activities', 'activities'],
+    ['activity', 'activities'],
+    ['projects', 'projects'],
+    ['project', 'projects'],
+]);
+
+const CV_MULTILINE_OPERATION_FIELDS = new Set([
+    'experience',
+    'skills',
+    'education',
+    'activities',
+    'projects',
+    'languages',
+]);
+
+const normalizeCvGenericToken = (value = '') =>
+    stripAccents(normalizeText(value).toLowerCase())
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+
+const normalizeCvGenericOperationKind = (value = '') => {
+    const token = normalizeCvGenericToken(value);
+    return CV_GENERIC_OPERATION_KIND_ALIASES.get(token) || '';
+};
+
+const normalizeCvOperationFieldName = (value = '') => {
+    if (CV_OPERATION_FIELDS.has(value)) {
+        return value;
+    }
+    const token = normalizeCvGenericToken(value);
+    const mapped = CV_OPERATION_FIELD_ALIASES.get(token) || '';
+    return CV_OPERATION_FIELDS.has(mapped) ? mapped : '';
+};
+
+const getCvGenericOperationProperty = (value = {}) =>
+    normalizeCvGenericToken(
+        value.property
+        || value.attribute
+        || value.path
+        || (value.target && value.target.property)
+        || (value.target && value.target.path)
+        || '',
+    );
+
+const getCvGenericOperationTarget = (value = {}) =>
+    value && typeof value.target === 'object' && value.target
+        ? value.target
+        : {};
+
+const getCvGenericOperationItems = (value = {}) => {
+    if (Array.isArray(value.items)) return value.items;
+    if (Array.isArray(value.order)) return value.order;
+    if (Array.isArray(value.sequence)) return value.sequence;
+    if (Array.isArray(value.value)) return value.value;
+    if (Array.isArray(value.target && value.target.items)) return value.target.items;
+    return [];
+};
+
+const getCvGenericOperationTextValue = (value = {}) => {
+    if (Array.isArray(value.value)) {
+        return value.value.join('\n');
+    }
+    return value.value
+        || value.newValue
+        || value.to
+        || value.text
+        || value.level
+        || value.period
+        || '';
+};
+
+const getCvGenericOperationCurrentValue = (value = {}, target = {}) =>
+    target.currentValue
+    || target.current
+    || value.currentValue
+    || value.from
+    || value.oldValue
+    || value.match
+    || value.previous
+    || '';
+
+const getCvGenericOperationPosition = (value = {}, target = {}) => {
+    if (value.position && typeof value.position === 'object') {
+        return value.position;
+    }
+    if ((target.before && typeof target.before === 'object') || (target.after && typeof target.after === 'object')) {
+        return {
+            before: target.before,
+            after: target.after,
+        };
+    }
+    if ((value.before && typeof value.before === 'object') || (value.after && typeof value.after === 'object')) {
+        return {
+            before: value.before,
+            after: value.after,
+        };
+    }
+    return null;
+};
+
+const getCvGenericOperationReason = (value = {}) =>
+    value.reason || value.summary || value.explanation || '';
+
+const convertGenericCvOperationToLegacy = (value) => {
     if (!value || typeof value !== 'object') {
         return null;
     }
 
-    const type = limitCvText(value.type || value.action, 48);
+    const kind = normalizeCvGenericOperationKind(
+        value.kind || value.op || value.operation || value.type || value.action,
+    );
+    if (!kind || kind === 'translate') {
+        return null;
+    }
+
+    const field = normalizeCvOperationFieldName(
+        value.field || value.scope || value.section || value.collection || value.domain,
+    );
+    const target = getCvGenericOperationTarget(value);
+    const property = getCvGenericOperationProperty(value);
+    const textValue = getCvGenericOperationTextValue(value);
+    const currentValue = getCvGenericOperationCurrentValue(value, target);
+    const items = getCvGenericOperationItems(value);
+    const position = getCvGenericOperationPosition(value, target);
+    const reason = getCvGenericOperationReason(value);
+    const sectionCandidate = normalizeCvLayoutSection(value.section || target.section || target.label || '');
+
+    const withCommon = (operation = {}) => ({
+        ...operation,
+        reason: operation.reason || reason,
+    });
+
+    if (kind === 'add') {
+        if (field === 'experience' || value.experience || value.entry || value.item) {
+            return withCommon({
+                type: 'add_experience',
+                field: 'experience',
+                experience: value.experience || value.entry || value.item,
+                target,
+            });
+        }
+        if (field === 'skills') {
+            return withCommon({
+                type: 'add_skill',
+                field: 'skills',
+                value: textValue || (items[0] || ''),
+                target,
+            });
+        }
+        if (field === 'languages') {
+            return withCommon({
+                type: 'upsert_language',
+                field: 'languages',
+                target: {
+                    ...target,
+                    label: target.label || value.language || value.name || '',
+                    currentValue,
+                },
+                value: textValue,
+            });
+        }
+        if (field && textValue) {
+            return withCommon({
+                type: 'set_field',
+                field,
+                value: textValue,
+                target,
+            });
+        }
+        return null;
+    }
+
+    if (kind === 'remove') {
+        const impliedSection = sectionCandidate
+            || (!currentValue && !textValue && field && CV_LAYOUT_SECTION_KEYS.has(field) ? field : '');
+
+        if (impliedSection
+            && !Number.isInteger(target.index)
+            && !target.title
+            && !target.organization
+            && !currentValue
+            && !textValue) {
+            return withCommon({
+                type: 'remove_section',
+                field: impliedSection,
+                target: {
+                    ...target,
+                    label: target.label || impliedSection,
+                },
+            });
+        }
+
+        if (field === 'experience' && ['bullet', 'bullets', 'mission', 'missions', 'description'].includes(property)) {
+            return withCommon({
+                type: 'remove_experience_bullet',
+                field: 'experience',
+                target,
+                value: textValue || currentValue,
+            });
+        }
+
+        if (field === 'experience') {
+            return withCommon({
+                type: 'remove_experience',
+                field: 'experience',
+                target,
+            });
+        }
+
+        if (field) {
+            return withCommon({
+                type: 'remove_text',
+                field,
+                target: {
+                    ...target,
+                    currentValue: currentValue || textValue,
+                },
+                value: '',
+            });
+        }
+
+        if (currentValue || textValue) {
+            return withCommon({
+                type: 'remove_text',
+                field: '',
+                target: {
+                    ...target,
+                    currentValue: currentValue || textValue,
+                },
+                value: '',
+            });
+        }
+        return null;
+    }
+
+    if (kind === 'replace' || kind === 'correct') {
+        if (field === 'experience' && (property === 'title' || property === 'role')) {
+            return withCommon({
+                type: 'update_experience_title',
+                field: 'experience',
+                target,
+                value: textValue,
+            });
+        }
+        if (field === 'experience'
+            && (
+                ['date', 'dates', 'period', 'periode', 'timeline'].includes(property)
+                || target.datePart
+            )) {
+            return withCommon({
+                type: 'update_experience_date',
+                field: 'experience',
+                target,
+                value: textValue,
+            });
+        }
+        if (field === 'experience' && ['bullet', 'bullets', 'mission', 'missions', 'description'].includes(property)) {
+            return withCommon({
+                type: 'set_experience_bullets',
+                field: 'experience',
+                target,
+                value: textValue,
+                experience: value.experience || value.entry || value.item,
+            });
+        }
+        if (field === 'languages' && (target.label || value.language || textValue)) {
+            return withCommon({
+                type: 'upsert_language',
+                field: 'languages',
+                target: {
+                    ...target,
+                    label: target.label || value.language || value.name || '',
+                },
+                value: textValue,
+            });
+        }
+        if (field && (currentValue || property === 'text')) {
+            return withCommon({
+                type: 'replace_text',
+                field,
+                target: {
+                    ...target,
+                    currentValue,
+                },
+                value: textValue,
+            });
+        }
+        if (field && textValue) {
+            return withCommon({
+                type: 'set_field',
+                field,
+                target,
+                value: textValue,
+            });
+        }
+        return null;
+    }
+
+    if (kind === 'move' || kind === 'restructure') {
+        if (field === 'experience') {
+            if (position && (position.before || position.after)) {
+                return withCommon({
+                    type: 'reorder_experiences',
+                    field: 'experience',
+                    target,
+                    position,
+                    value: textValue,
+                });
+            }
+
+            if (items.length) {
+                return withCommon({
+                    type: 'reorder_experiences',
+                    field: 'experience',
+                    target,
+                    items,
+                    value: items.join('|'),
+                });
+            }
+
+            if (textValue) {
+                return withCommon({
+                    type: 'sort_experiences',
+                    field: 'experience',
+                    value: textValue,
+                    target,
+                });
+            }
+        }
+
+        if (field === 'skills' && items.length) {
+            return withCommon({
+                type: 'reorder_skills',
+                field: 'skills',
+                items,
+                value: items.join('\n'),
+                target,
+            });
+        }
+
+        return null;
+    }
+
+    return null;
+};
+
+const normalizeCvOperationPayload = (value) => {
+    if (!value || typeof value !== 'object') {
+        return null;
+    }
+
+    const explicitType = limitCvText(value.type || value.action, 48);
+    if (CV_OPERATION_TYPES.has(explicitType)) {
+        return value;
+    }
+
+    return convertGenericCvOperationToLegacy(value);
+};
+
+const sanitizeCvOperation = (value) => {
+    const payload = normalizeCvOperationPayload(value);
+    if (!payload || typeof payload !== 'object') {
+        return null;
+    }
+
+    const type = limitCvText(payload.type || payload.action, 48);
     if (!CV_OPERATION_TYPES.has(type)) {
         return null;
     }
 
-    const rawTarget = value.target && typeof value.target === 'object' ? value.target : {};
-    const rawPosition = value.position && typeof value.position === 'object' ? value.position : {};
+    const rawTarget = payload.target && typeof payload.target === 'object' ? payload.target : {};
+    const rawPosition = payload.position && typeof payload.position === 'object' ? payload.position : {};
     const sanitizePositionTarget = (positionTarget) => {
         const source = positionTarget && typeof positionTarget === 'object' ? positionTarget : {};
         return {
@@ -7447,20 +7955,20 @@ const sanitizeCvOperation = (value) => {
             date: limitCvText(source.date || source.period || source.dates || source.currentValue, 80),
         };
     };
-    const rawIndex = Number.isInteger(rawTarget.index) ? rawTarget.index : Number.isInteger(value.index) ? value.index : null;
-    const field = CV_OPERATION_FIELDS.has(value.field) ? value.field : '';
-    const rawItems = Array.isArray(value.items)
-        ? value.items
-        : Array.isArray(value.value)
-            ? value.value
+    const rawIndex = Number.isInteger(rawTarget.index) ? rawTarget.index : Number.isInteger(payload.index) ? payload.index : null;
+    const field = CV_OPERATION_FIELDS.has(payload.field) ? payload.field : '';
+    const rawItems = Array.isArray(payload.items)
+        ? payload.items
+        : Array.isArray(payload.value)
+            ? payload.value
             : type === 'reorder_skills'
-                ? String(value.value || '').split(/\r?\n|\s*\|\s*/)
+                ? String(payload.value || '').split(/\r?\n|\s*\|\s*/)
                 : [];
     const items = toCvStringList(rawItems, CV_MAX_SKILLS, CV_MAX_SKILL_CHARS);
-    const rawValue = Array.isArray(value.value)
-        ? value.value.join('\n')
-        : value.value || value.newValue || value.date || value.level;
-    const rawDatePart = stripAccents(limitCvText(rawTarget.datePart || value.datePart || value.boundary, 24).toLowerCase());
+    const rawValue = Array.isArray(payload.value)
+        ? payload.value.join('\n')
+        : payload.value || payload.newValue || payload.date || payload.level;
+    const rawDatePart = stripAccents(limitCvText(rawTarget.datePart || payload.datePart || payload.boundary, 24).toLowerCase());
     const datePart = ({
         debut: 'start',
         start: 'start',
@@ -7479,23 +7987,266 @@ const sanitizeCvOperation = (value) => {
         field,
         target: {
             index: rawIndex,
-            label: limitCvText(rawTarget.label || rawTarget.name || value.targetLabel, 120),
+            label: limitCvText(rawTarget.label || rawTarget.name || payload.targetLabel, 120),
             title: limitCvText(rawTarget.title || rawTarget.role, 120),
             organization: limitCvText(rawTarget.organization || rawTarget.company || rawTarget.meta, 120),
-            currentValue: limitCvText(rawTarget.currentValue || rawTarget.current || value.currentValue, 160),
+            currentValue: limitCvText(rawTarget.currentValue || rawTarget.current || payload.currentValue, 160),
             ...(datePart ? { datePart } : {}),
         },
         value: type === 'add_skill'
             ? limitCvText(rawValue, CV_MAX_SKILL_CHARS)
             : limitCvMultilineText(rawValue, 6000),
         items,
-        experience: sanitizeCvGeneratedExperience(value.experience || value.entry || value.item),
+        experience: sanitizeCvGeneratedExperience(payload.experience || payload.entry || payload.item),
         position: {
-            before: sanitizePositionTarget(rawPosition.before || value.before),
-            after: sanitizePositionTarget(rawPosition.after || value.after),
+            before: sanitizePositionTarget(rawPosition.before || payload.before),
+            after: sanitizePositionTarget(rawPosition.after || payload.after),
         },
-        reason: limitCvText(value.reason || value.summary, 180),
+        reason: limitCvText(payload.reason || payload.summary, 180),
     };
+};
+
+const normalizeCvOperationSafetyKey = (value = '') =>
+    stripAccents(normalizeText(String(value || '').toLowerCase()))
+        .replace(/[^a-z0-9]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+const cvOperationSafetyTextsMatch = (left = '', right = '') => {
+    const leftKey = normalizeCvOperationSafetyKey(left);
+    const rightKey = normalizeCvOperationSafetyKey(right);
+    if (!leftKey || !rightKey) return false;
+    return leftKey === rightKey || leftKey.includes(rightKey) || rightKey.includes(leftKey);
+};
+
+const getCvOperationFieldText = (cv = {}, field = '') => {
+    if (!CV_OPERATION_FIELDS.has(field)) return '';
+    const raw = cv && Object.prototype.hasOwnProperty.call(cv, field) ? cv[field] : '';
+    return normalize(raw);
+};
+
+const countCvOperationTargetMatchesInField = (cv = {}, field = '', targetValue = '') => {
+    const normalizedTarget = normalizeCvOperationSafetyKey(targetValue);
+    if (!normalizedTarget || !CV_OPERATION_FIELDS.has(field)) {
+        return 0;
+    }
+
+    const fieldText = getCvOperationFieldText(cv, field);
+    if (!fieldText) {
+        return 0;
+    }
+
+    if (CV_MULTILINE_OPERATION_FIELDS.has(field)) {
+        return fieldText
+            .split(/\r?\n/)
+            .map((line) => normalizeCvOperationSafetyKey(line))
+            .filter(Boolean)
+            .filter((line) => line === normalizedTarget).length;
+    }
+
+    const normalizedFieldText = normalizeCvOperationSafetyKey(fieldText);
+    if (!normalizedFieldText) {
+        return 0;
+    }
+
+    const haystack = ` ${normalizedFieldText} `;
+    const needle = ` ${normalizedTarget} `;
+    let matches = 0;
+    let cursor = 0;
+    while (needle.trim() && cursor < haystack.length) {
+        const position = haystack.indexOf(needle, cursor);
+        if (position === -1) break;
+        matches += 1;
+        cursor = position + Math.max(needle.length, 1);
+    }
+
+    if (!matches && haystack.includes(normalizedTarget)) {
+        return 1;
+    }
+
+    return matches;
+};
+
+const countCvOperationTargetMatches = (cv = {}, field = '', targetValue = '') => {
+    const fields = field && CV_OPERATION_FIELDS.has(field)
+        ? [field]
+        : [...CV_OPERATION_FIELDS];
+
+    return fields.reduce(
+        (total, fieldName) => total + countCvOperationTargetMatchesInField(cv, fieldName, targetValue),
+        0,
+    );
+};
+
+const findCvOperationExperienceCandidates = (operation = {}, cv = {}) => {
+    const entries = buildCvDocumentModel(cv).experience;
+    const target = operation.target || {};
+
+    if (Number.isInteger(target.index)) {
+        return target.index >= 0 && target.index < entries.length ? [entries[target.index]] : [];
+    }
+
+    const hasIdentity = Boolean(target.title || target.organization || target.currentValue);
+    if (!hasIdentity) {
+        return [];
+    }
+
+    return entries.filter((entry) => {
+        if (target.title && !cvOperationSafetyTextsMatch(entry.title, target.title)) {
+            return false;
+        }
+        if (target.organization && !cvOperationSafetyTextsMatch(entry.organization, target.organization)) {
+            return false;
+        }
+        if (target.currentValue
+            && !cvOperationSafetyTextsMatch(entry.period, target.currentValue)
+            && !cvOperationSafetyTextsMatch(entry.sourceLine, target.currentValue)) {
+            return false;
+        }
+        return true;
+    });
+};
+
+const cvOperationHasUniqueExperienceTarget = (operation = {}, cv = {}) =>
+    findCvOperationExperienceCandidates(operation, cv).length === 1;
+
+const cvOperationPositionTargetMatchesExperience = (positionTarget = {}, experience = {}) => {
+    const hasIdentity = Boolean(positionTarget.title || positionTarget.organization || positionTarget.date);
+    if (!hasIdentity) return false;
+    if (positionTarget.title && !cvOperationSafetyTextsMatch(experience.title, positionTarget.title)) return false;
+    if (positionTarget.organization && !cvOperationSafetyTextsMatch(experience.organization, positionTarget.organization)) return false;
+    if (positionTarget.date
+        && !cvOperationSafetyTextsMatch(experience.period, positionTarget.date)
+        && !cvOperationSafetyTextsMatch(experience.sourceLine, positionTarget.date)) return false;
+    return true;
+};
+
+const cvOperationHasUniquePositionTarget = (positionTarget = {}, cv = {}) => {
+    const entries = buildCvDocumentModel(cv).experience;
+    const matches = entries.filter((entry) => cvOperationPositionTargetMatchesExperience(positionTarget, entry));
+    return matches.length === 1;
+};
+
+const getCvOperationOrderTitles = (operation = {}) => {
+    const fromItems = toCvStringList(operation.items, CV_MAX_EXPERIENCES, 220);
+    if (fromItems.length) return fromItems;
+    return toCvStringList(String(operation.value || '').split(/\r?\n|\s*\|\s*/), CV_MAX_EXPERIENCES, 220);
+};
+
+const isCvOperationStructurallySafe = (operation = {}, cv = {}) => {
+    if (!operation || !CV_OPERATION_TYPES.has(operation.type)) {
+        return false;
+    }
+
+    const target = operation.target || {};
+    const field = CV_OPERATION_FIELDS.has(operation.field) ? operation.field : '';
+    const textValue = normalize(operation.value);
+
+    switch (operation.type) {
+    case 'add_experience': {
+        const experience = operation.experience || {};
+        const hasPayload = Boolean(experience.title || experience.organization || experience.period || (experience.description || []).length);
+        if (!hasPayload) return false;
+
+        const existing = buildCvDocumentModel(cv).experience;
+        const candidateKey = normalizeCvOperationSafetyKey(`${experience.title || ''} ${experience.organization || ''} ${experience.period || ''}`);
+        if (!candidateKey) return false;
+        const duplicate = existing.some((item) => normalizeCvOperationSafetyKey(`${item.title || ''} ${item.organization || ''} ${item.period || ''}`) === candidateKey);
+        return !duplicate;
+    }
+    case 'add_skill': {
+        if (field !== 'skills' || !textValue || /\r|\n/.test(textValue)) return false;
+        const existing = getCvOperationFieldText(cv, 'skills')
+            .split(/\r?\n/)
+            .map((line) => normalizeCvOperationSafetyKey(line))
+            .filter(Boolean);
+        const candidate = normalizeCvOperationSafetyKey(textValue);
+        return Boolean(candidate) && !existing.includes(candidate);
+    }
+    case 'update_experience_title':
+        return field === 'experience' && Boolean(textValue) && cvOperationHasUniqueExperienceTarget(operation, cv);
+    case 'update_experience_date':
+        return field === 'experience' && Boolean(textValue) && cvOperationHasUniqueExperienceTarget(operation, cv);
+    case 'set_experience_bullets': {
+        const hasBullets = Boolean(operation.experience && Array.isArray(operation.experience.description) && operation.experience.description.length)
+            || Boolean(textValue);
+        return field === 'experience' && hasBullets && cvOperationHasUniqueExperienceTarget(operation, cv);
+    }
+    case 'normalize_experience_dates':
+        return buildCvDocumentModel(cv).experience.some((entry) => entry.chronology && entry.chronology.hasDate);
+    case 'remove_experience_bullet':
+        return field === 'experience' && Boolean(textValue || target.currentValue) && cvOperationHasUniqueExperienceTarget(operation, cv);
+    case 'upsert_language':
+        return field === 'languages' && Boolean(target.label || textValue);
+    case 'set_field': {
+        if (!field || field === 'experience') return false;
+        if (textValue) return true;
+
+        // Une valeur vide correspond a une suppression explicite. On ne
+        // l'autorise que si la cible actuelle est fournie et correspond bien
+        // au contenu existant du champ.
+        const currentFieldText = getCvOperationFieldText(cv, field);
+        const targetValue = normalize(target.currentValue);
+        if (!currentFieldText || !targetValue) return false;
+
+        if (CV_MULTILINE_OPERATION_FIELDS.has(field)) {
+            return normalizeCvOperationSafetyKey(currentFieldText) === normalizeCvOperationSafetyKey(targetValue);
+        }
+
+        return cvOperationSafetyTextsMatch(currentFieldText, targetValue);
+    }
+    case 'replace_text': {
+        if (!textValue || !target.currentValue) return false;
+        return countCvOperationTargetMatches(cv, field, target.currentValue) === 1;
+    }
+    case 'remove_text': {
+        if (!target.currentValue) return false;
+        return countCvOperationTargetMatches(cv, field, target.currentValue) === 1;
+    }
+    case 'remove_section': {
+        const section = normalizeCvLayoutSection(field || target.label || target.title || target.currentValue || textValue);
+        return Boolean(section) && Boolean(getCvOperationFieldText(cv, section));
+    }
+    case 'reorder_experiences': {
+        const model = buildCvDocumentModel(cv);
+        if (model.experience.length < 2) return false;
+        const hasMoveTarget = cvOperationHasUniqueExperienceTarget(operation, cv);
+        const beforeTarget = operation.position && operation.position.before ? operation.position.before : {};
+        const afterTarget = operation.position && operation.position.after ? operation.position.after : {};
+        const hasBefore = Boolean(beforeTarget.title || beforeTarget.organization || beforeTarget.date);
+        const hasAfter = Boolean(afterTarget.title || afterTarget.organization || afterTarget.date);
+
+        if (hasBefore || hasAfter) {
+            if (!hasMoveTarget) return false;
+            if (hasBefore && !cvOperationHasUniquePositionTarget(beforeTarget, cv)) return false;
+            if (hasAfter && !cvOperationHasUniquePositionTarget(afterTarget, cv)) return false;
+            return true;
+        }
+
+        const requestedOrder = getCvOperationOrderTitles(operation);
+        if (requestedOrder.length < 2) return false;
+        const existingTitles = model.experience.map((entry) => normalizeCvOperationSafetyKey(entry.title));
+        const requestedTitles = requestedOrder.map((title) => normalizeCvOperationSafetyKey(title)).filter(Boolean);
+        if (requestedTitles.length < 2) return false;
+        return requestedTitles.every((title) => existingTitles.includes(title));
+    }
+    case 'reorder_skills': {
+        const requestedOrder = toCvStringList(operation.items, CV_MAX_SKILLS, CV_MAX_SKILL_CHARS);
+        if (field !== 'skills' || requestedOrder.length < 2) return false;
+        const existing = getCvOperationFieldText(cv, 'skills')
+            .split(/\r?\n/)
+            .map((line) => normalizeCvOperationSafetyKey(line))
+            .filter(Boolean);
+        const requested = requestedOrder.map((item) => normalizeCvOperationSafetyKey(item)).filter(Boolean);
+        return requested.length >= 2 && requested.every((item) => existing.includes(item));
+    }
+    case 'sort_experiences':
+        return buildCvDocumentModel(cv).experience.length >= 2;
+    case 'remove_experience':
+        return field === 'experience' && cvOperationHasUniqueExperienceTarget(operation, cv);
+    default:
+        return false;
+    }
 };
 
 const cvOperationTargetsValidatedLastEdit = (operation, lastEdit) => {
@@ -7866,6 +8617,7 @@ const cvOperationTargetsAffirmativeContext = (operation, contexts = []) => {
 const cvRemovalOperationMatchesIntent = (operation, intent) => {
     const contexts = intent.removalContexts;
     if (!contexts.length) return false;
+    const contextsText = contexts.join(' ');
 
     if (operation.type === 'remove_section') {
         const section = normalizeCvLayoutSection(
@@ -7880,6 +8632,30 @@ const cvRemovalOperationMatchesIntent = (operation, intent) => {
 
     if (operation.type === 'remove_experience' && intent.removeAllExperiences) {
         return true;
+    }
+
+    if (operation.type === 'remove_text' && operation.field === 'languages') {
+        if (!CV_INTENT_FALLBACK_LANGUAGE_SCOPE.test(contextsText)) {
+            return cvOperationTargetsAffirmativeContext(operation, contexts);
+        }
+
+        const requestedLanguage = getCvIntentLanguageKey(contextsText);
+        const targetLine = String(operation.target && operation.target.currentValue || '');
+        const targetLabel = String(targetLine).split(/\s*[:–—-]\s*/)[0] || '';
+        if (requestedLanguage && getCvIntentLanguageKey(targetLabel) === requestedLanguage) {
+            return true;
+        }
+
+        return Boolean(selectBestCvLineBySemanticOverlap([targetLine], contextsText));
+    }
+
+    if (operation.type === 'remove_text' && operation.field === 'activities') {
+        if (!CV_INTENT_FALLBACK_ACTIVITY_SCOPE.test(contextsText)) {
+            return cvOperationTargetsAffirmativeContext(operation, contexts);
+        }
+
+        const targetLine = String(operation.target && operation.target.currentValue || '');
+        return Boolean(selectBestCvLineBySemanticOverlap([targetLine], contextsText));
     }
 
     return cvOperationTargetsAffirmativeContext(operation, contexts);
@@ -8157,8 +8933,27 @@ const cvCorrectionOperationMatchesIntent = (operation, intent) => {
             // etc.) : c'est une suppression, elle doit etre explicitement
             // demandee et ancree dans le texte de la consigne comme un
             // remove_text, jamais acceptee par defaut.
-            return intent.removalContexts.length > 0
-                && cvOperationTargetsAffirmativeContext(operation, intent.removalContexts);
+            const source = intent.source || '';
+            const hasRemovalSignal = intent.removalContexts.length > 0
+                || CV_INTENT_FALLBACK_HIDE_PATTERN.test(source)
+                || /\b(?:supprim(?:e|es|ons|ez|er)|retir(?:e|es|ons|ez|er)|enlev(?:e|es|ons|ez|er)|effac(?:e|es|ons|ez|er)|remov(?:e|es|ed|ing)|delet(?:e|es|ed|ing)|drop(?:s|ped|ping)?)\b/.test(source);
+            if (!hasRemovalSignal) {
+                return false;
+            }
+
+            if (cvOperationTargetsAffirmativeContext(operation, intent.removalContexts)) {
+                return true;
+            }
+
+            const fieldScopeMatches = {
+                fullName: CV_INTENT_FALLBACK_NAME_SCOPE,
+                location: CV_INTENT_FALLBACK_LOCATION_SCOPE,
+                phone: CV_INTENT_FALLBACK_PHONE_SCOPE,
+                email: CV_INTENT_FALLBACK_EMAIL_SCOPE,
+                permit: CV_INTENT_FALLBACK_PERMIT_SCOPE,
+            };
+            const scopePattern = fieldScopeMatches[operation.field];
+            return Boolean(scopePattern && scopePattern.test(source));
         }
         const scope = CV_OPERATION_FIELD_SCOPES[operation.field];
         return Boolean(scope && (hasScope(scope) || intent.generalCorrection));
@@ -8352,6 +9147,22 @@ const withDeterministicCvIntentOperations = ({
         || directFieldRemovalVerb.test(source);
 
     if (hasRemovalIntent) {
+        const explicitSectionRemovals = getExplicitCvSectionRemovalKeys(contexts);
+        explicitSectionRemovals.forEach((sectionKey) => {
+            if (!sectionKey) return;
+            if (!hasExplicitWholeSectionRemovalIntent(resolvedIntent.removalContexts, sectionKey)) return;
+            if (hasCvOperationForField(safeOperations, sectionKey)) return;
+            if (!getCvOperationFieldText(cv, sectionKey)) return;
+
+            addFallbackOperation({
+                type: 'remove_section',
+                field: sectionKey,
+                target: { label: sectionKey },
+                value: '',
+                reason: 'Suppression explicite de rubrique demandee.',
+            });
+        });
+
         if (!hasCvOperationForField(safeOperations, 'permit')
             && cv.permit
             && CV_INTENT_FALLBACK_PERMIT_SCOPE.test(contexts)) {
@@ -8457,22 +9268,21 @@ const withDeterministicCvIntentOperations = ({
     return safeOperations.slice(0, 32);
 };
 
-const sanitizeCvOperations = (value, { instruction = '', intent = null } = {}) => {
-    const resolvedIntent = intent || getCvOperationIntent(instruction);
-    const groundedSkillAddition = getStrictlyGroundedCvSkillAddition(
-        instruction || resolvedIntent.source,
-        resolvedIntent,
-    );
+const sanitizeCvOperations = (value, { cv = {}, interaction = null } = {}) => {
+    const languageContext = {
+        existingLanguageLines: normalize(cv && cv.languages)
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter(Boolean),
+    };
+    const lastEdit = interaction && interaction.lastEdit ? interaction.lastEdit : null;
 
     return (Array.isArray(value) ? value : [])
         .map(sanitizeCvOperation)
         .filter(Boolean)
-        .map((operation) => canonicalizeCvLanguageTextOperation(operation, resolvedIntent))
-        .map((operation) => rebaseCvDateOperationFromLastEdit(operation, resolvedIntent.lastEdit))
-        .filter((operation) => cvOperationMatchesExplicitIntent(operation, resolvedIntent))
-        .map((operation) => operation.type === 'add_skill' && groundedSkillAddition
-            ? { ...operation, value: groundedSkillAddition }
-            : operation)
+        .map((operation) => canonicalizeCvLanguageTextOperation(operation, languageContext))
+        .map((operation) => rebaseCvDateOperationFromLastEdit(operation, lastEdit))
+        .filter((operation) => isCvOperationStructurallySafe(operation, cv))
         .slice(0, 32);
 };
 
@@ -8625,29 +9435,42 @@ const sanitizeCvEducationSuggestions = (...values) =>
 
 const sanitizeCvAssistantResult = (result, cv = {}, { instruction = '', interaction = null } = {}) => {
     const documentLanguage = getCvOutputLanguage({ cv, instruction });
-    const operationIntent = getCvOperationIntent(instruction, cv, {
-        lastEdit: interaction && interaction.lastEdit ? interaction.lastEdit : null,
-    });
-    const rawOperations = Array.isArray(result && result.operations) ? result.operations : [];
-    const sanitizedOperations = sanitizeCvOperations(rawOperations, { instruction, intent: operationIntent });
-    const operations = withDeterministicCvIntentOperations({
-        operations: sanitizedOperations,
+    const lastEdit = interaction && interaction.lastEdit ? interaction.lastEdit : null;
+    const intent = getCvOperationIntent(instruction, cv, { lastEdit });
+    const explicitGroundedSkillAddition = getStrictlyGroundedCvSkillAddition(instruction, intent);
+    const resultWithLegacyRecovery = recoverLegacyHeadlineOnlySkillAddition(result, instruction, intent);
+    const rawOperations = Array.isArray(resultWithLegacyRecovery && resultWithLegacyRecovery.operations)
+        ? resultWithLegacyRecovery.operations
+        : [];
+    const intentGuardedRawOperations = withDeterministicCvIntentOperations({
+        operations: rawOperations,
         cv,
         instruction,
-        intent: operationIntent,
+        intent,
     });
-    const targetedRequest = Boolean(
-        operationIntent.singlePage
-        || operationIntent.removalContexts.length
-        || operationIntent.additionContexts.length
-        || operationIntent.orderExperiences
-        || operationIntent.orderSkills
-        || (operationIntent.correctionContexts.length && !operationIntent.generalCorrection)
-    );
+    const intentFilteredOperations = intentGuardedRawOperations
+        .map(sanitizeCvOperation)
+        .filter(Boolean)
+        .filter((operation) => cvOperationMatchesExplicitIntent(operation, intent));
+    const canonicalIntentOperations = intentFilteredOperations.map((operation) => {
+        if (operation.type !== 'add_skill' || !explicitGroundedSkillAddition) {
+            return operation;
+        }
+        const sameSkill = normalizeExplicitCvSkillValue(operation.value)
+            === normalizeExplicitCvSkillValue(explicitGroundedSkillAddition);
+        return sameSkill
+            ? {
+                ...operation,
+                value: explicitGroundedSkillAddition,
+            }
+            : operation;
+    });
+    const operations = sanitizeCvOperations(canonicalIntentOperations, { cv, interaction });
+    const targetedRequest = intentGuardedRawOperations.length > 0;
     const operationSafety = {
         targetedRequest,
-        filteredAll: targetedRequest && rawOperations.length > 0 && sanitizedOperations.length === 0 && operations.length === 0,
-        rejectedCount: Math.max(0, rawOperations.length - sanitizedOperations.length),
+        filteredAll: targetedRequest && operations.length === 0,
+        rejectedCount: Math.max(0, intentGuardedRawOperations.length - operations.length),
     };
     const sourceExperienceTitles = getCvExperienceTitles(cv.experience);
     const sourceTitlesByNormalized = new Map(
@@ -8680,10 +9503,12 @@ const sanitizeCvAssistantResult = (result, cv = {}, { instruction = '', interact
     const operationOrderTitles = operations
         .filter((operation) => operation && operation.type === 'reorder_experiences')
         .flatMap((operation) => toCvStringList(String(operation.value || '').split('|'), CV_MAX_EXPERIENCES, 220));
-    const orderSource = operationIntent.orderExperiences
+    const hasExperienceOrderOperation = operations
+        .some((operation) => operation && ['reorder_experiences', 'sort_experiences'].includes(operation.type));
+    const orderSource = hasExperienceOrderOperation
         ? operationOrderTitles.length >= 2
             ? operationOrderTitles
-            : result && result.experienceOrder
+            : resultWithLegacyRecovery && resultWithLegacyRecovery.experienceOrder
         : sourceExperienceTitles;
     const orderedTitles = toCvStringList(orderSource, CV_MAX_EXPERIENCES, 220)
         .map(resolveExperienceOrderTitle)
@@ -8692,7 +9517,9 @@ const sanitizeCvAssistantResult = (result, cv = {}, { instruction = '', interact
     const safeExperienceOrder = orderedTitles.length >= Math.min(sourceExperienceTitles.length, 2)
         ? [...orderedTitles, ...sourceExperienceTitles.filter((title) => !orderedTitles.includes(title))]
         : sourceExperienceTitles;
-    const languages = (Array.isArray(result && result.languages) ? result.languages : [])
+    const languages = (Array.isArray(resultWithLegacyRecovery && resultWithLegacyRecovery.languages)
+        ? resultWithLegacyRecovery.languages
+        : [])
         .map((language) => normalizeCvLanguage(language, documentLanguage))
         .filter(Boolean)
         .filter((item, index, list) => list.findIndex((candidate) => stripAccents(candidate.language).toLowerCase() === stripAccents(item.language).toLowerCase()) === index)
@@ -8700,26 +9527,26 @@ const sanitizeCvAssistantResult = (result, cv = {}, { instruction = '', interact
 
     return {
         documentLanguage,
-        headline: limitCvText(result && result.headline, 300),
-        summary: limitCvText(result && result.summary, 5000),
-        skills: toCvStringList(result && result.skills, CV_MAX_SKILLS, CV_MAX_SKILL_CHARS),
+        headline: limitCvText(resultWithLegacyRecovery && resultWithLegacyRecovery.headline, 300),
+        summary: limitCvText(resultWithLegacyRecovery && resultWithLegacyRecovery.summary, 5000),
+        skills: toCvStringList(resultWithLegacyRecovery && resultWithLegacyRecovery.skills, CV_MAX_SKILLS, CV_MAX_SKILL_CHARS),
         experienceOrder: safeExperienceOrder,
         languages,
-        periodGaps: sanitizeCvPeriodGaps(result && result.periodGaps),
-        generatedExperiences: sanitizeCvGeneratedExperiences(result && result.generatedExperiences),
-        educationSuggestions: sanitizeCvEducationSuggestions(result && result.educationSuggestions, result && result.certificationSuggestions),
-        extracted: sanitizeCvExtraction(result && result.extracted, documentLanguage),
-        jobTarget: limitCvText(result && result.jobTarget, 90),
-        keywords: toCvStringList(result && result.keywords, 8, 60),
-        suggestedSkills: toCvStringList(result && result.suggestedSkills, 12, 80),
-        suggestions: toCvStringList(result && result.suggestions, 6, 180),
-        notice: limitCvText(result && result.notice, 260),
-        quality: sanitizeCvQuality(result && result.quality),
-        layout: sanitizeCvLayout(result && result.layout, { instruction }),
+        periodGaps: sanitizeCvPeriodGaps(resultWithLegacyRecovery && resultWithLegacyRecovery.periodGaps),
+        generatedExperiences: sanitizeCvGeneratedExperiences(resultWithLegacyRecovery && resultWithLegacyRecovery.generatedExperiences),
+        educationSuggestions: sanitizeCvEducationSuggestions(resultWithLegacyRecovery && resultWithLegacyRecovery.educationSuggestions, resultWithLegacyRecovery && resultWithLegacyRecovery.certificationSuggestions),
+        extracted: sanitizeCvExtraction(resultWithLegacyRecovery && resultWithLegacyRecovery.extracted, documentLanguage),
+        jobTarget: limitCvText(resultWithLegacyRecovery && resultWithLegacyRecovery.jobTarget, 90),
+        keywords: toCvStringList(resultWithLegacyRecovery && resultWithLegacyRecovery.keywords, 8, 60),
+        suggestedSkills: toCvStringList(resultWithLegacyRecovery && resultWithLegacyRecovery.suggestedSkills, 12, 80),
+        suggestions: toCvStringList(resultWithLegacyRecovery && resultWithLegacyRecovery.suggestions, 6, 180),
+        notice: limitCvText(resultWithLegacyRecovery && resultWithLegacyRecovery.notice, 260),
+        quality: sanitizeCvQuality(resultWithLegacyRecovery && resultWithLegacyRecovery.quality),
+        layout: sanitizeCvLayout(resultWithLegacyRecovery && resultWithLegacyRecovery.layout),
         operations,
         operationSafety,
-        bugReport: sanitizeCvBugReport(result && result.bugReport),
-        letter: sanitizeCvLetter(result && result.letter),
+        bugReport: sanitizeCvBugReport(resultWithLegacyRecovery && resultWithLegacyRecovery.bugReport),
+        letter: sanitizeCvLetter(resultWithLegacyRecovery && resultWithLegacyRecovery.letter),
     };
 };
 
@@ -9035,15 +9862,10 @@ const finalizeCvAssistantResult = ({ result, cv, task, jobOffer, instruction, in
     const explicitHeadline = narratedBuild
         ? ''
         : getExplicitCvHeadline(instruction, cv && cv.headline, cv && cv.documentLanguage);
-    const operationIntent = getCvOperationIntent(instruction, cv, {
-        lastEdit: interaction && interaction.lastEdit ? interaction.lastEdit : null,
-    });
     const modelMayChangeHeadline = Boolean(
         explicitHeadline
         || ['adapt', 'autofill', 'create'].includes(task)
         || isFullCvBuildRequest({ task, instruction })
-        || operationIntent.generalCorrection
-        || (operationIntent.correctionContexts.length && operationIntent.scopes.has('title'))
     );
     // Les champs de synthèse du modèle ne contournent jamais le contrôle des
     // opérations : sans intention de titre, une suggestion de titre parasite
@@ -9055,13 +9877,8 @@ const finalizeCvAssistantResult = ({ result, cv, task, jobOffer, instruction, in
             ? { ...(result || {}), operations: [] }
             : result
             : { ...(result || {}), headline: '', jobTarget: '' };
-    const recoveredIntentGuardedResult = recoverLegacyHeadlineOnlySkillAddition(
-        intentGuardedResult,
-        instruction,
-        operationIntent,
-    );
     const assistantResult = enhanceCvGapDrafts(
-        sanitizeCvAssistantResult(recoveredIntentGuardedResult, cv, { instruction, interaction }),
+        sanitizeCvAssistantResult(intentGuardedResult, cv, { instruction, interaction }),
         { cv, instruction, jobOffer },
     );
     const openEndedModelRole = getOpenEndedCvRoleFromAssistantResult(assistantResult);
@@ -13436,6 +14253,7 @@ const ensureCompleteCvAssistantResult = ({ result, cv, task, jobOffer, instructi
             const error = new Error('incomplete_cv_translation');
             error.code = 'incomplete_cv_translation';
             error.validationReason = assessment.reason;
+            console.error('[Kirby CV translation rejected]', assessment.reason);
             throw error;
         }
     }
@@ -14028,6 +14846,7 @@ const buildFallbackCvLetter = ({ cv, jobOffer, instruction, letter, role }) => {
 const buildFallbackCvAssistant = ({ task, cv, jobOffer, instruction, letter = {} }) => {
     const source = [cv.headline, cv.summary, cv.skills, cv.experience, cv.projects, cv.education, cv.languages, instruction, jobOffer].filter(Boolean).join(' ');
     const normalizedSource = stripAccents(source.toLowerCase());
+    const globalCleanupInstruction = isGlobalCvCleanupInstruction(instruction);
     const role = getCvRoleFromText(jobOffer) || getCvRoleFromText(instruction) || getCvRoleFromText(cv.headline);
     const isRetailRole = /^(Vendeur|Vendeuse|Employé|Employée)/.test(role);
     const existingSkills = normalize(cv.skills).split(/\r?\n/).map((item) => limitCvText(item, 80)).filter(Boolean);
@@ -14093,7 +14912,7 @@ const buildFallbackCvAssistant = ({ task, cv, jobOffer, instruction, letter = {}
     const normalizedInstruction = stripAccents(normalize(instruction).toLowerCase());
     const layout = {
         removeSections: [],
-        reflow: /\b(trou|espace vide|mise en page|equilibr|reequilibr|remonter|reorganis)\b/.test(normalizedInstruction),
+        reflow: globalCleanupInstruction || /\b(trou|espace vide|mise en page|equilibr|reequilibr|remonter|reorganis)\b/.test(normalizedInstruction),
         compact: /\b(compact|compacter)\b/.test(normalizedInstruction) || isCvSinglePageRequest(instruction),
     };
     const fallbackLetter = task === 'letter' || /\blettre|motivation\b/i.test(instruction)
@@ -14129,7 +14948,9 @@ const buildFallbackCvAssistant = ({ task, cv, jobOffer, instruction, letter = {}
         suggestedSkills: [...suggestedSkills, ...generatedSkillSuggestions],
         suggestions,
         quality: {
-            fixes: ['Compétences et sections analysées avant proposition.'],
+            fixes: [globalCleanupInstruction
+                ? 'Remise au propre globale préparée à partir du CV existant.'
+                : 'Compétences et sections analysées avant proposition.'],
             warnings: [
                 languages.some((language) => !language.level) ? 'Un niveau de langue reste à préciser.' : '',
                 periodGaps.length ? 'Une période vide doit être validée avant insertion dans le CV.' : '',
@@ -14140,6 +14961,8 @@ const buildFallbackCvAssistant = ({ task, cv, jobOffer, instruction, letter = {}
         letter: fallbackLetter,
         notice: role
             ? `Adaptation ${role} réalisée à partir des éléments présents dans le CV.`
+            : globalCleanupInstruction
+                ? 'Remise au propre globale préparée à partir des informations présentes dans le CV.'
             : 'Informations détectées et harmonisées à partir du CV.',
     }, cv, { instruction }), { cv, instruction });
 };
@@ -14188,21 +15011,21 @@ const buildOpenAiCvPrompt = ({ task, cv, jobOffer, instruction, documentText, do
     'Si la consigne demande d ajouter une experience personnelle, un projet, une autoformation, un benevolat ou une activite independante avec un intitule et une periode, utilise generatedExperiences meme sans entreprise classique. Ne demande pas un employeur quand le contexte peut etre Projet personnel / Autoformation.',
     'Ordre d affichage : conserve l ordre exact deja present dans cv.experience et cv.education. Ne propose un reorder_experiences ou un experienceOrder different que si la consigne demande explicitement un deplacement, un tri ou un nouvel ordre.',
     'Pour les formations/certifications non presentes mais mentionnees par l utilisateur (Ecole 42, Piscine informatique, Simplon, formations courtes, certificats, ateliers), renseigne educationSuggestions au lieu de les melanger aux experiences.',
-    'Si la consigne demande une correction ciblee, retourne une operation applicative dans operations. Ne remplace pas une correction par une proposition generique.',
+    'Si la consigne demande une correction ciblee, retourne une operation dans operations avec le schema compact : type parmi add, remove, replace, move, correct, translate, restructure. Ne remplace pas une correction par une proposition generique.',
     'Pour une modification locale, laisse vides les champs non demandes : ne renomme pas un poste, une entreprise, une date, une mission, le titre global, l accroche ou les competences si la consigne ne le demande pas explicitement.',
-    'Pour un deplacement avant/apres une autre experience explicitement demande, retourne une seule operation reorder_experiences avec position.before ou position.after.',
-    'Pour changer l ordre des competences, retourne une operation reorder_skills avec field skills et items contenant la liste finale complete. Ne supprime aucune competence qui n est pas explicitement retiree.',
-    'Pour ajouter une nouvelle competence explicitement citee, retourne une seule operation add_skill avec field skills et value egale a cette nouvelle ligne mot pour mot. Ne mets pas les competences existantes dans value et n utilise ni set_field ni replace_text pour cet ajout.',
+    'Pour un deplacement avant/apres une autre experience explicitement demande, retourne une seule operation type move avec field experience et position.before ou position.after.',
+    'Pour changer l ordre des competences, retourne une operation type move avec field skills et items contenant la liste finale complete. Ne supprime aucune competence qui n est pas explicitement retiree.',
+    'Pour ajouter une nouvelle competence explicitement citee, retourne une seule operation type add avec field skills et value egale a cette nouvelle ligne mot pour mot. Ne mets pas les competences existantes dans value.',
     getFullCvTranslationLanguage(instruction)
         ? `TRADUCTION COMPLETE DU CV : retourne l integralite du document dans extracted en ${getFullCvTranslationLanguage(instruction) === 'en' ? 'anglais' : 'francais'}, dans le meme ordre et avec exactement le meme nombre d experiences, competences, projets, formations, certifications, activites et langues que la source. Conserve strictement le nom, les coordonnees, les employeurs, organismes, dates, nombres et niveaux. Traduis le titre, le profil, les missions, competences, formations, activites ainsi que les noms et niveaux de langues. Remplace la version source : ne melange et ne duplique jamais les deux langues. Laisse operations vide ; une traduction complete est appliquee atomiquement depuis extracted.`
         : '',
-    'Pour une correction ciblee de phrase, ligne, date ou intitule, retourne uniquement l operation correspondante. Ne remplis pas headline, summary, skills, generatedExperiences, educationSuggestions, layout ou experienceOrder si ces champs ne sont pas demandes.',
+    'Pour une correction ciblee de phrase, ligne, date ou intitule, retourne uniquement l operation correspondante avec le type generique adequat. Ne remplis pas headline, summary, skills, generatedExperiences, educationSuggestions, layout ou experienceOrder si ces champs ne sont pas demandes.',
     'Correction de date atomique : reconnais comme equivalents les mois complets et abreges, avec ou sans point, accent ou majuscule (janvier/janv., fevrier/févr., aout/août, septembre/sept.). Une annee seule remplace uniquement l annee et conserve le mois ; un mois seul conserve l annee ; une date mois + annee remplace les deux. Dans une periode, debut/start cible la premiere borne et fin/end la seconde. Pour une experience non ambigue, retourne une seule update_experience_date avec target.currentValue = periode actuelle complete et value = periode finale complete. Pour une formation, un diplome, une certification, des etudes, un cursus, un training, un course ou un degree non ambigu, retourne une seule replace_text avec field education, target.title = intitule reel de la ligne, target.currentValue = date source exacte et value = date de remplacement. Pour un projet non ambigu, utilise le meme contrat avec field projects. Recopie mot pour mot chaque fragment non vise ; ne trie, ne reformate et ne recompose aucune ligne. Ne retourne ni normalize_experience_dates, sort_experiences, reorder_experiences, experienceOrder, ni changement de layout. Si la date correspond a plusieurs lignes de la rubrique ciblee sans cible unique, laisse operations vide et demande l intitule exact de cette rubrique dans notice. Ne demande jamais un poste ou une entreprise lorsque la rubrique ciblee est education.',
     interaction && interaction.lastEdit
         ? 'Suivi de date disponible dans interaction.lastEdit : utilise cette memoire uniquement pour une relance visant exactement la meme experience, la meme borne et la meme composante. La valeur after doit etre la periode actuelle du CV. Si la consigne reprend une ancienne source, elle doit correspondre a before ; applique le nouveau delta sur after et mets toujours cette valeur actuelle complete dans target.currentValue. Au moindre ecart ou doute, ne retourne aucune operation et demande une precision.'
         : '',
     'Quand la consigne donne explicitement le nouveau titre global du CV, applique ce titre dans headline et jobTarget sans le remplacer par un synonyme. Une clause conversationnelle finale comme « tu me corriges », « corrige-moi la casse » ou « mets ce titre au propre » est une instruction et ne fait jamais partie du titre. Si l utilisateur demande de corriger les majuscules/minuscules, utilise une casse professionnelle naturelle tout en conservant les acronymes ; s il exige une casse exacte, respecte-la littéralement.',
-    'Execute la demande dans operations. Utilise replace_text ou remove_text pour une expression exacte dans une ou plusieurs rubriques, set_experience_bullets pour reecrire les missions finales d une experience, et sort_experiences avec value newest_first pour un tri chronologique. Ne reponds pas comme un chatbot lorsque le document contient assez d informations pour agir.',
+    'Execute la demande dans operations en restant dans le schema compact. Pour une expression exacte, utilise replace ou remove avec target.currentValue. Pour les missions d une experience, utilise correct avec field experience et property bullets. Pour un tri chronologique des experiences, utilise move avec field experience et value newest_first. Ne reponds pas comme un chatbot lorsque le document contient assez d informations pour agir.',
     isCvSinglePageRequest(instruction)
         ? 'Demande UNE PAGE explicite : mets layout.reflow, layout.compact et layout.singlePage a true. Cette demande concerne uniquement la composition. Ne retourne aucune operation set_experience_bullets et ne reecris, ne raccourcis ni ne supprime une mission sauf si la consigne le demande aussi explicitement. Ne supprime aucune experience, competence, formation, certification, date, employeur ou poste.'
         : '',
@@ -16241,6 +17064,28 @@ module.exports = async (request, response) => {
     }
 
     if (isDedicatedCvRequest) {
+        // Current clients use a model-owned transaction. Legacy helpers below
+        // remain only for already-open clients speaking the previous protocol.
+        if (payload.protocol === 'cv-model-v1') {
+            try {
+                const result = await require('../lib/cv-model').generate(payload, {
+                    apiKeys: getOpenAiCvKeys(),
+                    models: getOpenAiCvModels(),
+                    controls: (model) => getOpenAiGenerationControls(model, { temperature: 0.2, max_tokens: 12000 }),
+                    timeoutMs: getOpenAiTimeoutMs(),
+                });
+                return json(response, 200, result);
+            } catch (error) {
+                const invalidInput = ['cv_input_too_large_or_invalid', 'cv_too_short', 'invalid_cv_text'].includes(error.message);
+                console.error('Kirby CV model transaction failed:', { code: error.message, status: error.status });
+                return json(response, invalidInput ? 400 : 502, {
+                    ok: false, source: 'openai', error: error.message,
+                    message: invalidInput
+                        ? 'Le document dépasse la taille acceptée ou contient des données invalides. Aucun texte n’a été tronqué.'
+                        : 'Kirby n’a pas pu terminer l’analyse. Le CV est conservé sans modification ; réessayez la demande.',
+                });
+            }
+        }
         const task = CV_ASSISTANT_TASKS.has(payload.task) ? payload.task : 'assistant';
         const requestedSourceKind = ['document', 'narrative'].includes(normalize(payload.sourceKind).toLowerCase())
             ? normalize(payload.sourceKind).toLowerCase()
