@@ -1,5 +1,6 @@
 const http = require('http');
 const fs = require('fs');
+const net = require('net');
 const path = require('path');
 const contactHandler = require('./api/contact');
 const accountDeleteHandler = require('./api/account-delete');
@@ -11,8 +12,8 @@ const flyersHandler = require('./api/flyers');
 const authObservabilityHandler = require('./api/auth-observability');
 
 const root = __dirname;
-const port = Number.parseInt(process.env.PORT || '8000', 10);
-const host = process.env.HOST || '127.0.0.1';
+let port = 8000;
+let host = '127.0.0.1';
 
 const loadEnvFile = (filename) => {
     const envPath = path.join(root, filename);
@@ -51,6 +52,33 @@ const loadEnvFile = (filename) => {
 
 const loadEnv = () => {
     ['.env', '.env.local'].forEach(loadEnvFile);
+};
+
+const canListenOnPort = (candidatePort, bindHost) => new Promise((resolve) => {
+    const tester = net.createServer();
+
+    tester.once('error', () => {
+        resolve(false);
+    });
+
+    tester.once('listening', () => {
+        tester.close(() => resolve(true));
+    });
+
+    tester.listen(candidatePort, bindHost);
+});
+
+const findAvailablePort = async (startPort, bindHost, maxAttempts) => {
+    for (let attempt = 0; attempt <= maxAttempts; attempt += 1) {
+        const candidatePort = startPort + attempt;
+        const isAvailable = await canListenOnPort(candidatePort, bindHost);
+
+        if (isAvailable) {
+            return candidatePort;
+        }
+    }
+
+    throw new Error(`No free port found between ${startPort} and ${startPort + maxAttempts}.`);
 };
 
 const mimeTypes = {
@@ -128,8 +156,19 @@ const sendStaticFile = (request, response) => {
 
 loadEnv();
 
+host = process.env.SITE_JOURNEY_PROTOTYPE === '1' ? '127.0.0.1' : (process.env.HOST || '127.0.0.1');
+{
+    const parsedPort = Number.parseInt(process.env.PORT || '8000', 10);
+    port = Number.isNaN(parsedPort) ? 8000 : parsedPort;
+}
+
 const server = http.createServer((request, response) => {
     const requestPathname = new URL(request.url || '/', `http://${request.headers.host || `${host}:${port}`}`).pathname;
+
+    if (process.env.SITE_JOURNEY_PROTOTYPE === '1' && ['/api/site-selection', '/api/contact'].includes(requestPathname)) {
+        require('./lib/site-journey-local')(request, response);
+        return;
+    }
 
     if (request.url && request.url.startsWith('/api/contact')) {
         loadEnv();
@@ -187,6 +226,43 @@ const server = http.createServer((request, response) => {
     sendStaticFile(request, response);
 });
 
-server.listen(port, host, () => {
-    console.log(`SA Création Web local server: http://${host}:${port}/`);
+server.on('error', (error) => {
+    if (error && error.code === 'EADDRINUSE') {
+        console.error(`Port ${port} is already in use. Set another port with PORT=8001 npm run dev.`);
+        process.exit(1);
+        return;
+    }
+
+    console.error(error);
+    process.exit(1);
 });
+
+const startServer = async () => {
+    const hasExplicitPort = typeof process.env.PORT === 'string' && process.env.PORT.trim().length > 0 && !Number.isNaN(Number.parseInt(process.env.PORT, 10));
+
+    if (!hasExplicitPort) {
+        const parsedScanLimit = Number.parseInt(process.env.PORT_SCAN_LIMIT || '20', 10);
+        const portScanLimit = Number.isNaN(parsedScanLimit) ? 20 : Math.max(parsedScanLimit, 0);
+        const preferredPort = port;
+
+        try {
+            const availablePort = await findAvailablePort(preferredPort, host, portScanLimit);
+
+            if (availablePort !== preferredPort) {
+                console.warn(`Port ${preferredPort} is busy, using ${availablePort} instead.`);
+            }
+
+            port = availablePort;
+        } catch (error) {
+            console.error(error.message);
+            process.exit(1);
+            return;
+        }
+    }
+
+    server.listen(port, host, () => {
+        console.log(`SA Création Web local server: http://${host}:${port}/`);
+    });
+};
+
+startServer();

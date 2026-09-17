@@ -31,7 +31,9 @@
     const tell = payload => { if (parent !== window) parent.postMessage({ source: 'kirby-site-preview', project, ...payload }, location.origin); };
     async function load() {
         const started = performance.now();
-        const state = await KirbySiteStore.get(project);
+        const state = KirbySiteJourney.isSelection(project)
+            ? (await KirbySiteJourney.load(project)).state
+            : await KirbySiteStore.get(project);
         if (!state?.site) throw new Error('Ce projet est disponible uniquement dans le navigateur où il a été créé.');
         const checked = performance.now(); KirbySiteContract.validate(state.site);
         console.info('[kirby-perf]', { stage: 'preview_validation', ms: performance.now() - checked });

@@ -21806,7 +21806,7 @@ if (contactForm) {
         messageField.value = fallbackMessage;
     }
 
-    if (projectField && !projectField.value.trim()) {
+    if (projectField && !contactParams.has('selection') && !projectField.value.trim()) {
         projectField.value = fallbackProject;
     }
 
@@ -21828,6 +21828,8 @@ if (contactForm) {
     contactForm.addEventListener('submit', async (event) => {
         event.preventDefault();
 
+        const selectedProject = window.KirbyProjectContact ? await window.KirbyProjectContact : null;
+        if (contactParams.has('selection') && !selectedProject) return;
         const formData = new FormData(contactForm);
         const fullName = (formData.get('name') || '').toString().trim();
         const phone = (formData.get('phone') || '').toString().trim();
@@ -21839,7 +21841,17 @@ if (contactForm) {
         const details = [];
         const project = (formData.get('project') || fallbackProject).toString().trim();
         const message = (formData.get('message') || fallbackMessage).toString().trim();
-        const fullMessage = [
+        const fullMessage = selectedProject ? [
+            `Projet sélectionné : ${selectedProject.name}`,
+            `Identifiant de la version : ${selectedProject.id}`,
+            `Projet source : ${selectedProject.sourceProject}`,
+            `Site : ${selectedProject.siteId} — Révision : ${selectedProject.revision}`,
+            `Aperçu : ${selectedProject.preview}`,
+            selectedProject.plan ? `Formule envisagée : ${selectedProject.plan}` : '',
+            phone ? `Téléphone : ${phone}` : '',
+            'Brief Kirby :', selectedProject.brief,
+            'Besoin complémentaire :', (formData.get('project') || '').toString().trim() || 'Aucun',
+        ].filter(Boolean).join('\n') : [
             service ? `Projet : ${service}` : 'Projet : non precise',
             phone ? `Telephone : ${phone}` : 'Telephone : non precise',
             summaryItems.length > 0 ? `Elements inclus : ${summaryItems.join(', ')}` : '',
@@ -21859,17 +21871,18 @@ if (contactForm) {
             const response = await fetch('/api/contact', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lastName, firstName, email, message: fullMessage, service, deadline, details }),
+                body: JSON.stringify({ lastName, firstName, email, message: fullMessage, service, deadline, details, ...(selectedProject ? { selectedProject } : {}) }),
             });
 
             if (!response.ok) {
                 throw new Error('contact_api_failed');
             }
 
+            const result = await response.json();
             contactForm.reset();
 
             if (contactFormStatus) {
-                contactFormStatus.textContent = 'Votre demande a bien été envoyée.';
+                contactFormStatus.textContent = result.prototype ? 'Test local : demande enregistrée, aucun e-mail envoyé.' : 'Votre demande a bien été envoyée.';
             }
 
             return;
