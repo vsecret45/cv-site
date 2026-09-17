@@ -6,8 +6,9 @@ const json = (response, statusCode, payload) => {
     response.end(JSON.stringify(payload));
 };
 
-const readBody = (request) =>
-    new Promise((resolve, reject) => {
+const readBody = (request) => request.body !== undefined
+    ? Promise.resolve(typeof request.body === 'string' || Buffer.isBuffer(request.body) ? String(request.body) : JSON.stringify(request.body))
+    : new Promise((resolve, reject) => {
         let body = '';
 
         request.on('data', (chunk) => {
@@ -191,6 +192,17 @@ module.exports = async (request, response) => {
 
     if (!emailLooksValid) {
         return json(response, 400, { error: 'invalid_email' });
+    }
+
+    if (payload.selectedProject) {
+        try {
+            const chosen = payload.selectedProject;
+            const saved = await require('../lib/site-selection').read(chosen.id);
+            const brief = saved.state.conversation.filter(t => t.role === 'user').map(t => t.content).join('\n\n');
+            if (chosen.name !== saved.state.site.name || chosen.sourceProject !== saved.sourceProject || chosen.siteId !== saved.state.site.id || chosen.revision !== saved.state.site.revision || chosen.brief !== brief || (chosen.plan && !['Essentiel', 'Pro', 'Signature'].includes(chosen.plan))) {
+                return json(response, 400, { error: 'selection_context_mismatch' });
+            }
+        } catch (_) { return json(response, 400, { error: 'selection_unavailable' }); }
     }
 
     try {

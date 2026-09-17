@@ -170,6 +170,11 @@ const server = http.createServer((request, response) => {
         return;
     }
 
+    if (requestPathname === '/api/site-selection') {
+        require('./api/site-selection')(request, response);
+        return;
+    }
+
     if (request.url && request.url.startsWith('/api/contact')) {
         loadEnv();
         contactHandler(request, response);

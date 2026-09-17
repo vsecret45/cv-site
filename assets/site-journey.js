@@ -9,8 +9,13 @@
     async function load(id) {
         if (!isSelection(id)) throw new Error('Référence du projet sélectionné invalide.');
         const response = await fetch('/api/site-selection?id=' + encodeURIComponent(id));
-        const data = await response.json();
+        let data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Cette version est indisponible.');
+        if (data.downloadUrl) {
+            const stored = await fetch(data.downloadUrl);
+            if (!stored.ok) throw new Error('Cette version est indisponible.');
+            data = await stored.json();
+        }
         KirbySiteContract.validate(data.state.site);
         if (data.id !== id) throw new Error('La référence de cette version ne correspond pas.');
         // Existing renderer and navigation use IndexedDB, including in a new browser.
@@ -42,9 +47,24 @@
                     const sourceProject = new URL(frame.src).searchParams.get('project');
                     const state = await KirbySiteStore.get(sourceProject);
                     if (!state?.site) throw new Error('La sauvegarde de ce site est introuvable.');
-                    const response = await fetch('/api/site-selection', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sourceProject, state }) });
-                    if (!response.headers.get('content-type')?.includes('application/json')) throw new Error('Ce parcours doit être testé sur le serveur du prototype local.');
-                    const result = await response.json();
+                    const body = JSON.stringify({ sourceProject, state });
+                    const post = async payload => {
+                        const response = await fetch('/api/site-selection', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload });
+                        if (!response.headers.get('content-type')?.includes('application/json')) throw new Error('La sauvegarde est temporairement indisponible. Réessayez.');
+                        return { response, result: await response.json() };
+                    };
+                    let saved;
+                    if (new Blob([body]).size > 3000000) {
+                        const prepared = await post(JSON.stringify({ mode: 'prepare' }));
+                        if (!prepared.response.ok) throw new Error(prepared.result.error || 'Impossible de préparer la sauvegarde.');
+                        if (prepared.result.direct) saved = await post(body);
+                        else {
+                        const uploaded = await fetch(prepared.result.uploadUrl, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body });
+                        if (!uploaded.ok) throw new Error('La sauvegarde des visuels a échoué. Réessayez.');
+                        saved = await post(JSON.stringify({ mode: 'complete', uploadId: prepared.result.uploadId }));
+                        }
+                    } else saved = await post(body);
+                    const { response, result } = saved;
                     if (!response.ok || !isSelection(result.id)) throw new Error(result.error || 'Impossible de conserver cette version.');
                     const url = new URL('contact.html', location.href);
                     url.searchParams.set('selection', result.id);

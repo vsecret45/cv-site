@@ -60,10 +60,19 @@ Tests du parcours : copie immuable après une autre génération, récupération
 
 Les tests automatisés utilisent une fixture nommée « Atelier ». Le test manuel dans Chrome utilise la véritable « La Petite Planète », importée sans modification. Les 18 tests techniques passent et le contrôle visuel du formulaire contextualisé et de l’aperçu partagé est effectué.
 
-Aucun push, aucun déploiement. Les fichiers déjà modifiés avant cette intervention sont conservés ; seuls le branchement du prototype et sa liaison à 127.0.0.1 ont été ajoutés dans `server.js`.
+À la fin du prototype initial : aucun push, aucun déploiement. Les fichiers déjà modifiés avant cette intervention sont conservés ; seuls le branchement du prototype et sa liaison à 127.0.0.1 ont été ajoutés dans `server.js`.
 
 ## Retrait de Partager — 18 septembre 2026
 
 Le bouton, le champ de copie et la logique de partage public ont été supprimés. Les références de version, la sauvegarde figée, le brief, la formule et le lien d’aperçu interne restent inchangés. Les vérifications précédentes de partage ci-dessus décrivent le test historique avant ce retrait.
 
-Préalable de production identifié : `/api/site-selection` est actuellement monté uniquement par `server.js` en mode prototype local. Il n’existe pas encore de fonction Vercel ni de stockage durable distant pour ces sauvegardes. Déployer ce prototype tel quel rendrait la sélection inopérante en production.
+Préalable identifié avant autorisation du raccordement de production : `/api/site-selection` est actuellement monté uniquement par `server.js` en mode prototype local. Il n’existe pas encore de fonction Vercel ni de stockage durable distant pour ces sauvegardes. Déployer ce prototype tel quel rendrait la sélection inopérante en production.
+
+
+## Raccordement de production autorisé
+
+`api/site-selection.js` conserve les mêmes snapshots dans le bucket Supabase privé `kirby-site-selections`. Configuration serveur : `SITE_SELECTION_SUPABASE_URL` et `SITE_SELECTION_SUPABASE_KEY`, configurées dans Vercel pour production et preview. Aucune clé dans le navigateur. Les téléchargements utilisent des liens signés de 60 secondes ; les gros fichiers passent par un dépôt signé temporaire pour éviter la limite des fonctions Vercel, puis sont validés et figés. Contact vérifie le contexte reçu contre la version sauvegardée avant l’envoi existant.
+
+Le mode local reste disponible, avec envoi simulé. En production, les aperçus peuvent être relus depuis un autre navigateur. Le bouton public « Partager » reste supprimé. Aucun changement des prix, de Stripe ou des conceptions générées.
+
+Tests : `node --test tests/unit/site-journey-local.test.js tests/unit/site-selection-production.test.js tests/unit/kirby-site-contract.test.js tests/unit/kirby-site-renderer.test.js`.
