@@ -29278,3 +29278,9 @@ body.cv-workspace-page #assistant-close:focus-visible {
     outline-offset: 2px;
 }
 /* KIRBY_ASSISTANT_CLOSE_GUARD_END */
+
+/* Explicit workspace navigation; presentation only, no AI behavior. */
+.workspace-home-link { display:inline-flex; align-items:center; margin:0 0 1.2rem; padding:.4rem 0; font-size:.85rem; color:inherit; opacity:.8; text-decoration:none; }
+.workspace-home-link:hover { opacity:1; text-decoration:underline; }
+.workspace-home-link:focus-visible { outline:2px solid currentColor; outline-offset:5px; }
+@media print { .workspace-home-link { display:none!important; } }

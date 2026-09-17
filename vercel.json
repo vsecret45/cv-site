@@ -1,6 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
+    "api/kirby-site.js": {
+      "maxDuration": 300
+    },
     "api/kirby.js": {
       "maxDuration": 300
     },

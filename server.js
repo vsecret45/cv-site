@@ -5,6 +5,7 @@ const contactHandler = require('./api/contact');
 const accountDeleteHandler = require('./api/account-delete');
 const cvAuthConfigHandler = require('./api/cv-auth-config');
 const kirbyHandler = require('./api/kirby');
+const kirbySiteHandler = require('./api/kirby-site');
 const kirbyCvHandler = require('./api/kirby-cv');
 const flyersHandler = require('./api/flyers');
 const authObservabilityHandler = require('./api/auth-observability');
@@ -151,6 +152,12 @@ const server = http.createServer((request, response) => {
     if (requestPathname === '/api/flyers' || requestPathname === '/api/flyers/') {
         loadEnv();
         flyersHandler(request, response);
+        return;
+    }
+
+    if (requestPathname === '/api/kirby-site' || requestPathname === '/api/kirby-site/') {
+        loadEnv();
+        kirbySiteHandler(request, response);
         return;
     }
 
