@@ -1006,6 +1006,7 @@ const CV_STYLE_HISTORY_FIELDS = [
 ];
 
 const scheduleCvDraftSave = () => {
+    if (currentPreviewMode === 'blank') return;
     if (isLoadingCvDraft || isReplacingCvDocument) {
         return;
     }
@@ -2839,6 +2840,7 @@ const addCvUndoState = (state) => {
 };
 
 const captureCvHistoryFromInteraction = ({ immediate = false } = {}) => {
+    if (currentPreviewMode === 'blank') { window.FreeDocumentEditor?.save(); return; }
     if (isRestoringCvHistory || !cvForm) {
         return;
     }
@@ -3664,7 +3666,17 @@ const getPreviewPageCount = () => currentPreviewMode === 'cv'
     : getVisiblePreviewPages().length || 1;
 
 const setPreviewMode = (mode) => {
-    currentPreviewMode = mode === 'letter' ? 'letter' : 'cv';
+    currentPreviewMode = mode === 'blank' ? 'blank' : mode === 'letter' ? 'letter' : 'cv';
+    const toolsLabel = document.getElementById('document-tools-label');
+    if (toolsLabel) toolsLabel.textContent = currentPreviewMode === 'letter'
+        ? 'Personnaliser la lettre de motivation'
+        : currentPreviewMode === 'blank' ? 'Personnaliser le document' : 'Personnaliser le CV';
+    document.body.classList.toggle('is-blank-preview', currentPreviewMode === 'blank');
+    const blankPage = document.getElementById('free-document-page');
+    if (blankPage) {
+        blankPage.classList.toggle('is-hidden-preview', currentPreviewMode !== 'blank');
+        blankPage.setAttribute('aria-hidden', String(currentPreviewMode !== 'blank'));
+    }
     document.body.classList.toggle('is-letter-preview', currentPreviewMode === 'letter');
     document.body.classList.toggle('is-cv-preview', currentPreviewMode === 'cv');
 
@@ -3691,7 +3703,7 @@ const setPreviewMode = (mode) => {
     }
 
     if (cvWordToolbarShell) {
-        cvWordToolbarShell.classList.toggle('is-hidden', currentPreviewMode !== 'cv');
+        cvWordToolbarShell.classList.toggle('is-hidden', currentPreviewMode === 'letter');
     }
 
     previewModeTabs.forEach((tab) => {
@@ -22274,7 +22286,8 @@ const isNodeInsideCvFormattingSurface = (node) => {
     const element = node?.nodeType === Node.TEXT_NODE ? node.parentElement : node;
     return Boolean(element && (
         previewNodes.preview?.contains(element) ||
-        letterPagePreview?.contains(element)
+        letterPagePreview?.contains(element) ||
+        document.getElementById('free-document-page')?.contains(element)
     ));
 };
 
@@ -22284,6 +22297,7 @@ const isCvFormatTargetNode = (node) =>
 const getCvFormatTargets = () => [
     ...(previewNodes.preview?.querySelectorAll('[contenteditable="true"], [data-section-title]') || []),
     ...(letterPagePreview?.querySelectorAll('[contenteditable="true"], [data-section-title]') || []),
+    ...(document.getElementById('free-document-page')?.querySelectorAll('[contenteditable="true"]') || []),
 ];
 
 const getFormatTargetFromNode = (node) => {
@@ -22399,7 +22413,7 @@ const getSelectedFormatNodes = () => {
 const updateWordToolbarState = () => {
     const node = getActiveFormatNode();
 
-    cvWordToolbarShell?.classList.toggle('is-hidden', currentPreviewMode !== 'cv');
+    cvWordToolbarShell?.classList.toggle('is-hidden', currentPreviewMode === 'letter');
 
     if (!node) {
         cvInlineBoldButton?.classList.remove('is-active');
@@ -22772,7 +22786,7 @@ const applyInlineCommand = (command) => {
 };
 
 document.querySelectorAll('[contenteditable="true"]').forEach((node) => {
-    if (!isCvFormatTargetNode(node)) {
+    if (!isCvFormatTargetNode(node) || node.id === 'free-document-body') {
         return;
     }
 
@@ -22886,7 +22900,7 @@ document.addEventListener('selectionchange', () => {
 
 document.addEventListener('click', (event) => {
     const button = event.target.closest('button');
-    if (!button || button.id === 'cv-undo' || !cvForm) {
+    if (!button || button.id === 'cv-undo' || !cvForm || currentPreviewMode === 'blank' || button.closest('.document-entries, .document-context')) {
         return;
     }
 

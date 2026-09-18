@@ -1,0 +1,24 @@
+/* Document entry points; restricted to the CV workspace. */
+.cv-workspace-page .document-entries { grid-column:1 / -1; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; padding:6px; border:1px solid var(--line,#dbe1ea); border-radius:18px; background:rgba(255,255,255,.5); }
+.cv-workspace-page .document-entries .button { min-width:0; margin:0; border-radius:12px; padding:14px 8px; }
+.cv-workspace-page .document-entries [aria-pressed="true"] { background:#2f3f7f; color:#fff; border-color:#2f3f7f; }
+.cv-workspace-page .document-context { grid-column:1 / -1; display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0; font-size:.88rem; color:var(--muted,#596575); }
+.cv-workspace-page .document-context[hidden] { display:none; }
+.cv-workspace-page #document-return-cv { background:none; color:inherit; text-decoration:underline; border:0; padding:6px; cursor:pointer; font:inherit; }
+.cv-workspace-page .free-document-page { width:210mm; min-height:297mm; height:auto; box-sizing:border-box; padding:20mm; background:#fff!important; color:#17212b; border:0!important; border-radius:0!important; font:14px/1.5 Arial,sans-serif; box-shadow:0 8px 28px #17212b12; }
+.cv-workspace-page #free-document-body { min-height:257mm; outline:none; overflow-wrap:anywhere; white-space:pre-wrap; }
+.cv-workspace-page #free-document-body:focus { outline:none; }
+.cv-workspace-page.is-blank-preview #cv-import-block,
+.cv-workspace-page.is-blank-preview #cv-editor-panel,
+.cv-workspace-page.is-blank-preview #cv-ai-improve,
+.cv-workspace-page.is-blank-preview #assistant-toggle,
+.cv-workspace-page.is-blank-preview .cv-models-panel,
+.cv-workspace-page.is-blank-preview .cv-personalization-panel,
+.cv-workspace-page.is-blank-preview .word-ribbon-group-layout,
+.cv-workspace-page.is-blank-preview #cv-undo { display:none!important; }
+.cv-workspace-page.is-blank-preview .cv-tools-drawer > summary,
+.cv-workspace-page.is-blank-preview #cv-tools-close { display:none!important; }
+.cv-workspace-page.is-blank-preview .cv-tools-drawer { margin-top:0; }
+.cv-workspace-page.is-blank-preview .cv-tools-drawer-content { padding-top:12px; }
+.cv-workspace-page.is-letter-preview #cv-import-block { display:none; }
+@media(max-width:560px) { .cv-workspace-page .document-entries { gap:4px; padding:4px; } .cv-workspace-page .document-entries .button { font-size:.78rem; padding:12px 5px; } .cv-workspace-page .document-context { align-items:flex-start; flex-direction:column; gap:2px; } }

@@ -660,6 +660,21 @@
         });
     };
 
+    // Plain A4 document export; independent of CV and cover-letter templates.
+    const createFreeDocumentDocxBlob = (paragraphs = []) => {
+        const content = paragraphs.map(paragraph => {
+            const align = { left: 'left', start: 'left', center: 'center', right: 'right', end: 'right', justify: 'both' }[paragraph.align] || 'left';
+            const runs = (paragraph.runs || []).map(run => {
+                const props = `${run.bold ? '<w:b/>' : ''}${run.italic ? '<w:i/>' : ''}${run.underline ? '<w:u w:val="single"/>' : ''}<w:rFonts w:ascii="${escapeXml(run.font || 'Arial')}" w:hAnsi="${escapeXml(run.font || 'Arial')}"/><w:sz w:val="${Math.round(Math.min(72, Math.max(6, Number(run.size) || 10.5)) * 2)}"/>`;
+                return `<w:r><w:rPr>${props}</w:rPr><w:t xml:space="preserve">${escapeXml(run.text || '')}</w:t></w:r>`;
+            }).join('');
+            return `<w:p><w:pPr><w:jc w:val="${align}"/></w:pPr>${runs}</w:p>`;
+        }).join('') || '<w:p/>';
+        const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${content}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134"/></w:sectPr></w:body></w:document>`;
+        const palette = getPalette({});
+        return makeDocxBlob(createDocxBytes({ documentXml, stylesXml: buildStylesXml('Arial', palette), numberingXml: buildNumberingXml(palette.accent), title: 'Document' }));
+    };
+
     const findEndOfCentralDirectory = (bytes) => {
         for (let offset = bytes.length - 22; offset >= Math.max(0, bytes.length - 65557); offset -= 1) {
             if (new DataView(bytes.buffer, bytes.byteOffset + offset, 4).getUint32(0, true) === 0x06054b50) {
@@ -908,6 +923,7 @@
         MAX_PROFILE_PHOTO_DATA_URL_LENGTH,
         createCvDocxBytes,
         createLetterDocxBytes,
+        createFreeDocumentDocxBlob,
         createCvDocxBlob: (data, marker) => makeDocxBlob(createCvDocxBytes(data, marker)),
         createLetterDocxBlob: (data, marker) => makeDocxBlob(createLetterDocxBytes(data, marker)),
         extractDocumentText,

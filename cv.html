@@ -16,6 +16,7 @@
     >
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <link rel="stylesheet" href="style.css?v=20260913-kirbycv-safe-targeting-v14">
+    <link rel="stylesheet" href="assets/cv-documents.css?v=local-1">
 </head>
 <body class="is-preload cv-workspace-page cv-workspace-locked">
     <div class="page-shell">
@@ -75,7 +76,12 @@
                 </div>
                 <div class="cv-layout" id="cv-layout">
                     <div class="cv-top-actions" aria-label="Actions principales CV">
-                        <button class="button button-secondary" type="button" id="cv-autofill">Nouveau CV</button>
+                        <div class="document-entries" role="group" aria-label="Créer un document">
+                            <button class="button button-secondary" type="button" id="cv-autofill" data-document-entry="cv" aria-pressed="true">Créer un CV</button>
+                            <button class="button button-secondary" type="button" id="document-new-letter" data-document-entry="letter" aria-pressed="false">Créer une lettre de motivation</button>
+                            <button class="button button-secondary" type="button" id="document-new-blank" data-document-entry="blank" aria-pressed="false">Créer un document</button>
+                        </div>
+                        <p class="document-context" id="document-context" hidden><span id="document-context-text"></span><button type="button" id="document-return-cv">Revenir au CV en cours</button></p>
                         <button class="button button-primary" type="button" id="cv-export-pdf">Aperçu PDF</button>
                         <button class="button button-secondary" type="button" id="cv-download-pdf">Télécharger PDF</button>
                         <button class="button button-secondary" type="button" id="cv-export-word">Export Word</button>
@@ -317,7 +323,7 @@
                         <details class="cv-tools-drawer" id="cv-tools-drawer">
                             <summary>
                                 <span class="cv-tools-menu-icon" aria-hidden="true">☰</span>
-                                <span>Personnaliser le CV</span>
+                                <span id="document-tools-label">Personnaliser le CV</span>
                             </summary>
                             <div class="cv-tools-drawer-content">
                         <details class="cv-collapsible cv-models-panel">
@@ -566,6 +572,7 @@
                         </details>
                         <div class="cv-preview-viewport" id="cv-preview-viewport">
                             <div class="cv-preview-stage" id="cv-preview-stage">
+                                <article class="cv-preview free-document-page is-hidden-preview" id="free-document-page" data-preview-doc="blank" aria-hidden="true"><div id="free-document-body" contenteditable="true" role="textbox" aria-label="Contenu du document libre" aria-multiline="true" spellcheck="true"></div></article>
                                 <article class="cv-preview theme-executive font-manrope template-wordpro" id="cv-preview" data-preview-doc="cv">
                                     <div class="cv-page-guide" aria-hidden="true"></div>
                                     <header class="cv-header">
@@ -876,5 +883,6 @@
     <script src="kirby-cv-media.js?v=20260909-kirbycv-photo-v2" defer></script>
     <script src="assets/kirby-cv-contract.js?v=20260916-model-v1" defer></script>
     <script src="script.js?v=20260916-model-v1" defer></script>
+    <script src="assets/cv-documents.js?v=local-1" defer></script>
 </body>
 </html>
