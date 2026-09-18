@@ -110,7 +110,7 @@ const saveContactMessage = async ({ firstName, lastName, email, message }) => {
     return { saved: true };
 };
 
-const sendWithSmtp = async ({ from, to, replyTo, subject, text, html }) => {
+const sendWithSmtp = async ({ from, to, replyTo, subject, text, html, attachments }) => {
     const smtpHost = process.env.SMTP_HOST;
     const smtpPort = Number.parseInt(process.env.SMTP_PORT || '465', 10);
     const smtpUser = process.env.SMTP_USER;
@@ -137,16 +137,17 @@ const sendWithSmtp = async ({ from, to, replyTo, subject, text, html }) => {
         subject,
         text,
         html,
+        ...(attachments?.length ? { attachments } : {}),
     });
 };
 
-const sendContactEmail = async ({ firstName, lastName, email, message, service, deadline, details }) => {
+const sendContactEmail = async ({ firstName, lastName, email, message, service, deadline, details, selectionContent }) => {
     const smtpHost = process.env.SMTP_HOST;
     const smtpUser = process.env.SMTP_USER;
     const smtpPass = process.env.SMTP_PASS;
     const contactToEmail = process.env.CONTACT_TO_EMAIL || contactEmail;
     const contactFromEmail = formatSender(process.env.CONTACT_FROM_EMAIL || smtpUser || contactEmail);
-    const emailContent = buildEmailContent({ firstName, lastName, email, message, service, deadline, details });
+    const emailContent = selectionContent || buildEmailContent({ firstName, lastName, email, message, service, deadline, details });
 
     if (!smtpHost || !smtpUser || !smtpPass) {
         throw new Error('missing_smtp_config');
@@ -159,6 +160,7 @@ const sendContactEmail = async ({ firstName, lastName, email, message, service, 
         subject: emailContent.subject,
         text: emailContent.text,
         html: emailContent.html,
+        attachments: emailContent.attachments,
     });
 };
 
@@ -179,7 +181,8 @@ module.exports = async (request, response) => {
     const firstName = normalize(payload.firstName);
     const lastName = normalize(payload.lastName);
     const email = normalize(payload.email);
-    const message = normalize(payload.message);
+    let message = normalize(payload.message);
+    let selectionContent;
     const service = normalize(payload.service);
     const deadline = normalize(payload.deadline);
     const details = normalizeList(payload.details);
@@ -202,6 +205,16 @@ module.exports = async (request, response) => {
             if (chosen.name !== saved.state.site.name || chosen.sourceProject !== saved.sourceProject || chosen.siteId !== saved.state.site.id || chosen.revision !== saved.state.site.revision || chosen.brief !== brief || (chosen.plan && !['Essentiel', 'Pro', 'Signature'].includes(chosen.plan))) {
                 return json(response, 400, { error: 'selection_context_mismatch' });
             }
+            // Structured fields for current clients; preserve compatibility with the
+            // historical selected-project form without trusting its preview URL.
+            const phone = normalize(payload.phone) || (message.match(/^Téléphone : (.*)$/m)?.[1] || '');
+            const additionalNeed = typeof payload.additionalNeed === 'string'
+                ? normalize(payload.additionalNeed)
+                : (message.split('Besoin complémentaire :\n')[1] || '');
+            selectionContent = require('../lib/site-selection-email')(saved, {
+                firstName, lastName, email, phone, additionalNeed, plan: chosen.plan,
+            });
+            message = selectionContent.text;
         } catch (_) { return json(response, 400, { error: 'selection_unavailable' }); }
     }
 
@@ -215,7 +228,7 @@ module.exports = async (request, response) => {
     }
 
     try {
-        await sendContactEmail({ firstName, lastName, email, message, service, deadline, details });
+        await sendContactEmail({ firstName, lastName, email, message, service, deadline, details, selectionContent });
     } catch (error) {
         const errorCode = error && /^missing_/.test(error.message) ? error.message : 'email_send_failed';
         console.error('Contact email failed:', {

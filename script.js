@@ -21871,7 +21871,7 @@ if (contactForm) {
             const response = await fetch('/api/contact', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lastName, firstName, email, message: fullMessage, service, deadline, details, ...(selectedProject ? { selectedProject } : {}) }),
+                body: JSON.stringify({ lastName, firstName, email, message: fullMessage, service, deadline, details, ...(selectedProject ? { selectedProject, phone, additionalNeed: (formData.get('project') || '').toString().trim() } : {}) }),
             });
 
             if (!response.ok) {
