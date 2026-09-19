@@ -34028,7 +34028,8 @@ kirbyExampleButtons.forEach((button) => {
 });
 
 kirbyAutopilotButtons.forEach((button) => {
-    if (document.body.dataset.kirbySite === 'v1') return;
+    // Legacy generation is never an implicit fallback for a missing/new marker.
+    if (document.body.dataset.kirbySite !== 'legacy') return;
     button.addEventListener('click', async () => {
         const baseBrief = aiBriefInput?.value.trim() || '';
 
@@ -34076,7 +34077,7 @@ kirbyAutopilotButtons.forEach((button) => {
     });
 });
 
-if (aiBriefForm && aiBriefInput && aiBriefOutput && document.body.dataset.kirbySite !== 'v1') {
+if (aiBriefForm && aiBriefInput && aiBriefOutput && document.body.dataset.kirbySite === 'legacy') {
     aiBriefForm.addEventListener('submit', async (event) => {
         event.preventDefault();
 

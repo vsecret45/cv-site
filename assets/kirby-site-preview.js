@@ -67,7 +67,27 @@
         });
         reportSize();
     }
+    function selectExplorerTab(button, focus = false) {
+        const explorer = button.closest('[data-explorer]');
+        explorer.querySelectorAll('[data-explorer-tab]').forEach(tab => {
+            const active = tab === button; tab.setAttribute('aria-selected', String(active)); tab.tabIndex = active ? 0 : -1;
+        });
+        explorer.querySelectorAll('[data-explorer-panel]').forEach(panel => { panel.hidden = panel.dataset.explorerPanel !== button.dataset.explorerTab; });
+        if (focus) button.focus();
+        reportSize();
+    }
+    root.addEventListener('keydown', event => {
+        const tab = event.target.closest('[data-explorer-tab]');
+        if (!tab || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        const tabs = [...tab.closest('[role="tablist"]').querySelectorAll('[role="tab"]')];
+        const index = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (tabs.indexOf(tab) + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+        event.preventDefault(); selectExplorerTab(tabs[index], true);
+    });
     root.addEventListener('change', event => {
+        if (event.target.matches('[data-explorer-variant]')) {
+            event.target.closest('[data-explorer-panel]').querySelectorAll('[data-explorer-view]').forEach(view => { view.hidden = view.dataset.explorerView !== event.target.value; });
+            reportSize();
+        }
         if (event.target.matches('[data-product-option]')) updateProducts();
         if (event.target.matches('[data-catalog-category]')) {
             const value = event.target.value, categories = current.state.site.catalog.categories, ids = new Set([value]);
@@ -77,6 +97,8 @@
         }
     });
     root.addEventListener('click', event => {
+        const tab = event.target.closest('[data-explorer-tab]');
+        if (tab) { selectExplorerTab(tab); return; }
         const button = event.target.closest('[data-gallery-index]');
         if (!button) return;
         const gallery = button.closest('.ks-product-gallery');

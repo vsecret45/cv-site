@@ -19,7 +19,7 @@
         target: obj({ kind: en('page', 'section', 'url'), pageId: str, sectionId: str, url: str }),
         action: obj({ id: str, label: str, target: ref('target'), appearance: en('primary', 'secondary', 'text') }),
         item: obj({ label: str, value: str, detail: str, amount: nullable(num) }),
-        block: obj({ id: str, target: nullable(ref('target')), type: en('text', 'image', 'metrics', 'chart', 'timeline', 'table', 'cards', 'products'), title: str, text: str, assetId: str, items: arr(ref('item'), 20), chartType: en('bar', 'line', 'donut'), illustrative: { type: 'boolean' }, productIds: arr(str, 100), categoryId: nullable(str), onSaleOnly: { type: 'boolean' } }),
+        block: obj({ id: str, target: nullable(ref('target')), type: en('text', 'image', 'metrics', 'chart', 'timeline', 'table', 'cards', 'products', 'explorer'), title: str, text: str, assetId: str, items: arr(ref('item'), 20), chartType: en('bar', 'line', 'donut'), illustrative: { type: 'boolean' }, productIds: arr(str, 100), categoryId: nullable(str), onSaleOnly: { type: 'boolean' }, explorer: nullable(ref('explorer')) }),
         visual: obj({ surface: en('transparent', 'solid', 'glass', 'ink'), depth: en('flat', 'layered', 'spatial'), motion: en('none', 'reveal', 'float'), align: en('left', 'center'), density: en('compact', 'balanced', 'airy'), imageTreatment: en('plain', 'framed', 'masked', 'filmstrip'), overlap: { type: 'boolean' } }),
         section: obj({ id: str, intentIds: arr(str, 20), coverage: en('primary', 'teaser', 'support'), kind: en('hero', 'content', 'conversion'), composition: en(...compositions), eyebrow: str, title: str, body: { ...str, description: 'Texte éditorial uniquement. Ne pas recopier prix, promotions, variantes ou stock du catalogue : le bloc products les affiche depuis la source centrale.' }, visual: ref('visual'), actions: arr(ref('action'), 6), blocks: arr(ref('block'), 16), slots: obj({ primaryMediaId: str, secondaryMediaId: str, tertiaryMediaId: str, artifactBlockIds: arr(str, 12), proofBlockIds: arr(str, 12), flowBlockIds: arr(str, 12), galleryBlockIds: arr(str, 12) }) }),
         page: obj({ id: str, path: str, title: str, description: { ...str, description: 'Résumé stable de la page, sans prix, promotion ou stock qui doivent rester uniquement dans catalog.' }, role: en('home', 'detail', 'utility'), sections: arr(ref('section'), 30) }),
@@ -28,6 +28,9 @@
         design: obj({ canvas: str, surface: str, ink: str, muted: str, accent: str, onAccent: str, font: en('sans', 'serif', 'mono', 'geometric', 'humanist', 'display'), headingFont: en('sans', 'serif', 'mono', 'geometric', 'humanist', 'display'), radius: en('square', 'soft', 'round'), texture: en('none', 'paper', 'metal', 'grid', 'organic'), titleScale: en('restrained', 'balanced', 'expressive') }),
         navigation: obj({ presentation: en('inline', 'hamburger', 'sidebar'), items: arr(ref('action'), 20) }),
     };
+    defs.explorerView = obj({ label: str, items: arr(ref('item'), 12) });
+    defs.explorerPanel = obj({ id: str, label: str, title: str, text: str, presentation: en('metrics', 'list', 'steps', 'questions'), items: arr(ref('item'), 12), variants: arr(ref('explorerView'), 6) });
+    defs.explorer = obj({ panels: arr(ref('explorerPanel'), 12) });
     defs.option = obj({ name: str, values: arr(str, 60) });
     defs.offer = obj({ id: str, sku: nullable(str), options: arr(ref('option'), 10), saleUnit: en('unit', 'lot'), unitsPerLot: nullable(integer), price: nullable(integer), salePrice: nullable(integer), currency: nullable(str), stockQuantity: nullable(integer), availability: en('unknown', 'available', 'unavailable', 'preorder'), assetIds: arr(str, 20) });
     defs.category = obj({ id: str, name: str, parentId: nullable(str) });
@@ -62,7 +65,7 @@
         if (schema.type === 'object') {
             if (!value || typeof value !== 'object' || Array.isArray(value)) fail(path + ': expected object');
             for (const key of Object.keys(value)) if (!Object.hasOwn(schema.properties, key)) fail(path + ': unknown property ' + key);
-            for (const key of schema.required) { if (!Object.hasOwn(value, key) && ((schema === defs.site && key === 'catalog') || (schema === defs.block && ['target', 'productIds', 'categoryId', 'onSaleOnly'].includes(key)))) continue; if (!Object.hasOwn(value, key)) fail(path + ': missing ' + key); check(value[key], schema.properties[key], path + '.' + key, depth + 1); }
+            for (const key of schema.required) { if (!Object.hasOwn(value, key) && ((schema === defs.site && key === 'catalog') || (schema === defs.block && ['target', 'productIds', 'categoryId', 'onSaleOnly', 'explorer'].includes(key)))) continue; if (!Object.hasOwn(value, key)) fail(path + ': missing ' + key); check(value[key], schema.properties[key], path + '.' + key, depth + 1); }
         } else if (schema.type === 'array') {
             if (!Array.isArray(value) || value.length > schema.maxItems) fail(path + ': invalid array');
             value.forEach((entry, i) => check(entry, schema.items, path + '[' + i + ']', depth + 1));
@@ -94,7 +97,7 @@
         });
         const target = t => {
             if (t.kind === 'url') { if (!/^(https:\/\/[^\s<>"']+|mailto:[^\s<>"']+|tel:[+0-9 ()-]+)$/.test(t.url) || t.pageId || t.sectionId) fail('unsafe URL target'); }
-            else if (!pages.has(t.pageId) || t.url || (t.kind === 'section' ? sections.get(t.sectionId) !== t.pageId : Boolean(t.sectionId))) fail('broken target');
+            else if (!pages.has(t.pageId) || t.url || (t.kind === 'section' ? sections.get(t.sectionId) !== t.pageId : Boolean(t.sectionId))) fail('broken target: ' + JSON.stringify(t));
         };
         const action = a => { id(a.id); target(a.target); };
         site.navigation.items.forEach(action);
@@ -126,7 +129,16 @@
         }
         site.pages.forEach(p => p.sections.forEach(s => {
             s.actions.forEach(action);
-            s.blocks.forEach(b => { if (b.target) { if (b.type !== 'image') fail('only image blocks accept a target'); target(b.target); } if (b.type === 'products' && !catalog) fail('product block needs catalog'); if (b.categoryId && !catalog?.categories.some(c => c.id === b.categoryId)) fail('missing block category'); (b.productIds || []).forEach(id => { if (!products.has(id)) fail('missing product reference'); }); });
+            s.blocks.forEach(b => {
+                if (b.type === 'explorer') {
+                    if (!b.explorer?.panels.length) fail('explorer needs panels');
+                    const panelIds = new Set();
+                    b.explorer.panels.forEach(panel => {
+                        if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}$/.test(panel.id) || panelIds.has(panel.id) || !panel.label.trim()) fail('invalid explorer panel');
+                        panelIds.add(panel.id);
+                    });
+                } else if (b.explorer) fail('explorer data needs explorer block');
+                if (b.target) { if (b.type !== 'image') fail('only image blocks accept a target: block ' + b.id + ' (' + b.type + '); move this link to section.actions'); target(b.target); } if (b.type === 'products' && !catalog) fail('product block needs catalog'); if (b.categoryId && !catalog?.categories.some(c => c.id === b.categoryId)) fail('missing block category'); (b.productIds || []).forEach(id => { if (!products.has(id)) fail('missing product reference'); }); });
             s.intentIds.forEach(i => {
                 if (!intents.has(i)) fail('unknown intent');
             });

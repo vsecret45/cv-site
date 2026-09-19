@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "test:site-responsive": "node tests/browser/kirby-site-responsive.cjs"
   },
   "dependencies": {
     "nodemailer": "^8.0.10"

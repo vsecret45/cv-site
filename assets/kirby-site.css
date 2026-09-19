@@ -86,6 +86,19 @@ body:has(> #site-root) { margin:0; }
 .ks-composition-product-stage:not(:has(>.ks-placement-scene))>.ks-placement-opening { grid-column:1/-1; }
 .ks-block:not(.ks-block-metrics) .ks-items strong { font-size:1.15rem; letter-spacing:-.015em; }
 .ks-copy,.ks-block { overflow-wrap:anywhere; }.ks-placement-story-copy { grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr)); }
+/* Metric values scale with their own column, not the full browser viewport. */
+.ks-block-metrics .ks-items > div { min-width:0; container-type:inline-size; }
+.ks-block-metrics .ks-items strong {
+    font-size:clamp(1rem,8cqi,1.5rem);
+    line-height:1.3;
+    letter-spacing:-.015em;
+    text-wrap:balance;
+}
+.ks-block-metrics .ks-items :is(strong,span,p) {
+    overflow-wrap:normal;
+    word-break:normal;
+    hyphens:none;
+}
 .ks-composition-product-stage .ks-placement-scene:has(>.ks-block:nth-child(2)) { grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:1rem; }
 .ks-composition-product-stage .ks-placement-scene>.ks-block:first-child { grid-column:1/-1; }
 .ks-overlap .ks-composition-product-stage .ks-placement-scene>.ks-block:nth-child(2) { margin-top:-2rem; margin-left:-2rem; z-index:2; transform:translateZ(25px) rotate(-2deg); }
@@ -325,3 +338,54 @@ body[data-kirby-site="v1"] #ai-brief-form[hidden] { display:none!important; }
 .ks-density-compact:has(>.ks-composition-stack .ks-block-metrics:only-child):not(:has(.ks-copy)) { padding-block:1rem; }
 .ks-kind-hero.ks-density-compact .ks-placement-backdrop { display:block; grid-column:auto!important; grid-row:auto!important; }
 .ks-kind-hero.ks-density-compact .ks-placement-backdrop .ks-media { position:absolute; inset:0; height:100%; width:100%; aspect-ratio:auto; }
+
+/* Optional product explorer: inherits the generation's palette and typography. */
+.ks-block-explorer { min-width:0; }
+.ks-explorer { min-width:0; text-align:left; overflow-wrap:normal; }
+.ks-explorer [hidden] { display:none !important; }
+.ks-explorer-tabs { display:flex; flex-wrap:wrap; gap:.5rem; padding-bottom:1.2rem; border-bottom:1px solid color-mix(in srgb,var(--ks-ink) 16%,transparent); }
+.ks-explorer button,.ks-explorer select { font:inherit; }
+.ks-explorer-tabs button { padding:.7rem 1rem; border:1px solid color-mix(in srgb,var(--ks-ink) 20%,transparent); border-radius:var(--ks-radius); background:transparent; color:var(--ks-ink); cursor:pointer; }
+.ks-explorer-tabs button[aria-selected="true"] { background:var(--ks-accent); color:var(--ks-on-accent); border-color:var(--ks-accent); }
+.ks-explorer :is(button,select,summary):focus-visible { outline:2px solid var(--ks-accent); outline-offset:4px; }
+.ks-explorer-panel { padding-top:1.5rem; }
+.ks-explorer-panel h4 { font-size:clamp(1.15rem,2vw,1.6rem); line-height:1.3; margin:0 0 .6rem; }
+.ks-explorer-profile { display:flex; align-items:center; flex-wrap:wrap; gap:.75rem; color:var(--ks-muted); margin:1rem 0; font-size:.9rem; }
+.ks-explorer-profile select { color:var(--ks-ink); background:var(--ks-surface); border:1px solid color-mix(in srgb,var(--ks-ink) 25%,transparent); border-radius:.5rem; padding:.5rem; max-width:100%; }
+.ks-explorer-items { list-style:none; padding:0; margin:1.25rem 0 0; display:grid; gap:1rem; }
+.ks-explorer-items li { min-width:0; padding:1.1rem; border:1px solid color-mix(in srgb,var(--ks-ink) 12%,transparent); border-radius:var(--ks-radius); background:color-mix(in srgb,var(--ks-surface) 60%,transparent); }
+.ks-explorer-items span { display:block; color:var(--ks-muted); font-size:.9rem; }
+.ks-explorer-items strong { display:block; font-size:1.1rem; line-height:1.35; margin:.4rem 0; word-break:normal; }
+.ks-explorer-items p { font-size:.9rem; margin:.4rem 0 0; }
+.ks-explorer-metrics { grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr)); }
+.ks-explorer-metrics strong { font-size:clamp(1.2rem,2vw,1.7rem); }
+.ks-explorer-steps { grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr)); }
+.ks-explorer-steps li > span { color:var(--ks-accent); margin-bottom:.8rem; }
+.ks-explorer-list li { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:.4rem 1rem; align-items:baseline; }
+.ks-explorer-list li p { grid-column:1/-1; }
+.ks-explorer-questions details { border-bottom:1px solid color-mix(in srgb,var(--ks-ink) 16%,transparent); padding:1rem 0; }
+.ks-explorer-questions summary { cursor:pointer; font-weight:600; line-height:1.4; }
+.ks-explorer-questions details[open] summary { color:var(--ks-accent); }
+.ks-explorer-questions p { max-width:65ch; font-size:1rem; }
+@media(max-width:480px) { .ks-explorer-tabs button { flex:1 1 40%; padding:.65rem .5rem; font-size:.85rem; } .ks-explorer-list li { grid-template-columns:1fr; } }
+
+/* Information tables respond to their actual slot, including narrow desktop rails. */
+.ks-block-table { container-type:inline-size; }
+.ks-block-table :is(th,td) { overflow-wrap:normal; word-break:normal; hyphens:none; }
+@container (max-width:640px) {
+ .ks-table-scroll { overflow:visible; }
+ .ks-table-scroll :is(table,tbody) { display:block; }
+ .ks-table-scroll tr { display:grid; grid-template-columns:minmax(0,1fr); gap:.4rem; padding:1rem 0; border-bottom:1px solid color-mix(in srgb,var(--ks-ink) 15%,transparent); }
+ .ks-table-scroll :is(th,td) { display:block; padding:0; border:0; }
+ .ks-table-scroll td:empty { display:none; }
+}
+/* Omitted media must not leave explicit, empty grid tracks beside the content. */
+.ks-composition-asymmetric-grid:not(:has(>.ks-placement-dominant)) { grid-template-columns:minmax(0,1fr) minmax(0,1fr); grid-template-rows:auto; align-items:start; }
+.ks-composition-asymmetric-grid:not(:has(>.ks-placement-dominant)) > .ks-placement { grid-column:auto; grid-row:auto; align-self:start; }
+.ks-composition-asymmetric-grid:not(:has(>.ks-placement-dominant,>.ks-placement-secondary)) > .ks-placement-detail { grid-column:1/-1; }
+@media(max-width:850px) {
+ .ks-composition { grid-template-rows:none; align-items:start; }
+ .ks-composition > .ks-placement { align-self:start; }
+ .ks-composition:not(:has(>.ks-placement-backdrop)) { min-height:0; }
+ .ks-block-table { padding:1.2rem; }
+}

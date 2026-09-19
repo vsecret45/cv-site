@@ -124,14 +124,22 @@
             await persist();
             writeLocal(storageKey, project);
             writeLocal(pendingKey, JSON.stringify({ project, startedAt: Date.now() }));
-            const result = await request({ protocol: C.protocol, message, site: base, conversation, selection, runId: generationRun.runId }, prewarm);
+            const result = await request({ protocol: C.protocol, message, site: base, conversation, selection, requestMode: state.newProjectConversation ? 'create' : 'auto', creationConversation: state.newProjectConversation || [], runId: generationRun.runId }, prewarm);
             if (id !== serial || state.site !== base) return;
             const validateStarted = performance.now(); const next = C.apply(base, result.decision); logTime('client_validate_apply', validateStarted);
+            if (next && next !== base) {
+                status('Vérification du rendu mobile, tablette et desktop…');
+                await KirbySiteResponsive.validate(next, project, state.media);
+                if (id !== serial || state.site !== base) return;
+            }
             if (result.decision.kind === 'create' && base) {
-                await persist(); project = crypto.randomUUID();
+                // A new test replaces the active slot, including its history and media.
                 state = { site: null, media: {}, history: [], conversation: [{ role: 'user', content: message }] };
                 selection = { pageId: '', sectionId: '', blockId: '', actionId: '' };
             }
+            if (result.requestScope === 'create' && result.decision.kind === 'clarify' && base) {
+                state.newProjectConversation = [...(state.newProjectConversation || []), { role: 'user', content: message }, { role: 'assistant', content: result.decision.message }];
+            } else { delete state.newProjectConversation; }
             if (next !== base) { if (base && result.decision.kind !== 'create') state.history.push(C.clone(base)); state.history = state.history.slice(-20); state.site = next; }
             state.conversation.push({ role: 'assistant', content: result.decision.message });
             await persist(); if (project !== originalProject) writeLocal(storageKey, project); clearPending(); clearDraft(); render(); logTime('validated_structure_ready', generationStarted);

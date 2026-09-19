@@ -60,9 +60,48 @@ test('local immutable snapshots, independent client recovery and simulated Conta
         assert.ok(sent.message.includes(id)); assert.ok(sent.message.includes(base + '/site-preview.html?project=' + id));
         assert.equal(sent.message.includes('Formule envisagée :'), plan === 'Signature');
         assert.equal(status.textContent, 'Test local : demande enregistrée, aucun e-mail envoyé.');
+
+        // Feed the actual form payload through the real Contact handler. Only external
+        // storage and SMTP are replaced: no production data or email is touched.
+        let email;
+        const mailContext = { module: { exports: {} }, Buffer, console,
+            process: { env: { SMTP_HOST: 'mail.test', SMTP_USER: 'contact@test.test', SMTP_PASS: 'test' } },
+            require(name) {
+                if (name === '../lib/site-selection-email') return require('../../lib/site-selection-email');
+                if (name === 'nodemailer') return { createTransport: () => ({ sendMail: async value => { email = value; } }) };
+                if (name === '../lib/site-selection') return { read: async key => { assert.equal(key, id); return snapshot; } };
+                throw new Error('Unexpected dependency: ' + name);
+            },
+        };
+        vm.runInNewContext(await fs.readFile(path.join(__dirname, '../../api/contact.js'), 'utf8'), mailContext);
+        const response = { setHeader() {}, end(value) { this.result = JSON.parse(value); } };
+        await mailContext.module.exports({ method: 'POST', body: sent }, response);
+        assert.equal(response.statusCode, 200);
+        assert.equal(response.result.email, 'sent');
+        assert.equal(email.replyTo, 'test@example.com');
+        for (const value of [id, 'https://www.sacreationweb.com/site-preview.html?project=' + id, selected.sourceProject, 'Client Test', 'Atelier', 'Mon brief exact', 'WhatsApp', '0102030405']) {
+            assert.ok(email.text.includes(value), 'email text retains ' + value);
+            assert.ok(email.html.includes(value), 'email HTML retains ' + value);
+        }
     }
     const badContact = await send('/api/contact', { firstName: 'Test', email: 'test@example.com', message: 'Test', selectedProject: { id, name: 'Incorrect', brief: '' } });
     assert.equal(badContact.status, 400);
+});
+
+test('entry pages load the historical journey before its dependent editor and preview', async () => {
+    for (const [page, dependent] of [['index.html', 'assets/kirby-site-editor.js'], ['contact.html', 'script.js'], ['site-preview.html', 'assets/kirby-site-preview.js']]) {
+        const html = await fs.readFile(path.join(__dirname, '../..', page), 'utf8');
+        const scripts = [...html.matchAll(/<script\b[^>]*src="([^"]+)"[^>]*>/g)].map(match => ({ tag: match[0], src: match[1].split('?')[0] }));
+        const journey = scripts.findIndex(script => script.src === 'assets/site-journey.js');
+        assert.notEqual(journey, -1, page + ' must connect the selected-project journey');
+        assert.equal(scripts.filter(script => script.src === 'assets/site-journey.js').length, 1);
+        assert.match(scripts[journey].tag, /\bdefer\b/);
+        for (const dependency of ['assets/kirby-site-contract.js', 'assets/kirby-site-store.js']) {
+            const index = scripts.findIndex(script => script.src === dependency);
+            assert.ok(index >= 0 && index < journey, page + ' loads ' + dependency + ' first');
+        }
+        assert.ok(scripts.findIndex(script => script.src === dependent) > journey, page + ' loads the journey before ' + dependent);
+    }
 });
 
 test('only the choose action retains the displayed version and an explicit offer', async () => {

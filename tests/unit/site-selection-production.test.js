@@ -51,7 +51,7 @@ test('production storage is immutable, validates references and issues scoped li
 
 test('Contact accepts parsed Vercel body and sends only a matching saved selection', async () => {
     const saved=storage.snapshot(payload()); let deliveries=0;
-    const ctx={ module:{exports:{}}, Buffer, console, process:{env:{SMTP_HOST:'mail.test',SMTP_USER:'contact@test.test',SMTP_PASS:'test'}},require(name){if(name==='nodemailer')return {createTransport:()=>({sendMail:async message=>{deliveries++;assert.match(message.text,/Brief exact/);}})};if(name==='../lib/site-selection')return {read:async id=>{assert.equal(id,saved.id);return saved}};throw Error(name);}};
+    const ctx={ module:{exports:{}}, Buffer, console, process:{env:{SMTP_HOST:'mail.test',SMTP_USER:'contact@test.test',SMTP_PASS:'test'}},require(name){if(name==='../lib/site-selection-email')return require('../../lib/site-selection-email');if(name==='nodemailer')return {createTransport:()=>({sendMail:async message=>{deliveries++;assert.match(message.text,/Brief exact/);}})};if(name==='../lib/site-selection')return {read:async id=>{assert.equal(id,saved.id);return saved}};throw Error(name);}};
     vm.runInNewContext(fs.readFileSync(require.resolve('../../api/contact'),'utf8'),ctx);
     const selectedProject={id:saved.id,name:saved.state.site.name,siteId:saved.state.site.id,revision:saved.state.site.revision,sourceProject:saved.sourceProject,brief:'Brief exact',plan:'Signature'};
     const request={method:'POST',body:{email:'test@example.com',firstName:'Test',message:'Brief exact',selectedProject}};
