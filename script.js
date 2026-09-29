@@ -213,6 +213,9 @@ let savedFormatRange = null;
 let activeExperienceIndex = null;
 let pendingExperienceDateCorrectionIndex = null;
 let cvEditableContent = {};
+// Literal edits are scoped to a field/value, persisted with the draft, and
+// discarded when an explicit Kirby operation replaces that field.
+let cvManualContent = {};
 let cvSectionTitleStyles = {};
 let isRenderingExperienceEditor = false;
 let isSyncingExperienceEditor = false;
@@ -274,6 +277,120 @@ const editablePreviewNodeMap = {
 
 const editableTargets = Object.keys(editablePreviewNodeMap);
 const structuredPreviewTargets = new Set(['experience', 'projects', 'education']);
+const manualCvFieldNames = [...editableTargets, 'phone', 'email', 'permit', 'jobTarget', 'projectType'];
+const getManualCvField = (name) => {
+    const entry = cvManualContent[name];
+    return entry && entry.value === cvForm?.elements[name]?.value ? entry : null;
+};
+const rememberManualCvField = (name, detail = {}) => {
+    if (manualCvFieldNames.includes(name) && cvForm?.elements[name]) {
+        cvManualContent[name] = { ...detail, value: cvForm.elements[name].value };
+    }
+};
+
+// Security sanitization only: no trimming, case/date repair or removal of
+// empty lines. Work on an inert copy, never on the live editing surface.
+const sanitizeManualCvHtml = (html) => {
+    const template = document.createElement('template');
+    template.innerHTML = html;
+    const allowed = new Set(['DIV', 'P', 'BR', 'SPAN', 'B', 'STRONG', 'I', 'EM', 'U', 'S', 'UL', 'OL', 'LI']);
+    template.content.querySelectorAll('script,style,iframe,object,embed,svg,math,template').forEach((node) => node.remove());
+    [...template.content.querySelectorAll('*')].forEach((node) => {
+        if (!allowed.has(node.tagName)) {
+            node.replaceWith(...node.childNodes);
+            return;
+        }
+        const style = normalizeStyleState(extractEditableNodeStyleState(node));
+        const classes = [...node.classList].filter((name) => /^cv-experience-(?:item|head|title|date|meta|bullets)$/.test(name));
+        [...node.attributes].forEach((attribute) => node.removeAttribute(attribute.name));
+        applyEditableNodeStyleState(node, style);
+        if (classes.length) node.className = classes.join(' ');
+    });
+    return template.innerHTML;
+};
+
+const sanitizeManualCvContent = (content = {}) => {
+    const result = {};
+    for (const name of manualCvFieldNames) {
+        const entry = content?.[name];
+        if (!entry || typeof entry.value !== 'string' || entry.value.length > 120000) continue;
+        const safe = { value: entry.value };
+        if (typeof entry.html === 'string' && entry.html.length <= 500000) safe.html = sanitizeManualCvHtml(entry.html);
+        if (Array.isArray(entry.entries) && entry.entries.length <= 2000) {
+            const keys = name === 'languages' ? ['language', 'level'] : ['title', 'meta', 'date'];
+            if (entry.entries.every((item) => item && keys.every((key) => typeof item[key] === 'string')
+                && (name === 'languages' || (Array.isArray(item.bullets) && item.bullets.every((line) => typeof line === 'string'))))) {
+                safe.entries = entry.entries.map((item) => Object.fromEntries([
+                    ...keys.map((key) => [key, item[key]]),
+                    ...(name === 'languages' ? [] : [['bullets', [...item.bullets]]]),
+                ]));
+            }
+        }
+        result[name] = safe;
+    }
+    return result;
+};
+
+const renderManualCvField = (node, target) => {
+    const manual = getManualCvField(target);
+    if (!manual || !node) return false;
+    // input owns the focused DOM. Even assigning the same HTML loses Range.
+    const restoring = isLoadingCvDraft || isRestoringCvHistory || isApplyingKirbyCvChange || isImportingCvPreview || isReplacingCvDocument;
+    if (!restoring && (node === document.activeElement || node.contains(document.activeElement))) return true;
+    if (typeof manual.html === 'string') {
+        const html = sanitizeManualCvHtml(manual.html);
+        if (node.innerHTML !== html) node.innerHTML = html;
+    } else if (structuredPreviewTargets.has(target) && manual.entries) {
+        renderTimelineList(node, [], { entries: manual.entries });
+    } else if (node.matches('ul, ol')) {
+        node.replaceChildren(...manual.value.split('\n').map((line) => {
+            const li = document.createElement('li');
+            li.textContent = line;
+            return li;
+        }));
+    } else if (node.textContent !== manual.value) {
+        node.textContent = manual.value;
+    }
+    applyEditableNodeStyleState(node, cvEditableContent[target]?.style || { lineHeight: '1.2' });
+    node.style.whiteSpace = 'pre-wrap';
+    return true;
+};
+
+const readManualCvText = (node) => {
+    // innerText depends on CSS and adds an extra newline for <div><br></div>
+    // inside a paragraph. Read browser editing blocks instead of layout.
+    const blocks = new Set(['DIV', 'P', 'LI', 'UL', 'OL']);
+    const read = (parent) => [...parent.childNodes].map((child, index, children) => {
+        if (child.nodeType === Node.TEXT_NODE) return child.textContent;
+        if (child.nodeType !== Node.ELEMENT_NODE) return '';
+        if (child.tagName === 'BR') {
+            const placeholder = children.length === 1 || (index === children.length - 1 && children[index - 1]?.nodeName === 'BR');
+            return placeholder ? '' : '\n';
+        }
+        const boundary = index > 0 && (blocks.has(child.tagName) || blocks.has(children[index - 1]?.nodeName));
+        return (boundary ? '\n' : '') + read(child);
+    }).join('');
+    return read(node);
+};
+
+const captureManualCvNode = (node) => {
+    const target = node?.getAttribute('data-edit-target');
+    const field = cvForm?.elements[target];
+    if (!field) return;
+    field.value = readManualCvText(node);
+    cvEditableContent[target] = { style: extractEditableNodeStyleState(node) };
+    rememberManualCvField(target, { html: node.innerHTML });
+    updateCvPageMode();
+    updateWordToolbarState();
+};
+
+const serializeManualExperienceEntry = (entry) => {
+    if (hasModelCvContent() && window.KirbyCvContract) return window.KirbyCvContract.serializeEntry({
+        title: entry.title, organization: entry.meta, period: entry.date, details: entry.bullets,
+    });
+    return [[entry.title, entry.meta, entry.date].filter((part) => part !== '').join(' - '), ...entry.bullets].join(' • ');
+};
+const serializeManualLanguageEntry = (entry) => entry.language + (entry.level ? ` : ${entry.level}` : '');
 const defaultCvValues = cvForm ? Object.fromEntries(new FormData(cvForm).entries()) : {};
 
 const getExperienceField = () => cvForm?.querySelector('textarea[name="experience"]') || cvForm?.elements.experience || null;
@@ -1061,6 +1178,7 @@ const getComparableCvDraftPayload = (payload = {}) => {
         values: source.values && typeof source.values === 'object' ? source.values : {},
         contentMigrations: Array.isArray(source.contentMigrations) ? source.contentMigrations : [],
         editableContent: source.editableContent && typeof source.editableContent === 'object' ? source.editableContent : {},
+        manualContent: source.manualContent && typeof source.manualContent === 'object' ? source.manualContent : {},
         sectionTitleStyles: source.sectionTitleStyles && typeof source.sectionTitleStyles === 'object' ? source.sectionTitleStyles : {},
         sectionOrder: Array.isArray(source.sectionOrder) ? source.sectionOrder : [],
         contentLocale: source.contentLocale === 'en' ? 'en' : 'fr',
@@ -1124,6 +1242,7 @@ const normalizeSupabaseUser = (user) => {
 const resetCvDraftState = () => {
     lastKirbyCvDateEditContext = null;
     cvEditableContent = {};
+    cvManualContent = {};
     cvSectionTitleStyles = {};
     cvSectionOrder = [...DEFAULT_CV_SECTION_ORDER];
     cvContentMigrations = [];
@@ -1337,6 +1456,7 @@ const initializeSupabaseClient = async () => {
                     return;
                 }
 
+                if (authEvent === 'INITIAL_SESSION') return;
                 resetCvFormToDefaults();
                 resetCvDraftState();
                 updateCvPreview();
@@ -1753,7 +1873,7 @@ const resetCvFormToDefaults = () => {
 };
 
 const applyCurrentUserDefaults = () => {
-    if (!cvForm || !currentUser) {
+    if (!cvForm || !currentUser || getManualCvField('fullName')) {
         return;
     }
 
@@ -2243,10 +2363,12 @@ const storeEditableNodeState = (node) => {
     cvEditableContent[target] = { html, style };
 };
 
-const clearEditableOverride = (target, { preserveHtml = false } = {}) => {
+const clearEditableOverride = (target, { preserveHtml = false, preserveManual = false } = {}) => {
     if (!target) {
         return;
     }
+
+    if (!preserveHtml && !preserveManual) delete cvManualContent[target];
 
     if (preserveHtml && cvEditableContent[target]) {
         return;
@@ -2316,6 +2438,7 @@ const buildCvDraftPayload = () => {
         values,
         contentMigrations: [...new Set(cvContentMigrations)],
         editableContent: cvEditableContent,
+        manualContent: cvManualContent,
         sectionTitleStyles: cvSectionTitleStyles,
         sectionOrder: cvSectionOrder,
         contentLocale: currentCvContentLocale,
@@ -2370,6 +2493,7 @@ const buildCvRoundTripPayload = ({ includeProfilePhotoDataUrl = true } = {}) => 
         values: draft.values,
         contentMigrations: draft.contentMigrations,
         editableContent: sanitizeCvEditableContent(draft.editableContent),
+        manualContent: sanitizeManualCvContent(draft.manualContent),
         sectionTitleStyles: sanitizeCvSectionTitleStyles(draft.sectionTitleStyles),
         sectionOrder: draft.sectionOrder,
         contentLocale: draft.contentLocale,
@@ -2492,6 +2616,7 @@ const restoreCvPayloadToEditor = (payload, { profilePhoto: embeddedProfilePhoto 
     });
 
     cvEditableContent = sanitizeCvEditableContent(payload?.editableContent);
+    cvManualContent = sanitizeManualCvContent(payload?.manualContent);
     cvSectionTitleStyles = sanitizeCvSectionTitleStyles(payload?.sectionTitleStyles);
     cvContentMigrations = Array.isArray(payload?.contentMigrations)
         ? payload.contentMigrations.filter((migration) => typeof migration === 'string')
@@ -2582,11 +2707,6 @@ const saveCvDraft = async (silent = false) => {
 
     if (silent && isLoadingCvDraft) {
         return { status: 'skipped', detail: 'draft_loading_in_progress' };
-    }
-
-    const focusedEditableNode = document.activeElement?.closest?.('[contenteditable="true"]');
-    if (focusedEditableNode) {
-        syncPreviewEditableNode(focusedEditableNode, { refreshPreview: false });
     }
 
     if (!currentUser?.id) {
@@ -2779,6 +2899,7 @@ const getCvHistoryState = () => {
         values,
         contentMigrations: [...cvContentMigrations],
         editableContent: cvEditableContent,
+        manualContent: cvManualContent,
         sectionTitleStyles: cvSectionTitleStyles,
         sectionOrder: cvSectionOrder,
         contentLocale: currentCvContentLocale,
@@ -2948,6 +3069,7 @@ const restorePreviousCvVersion = () => {
 
         cvContentMigrations = Array.isArray(state?.contentMigrations) ? [...state.contentMigrations] : [];
         cvEditableContent = sanitizeCvEditableContent(state?.editableContent);
+        cvManualContent = sanitizeManualCvContent(state?.manualContent);
         cvSectionTitleStyles = sanitizeCvSectionTitleStyles(state?.sectionTitleStyles);
         cvSectionOrder = Array.isArray(state?.sectionOrder) && state.sectionOrder.length
             ? state.sectionOrder.filter((key) => cvSectionLabels[key])
@@ -3007,6 +3129,7 @@ const restoreCvHistorySnapshot = (stateJson = '', status = '') => {
 
         cvContentMigrations = Array.isArray(state?.contentMigrations) ? [...state.contentMigrations] : [];
         cvEditableContent = sanitizeCvEditableContent(state?.editableContent);
+        cvManualContent = sanitizeManualCvContent(state?.manualContent);
         cvSectionTitleStyles = sanitizeCvSectionTitleStyles(state?.sectionTitleStyles);
         cvSectionOrder = Array.isArray(state?.sectionOrder) && state.sectionOrder.length
             ? state.sectionOrder.filter((key) => cvSectionLabels[key])
@@ -3139,6 +3262,7 @@ const loadCvDraft = async ({ silent = false } = {}) => {
                 }
             });
 
+            cvManualContent = sanitizeManualCvContent(payload?.manualContent);
             if (payload?.editableContent && typeof payload.editableContent === 'object') {
                 cvEditableContent = sanitizeCvEditableContent(payload.editableContent);
                 structuredPreviewTargets.forEach((target) => {
@@ -3667,6 +3791,9 @@ const getPreviewPageCount = () => currentPreviewMode === 'cv'
     : getVisiblePreviewPages().length || 1;
 
 const setPreviewMode = (mode) => {
+    if (mode !== 'cv' && document.body.classList.contains('is-cv-copy-selection')) {
+        setCvCopySelectionMode(false);
+    }
     currentPreviewMode = mode === 'blank' ? 'blank' : mode === 'letter' ? 'letter' : 'cv';
     const toolsLabel = document.getElementById('document-tools-label');
     if (toolsLabel) toolsLabel.textContent = currentPreviewMode === 'letter'
@@ -4471,8 +4598,8 @@ const renderTimelineList = (target, items, options = {}) => {
 
     const projectType = options.projectType?.trim();
 
-    dedupeImportedItems(items.filter(Boolean)).forEach((item, index) => {
-        const entry = parseExperienceEntry(item);
+    const entries = options.entries || dedupeImportedItems(items.filter(Boolean)).map(parseExperienceEntry);
+    entries.forEach((entry, index) => {
         const li = document.createElement('li');
         li.className = 'cv-experience-item';
         if (options.indexAttribute) {
@@ -5342,6 +5469,8 @@ const getExperienceSourceEntries = () => {
         return [];
     }
 
+    const manual = getManualCvField('experience');
+    if (manual) return manual.entries || manual.value.split('\n').map((title) => ({ title, meta: '', date: '', bullets: [] }));
     return repairPreviewExperienceItems(splitLines(field.value)).map(parseExperienceEntry);
 };
 
@@ -5402,7 +5531,7 @@ const collectExperienceEditorEntries = () =>
                 title: getField('title'),
                 meta: getField('meta'),
                 date: getField('date'),
-                bullets: splitLines(getField('bullets')),
+                bullets: getField('bullets') === '' ? [] : getField('bullets').split('\n'),
             };
         })
         .filter((entry) => entry.title || entry.meta || entry.date || entry.bullets.length);
@@ -5416,8 +5545,10 @@ const syncExperienceFieldFromEditor = ({ refreshCards = false, status = '' } = {
 
     hideKirbyCvProposal();
     isSyncingExperienceEditor = true;
-    field.value = collectExperienceEditorEntries().map(serializeExperienceEntry).filter(Boolean).join('\n');
+    const entries = collectExperienceEditorEntries();
+    field.value = entries.map(serializeManualExperienceEntry).join('\n');
     clearEditableOverride('experience');
+    rememberManualCvField('experience', { entries });
     updateCvPreview();
     captureCvHistoryFromInteraction();
     scheduleCvDraftSave();
@@ -5447,9 +5578,10 @@ const addExperienceCard = () => {
         date: '',
         bullets: [],
     });
-    field.value = entries.map(serializeExperienceEntry).join('\n');
-    renderExperienceEditor();
+    field.value = entries.map(serializeManualExperienceEntry).join('\n');
     clearEditableOverride('experience');
+    rememberManualCvField('experience', { entries });
+    renderExperienceEditor();
     updateCvPreview();
     scheduleCvDraftSave();
     setCvStatus('Experience ajoutee');
@@ -5686,6 +5818,8 @@ const getLanguageSourceEntries = () => {
         return [];
     }
 
+    const manual = getManualCvField('languages');
+    if (manual) return manual.entries || manual.value.split('\n').map((language) => ({ language, level: '' }));
     if (hasModelCvContent()) return splitLines(field.value).map(parseLanguageEntry);
 
     return dedupeLanguageEntriesByCanonicalKey(splitLines(field.value)
@@ -5701,9 +5835,10 @@ const renderLanguageEditor = (options = {}) => {
     isRenderingLanguageEditor = true;
     languageCards.innerHTML = '';
     const entries = getLanguageSourceEntries();
-    const normalizedValue = entries.map(serializeLanguageEntry).filter(Boolean).join('\n');
+    const manual = getManualCvField('languages');
+    const normalizedValue = manual ? manual.value : entries.map(serializeLanguageEntry).filter(Boolean).join('\n');
     const languageField = getLanguageField();
-    const shouldNormalizeField = !hasModelCvContent() && options?.normalizeField !== false;
+    const shouldNormalizeField = !manual && !hasModelCvContent() && options?.normalizeField !== false;
     const didNormalizeLanguageValue = Boolean(
         shouldNormalizeField
         && languageField
@@ -5746,14 +5881,7 @@ const collectLanguageEditorEntries = () =>
             language: card.querySelector('[data-language-field="language"]')?.value || '',
             level: card.querySelector('[data-language-field="level"]')?.value || '',
         }))
-        .map((entry) => ({
-            language: normalizeCvSentenceText(entry.language).replace(/\.$/, ''),
-            level: normalizeLanguageLevel(entry.level),
-        }))
-        .filter((entry) => entry.language)
-        .filter((entry, index, entries) =>
-            entries.findIndex((candidate) => normalizeForMatch(candidate.language) === normalizeForMatch(entry.language)) === index
-        );
+        .filter((entry) => entry.language || entry.level);
 
 const syncLanguageFieldFromEditor = ({ refreshCards = false, status = '' } = {}) => {
     const field = getLanguageField();
@@ -5764,8 +5892,10 @@ const syncLanguageFieldFromEditor = ({ refreshCards = false, status = '' } = {})
 
     hideKirbyCvProposal();
     isSyncingLanguageEditor = true;
-    field.value = collectLanguageEditorEntries().map(serializeLanguageEntry).filter(Boolean).join('\n');
+    const entries = collectLanguageEditorEntries();
+    field.value = entries.map(serializeManualLanguageEntry).join('\n');
     clearEditableOverride('languages');
+    rememberManualCvField('languages', { entries });
     updateCvPreview();
     captureCvHistoryFromInteraction();
     scheduleCvDraftSave();
@@ -5790,7 +5920,9 @@ const addLanguageCard = () => {
     hideKirbyCvProposal();
     const entries = getLanguageSourceEntries();
     entries.push({ language: '', level: '' });
-    field.value = entries.map(serializeLanguageEntry).filter(Boolean).join('\n');
+    field.value = entries.map(serializeManualLanguageEntry).join('\n');
+    clearEditableOverride('languages');
+    rememberManualCvField('languages', { entries });
     renderLanguageEditor();
     const input = languageCards?.querySelector('.language-card:last-child [data-language-field="language"]');
     input?.focus();
@@ -5878,6 +6010,7 @@ const renderEditableOverride = (target, node) => {
         return false;
     }
 
+    if (renderManualCvField(node, target)) return true;
     const override = cvEditableContent[target];
     node.removeAttribute('style');
 
@@ -5954,7 +6087,7 @@ const renderEditableContactNode = (node, values) => {
         return;
     }
 
-    if (!hasModelCvContent()) values = recoverMergedContactValues(values);
+    if (!hasModelCvContent() && !['location', 'phone', 'email', 'permit'].some(getManualCvField)) values = recoverMergedContactValues(values);
 
     const cleanContactValue = (value = '') => String(value)
         .replace(/[⌖✆✉▣⊕⊙□■]/g, '')
@@ -5977,10 +6110,10 @@ const renderEditableContactNode = (node, values) => {
         return prefixes[type] ? cleanValue.replace(prefixes[type], '').trim() : cleanValue;
     };
     const contactValues = {
-        location: hasModelCvContent() ? values.location : cleanLocationValue(values.location),
-        phone: hasModelCvContent() ? values.phone : cleanTypedContactValue('phone', values.phone),
-        email: hasModelCvContent() ? values.email : cleanTypedContactValue('email', values.email),
-        permit: hasModelCvContent() ? values.permit : cleanTypedContactValue('permit', values.permit),
+        location: hasModelCvContent() || getManualCvField('location') ? values.location : cleanLocationValue(values.location),
+        phone: hasModelCvContent() || getManualCvField('phone') ? values.phone : cleanTypedContactValue('phone', values.phone),
+        email: hasModelCvContent() || getManualCvField('email') ? values.email : cleanTypedContactValue('email', values.email),
+        permit: hasModelCvContent() || getManualCvField('permit') ? values.permit : cleanTypedContactValue('permit', values.permit),
     };
     Object.entries(contactValues).forEach(([key, value]) => {
         if (cvForm?.elements[key] && cvForm.elements[key].value !== value) {
@@ -6037,6 +6170,7 @@ const renderEditableContactNode = (node, values) => {
         const value = document.createElement('span');
         value.className = 'cv-contact-value';
         value.dataset.contactValue = part.type;
+        if (getManualCvField(part.type)) value.style.whiteSpace = 'pre-wrap';
         value.textContent = part.value;
         item.append(icon, exportLabel, value);
         node.appendChild(item);
@@ -6047,6 +6181,8 @@ const renderEditableListNode = (node, target, renderFallback) => {
     if (!node) {
         return;
     }
+
+    if (renderManualCvField(node, target)) return;
 
     // Les langues sont rendues depuis leurs champs structurés : une ancienne
     // édition directe ne peut donc plus masquer la rubrique entière.
@@ -7088,7 +7224,7 @@ const updateCvPreview = ({ preserveDensity = false } = {}) => {
         }
     });
 
-    const safeFullName = hasModelCvContent() ? values.fullName || '' : getSafeFullNameValue(values.fullName || '');
+    const safeFullName = hasModelCvContent() || getManualCvField('fullName') ? values.fullName || '' : getSafeFullNameValue(values.fullName || '');
     if (values.fullName && !safeFullName && cvForm.elements.fullName) {
         cvForm.elements.fullName.value = '';
     } else if (safeFullName && values.fullName !== safeFullName && cvForm.elements.fullName) {
@@ -7104,18 +7240,18 @@ const updateCvPreview = ({ preserveDensity = false } = {}) => {
     }
 
     const rawSkillItems = splitLines(values.skills || '');
-    const skillItems = dedupeImportedItems(rawSkillItems);
+    const skillItems = getManualCvField('skills') ? values.skills.split('\n') : dedupeImportedItems(rawSkillItems);
     const previewSkillItems = skillItems;
     const rawExperienceSourceItems = splitLines(values.experience || '');
-    const experienceItems = repairPreviewExperienceItems(rawExperienceSourceItems);
+    const experienceItems = getManualCvField('experience') ? values.experience.split('\n') : repairPreviewExperienceItems(rawExperienceSourceItems);
     const rawProjectItems = splitLines(values.projects || '');
-    const projectItems = mergeStandaloneDateItems(dedupeImportedItems(rawProjectItems));
+    const projectItems = getManualCvField('projects') ? values.projects.split('\n') : mergeStandaloneDateItems(dedupeImportedItems(rawProjectItems));
     const rawEducationItems = splitLines(values.education || '').filter((item) => !/^[-–—]?\s*\)?$/.test(item.trim()));
-    const educationItems = normalizeImportedEducationItems(rawEducationItems);
-    const rawLanguageItems = hasModelCvContent() ? splitLines(values.languages || '') : splitMergedLanguageItems(splitLines(values.languages || ''));
-    const languageItems = dedupeImportedItems(rawLanguageItems);
+    const educationItems = getManualCvField('education') ? values.education.split('\n') : normalizeImportedEducationItems(rawEducationItems);
+    const rawLanguageItems = getManualCvField('languages') ? values.languages.split('\n') : hasModelCvContent() ? splitLines(values.languages || '') : splitMergedLanguageItems(splitLines(values.languages || ''));
+    const languageItems = getManualCvField('languages') ? rawLanguageItems : dedupeImportedItems(rawLanguageItems);
     const rawActivityItems = splitLines(values.activities || '');
-    const activityItems = dedupeImportedItems(rawActivityItems);
+    const activityItems = getManualCvField('activities') ? values.activities.split('\n') : dedupeImportedItems(rawActivityItems);
 
     const qualityFixes = [];
 
@@ -13545,6 +13681,7 @@ const getKirbyCvSnapshot = () => {
         presentation: {
             values: presentationValues,
             editableContent: cvEditableContent,
+            manualContent: cvManualContent,
             sectionTitleStyles: cvSectionTitleStyles,
             sectionOrder: cvSectionOrder,
             contentLocale: currentCvContentLocale,
@@ -13655,9 +13792,13 @@ const applyKirbyModelResult = async (result, { snapshot, imported = false, profi
         // Validate all targets before touching any field; never partially apply.
         if (changed.some((field) => !cvForm.elements[field])) throw new Error('Un champ du CV est indisponible.');
         cvContentMigrations = [...new Set([...cvContentMigrations, contract.protocol])];
+        if (action.action === 'replace_document') cvManualContent = {};
         changed.forEach((field) => {
+            delete cvManualContent[field];
             cvForm.elements[field].value = transaction.after[field];
-            clearEditableOverride(['location', 'phone', 'email', 'permit'].includes(field) ? 'location' : field);
+            clearEditableOverride(['location', 'phone', 'email', 'permit'].includes(field) ? 'location' : field, {
+                preserveManual: ['phone', 'email', 'permit'].includes(field),
+            });
         });
         currentCvContentLocale = action.documentLanguage;
         preserveEmptyImportedLanguages = !transaction.after.languages;
@@ -21988,31 +22129,15 @@ if (cvForm) {
             applyModernColorPalette(event.target.value);
         }
 
-        if (['experience', 'projects', 'education'].includes(fieldName) && event.target instanceof HTMLTextAreaElement) {
-            const shouldNormalizeNow =
-                event.type === 'change' ||
-                (event.type === 'input' && /[\n\r]|[0-9]{4}/.test(event.data || '') );
-
-            if (shouldNormalizeNow) {
-                setTextareaNormalizedValue(event.target, fieldName);
-            }
-        }
-
+        if (linkedTarget) clearEditableOverride(linkedTarget, { preserveManual: linkedTarget !== fieldName });
+        rememberManualCvField(fieldName);
         if (fieldName === 'experience' && event.target instanceof HTMLTextAreaElement && !isSyncingExperienceEditor) {
             renderExperienceEditor();
         }
-
         if (fieldName === 'languages' && event.target instanceof HTMLTextAreaElement && !isSyncingLanguageEditor) {
-            renderLanguageEditor();
+            renderLanguageEditor({ normalizeField: false });
         }
-
-        if (linkedTarget) {
-            clearEditableOverride(linkedTarget);
-        }
-
-        if (fieldName === 'projectType') {
-            clearEditableOverride('projects');
-        }
+        if (fieldName === 'projectType') clearEditableOverride('projects');
 
         updateCvPreview();
         updateWordToolbarState();
@@ -22030,20 +22155,7 @@ if (cvForm) {
         field.addEventListener('input', handleCvFormMutation);
         field.addEventListener('change', handleCvFormMutation);
     });
-    cvForm.querySelectorAll('textarea[name="experience"], textarea[name="projects"], textarea[name="education"], textarea[name="languages"]').forEach((field) => {
-        field.addEventListener('blur', () => {
-            setTextareaNormalizedValue(field, field.name);
-            if (field.name === 'experience') {
-                renderExperienceEditor();
-            }
-            if (field.name === 'languages') {
-                renderLanguageEditor();
-            }
-            updateCvPreview();
-            captureCvHistoryFromInteraction();
-            scheduleCvDraftSave();
-        });
-    });
+
 }
 
 if (experienceAddButton) {
@@ -22481,6 +22593,18 @@ const syncPreviewEditableNode = (node, { refreshPreview = false, normalize = tru
         return;
     }
 
+    if (getManualCvField(target)) {
+        // Text was already captured by input. Formatting/export must not
+        // reparse the rendered cards back into their backing field.
+        cvEditableContent[target] = { style: extractEditableNodeStyleState(node) };
+        if (typeof cvManualContent[target].html === 'string') {
+            cvManualContent[target].html = node.innerHTML;
+        }
+        if (refreshPreview) updateCvPreview();
+        updateWordToolbarState();
+        return;
+    }
+
     if (structuredPreviewTargets.has(target)) {
         const style = extractEditableNodeStyleState(node);
         if (isDefaultEditableStyleState(style)) {
@@ -22643,39 +22767,151 @@ const handleCvPreviewCopy = (event) => {
     event.clipboardData?.setData('text/plain', cleanText);
 };
 
+// Browser selections cannot cross independent editing hosts. Temporarily make
+// them ordinary selectable text without replacing any node or changing data.
+const cvCopySelectionNodes = new Map();
+let cvCopyToolbarWasInert = false;
+const setCvCopySelectionMode = (enabled) => {
+    const button = document.querySelector('#cv-copy-select');
+    if (!button || !previewNodes.preview || enabled === (button.getAttribute('aria-pressed') === 'true')) return;
+    if (enabled) {
+        if (previewNodes.preview.contains(document.activeElement)) document.activeElement.blur();
+        previewNodes.preview.querySelectorAll('[contenteditable="true"]').forEach(node => {
+            cvCopySelectionNodes.set(node, node.getAttribute('contenteditable'));
+            node.setAttribute('contenteditable', 'false');
+        });
+        cvCopyToolbarWasInert = Boolean(cvWordToolbarShell?.inert);
+        if (cvWordToolbarShell) cvWordToolbarShell.inert = true;
+    } else {
+        cvCopySelectionNodes.forEach((value, node) => node.setAttribute('contenteditable', value));
+        cvCopySelectionNodes.clear();
+        if (cvWordToolbarShell) cvWordToolbarShell.inert = cvCopyToolbarWasInert;
+    }
+    activeEditableNode = activeFormatNode = savedFormatRange = null;
+    document.getSelection()?.removeAllRanges();
+    document.body.classList.toggle('is-cv-copy-selection', enabled);
+    button.setAttribute('aria-pressed', String(enabled));
+    button.textContent = enabled ? 'Revenir à l’édition' : 'Sélectionner pour copier';
+    document.querySelector('#cv-copy-status').textContent = enabled
+        ? 'Sélectionnez le passage sur la feuille, puis copiez-le avec ⌘C ou Ctrl+C. Échap revient à l’édition.'
+        : 'Édition réactivée.';
+};
+document.querySelector('#cv-copy-select')?.addEventListener('click', (event) => {
+    setCvCopySelectionMode(event.currentTarget.getAttribute('aria-pressed') !== 'true');
+});
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && document.body.classList.contains('is-cv-copy-selection')) setCvCopySelectionMode(false);
+});
+
+// Read canonical visible rubrics, so glass columns cannot interleave or repeat text.
+const getWholeCvCopyText = () => {
+    const visible = (node) => node && node.getClientRects().length > 0 && !node.closest('[hidden], [aria-hidden="true"]');
+    const read = (node) => getManualCvField(node.dataset.editTarget)
+        ? readManualCvText(node)
+        : node.innerText;
+    const header = [previewNodes.fullName, previewNodes.headline]
+        .filter(visible).map(read);
+    if (visible(previewNodes.meta)) {
+        header.push(...[...previewNodes.meta.querySelectorAll('[data-contact-value]')].filter(visible).map(node => node.textContent));
+    }
+    const blocks = [header.filter(text => text.trim()).join('\n')];
+    for (const key of new Set(cvSectionOrder)) {
+        const node = previewNodes[key];
+        if (!visible(node)) continue;
+        const text = read(node);
+        if (!text.trim()) continue;
+        const title = node.closest('section')?.querySelector('[data-section-title]')?.textContent || '';
+        blocks.push(title ? `${title}\n${text}` : text);
+    }
+    return blocks.filter(text => text.trim()).join('\n\n');
+};
+
+document.querySelector('#cv-copy-all')?.addEventListener('click', async () => {
+    const status = document.querySelector('#cv-copy-status');
+    try {
+        const text = getWholeCvCopyText();
+        if (!text.trim()) {
+            status.textContent = 'Le CV est vide.';
+            return;
+        }
+        if (!await copyTextToClipboard(text)) throw new Error('copy_failed');
+        status.textContent = 'CV copié. Vous pouvez le coller dans votre document.';
+    } catch {
+        status.textContent = 'Le navigateur a bloqué la copie. Autorisez l’accès au presse-papiers puis réessayez.';
+    }
+});
+
 const insertHtmlAtCursor = (html) => {
     document.execCommand('insertHTML', false, html);
 };
 
 const handleEditablePaste = (event, node) => {
     event.preventDefault();
-
     const clipboard = event.clipboardData || window.clipboardData;
-    const plainText = normalizeImportedText(clipboard?.getData('text/plain') || '');
+    const text = clipboard?.getData('text/plain') || '';
+    if (!text) return;
+    // A paste in the editor is human input. Kirby's import/paste entry point
+    // remains importCvTextWithModel and keeps its existing structuring flow.
+    document.execCommand('insertText', false, text);
+    captureManualCvNode(node);
+    captureCvHistoryFromInteraction();
+    scheduleCvDraftSave();
+    setCvStatus('Texte collé sans styles externes');
+};
 
-    if (!plainText) {
+// Whole-document paste is an explicit import; rubric pastes stay literal.
+const cvPasteDialog = document.querySelector('#cv-paste-dialog');
+const cvPasteText = document.querySelector('#cv-paste-text');
+const cvPasteStatus = document.querySelector('#cv-paste-status');
+const cvPasteApply = document.querySelector('#cv-paste-apply');
+const cvPasteClose = document.querySelector('#cv-paste-close');
+let isPastingWholeCv = false;
+
+const openCvPasteDialog = (text) => {
+    if (!cvPasteDialog || !requireAuthenticatedCvAccess('Connectez-vous pour coller votre CV.')) return;
+    if (typeof text === 'string') cvPasteText.value = text;
+    cvPasteStatus.textContent = '';
+    if (!cvPasteDialog.open) cvPasteDialog.showModal();
+    cvPasteText.focus();
+};
+
+document.querySelector('#cv-paste-open')?.addEventListener('click', () => openCvPasteDialog());
+cvPasteClose?.addEventListener('click', () => cvPasteDialog.close());
+cvPasteDialog?.addEventListener('cancel', (event) => {
+    if (isPastingWholeCv) event.preventDefault();
+});
+cvPasteApply?.addEventListener('click', async () => {
+    if (isPastingWholeCv) return;
+    if (isKirbyCvRequestInFlight || isLoadingCvDraft || isImportingCvPreview || isReplacingCvDocument) {
+        cvPasteStatus.textContent = 'Attendez la fin de l’opération en cours avant de créer le CV.';
         return;
     }
-
-    if (node.tagName === 'UL' || node.tagName === 'OL') {
-        const listHtml = splitLines(plainText)
-            .map(stripBulletPrefix)
-            .filter(Boolean)
-            .map((line) => `<li>${escapeHtml(line)}</li>`)
-            .join('');
-        insertHtmlAtCursor(listHtml);
-    } else {
-        const textHtml = plainText.split('\n').map((line) => escapeHtml(line)).join('<br>');
-        insertHtmlAtCursor(textHtml);
+    if (!cvPasteText.value.trim()) {
+        cvPasteStatus.textContent = 'Collez d’abord du texte. Si votre PDF ne permet pas de copier son texte, choisissez un document contenant du texte sélectionnable.';
+        cvPasteText.focus();
+        return;
     }
+    if (!requireAuthenticatedCvAccess('Connectez-vous pour créer votre CV.')) return;
+    isPastingWholeCv = true;
+    cvPasteApply.disabled = cvPasteClose.disabled = cvPasteText.disabled = true;
+    cvPasteDialog.setAttribute('aria-busy', 'true');
+    cvPasteStatus.textContent = 'Kirby lit le CV et prépare ses rubriques…';
+    try {
+        cvPasteStatus.textContent = await importPastedCvWithKirby(cvPasteText.value, { sourceKind: 'document' });
+    } catch (error) {
+        cvPasteStatus.textContent = error.message || 'Le collage n’a pas pu être importé.';
+    } finally {
+        isPastingWholeCv = false;
+        cvPasteApply.disabled = cvPasteClose.disabled = cvPasteText.disabled = false;
+        cvPasteDialog.removeAttribute('aria-busy');
+    }
+});
 
-    window.requestAnimationFrame(() => {
-        normalizeEditableNode(node);
-        syncPreviewEditableNode(node, { refreshPreview: false });
-        captureCvHistoryFromInteraction();
-        setCvStatus('Texte colle sans styles externes');
-    });
-};
+previewNodes.preview?.addEventListener('paste', (event) => {
+    if (event.defaultPrevented || event.target.closest('[contenteditable="true"], input, textarea')) return;
+    event.preventDefault();
+    openCvPasteDialog(event.clipboardData?.getData('text/plain') || '');
+});
 
 const syncFormatNode = (node) => {
     if (!node) {
@@ -22796,6 +23032,7 @@ document.querySelectorAll('[contenteditable="true"]').forEach((node) => {
     node.setAttribute('translate', 'no');
     node.addEventListener('focus', () => {
         enforceEditableTextDirection(node);
+        if (node.hasAttribute('data-edit-target')) node.style.whiteSpace = 'pre-wrap';
         activeEditableNode = node;
         activeFormatNode = node;
         updateWordToolbarState();
@@ -22805,13 +23042,11 @@ document.querySelectorAll('[contenteditable="true"]').forEach((node) => {
         hideKirbyCvProposal();
         activeEditableNode = node;
         activeFormatNode = node;
-        syncPreviewEditableNode(node, { refreshPreview: false, normalize: false });
+        captureManualCvNode(node);
         captureCvHistoryFromInteraction();
         scheduleCvDraftSave();
     });
     node.addEventListener('blur', () => {
-        normalizeEditableNode(node);
-        syncPreviewEditableNode(node, { refreshPreview: true });
         captureCvHistoryFromInteraction();
         scheduleCvDraftSave();
     });
@@ -22830,7 +23065,7 @@ document.querySelectorAll('[contenteditable="true"]').forEach((node) => {
             event.preventDefault();
             document.execCommand('insertLineBreak', false, null);
             window.requestAnimationFrame(() => {
-                syncPreviewEditableNode(node, { refreshPreview: false, normalize: false });
+                captureManualCvNode(node);
                 captureCvHistoryFromInteraction();
                 scheduleCvDraftSave();
             });

@@ -28857,6 +28857,94 @@ body.is-exporting-pdf .pdf-export-root.is-cv-export
 }
 /* KIRBY_CV_GENERIC_LAYOUT_CONTRACT_END */
 
+/* KirbyCV: refine only the Profile block in the three glass/creative designs. */
+.cv-preview:is(.template-digital, .template-holographic, .template-creative) section[data-section-key="summary"] {
+    gap: 0.35rem;
+}
+
+.cv-preview:is(.template-digital, .template-holographic) section[data-section-key="summary"] {
+    padding: 0.5rem 0.75rem;
+}
+
+.cv-preview:is(.template-digital, .template-holographic, .template-creative) section[data-section-key="summary"] .cv-section-head {
+    margin: 0;
+    padding: 0;
+}
+
+.cv-preview:is(.template-digital, .template-holographic, .template-creative) h4[data-section-title="summary"] {
+    margin: 0;
+    padding: 0.1rem 0 0.25rem;
+    border: 0;
+    border-bottom: 1px solid rgba(var(--cv-accent-rgb, 47, 63, 127), 0.22);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    font-size: 0.8rem;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+}
+
+.cv-preview:is(.template-digital, .template-holographic, .template-creative) section[data-section-key="summary"] #preview-summary {
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    /* Follow the document density instead of enlarging a dense CV's profile. */
+    font-size: min(13px, var(--cv-density-font-size, 13px));
+    line-height: 1.4;
+    text-wrap: pretty;
+}
+
+/* The editor supplies 1.2 inline by default; keep other chosen line heights. */
+.cv-preview:is(.template-digital, .template-holographic, .template-creative) section[data-section-key="summary"] #preview-summary[style*="line-height: 1.2;"] {
+    line-height: 1.4 !important;
+}
+
+.cv-paste-entry, .cv-paste-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+}
+.cv-paste-entry { margin: 0.75rem 0; font-size: 0.85rem; }
+body.is-cv-copy-selection #cv-preview {
+    user-select: text;
+    -webkit-user-select: text;
+    cursor: text;
+}
+body.is-cv-copy-selection #cv-preview .cv-section-actions { visibility: hidden; }
+body.is-cv-copy-selection #cv-copy-select { outline: 2px solid #2f3f7f; }
+body.is-letter-preview .cv-paste-entry,
+body.is-blank-preview .cv-paste-entry { display: none; }
+#cv-paste-dialog {
+    width: min(640px, calc(100vw - 2rem));
+    max-height: calc(100dvh - 2rem);
+    box-sizing: border-box;
+    overflow: auto;
+    padding: 1.5rem;
+    border: 1px solid #d9deea;
+    border-radius: 16px;
+    background: #fff;
+    color: #263047;
+}
+#cv-paste-dialog::backdrop { background: rgba(20, 28, 48, 0.45); }
+#cv-paste-dialog p { line-height: 1.5; }
+#cv-paste-text {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 12rem;
+    margin-top: 0.4rem;
+    padding: 0.75rem;
+    border: 1px solid #c5ccdb;
+    border-radius: 8px;
+    font: inherit;
+    resize: vertical;
+}
+.cv-paste-actions { justify-content: flex-end; }
+@media print { .cv-paste-entry, #cv-paste-dialog { display: none !important; } }
+
 /* KirbyCV: explicit feedback while a new document replaces the current draft. */
 @keyframes kirbyCvImportPulse {
     0%, 100% { opacity: 0.45; transform: scale(0.82); }
