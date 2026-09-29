@@ -20,7 +20,7 @@
         state.pageId = selection.pageId;
         const t = performance.now(); const snapshot = structuredClone(state); const key = project;
         logTime('snapshot', t);
-        saving = saving.catch(() => {}).then(async () => { const started = performance.now(); await KirbySiteStore.put(key, snapshot); logTime('save_indexeddb', started); });
+        saving = saving.catch(() => {}).then(async () => { const started = performance.now(); await KirbySiteStore.put(key, snapshot); logTime('save_indexeddb', started); setTimeout(()=>window.KirbyWorkspace?.capture(),100); });
         return saving;
     };
     function clearPending() { try { writeLocal(pendingKey, null); } catch (_) {} }
@@ -74,7 +74,7 @@
         }
         if (!waiting && loadingTimer) { clearInterval(loadingTimer); loadingTimer = null; }
     }
-    function setBusy(value) { busy = value; const launch = form.querySelector('button[type=submit]'); launch.disabled = value; launch.textContent = value ? 'Kirby travaille…' : 'Lancer une proposition'; output.setAttribute('aria-busy', String(value)); output.querySelectorAll('[data-site-mutation]').forEach(el => el.disabled = value); syncPresentation(); }
+    function setBusy(value) { busy = value; if(!value) setTimeout(()=>window.KirbyWorkspace?.capture(),0); const launch = form.querySelector('button[type=submit]'); launch.disabled = value; launch.textContent = value ? 'Kirby travaille…' : 'Lancer une proposition'; output.setAttribute('aria-busy', String(value)); output.querySelectorAll('[data-site-mutation]').forEach(el => el.disabled = value); syncPresentation(); }
     function selectedPage() { return state.site?.pages.find(p => p.id === selection.pageId) || state.site?.pages.find(p => p.role === 'home'); }
     function render() {
         const renderStarted = performance.now();
@@ -218,5 +218,18 @@
             status('Le projet actif n’a pas pu être récupéré. Vous pouvez créer un site. Aucune sauvegarde existante n’a été effacée.');
         } finally { setBusy(false); }
     }
-    restore();
+    restore().then(async () => {
+        if (!window.KirbyWorkspace) return;
+        await KirbyWorkspace.register({kind:'Site', mount:form.parentElement,
+            title:()=>state.site?.name || state.site?.title || 'Mon site',
+            busy:()=>busy || activeMedia > 0,
+            snapshot:()=>({...structuredClone(state),history:[]}),
+            thumbnail:()=>Object.values(state.media).find(m=>m?.url)?.url || null,
+            restore:async saved=>{
+                const next=KirbySiteStore.normalize(saved); if(!next) throw new Error('Projet vide');
+                serial++; project=crypto.randomUUID(); state=next; selection={pageId:next.pageId||'',sectionId:'',blockId:'',actionId:''};
+                await persist();writeLocal(storageKey,project);render();
+            }
+        });
+    });
 }());

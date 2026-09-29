@@ -16,7 +16,9 @@
       rel="stylesheet"
     >
     <link rel="stylesheet" href="flyers/flyers.css">
-  </head>
+  <link rel="stylesheet" href="assets/kirby-workspace.css">
+<script src="assets/kirby-workspace.js" defer></script>
+</head>
   <body class="flyers-page">
     <a class="skip-link" href="#flyer-studio">Aller au studio Flyers</a>
 
@@ -52,45 +54,50 @@
         </div>
       </section>
 
+      <section class="workspace-tools" aria-label="Votre carte SA Création Web">
+        <strong>Votre carte SA Création Web est prête</strong>
+        <a class="button" href="sa-carte.html">Voir le recto et le verso</a>
+        <a class="button" href="flyers.html?example=sa-creation-web#flyer-studio" target="_blank" rel="noopener">Personnaliser dans Kirby</a>
+      </section>
       <section class="flyer-examples" id="flyerExamples" aria-labelledby="flyer-examples-title">
         <div class="examples-heading">
           <div>
             <p class="step-label">Univers créatifs</p>
             <h2 id="flyer-examples-title">Un métier, une identité — jamais le même modèle recoloré.</h2>
           </div>
-          <p>Chargez un exemple sans appel IA, puis modifiez librement ses textes, couleurs et coordonnées.</p>
+          <p>Explorez les exemples dans un nouvel onglet. Leurs textes et tarifs sont fictifs : votre création en cours reste intacte.</p>
         </div>
 
         <div class="example-gallery" aria-label="Exemples de supports personnalisables">
-          <button class="flyer-example-card example-beauty" type="button" data-flyer-example="beauty">
+          <a class="flyer-example-card example-beauty" href="flyers.html?example=beauty#flyer-studio" target="_blank" rel="noopener" data-flyer-example="beauty">
             <span class="example-meta">Beauté · Publication carrée</span>
             <span class="example-art" aria-hidden="true">
               <span class="example-kicker">MAISON ÉCLAT</span>
               <strong>Peau<br>lumineuse.</strong>
               <span class="example-pill">Réserver un soin</span>
             </span>
-            <span class="example-load">Personnaliser cet exemple <span aria-hidden="true">↗</span></span>
-          </button>
+            <span class="example-load">Explorer dans un nouvel onglet <span aria-hidden="true">↗</span></span>
+          </a>
 
-          <button class="flyer-example-card example-sport" type="button" data-flyer-example="sport">
+          <a class="flyer-example-card example-sport" href="flyers.html?example=sport#flyer-studio" target="_blank" rel="noopener" data-flyer-example="sport">
             <span class="example-meta">Coaching · Story</span>
             <span class="example-art" aria-hidden="true">
               <span class="example-kicker">LINA COACHING</span>
               <strong>Ton rythme.<br>Tes progrès.</strong>
               <span class="example-pill">Bilan offert</span>
             </span>
-            <span class="example-load">Personnaliser cet exemple <span aria-hidden="true">↗</span></span>
-          </button>
+            <span class="example-load">Explorer dans un nouvel onglet <span aria-hidden="true">↗</span></span>
+          </a>
 
-          <button class="flyer-example-card example-accounting" type="button" data-flyer-example="accounting-card">
+          <a class="flyer-example-card example-accounting" href="flyers.html?example=accounting-card#flyer-studio" target="_blank" rel="noopener" data-flyer-example="accounting-card">
             <span class="example-meta">Comptabilité · Carte de visite</span>
             <span class="example-art example-business-card" aria-hidden="true">
               <span class="example-kicker">NOVA COMPTA</span>
               <strong>Votre activité,<br>pilotée avec clarté.</strong>
               <span class="example-contact">04 72 00 00 00 · nova-compta.fr</span>
             </span>
-            <span class="example-load">Personnaliser cet exemple <span aria-hidden="true">↗</span></span>
-          </button>
+            <span class="example-load">Explorer dans un nouvel onglet <span aria-hidden="true">↗</span></span>
+          </a>
         </div>
       </section>
 
@@ -380,6 +387,22 @@
                   <span>Importer votre propre image</span>
                   <input id="flyerImageUpload" type="file" accept="image/jpeg,image/png,image/webp,image/avif">
                 </label>
+                <label for="imageFit">Présentation de l’image</label>
+                <select id="imageFit">
+                  <option value="cover">Photo — remplir la zone</option>
+                  <option value="contain">Photo — afficher en entier</option>
+                  <option value="logo">Logo — entier, sans déformation</option>
+                </select>
+                <label for="imagePositionX">Position horizontale</label>
+                <input id="imagePositionX" type="range" min="0" max="100" value="50">
+                <label for="imagePositionY">Position verticale</label>
+                <input id="imagePositionY" type="range" min="0" max="100" value="50">
+                <label for="imageSize">Taille de l’image</label>
+                <input id="imageSize" type="range" min="20" max="180" value="100">
+                <label for="imageBlend">Fondu dans le fond</label>
+                <input id="imageBlend" type="range" min="0" max="85" value="20">
+                <p class="field-help">Les positions déplacent l’image sur toute la carte. Réduisez la taille pour dézoomer. Le fondu est réglable pour les photos ; les logos restent nets.</p>
+                <p class="field-help">Photo : déplacez le cadrage pour garder le sujet visible. Logo : utilisez de préférence un PNG transparent ; il reste entier dans une zone dédiée.</p>
                 <button class="text-action" id="removeImageButton" type="button">Retirer l’image</button>
                 <p class="image-credit" id="imageCredit">Aucun visuel chargé.</p>
               </div>
@@ -438,6 +461,8 @@
                 <div class="export-options-menu">
                   <button class="primary-action" id="exportPngButton" type="button" data-flyer-export="png">PNG HD</button>
                   <button class="secondary-action" id="exportPdfButton" type="button" data-flyer-export="pdf">PDF impression</button>
+                  <button class="secondary-action" id="exportCardSheetButton" type="button" data-flyer-export="card-sheet" hidden>PDF — Recto verso · 4 cartes de 85 × 55 mm</button>
+                  <p class="field-hint" id="cardDuplexDimensions" hidden>A4 paysage · 2 × 2 cartes de 85 × 55 mm · intervalles 5 mm · marges latérales 61 mm, haut/bas 47,5 mm. Recto verso : bord court, taille réelle.</p>
                   <p class="export-status" id="exportStatus" role="status" aria-live="polite"></p>
                 </div>
               </details>
@@ -509,6 +534,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js" defer></script>
+    <script src="flyers/card-sheet.js" defer></script>
     <script src="flyers/flyers.js" defer></script>
   </body>
 </html>

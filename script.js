@@ -2803,6 +2803,7 @@ const getCurrentCvStyleValues = () => {
 };
 
 const updateCvUndoControl = () => {
+    window.setTimeout(() => window.KirbyWorkspace?.capture(), 0);
     if (!cvUndoButton) {
         return;
     }

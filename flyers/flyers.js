@@ -186,6 +186,17 @@
   };
 
   const EXAMPLE_SPECS = Object.freeze({
+    'sa-creation-web': {
+      supportType: 'business-card', format: 'business-card', typography: 'modern', decor: 'none',
+      imageUrl: 'assets/sa-creation-web-logo.svg',
+      brief: 'Carte de visite SA Création Web. Site sacreationweb.com. Sites web, CV et lettres, flyers et cartes de visite. Ambiance bleu nuit, argent et touches dorées. Conserver les coordonnées et le QR code lors des changements de fond.',
+      spec: {
+        briefUnderstanding: {activity:'SA Création Web',audience:['Professionnels','Particuliers'],objective:'Visite du site',offer:'Création avec Kirby IA',tone:['élégant','lisible'],mandatoryFacts:['sacreationweb.com'],unknowns:[]},
+        artDirection: {concept:'SA Création Web',layout:'editorial-impact',visualStyle:'Bleu nuit, argent, accents dorés discrets',imagePrompt:'Fond bleu nuit élégant, halos argentés et touches dorées très discrètes, espace libre pour les textes, sans lettres ni logo',negativePrompt:'text, typography, logo, watermark, QR code',focalPoint:'right',palette:{background:'#060810',surface:'#101725',ink:'#f3f5fa',muted:'#bac5d8',accent:'#e3c994',accentInk:'#060810'},typography:{display:'Space Grotesk',body:'Manrope'}},
+        copy:{eyebrow:'SA CRÉATION WEB',headline:'Votre projet prend forme.',supporting:'Sites • CV • Flyers',offer:'Vos idées, accompagnées par Kirby IA.',cta:'Découvrez nos services',details:[{label:'Sites web',value:'Présentez votre activité.'},{label:'CV & lettres',value:'Mettez votre parcours en valeur.'},{label:'Flyers & cartes',value:'Faites connaître votre projet.'}],disclaimer:''},
+        contact:{phone:'',email:'',website:'sacreationweb.com',address:'',qrValue:'https://www.sacreationweb.com'}
+      }
+    },
     beauty: {
       supportType: 'flyer',
       format: 'instagram-square',
@@ -251,6 +262,10 @@
     },
   });
 
+  const requestedExample = new URLSearchParams(window.location.search).get('example');
+  const exampleKey = Object.prototype.hasOwnProperty.call(EXAMPLE_SPECS, requestedExample) ? requestedExample : '';
+  const draftKey = exampleKey ? `${STORAGE_KEY}.example.${exampleKey}` : STORAGE_KEY;
+
   const state = {
     spec: clone(DEFAULT_SPEC),
     supportType: 'flyer',
@@ -258,7 +273,14 @@
     decor: 'velvet-glow',
     imageUrl: '',
     imageOrigin: '',
+    imageFit: 'cover',
+    imagePositionX: 50,
+    imagePositionY: 50,
+    imageSize: 100,
+    imageBlend: 20,
     activeObjectUrl: '',
+    imageChangeSerial: 0,
+    imagePending: null,
     requestSerial: 0,
     inFlight: null,
     lastFailedAction: null,
@@ -271,13 +293,29 @@
 
   document.addEventListener('DOMContentLoaded', init);
 
-  function init() {
+  async function init() {
     cacheElements();
     configurePreviewFullscreen();
     bindEvents();
-    restoreDraft();
+    const restored = await restoreDraft();
+    if (exampleKey && !restored) loadStaticExample(exampleKey);
+    if (exampleKey) {
+      els.draftState.textContent = exampleKey === 'sa-creation-web' ? 'Carte SA Création Web · version modifiable séparée' : 'Démonstration séparée · textes et tarifs fictifs';
+      document.title = 'Exemple Kirby Flyers · Démonstration';
+    }
     renderAll();
     updateBriefCount();
+    if (!exampleKey && window.KirbyWorkspace) {
+      try {
+        const client=await initializeFlyerAuthClient(AbortSignal.timeout(5000));
+        const {data}=await client.auth.getSession();KirbyWorkspace.setOwner(data?.session?.user?.id);
+        client.auth.onAuthStateChange((_event,session)=>KirbyWorkspace.setOwner(session?.user?.id));
+      } catch (_) { /* Local editing remains available offline. */ }
+      await KirbyWorkspace.register({kind:'Flyer / carte', title:()=>state.spec?.copy?.headline || 'Ma création', snapshot:draftSnapshot, thumbnail:async()=>{const c=await renderExportCanvas();const t=document.createElement('canvas');t.width=240;t.height=Math.round(c.height/c.width*240);t.getContext('2d').drawImage(c,0,0,t.width,t.height);return t.toDataURL('image/jpeg',.7);},
+        busy:()=>Boolean(state.inFlight || state.imagePending), restore:async saved=>{applyDraft(saved);renderAll();updateBriefCount();await saveDraft();}});
+      const button=document.createElement('button'); button.type='button'; button.textContent='Aperçu avant impression';
+      button.addEventListener('click', previewPrint); document.querySelector('.workspace-tools').append(button);
+    }
   }
 
   function cacheElements() {
@@ -298,7 +336,7 @@
       'previewFullscreenStatus', 'previewStage', 'flyerCanvas', 'flyerImage', 'previewEyebrow',
       'previewHeadline', 'previewSupporting', 'previewOffer', 'previewDetails', 'previewCta',
       'previewContact', 'previewPhone', 'previewEmail', 'previewWebsite', 'previewAddress',
-      'previewQr', 'previewDisclaimer', 'exportPngButton', 'exportPdfButton', 'exportStatus',
+      'previewQr', 'previewDisclaimer', 'exportPngButton', 'exportPdfButton', 'exportCardSheetButton', 'exportStatus',
     ];
 
     ids.forEach((id) => {
@@ -329,10 +367,6 @@
       state.supportType = FORMATS[state.format].supportType;
       renderAll();
       markDirty();
-    });
-
-    document.querySelectorAll('[data-flyer-example]').forEach((button) => {
-      button.addEventListener('click', () => loadStaticExample(button.dataset.flyerExample));
     });
 
     document.querySelectorAll('[data-bind]').forEach((input) => {
@@ -410,6 +444,18 @@
     });
     els.flyerImageUpload.addEventListener('change', handleImageUpload);
     els.removeImageButton.addEventListener('click', removeImage);
+    ['imageFit', 'imagePositionX', 'imagePositionY', 'imageSize', 'imageBlend'].forEach(id => {
+      document.getElementById(id).addEventListener('input', event => {
+        state[id] = id === 'imageFit' ? event.target.value : Number(event.target.value);
+        if (id === 'imageFit') {
+          state.imagePositionX = state.imageFit === 'logo' ? 80 : 50;
+          state.imagePositionY = state.imageFit === 'logo' ? 42 : 50;
+          state.imageSize = 100;
+        }
+        renderImage();
+        markDirty();
+      });
+    });
     els.fitPreviewButton.addEventListener('click', exitPreviewFullscreen);
     els.zoomPreviewButton.addEventListener('click', enterPreviewFullscreen);
     els.exitFullscreenButton.addEventListener('click', exitPreviewFullscreen);
@@ -417,6 +463,7 @@
     document.addEventListener('fullscreenerror', handlePreviewFullscreenError);
     els.exportPngButton.addEventListener('click', exportPng);
     els.exportPdfButton.addEventListener('click', exportPdf);
+    els.exportCardSheetButton.addEventListener('click', exportCardSheet);
 
     window.addEventListener('beforeunload', () => {
       if (state.activeObjectUrl) URL.revokeObjectURL(state.activeObjectUrl);
@@ -424,6 +471,11 @@
   }
 
   async function generateSpec(isVariant) {
+    const instruction = limitText(els.variantInstruction.value, FIELD_LIMITS.variant);
+    if (isVariant && isImageRevision(instruction)) {
+      await generateImage(false, true);
+      return;
+    }
     const typedBrief = limitText(els.flyerBrief.value, BRIEF_MAX_LENGTH);
     const currentSpecIsRevisable = hasRevisableSpec(state.spec);
     const brief = typedBrief.length >= 18 || !isVariant || !currentSpecIsRevisable
@@ -525,14 +577,29 @@
     }
   }
 
-  async function generateImage(followsSpec) {
+  function isImageRevision(instruction) {
+    let text = instruction.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    // Mentions of content to preserve are not requests to rewrite that content.
+    text = text.replace(/\b(?:sans (?:toucher a|modifier|changer|supprimer)|(?:garde|garder|conserve|conserver|preserve|preserver))\s+(?:(?:les?|la|aux?|mon|mes|notre)\s+)?(?:textes?|titres?|coordonnees|contenu|site|qr(?: code)?)(?:\s*(?:,|et)\s*(?:(?:les?|la|mon|mes)\s+)?(?:textes?|titres?|coordonnees|contenu|site|qr(?: code)?))*/g, '');
+    const image = /\b(fond|arriere[ -]plan|photo|image|visuel|ambiance)\b/;
+    // Explicit preservation and requests for editable text/layout stay on the spec path.
+    if (/\b(garde|garder|conserve|conserver|preserve|preserver|sans changer|ne change pas)\b[^.!?]*\b(fond|photo|image|visuel)\b/.test(text)) return false;
+    if (/\b(texte|textes|titre|titres|prix|tarif|telephone|adresse|qr|police|typographie|mise en page|couleur|couleurs)\b/.test(text)) return false;
+    return image.test(text);
+  }
+
+  async function generateImage(followsSpec, fromVariant = false) {
     if (!state.spec.artDirection.imagePrompt && !els.flyerBrief.value.trim()) {
       showFeedback('error', 'Le visuel a besoin d’un brief.', 'Décrivez d’abord votre activité ou votre événement.');
       return;
     }
 
+    state.imageChangeSerial += 1;
+    state.imagePending = null;
     const serial = beginRequest('image');
+    state.inFlight.fromVariant = fromVariant;
     setBusy(true);
+    if (fromVariant) setVariantFeedback('loading', 'Kirby crée le nouveau fond demandé. Votre composition reste en place pendant le chargement.');
     showFeedback(
       'loading',
       followsSpec ? 'Étape 2 sur 2 — Kirby termine le fond IA…' : 'Kirby crée un nouveau fond IA…',
@@ -557,8 +624,13 @@
       const image = data.image || {};
       const url = safeImageUrl(image.url || image.dataUrl || '');
       if (!url) throw new Error('Le visuel reçu est vide ou dans un format non reconnu.');
-
+      const decoded = new Image();
+      decoded.src = url;
+      await decoded.decode();
+      if (!isCurrent(serial)) return;
+      if (url === state.imageUrl) throw new Error('Kirby a renvoyé le même visuel. Aucun nouveau fond n’a été appliqué.');
       setImage(url, 'Kirby IA', true);
+      if (fromVariant) setVariantFeedback('success', 'Nouveau fond appliqué. Textes, couleurs, QR code et mise en page conservés.');
       showFeedback(
         'success',
         state.supportType === 'business-card' ? 'Carte recto prête — création terminée.' : 'Flyer prêt — création terminée.',
@@ -573,7 +645,8 @@
         return;
       }
       if (!isCurrent(serial)) return;
-      state.lastFailedAction = () => generateImage(followsSpec);
+      state.lastFailedAction = () => generateImage(followsSpec, fromVariant);
+      if (fromVariant) setVariantFeedback('error', humanizeError(error), { authRequired: isAuthRequiredError(error) });
       showFeedback(
         'error',
         isAuthRequiredError(error)
@@ -691,7 +764,7 @@
   }
 
   function cancelVariantRequest() {
-    if (state.inFlight?.type !== 'variant') return;
+    if (state.inFlight?.type !== 'variant' && !state.inFlight?.fromVariant) return;
     state.inFlight.controller.abort();
     state.inFlight = null;
     state.lastFailedAction = () => generateSpec(true);
@@ -721,7 +794,7 @@
       els.regenerateConceptButton,
       els.generateImageButton,
     ].forEach((button) => { button.disabled = isBusy; });
-    const variantIsBusy = isBusy && state.inFlight?.type === 'variant';
+    const variantIsBusy = isBusy && (state.inFlight?.type === 'variant' || state.inFlight?.fromVariant);
     els.regenerateConceptButton.textContent = variantIsBusy
       ? 'Création de la variante…'
       : 'Proposer une autre direction';
@@ -774,6 +847,8 @@
 
   function syncSupportControls() {
     const isBusinessCard = state.supportType === 'business-card';
+    els.exportCardSheetButton.hidden = !isBusinessCard;
+    document.getElementById('cardDuplexDimensions').hidden = !isBusinessCard;
     els.supportTypeFlyer.checked = !isBusinessCard;
     els.supportTypeBusinessCard.checked = isBusinessCard;
     Array.from(els.flyerFormat.options).forEach((option) => {
@@ -798,14 +873,17 @@
   function loadStaticExample(exampleKey) {
     const example = EXAMPLE_SPECS[exampleKey];
     if (!example) return;
+    state.imageChangeSerial += 1;
+    state.imagePending = null;
     if (state.inFlight?.controller) state.inFlight.controller.abort();
     state.inFlight = null;
     state.lastFailedAction = null;
     setBusy(false);
     if (state.activeObjectUrl) URL.revokeObjectURL(state.activeObjectUrl);
     state.activeObjectUrl = '';
-    state.imageUrl = '';
-    state.imageOrigin = '';
+    state.imageUrl = example.imageUrl ? new URL(example.imageUrl, window.location.href).href : '';
+    state.imageOrigin = example.imageUrl ? 'upload' : '';
+    if(example.imageUrl) {state.imageFit='logo';state.imagePositionX=80;state.imagePositionY=25;state.imageSize=130;state.imageBlend=0;}
     state.supportType = example.supportType;
     state.format = example.format;
     state.decor = normalizeDecor(example.decor);
@@ -1158,8 +1236,39 @@
   }
 
   function renderImage() {
+    const mode = state.imageOrigin === 'upload' ? state.imageFit : 'cover';
+    els.flyerCanvas.dataset.imageFit = mode;
+    els.flyerImage.style.objectFit = mode === 'cover' ? 'cover' : 'contain';
+    const imported = state.imageOrigin === 'upload' && Boolean(state.imageUrl);
+    els.flyerCanvas.dataset.importedImage = String(imported);
+    if (imported) els.flyerCanvas.style.setProperty('--import-blend', state.imageBlend / 100);
+    else els.flyerCanvas.style.removeProperty('--import-blend');
+    const im = els.flyerImage;
+    im.draggable = false;
+    if (imported && im.naturalWidth && im.getAttribute('src') === state.imageUrl) {
+      const aspect = els.flyerCanvas.offsetWidth / els.flyerCanvas.offsetHeight;
+      const imageAspect = im.naturalWidth / im.naturalHeight;
+      let width = mode === 'cover' ? Math.max(1, imageAspect / aspect) : Math.min(1, imageAspect / aspect);
+      if (mode === 'logo') width = Math.min(.26, .16 * imageAspect / aspect);
+      width *= state.imageSize / 100;
+      im.style.width = `${width * 100}%`;
+      im.style.height = `${width * aspect / imageAspect * 100}%`;
+      im.style.left = `${state.imagePositionX}%`;
+      im.style.top = `${state.imagePositionY}%`;
+      im.style.transform = 'translate(-50%, -50%)';
+    } else if (!imported) {
+      ['width', 'height', 'left', 'top', 'transform'].forEach(property => im.style.removeProperty(property));
+    }
+    im.style.objectPosition = '50% 50%';
+    ['imageFit', 'imagePositionX', 'imagePositionY', 'imageSize', 'imageBlend'].forEach(id => {
+      document.getElementById(id).value = state[id];
+    });
+
     if (state.imageUrl) {
-      if (els.flyerImage.src !== state.imageUrl) els.flyerImage.src = state.imageUrl;
+      if (els.flyerImage.src !== state.imageUrl) {
+        els.flyerImage.onload = () => renderImage();
+        els.flyerImage.src = state.imageUrl;
+      }
       els.flyerCanvas.dataset.hasImage = 'true';
       els.imageCredit.textContent = state.imageOrigin === 'upload'
         ? 'Image personnelle importée.'
@@ -1213,11 +1322,45 @@
       return;
     }
 
-    if (state.activeObjectUrl) URL.revokeObjectURL(state.activeObjectUrl);
-    state.activeObjectUrl = URL.createObjectURL(file);
-    setImage(state.activeObjectUrl, 'upload', false);
-    showFeedback('success', 'Votre image est chargée.', 'Les textes restent indépendants et peuvent encore être modifiés.');
-    markDirty();
+    cancelPendingImage();
+    const serial = ++state.imageChangeSerial;
+    // Allow selecting the same file again and avoid transient blob URLs in exports.
+    event.target.value = '';
+    const pending = (async () => {
+      try {
+        const url = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(new Error('Le fichier image ne peut pas être lu.'));
+          reader.readAsDataURL(file);
+        });
+        const image = new Image();
+        image.src = url;
+        await image.decode();
+        if (serial !== state.imageChangeSerial) return;
+        setImage(url, 'upload', true);
+        await waitForImage();
+        if (serial !== state.imageChangeSerial) return;
+        showFeedback('success', 'Votre image est chargée.', 'Les textes restent indépendants et peuvent encore être modifiés.');
+        markDirty();
+      } catch (error) {
+        if (serial === state.imageChangeSerial) {
+          showFeedback('error', 'Cette image ne peut pas être affichée.', 'Essayez une autre image JPEG, PNG, WebP ou AVIF.');
+        }
+      } finally {
+        if (serial === state.imageChangeSerial) state.imagePending = null;
+      }
+    })();
+    state.imagePending = pending;
+  }
+
+  function cancelPendingImage() {
+    if (state.inFlight?.type !== 'image') return;
+    const fromVariant = state.inFlight.fromVariant;
+    state.inFlight.controller.abort();
+    state.inFlight = null;
+    setBusy(false);
+    if (fromVariant) setVariantFeedback('success', 'Demande de fond interrompue : votre choix manuel d’image est prioritaire.');
   }
 
   function setImage(url, origin, revokeExisting) {
@@ -1231,6 +1374,9 @@
   }
 
   function removeImage() {
+    cancelPendingImage();
+    state.imageChangeSerial += 1;
+    state.imagePending = null;
     if (state.activeObjectUrl) URL.revokeObjectURL(state.activeObjectUrl);
     state.activeObjectUrl = '';
     state.imageUrl = '';
@@ -1364,15 +1510,36 @@
     }
   }
 
-  async function renderExportCanvas() {
+  async function exportCardSheet() {
+    if (state.supportType !== 'business-card' || state.format !== 'business-card') return;
+    try {
+      setExportBusy(true, 'Préparation de la planche A4…');
+      if (!window.jspdf?.jsPDF || !window.KirbyCardSheet) {
+        throw new Error('Le moteur PDF n’est pas disponible. Rechargez la page puis réessayez.');
+      }
+      const front = await renderExportCanvas({ cardSheet: true, side: 'front' });
+      const back = await renderExportCanvas({ cardSheet: true, side: 'back' });
+      const pdf = window.KirbyCardSheet.createPdf(window.jspdf.jsPDF, front.toDataURL('image/png'), back.toDataURL('image/png'));
+      pdf.save(buildFilename('pdf').replace(/\.pdf$/, '-planche-a4-recto-verso.pdf'));
+      els.exportStatus.textContent = 'Planche A4 paysage : 4 cartes de 85 × 55 mm, grille 2 × 2, espacement 5 mm. Page 1 : rectos ; page 2 : versos. Impression recto verso à 100 %, retournement sur le bord court.';
+    } catch (error) {
+      els.exportStatus.textContent = `Export impossible : ${humanizeError(error)}`;
+    } finally {
+      setExportBusy(false);
+    }
+  }
+
+  let exportWarnings=[];
+  async function renderExportCanvas({ cardSheet = false, side = 'front' } = {}) {
     if (typeof window.html2canvas !== 'function') {
       throw new Error('Le moteur d’export n’est pas disponible. Rechargez la page puis réessayez.');
     }
 
     if (document.fonts?.ready) await document.fonts.ready;
+    while (state.imagePending) await state.imagePending;
     await waitForImage();
-    const format = FORMATS[state.format] || FORMATS.a4;
-    const scale = Math.max(1, Math.min(5, format.width / els.flyerCanvas.getBoundingClientRect().width));
+    const format = cardSheet ? { width: 1004, height: 650 } : (FORMATS[state.format] || FORMATS.a4);
+    const scale = cardSheet ? 1 : Math.max(1, format.width / els.flyerCanvas.getBoundingClientRect().width);
     const canvas = await window.html2canvas(els.flyerCanvas, {
       backgroundColor: null,
       scale,
@@ -1380,8 +1547,65 @@
       allowTaint: false,
       imageTimeout: 45000,
       logging: false,
-      width: els.flyerCanvas.offsetWidth,
-      height: els.flyerCanvas.offsetHeight,
+      width: cardSheet ? format.width : els.flyerCanvas.offsetWidth,
+      height: cardSheet ? format.height : els.flyerCanvas.offsetHeight,
+      onclone: async (clonedDocument) => {
+        if (cardSheet) {
+          const root = clonedDocument.getElementById('flyerCanvas');
+          root.dataset.printSheet = 'duplex';
+          root.dataset.printSide = side;
+          // Keep contact information once: the website already belongs to the recto.
+          // Work only in the export clone; the editable brief remains untouched.
+          if (side === 'back') {
+            const website = root.querySelector('#previewWebsite')?.textContent.trim();
+            if (website) {
+              const normalize = value => value.toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
+              root.querySelectorAll('.flyer-details > div').forEach(row => {
+                if (normalize(row.querySelector('dd')?.textContent.trim() || '') === normalize(website)) row.remove();
+              });
+              root.querySelector('#previewWebsite').remove();
+            }
+            if (!root.querySelector('.flyer-contact')?.textContent.trim()) root.querySelector('.flyer-action-zone')?.remove();
+          }
+
+          root.style.width = format.width + 'px';
+          root.style.height = format.height + 'px';
+          root.style.maxWidth = 'none';
+          root.style.maxHeight = 'none';
+        }
+        const printRoot=clonedDocument.getElementById('flyerCanvas');
+        const widthMM=cardSheet?85:FORMATS[state.format].mm?.[0];
+        exportWarnings=[];
+        if(widthMM) {
+          const bounds=printRoot.getBoundingClientRect();
+          for(const el of printRoot.querySelectorAll('h1,h2,p,dd,dt,.flyer-contact span')) {
+            const box=el.getBoundingClientRect();if(!box.width||!box.height||!el.textContent.trim())continue;
+            const pt=parseFloat(clonedDocument.defaultView.getComputedStyle(el).fontSize)*widthMM/bounds.width*72/25.4;
+            if(pt<8 && !exportWarnings.includes('Certains textes sont inférieurs à 8 points'))exportWarnings.push('Certains textes sont inférieurs à 8 points');
+            if((box.right>bounds.right+1||box.bottom>bounds.bottom+1||el.scrollWidth>el.clientWidth+2)&&!exportWarnings.includes('Un texte dépasse sa zone'))exportWarnings.push('Un texte dépasse sa zone');
+          }
+        }
+        const image = clonedDocument.getElementById('flyerImage');
+        if (!image?.getAttribute('src')) return;
+        image.style.transition = 'none';
+        await image.decode();
+        // html2canvas does not apply object-fit: cover. Bake only the image's
+        // crop into its export clone, keeping all layout and overlay styles.
+        const box = image.getBoundingClientRect();
+        if (!box.width || !box.height) return;
+        const crop = clonedDocument.createElement('canvas');
+        crop.width = Math.max(1, Math.round(box.width * scale));
+        crop.height = Math.max(1, Math.round(box.height * scale));
+        const computed = clonedDocument.defaultView.getComputedStyle(image);
+        const contain = computed.objectFit === 'contain';
+        const ratio = (contain ? Math.min : Math.max)(crop.width / image.naturalWidth, crop.height / image.naturalHeight);
+        const [px, py] = computed.objectPosition.split(' ').map(value => parseFloat(value) / 100);
+        const width = image.naturalWidth * ratio, height = image.naturalHeight * ratio;
+        crop.getContext('2d').drawImage(image,
+          (crop.width - width) * px, (crop.height - height) * py, width, height);
+        image.src = crop.toDataURL('image/png');
+        await image.decode();
+      },
     });
 
     if (canvas.width === format.width && canvas.height === format.height) return canvas;
@@ -1396,20 +1620,22 @@
     return finalCanvas;
   }
 
-  function waitForImage() {
-    if (!state.imageUrl || els.flyerImage.complete) return Promise.resolve();
-    return new Promise((resolve) => {
-      const done = () => resolve();
-      els.flyerImage.addEventListener('load', done, { once: true });
-      els.flyerImage.addEventListener('error', done, { once: true });
-      window.setTimeout(done, 10000);
-    });
+  async function waitForImage() {
+    if (!state.imageUrl) return;
+    try {
+      await els.flyerImage.decode();
+      if (!els.flyerImage.naturalWidth) throw new Error('Image vide');
+    } catch (_error) {
+      throw new Error('L’image ne peut pas être affichée. Importez-la à nouveau avant l’export.');
+    }
   }
 
   function setExportBusy(isBusy, message) {
     els.exportPngButton.disabled = isBusy;
     els.exportPdfButton.disabled = isBusy;
+    els.exportCardSheetButton.disabled = isBusy;
     if (message) els.exportStatus.textContent = message;
+    if (!isBusy) {const warnings=collectPrintWarnings();if(warnings.length) els.exportStatus.textContent+=' À vérifier : '+warnings.join(' · ');}
   }
 
   function canvasToBlob(canvas, type) {
@@ -1446,55 +1672,94 @@
 
   function markDirty() {
     state.dirty = true;
-    els.draftState.textContent = 'Modifications enregistrées sur cet appareil';
+    els.draftState.textContent = 'Enregistrement en cours…';
     window.clearTimeout(markDirty.timer);
     markDirty.timer = window.setTimeout(saveDraft, 350);
   }
 
-  function saveDraft() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        brief: els.flyerBrief.value,
-        supportType: state.supportType,
-        format: state.format,
-        decor: state.decor,
-        spec: state.spec,
-        typography: els.flyerTypography.value,
-        generated: state.generated,
-        savedAt: new Date().toISOString(),
-      }));
-    } catch (_error) {
-      // A private browsing quota must never block editing or export.
-    }
+  function draftSnapshot() {
+    return {brief:els.flyerBrief.value,supportType:state.supportType,format:state.format,decor:state.decor,
+      spec:structuredClone(state.spec),typography:els.flyerTypography.value,generated:state.generated,
+      ...Object.fromEntries(['imageUrl','imageOrigin','imageFit','imagePositionX','imagePositionY','imageSize','imageBlend'].map(k=>[k,state[k]]))};
   }
-
-  function restoreDraft() {
+  let draftSaving=Promise.resolve();
+  function saveDraft() {
+    const saved=draftSnapshot();
+    draftSaving=draftSaving.catch(()=>{}).then(async()=>{
+      try {
+        if(exampleKey) sessionStorage.setItem(draftKey,JSON.stringify(saved));
+        else await KirbyWorkspace.access('put',{id:'flyers-active-draft',snapshot:saved});
+        els.draftState.textContent='Modifications enregistrées sur cet appareil';
+        window.KirbyWorkspace?.capture();
+      } catch (_) {els.draftState.textContent='Sauvegarde indisponible : exportez votre création pour la conserver.';}
+    });
+    return draftSaving;
+  }
+  function applyDraft(saved) {
+    if(!saved || typeof saved!=='object') return false;
+    els.flyerBrief.value=limitText(saved.brief||'',BRIEF_MAX_LENGTH,false);
+    const format=saved.format==='instagram'?'instagram-square':saved.format;
+    if(FORMATS[format]) state.format=format;
+    state.supportType=FORMATS[state.format].supportType;
+    state.decor=normalizeDecor(saved.decor);
+    if(saved.spec) state.spec=normalizeSpec(saved.spec);
+    state.generated=Boolean(saved.generated);
+    for(const k of ['imageUrl','imageOrigin','imageFit','imagePositionX','imagePositionY','imageSize','imageBlend']) if(saved[k]!==undefined) state[k]=saved[k];
+    els.flyerTypography.value=['modern','geometric','editorial','human'].includes(saved.typography)?saved.typography:'modern';
+    els.flyerCanvas.dataset.typography=els.flyerTypography.value;
+    syncEditorFromState();return true;
+  }
+  async function restoreDraft() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      const saved = JSON.parse(raw);
-      if (!saved || typeof saved !== 'object') return;
-      if (typeof saved.brief === 'string') {
-        els.flyerBrief.value = limitText(saved.brief, BRIEF_MAX_LENGTH, false);
+      let saved;
+      if(!exampleKey) {try{saved=(await KirbyWorkspace.access('get','flyers-active-draft'))?.snapshot;}catch(_){/* Try the legacy draft when IndexedDB is unavailable. */}}
+      if(!saved) saved=JSON.parse((exampleKey?sessionStorage:localStorage).getItem(draftKey)||'null');
+      const restored=applyDraft(saved); if(restored) els.draftState.textContent='Brouillon et image restaurés';return restored;
+    } catch (_) {return false;}
+  }
+  async function previewPrint() {
+    const d=KirbyWorkspace.dialog('Aperçu avant impression');
+    const note=document.createElement('p');note.textContent='Préparation du rendu…';d.append(note);
+    try {
+      const card=state.format==='business-card';
+      note.textContent=card?'Carte : 85 × 55 mm. A4 paysage : 297 × 210 mm, 4 cartes (2 × 2), espacement 5 mm. Marges gauche/droite 61 mm ; haut/bas 47,5 mm. Recto verso à 100 %, bord court.':`Format : ${(FORMATS[state.format].mm||[FORMATS[state.format].width,FORMATS[state.format].height]).join(' × ')} ${FORMATS[state.format].mm?'mm':'px'}.`;
+      const tabs=document.createElement('div');tabs.className='workspace-tools';d.append(tabs);
+      const display=document.createElement('img');display.alt='Rendu exporté';d.append(display);
+      let first=true;const allWarnings=[];
+      const addView=(label,src)=>{const button=document.createElement('button');button.textContent=label;button.type='button';button.setAttribute('aria-pressed',String(first));button.onclick=()=>{display.src=src;display.alt=label;for(const b of tabs.children)b.setAttribute('aria-pressed',String(b===button));};tabs.append(button);if(first){display.src=src;display.alt=label;first=false;}};
+      for(const side of card?['front','back']:['front']) {
+        const canvas=await renderExportCanvas({cardSheet:card,side});allWarnings.push(...exportWarnings);
+        addView(side==='front'?'Recto':'Verso',canvas.toDataURL());
+        if(card) {
+          const l=KirbyCardSheet.layout, sheet=document.createElement('canvas');sheet.width=l.pageWidth*10;sheet.height=l.pageHeight*10;
+          const ctx=sheet.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,sheet.width,sheet.height);ctx.scale(10,10);ctx.strokeStyle='#828282';ctx.lineWidth=.1;
+          const line=(x1,y1,x2,y2)=>{ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();};
+          for(let row=0;row<2;row++)for(let col=0;col<2;col++){
+            const frontX=l.marginX+col*(l.width+l.gap), x=side==='back'?l.pageWidth-frontX-l.width:frontX,y=l.marginY+row*(l.height+l.gap);
+            ctx.drawImage(canvas,x,y,l.width,l.height);
+            for(const edgeX of [x,x+l.width]){line(edgeX,y-2,edgeX,y-.5);line(edgeX,y+l.height+.5,edgeX,y+l.height+2);}
+            for(const edgeY of [y,y+l.height]){line(x-2,edgeY,x-.5,edgeY);line(x+l.width+.5,edgeY,x+l.width+2,edgeY);}
+          }
+          addView(side==='front'?'A4 — rectos':'A4 — versos',sheet.toDataURL());
+        }
       }
-      const restoredFormat = saved.format === 'instagram' ? 'instagram-square' : saved.format;
-      if (FORMATS[restoredFormat]) {
-        state.format = restoredFormat;
-      } else if (saved.supportType === 'business-card') {
-        state.format = 'business-card';
-      }
-      state.supportType = FORMATS[state.format].supportType;
-      state.decor = normalizeDecor(saved.decor);
-      if (saved.spec) state.spec = normalizeSpec(saved.spec);
-      state.generated = Boolean(saved.generated);
-      els.flyerTypography.value = ['modern', 'geometric', 'editorial', 'human'].includes(saved.typography)
-        ? saved.typography : 'modern';
-      els.flyerCanvas.dataset.typography = els.flyerTypography.value;
-      syncEditorFromState();
-      els.draftState.textContent = 'Brouillon restauré';
-    } catch (_error) {
-      localStorage.removeItem(STORAGE_KEY);
+      exportWarnings=[...new Set(allWarnings)];
+      const warnings=collectPrintWarnings();const p=document.createElement('p');p.textContent=warnings.length?'À vérifier (export autorisé) : '+warnings.join(' · '):'Aucun problème détecté par les contrôles automatiques. Vérifiez le rendu avant impression.';d.append(p);
+    } catch (_) {note.textContent='Aperçu indisponible. Réessayez après le chargement des images.';}
+  }
+  function collectPrintWarnings() {
+    const warnings=[...exportWarnings];const root=els.flyerCanvas;const mm=FORMATS[state.format].mm;
+    if(state.supportType==='business-card'&&!state.spec.contact.qrValue.trim())warnings.push('Aucun lien QR renseigné');
+    if(mm && state.supportType!=='business-card') { const ratio=mm[0]/root.getBoundingClientRect().width*72/25.4;const small=[...root.querySelectorAll('p,dd,dt,span')].some(el=>el.getClientRects().length&&el.textContent.trim()&&parseFloat(getComputedStyle(el).fontSize)*ratio<8);if(small)warnings.push('Certains textes seront imprimés à moins de 8 points'); }
+    for(const el of root.querySelectorAll('h1,h2,p,dd,dt,.flyer-contact span')) {
+      if(!el.getClientRects().length||!el.textContent.trim())continue;
+      if(el.scrollWidth>el.clientWidth+2) {warnings.push('Un texte dépasse sa zone');break;}
     }
+    if(mm && state.imageUrl && els.flyerImage.naturalWidth) {
+      const widthMM=els.flyerImage.getBoundingClientRect().width/root.getBoundingClientRect().width*mm[0];
+      if(els.flyerImage.naturalWidth/(widthMM/25.4)<150)warnings.push('Image peu définie à cette taille d’impression');
+    }
+    return warnings;
   }
 
   function updateBriefCount() {
